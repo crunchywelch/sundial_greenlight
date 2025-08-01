@@ -1,87 +1,99 @@
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
 from rich.layout import Layout
 
 import os
 
 from greenlight import config
+from greenlight.settings import settingsUI
 from greenlight.config import OPERATORS
 
-console = Console()
+class UIBase:
+    def __init__(self):
+        self.console = Console()
 
-layout = Layout()
-layout.split_column(
-    Layout(name="margin", size=1),
-    Layout(name="header", size=3),
-    Layout(name="body", ratio=2),
-)
+        self.layout = Layout()
+        self.layout.split_column(
+            Layout(name="margin", size=1),
+            Layout(name="header", size=3),
+            Layout(name="body", ratio=1),
+            Layout(name="footer", size=10),
+        )
 
-def init(op=""):
-    clear()
-    layout["margin"].update(Panel(" "))
-    if config.get_op_name(op):
-        layout["header"].update(Panel("🌿 Greenlight QC Terminal v0.1 - Welcome "+ config.get_op_name(op), style="bold green"))
-    else:
-        layout["header"].update(Panel("🌿 Greenlight QC Terminal v0.1", style="bold green"))
-    return
+        self.settings_ui = settingsUI(self)
 
-def clear():
-    console.clear()
-
-def splash():
-    init()
-    splash_path = os.path.join(os.path.dirname(__file__), "art", "splash.txt")
-    with open(splash_path, "r") as f:
-        splash_text = f.read()
-    console.print(Panel(splash_text, style="bold green", subtitle="Cable QC + Inventory Terminal"))
-    input("Press enter to begin...");
-    return
-
-def operator_menu():
-    rows = [
-        f"[green]{i + 1}.[/green] {name} ({code})"
-        for i, (code, name) in enumerate(OPERATORS.items())
-    ]
-    body = "\n".join(rows)
-    layout["body"].update(Panel("Please identify yourself to begin"))
-    layout["footer"].update(Panel("\n".join(rows), title="Who are you: "))
-    console.print(layout)
-
-    codes = list(OPERATORS.keys())
-    valid_choices = [str(i + 1) for i in range(len(codes))]
-    valid_choices.append("q")
-    choice_str = ",".join(valid_choices)
-    while True:
-        choice = console.input("Choose operator: ("+ choice_str +") ")
-        if choice in valid_choices:
-            if choice == "q":
-                return choice
-            else:
-                return codes[int(choice) - 1]
+    def header(self, op=""):
+        if config.get_op_name(op):
+            self.layout["header"].update(Panel("🌿 Greenlight QC Terminal v0.1 - Welcome "+ config.get_op_name(op), style="bold green"))
         else:
-            console.print(layout)
-            continue;
+            self.layout["header"].update(Panel("🌿 Greenlight QC Terminal v0.1", style="bold green"))
+        return
 
-def main_menu():
-    rows = [
-        "[green]1. Inventory Management[/green]",
-        "[green]2. Cable QC[/green]",
-        "[green]3. Settings[/green]",
-        "[green]4. Exit[/green]"
+    def render(self):
+        self.console.clear()
+        self.console.print(self.layout)
+
+    def splash(self):
+        self.console.clear()
+        self.header()
+        splash_path = os.path.join(os.path.dirname(__file__), "art", "splash.txt")
+        with open(splash_path, "r") as f:
+            splash_text = f.read()
+        self.console.print(Panel(splash_text, style="bold green", subtitle="Cable QC + Inventory Terminal"))
+        self.console.input("Press enter to begin...");
+        return
+
+    def operator_menu(self):
+        rows = [
+            f"[green]{i + 1}.[/green] {name} ({code})"
+            for i, (code, name) in enumerate(OPERATORS.items())
         ]
-    layout["body"].update(Panel("", title=""))
-    layout["footer"].update(Panel("\n".join(rows), title="Available Operations"))
-    while True:
-        console.print(layout)
-        choice = console.input("Choose: ")
-        if choice == "1":
-            inventory.init()
-        elif choice == "2":
-            cable.init()
-        elif choice == "3":
-            settings.init()
-        elif choice == "4":
-            return
-        else:
-            continue
+
+        self.header()
+        self.layout["body"].update(Panel("Please identify yourself to begin"))
+        self.layout["footer"].update(Panel("\n".join(rows), title="Who are you?"))
+        self.render()
+
+        codes = list(OPERATORS.keys())
+        valid_choices = [str(i + 1) for i in range(len(codes))]
+        valid_choices.append("q")
+        choice_str = ",".join(valid_choices)
+        while True:
+            choice = self.console.input("Choose operator: ("+ choice_str +") ")
+            if choice in valid_choices:
+                if choice == "q":
+                    return choice
+                else:
+                    return codes[int(choice) - 1]
+            else:
+                self.console.print(layout)
+                continue;
+
+    def render_main_menu(self, op):
+        rows = [
+            "[green]1. Inventory Management[/green]",
+            "[green]2. Cable QC[/green]",
+            "[green]3. Settings[/green]",
+            "[green]4. Exit (q)[/green]"
+            ]
+
+        self.header(op)
+        self.layout["body"].update(Panel("", title=""))
+        self.layout["footer"].update(Panel("\n".join(rows), title="Available Operations"))
+        self.render()
+
+    def main_menu(self, op):
+        self.render_main_menu(op)
+        while True:
+            choice = self.console.input("Choose: ")
+            if choice == "1":
+                self.inventory_ui.go()
+            elif choice == "2":
+                self.cable_ui.go()
+            elif choice == "3":
+                self.settings_ui.go()
+                self.render_main_menu(op)
+            elif choice in ["4", "q"]:
+                return
+            else:
+                continue

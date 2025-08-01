@@ -1,15 +1,14 @@
-from greenlight import db, ui
-from time import sleep
+from greenlight.ui import UIBase
 
 op = ""
+ui = UIBase()
 
 def main():
     while True:
         ui.splash()
         op = ui.operator_menu()
         if op != "q":
-            ui.init(op)
-            ui.main_menu()
+            ui.main_menu(op)
             continue
 
 if __name__ == "__main__":
