@@ -1,0 +1,58 @@
+SKU,Series,MSRP,Core Cable,Braid Type,Color/Pattern,Length,Connectors,Description
+SC-3B,Studio Classic,69.00,Canare GS-6,Cotton,Black,3,TS-TS,Studio-grade cable with black cotton braid
+SC-3B-R,Studio Classic,69.00,Canare GS-6,Cotton,Black,3,RA-TS,Studio-grade cable with black cotton braid and right angle plug
+SC-6B,Studio Classic,79.00,Canare GS-6,Cotton,Black,6,TS-TS,Studio-grade cable with black cotton braid
+SC-6B-R,Studio Classic,79.00,Canare GS-6,Cotton,Black,6,RA-TS,Studio-grade cable with black cotton braid and right angle plug
+SC-10B,Studio Classic,79.00,Canare GS-6,Cotton,Black,10,TS-TS,Studio-grade cable with black cotton braid
+SC-10B-R,Studio Classic,79.00,Canare GS-6,Cotton,Black,10,RA-TS,Studio-grade cable with black cotton braid and right angle plug
+SC-15B,Studio Classic,79.00,Canare GS-6,Cotton,Black,15,TS-TS,Studio-grade cable with black cotton braid
+SC-15B-R,Studio Classic,79.00,Canare GS-6,Cotton,Black,15,RA-TS,Studio-grade cable with black cotton braid and right angle plug
+SC-20B,Studio Classic,89.00,Canare GS-6,Cotton,Black,20,TS-TS,Studio-grade cable with black cotton braid
+SC-20B-R,Studio Classic,89.00,Canare GS-6,Cotton,Black,20,RA-TS,Studio-grade cable with black cotton braid and right angle plug
+SC-3O,Studio Classic,69.00,Canare GS-6,Cotton,Oxblood,3,TS-TS,Studio-grade cable with oxblood braid
+SC-3O-R,Studio Classic,69.00,Canare GS-6,Cotton,Oxblood,3,RA-TS,Studio-grade cable with oxblood braid and right angle plug
+SC-6O,Studio Classic,79.00,Canare GS-6,Cotton,Oxblood,6,TS-TS,Studio-grade cable with oxblood braid
+SC-6O-R,Studio Classic,79.00,Canare GS-6,Cotton,Oxblood,6,RA-TS,Studio-grade cable with oxblood braid and right angle plug
+SC-10O,Studio Classic,79.00,Canare GS-6,Cotton,Oxblood,10,TS-TS,Studio-grade cable with oxblood braid
+SC-10O-R,Studio Classic,79.00,Canare GS-6,Cotton,Oxblood,10,RA-TS,Studio-grade cable with oxblood braid and right angle plug
+SC-15O,Studio Classic,79.00,Canare GS-6,Cotton,Oxblood,15,TS-TS,Studio-grade cable with oxblood braid
+SC-15O-R,Studio Classic,79.00,Canare GS-6,Cotton,Oxblood,15,RA-TS,Studio-grade cable with oxblood braid and right angle plug
+SC-20O,Studio Classic,89.00,Canare GS-6,Cotton,Oxblood,20,TS-TS,Studio-grade cable with oxblood braid
+SC-20O-R,Studio Classic,89.00,Canare GS-6,Cotton,Oxblood,20,RA-TS,Studio-grade cable with oxblood braid and right angle plug
+SC-3C,Studio Classic,69.00,Canare GS-6,Cotton,Cream,3,TS-TS,Studio-grade cable with cream braid
+SC-3C-R,Studio Classic,69.00,Canare GS-6,Cotton,Cream,3,RA-TS,Studio-grade cable with cream braid and right angle plug
+SC-6C,Studio Classic,79.00,Canare GS-6,Cotton,Cream,6,TS-TS,Studio-grade cable with cream braid
+SC-6C-R,Studio Classic,79.00,Canare GS-6,Cotton,Cream,6,RA-TS,Studio-grade cable with cream braid and right angle plug
+SC-10C,Studio Classic,79.00,Canare GS-6,Cotton,Cream,10,TS-TS,Studio-grade cable with cream braid
+SC-10C-R,Studio Classic,79.00,Canare GS-6,Cotton,Cream,10,RA-TS,Studio-grade cable with cream braid and right angle plug
+SC-15C,Studio Classic,79.00,Canare GS-6,Cotton,Cream,15,TS-TS,Studio-grade cable with cream braid
+SC-15C-R,Studio Classic,79.00,Canare GS-6,Cotton,Cream,15,RA-TS,Studio-grade cable with cream braid and right angle plug
+SC-20C,Studio Classic,89.00,Canare GS-6,Cotton,Cream,20,TS-TS,Studio-grade cable with cream braid
+SC-20C-R,Studio Classic,89.00,Canare GS-6,Cotton,Cream,20,RA-TS,Studio-grade cable with cream braid and right angle plug
+TC-6B,Tour Classic,59.00,Canare GS-6,Rayon,Black,6,TS-TS,Tour cable with black nylon braid
+TC-6B-R,Tour Classic,59.00,Canare GS-6,Rayon,Black,6,RA-TS,Tour cable with black nylon braid and right angle plug
+TC-10B,Tour Classic,59.00,Canare GS-6,Rayon,Black,10,TS-TS,Tour cable with black nylon braid
+TC-10B-R,Tour Classic,59.00,Canare GS-6,Rayon,Black,10,RA-TS,Tour cable with black nylon braid and right angle plug
+TC-15B,Tour Classic,59.00,Canare GS-6,Rayon,Black,15,TS-TS,Tour cable with black nylon braid
+TC-15B-R,Tour Classic,59.00,Canare GS-6,Rayon,Black,15,RA-TS,Tour cable with black nylon braid and right angle plug
+TC-20B,Tour Classic,69.00,Canare GS-6,Rayon,Black,20,TS-TS,Tour cable with black nylon braid
+TC-20B-R,Tour Classic,69.00,Canare GS-6,Rayon,Black,20,RA-TS,Tour cable with black nylon braid and right angle plug
+TC-6T,Tour Classic,59.00,Canare GS-6,Rayon,Vintage Tweed,6,TS-TS,Tour cable with rugged tweed braid
+TC-6T-R,Tour Classic,59.00,Canare GS-6,Rayon,Vintage Tweed,6,RA-TS,Tour cable with rugged tweed braid and right angle plug
+TC-10T,Tour Classic,59.00,Canare GS-6,Rayon,Vintage Tweed,10,TS-TS,Tour cable with rugged tweed braid
+TC-10T-R,Tour Classic,59.00,Canare GS-6,Rayon,Vintage Tweed,10,RA-TS,Tour cable with rugged tweed braid and right angle plug
+TC-15T,Tour Classic,59.00,Canare GS-6,Rayon,Vintage Tweed,15,TS-TS,Tour cable with rugged tweed braid
+TC-15T-R,Tour Classic,59.00,Canare GS-6,Rayon,Vintage Tweed,15,RA-TS,Tour cable with rugged tweed braid and right angle plug
+TC-20T,Tour Classic,69.00,Canare GS-6,Rayon,Vintage Tweed,20,TS-TS,Tour cable with rugged tweed braid
+TC-20T-R,Tour Classic,69.00,Canare GS-6,Rayon,Vintage Tweed,20,RA-TS,Tour cable with rugged tweed braid and right angle plug
+TC-6R,Tour Classic,59.00,Canare GS-6,Rayon,Road Stripe,6,TS-TS,Stage cable with high-vis braid
+TC-6R-R,Tour Classic,59.00,Canare GS-6,Rayon,Road Stripe,6,RA-TS,Stage cable with high-vis braid and right angle plug
+TC-10R,Tour Classic,59.00,Canare GS-6,Rayon,Road Stripe,10,TS-TS,Stage cable with high-vis braid
+TC-10R-R,Tour Classic,59.00,Canare GS-6,Rayon,Road Stripe,10,RA-TS,Stage cable with high-vis braid and right angle plug
+TC-15R,Tour Classic,59.00,Canare GS-6,Rayon,Road Stripe,15,TS-TS,Stage cable with high-vis braid
+TC-15R-R,Tour Classic,59.00,Canare GS-6,Rayon,Road Stripe,15,RA-TS,Stage cable with high-vis braid and right angle plug
+TC-20R,Tour Classic,69.00,Canare GS-6,Rayon,Road Stripe,20,TS-TS,Stage cable with high-vis braid
+TC-20R-R,Tour Classic,69.00,Canare GS-6,Rayon,Road Stripe,20,RA-TS,Stage cable with high-vis braid and right angle plug
+SP-06B,Studio Patch,39.00,Canare GS-6,Cotton,Black,0.5,TS-TS,Studio patch cable with black cotton braid
+SP-06C,Studio Patch,39.00,Canare GS-6,Cotton,Black,0.5,TS-TS,Studio patch cable with cream cotton braid
+SP-06R,Studio Patch,39.00,Canare GS-6,Cotton,Black,0.5,TS-TS,Studio patch cable with high-vis nylon braid

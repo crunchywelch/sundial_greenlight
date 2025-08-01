@@ -20,6 +20,10 @@ def insert_test_result(serial, resistance, capacitance, operator=None, source_no
                         (serial, resistance_ohms, capacitance_pf, operator, source_node)
                     VALUES (%s, %s, %s, %s, %s)
                 """, (serial, resistance, capacitance, operator, source_node))
+            conn.commit()
+    except Exception as e:
+        print(f"❌ Error creating tables: {e}")
+        conn.rollback()
     finally:
         pg_pool.putconn(conn)
 

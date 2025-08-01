@@ -1,25 +1,31 @@
 from rich.panel import Panel
 
-class settingsUI:
+class cableUI:
     def __init__(self, ui_base):
         self.ui = ui_base
 
     def go(self):
-        rows = [
-            "[green]1. Option 1[/green]",
-            "[green]2. Option 2[/green]",
-            "[green]3. Option 3[/green]",
-            "[green]4. Exit (q)[/green]"
+        menu_items = [
+            "Select Cable Type",
+            "Run Test",
+            "Print Cable Tag",
+            "Print Cable Wrap",
+            "Exit (q)",
             ]
+        rows = [
+            f"[green]{i + 1}.[/green] {name}"
+            for i, (name) in enumerate(menu_items)
+        ]
+
         self.ui.layout["body"].update(Panel("", title=""))
-        self.ui.layout["footer"].update(Panel("\n".join(rows), title="Settings"))
+        self.ui.layout["footer"].update(Panel("\n".join(rows), title="Audio Cable QC"))
         while True:
             self.ui.console.print(self.ui.layout)
             choice = self.ui.console.input("Choose: ")
             if choice == "1":
-                inventory.init()
+                self.select_cable()
             elif choice == "2":
-                cable.init()
+                cable.()
             elif choice == "3":
                 settings.init()
             elif choice in ["4", "q"]:

@@ -5,6 +5,8 @@ from rich.layout import Layout
 import os
 
 from greenlight import config
+from greenlight.cable import cableUI
+from greenlight.inventory import inventoryUI
 from greenlight.settings import settingsUI
 from greenlight.config import OPERATORS
 
@@ -20,6 +22,8 @@ class UIBase:
             Layout(name="footer", size=10),
         )
 
+        self.cable_ui = cableUI(self)
+        self.inventory_ui = inventoryUI(self)
         self.settings_ui = settingsUI(self)
 
     def header(self, op=""):
@@ -70,12 +74,17 @@ class UIBase:
                 continue;
 
     def render_main_menu(self, op):
+        menu_items = [
+            "Audio Cable QC",
+            "Inventory Management",
+            "Settings",
+            "Exit (q)"
+        ]
+
         rows = [
-            "[green]1. Inventory Management[/green]",
-            "[green]2. Cable QC[/green]",
-            "[green]3. Settings[/green]",
-            "[green]4. Exit (q)[/green]"
-            ]
+            f"[green]{i + 1}.[/green] {name}"
+            for i, (name) in enumerate(menu_items)
+        ]
 
         self.header(op)
         self.layout["body"].update(Panel("", title=""))
@@ -88,8 +97,10 @@ class UIBase:
             choice = self.console.input("Choose: ")
             if choice == "1":
                 self.inventory_ui.go()
+                self.render_main_menu(op)
             elif choice == "2":
                 self.cable_ui.go()
+                self.render_main_menu(op)
             elif choice == "3":
                 self.settings_ui.go()
                 self.render_main_menu(op)

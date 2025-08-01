@@ -5,12 +5,17 @@ class settingsUI:
         self.ui = ui_base
 
     def go(self):
-        rows = [
-            "[green]1. Option 1[/green]",
-            "[green]2. Option 2[/green]",
-            "[green]3. Option 3[/green]",
-            "[green]4. Exit (q)[/green]"
+        menu_items = [
+            "Option 1",
+            "Option 2",
+            "Option 2",
+            "Exit (q)",
             ]
+        rows = [
+            f"[green]{i + 1}.[/green] {name}"
+            for i, (name) in enumerate(menu_items)
+        ]
+
         self.ui.layout["body"].update(Panel("", title=""))
         self.ui.layout["footer"].update(Panel("\n".join(rows), title="Settings"))
         while True:
