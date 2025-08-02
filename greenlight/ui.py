@@ -70,7 +70,7 @@ class UIBase:
                 else:
                     return codes[int(choice) - 1]
             else:
-                self.console.print(layout)
+                self.render()
                 continue;
 
     def render_main_menu(self, op):
@@ -96,10 +96,10 @@ class UIBase:
         while True:
             choice = self.console.input("Choose: ")
             if choice == "1":
-                self.inventory_ui.go()
+                self.cable_ui.go()
                 self.render_main_menu(op)
             elif choice == "2":
-                self.cable_ui.go()
+                self.inventory_ui.go()
                 self.render_main_menu(op)
             elif choice == "3":
                 self.settings_ui.go()
@@ -107,4 +107,29 @@ class UIBase:
             elif choice in ["4", "q"]:
                 return
             else:
+                continue
+
+
+    def render_footer_menu(self, menu_items, title):
+        menu_items.append({"label": "Exit (q)", "action": "quit"})
+        rows = [
+            f"[green]{i + 1}.[/green] {item['label']}"
+            for i, item in enumerate(menu_items)
+        ]
+
+        self.layout["footer"].update(Panel("\n".join(rows), title=title))
+        self.render()
+
+        while True:
+            choice = self.console.input("Choose: ")
+            if choice == "q":
+                return
+            try:
+                num = int(choice) - 1
+                if callable(menu_items[num]["action"]):
+                    return num
+                elif menu_items[num]["action"] == "quit":
+                    return
+            except:
+                self.render()
                 continue
