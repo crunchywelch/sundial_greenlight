@@ -45,9 +45,14 @@ The current architecture uses nested `while True` loops throughout:
 
 ### Configuration
 
-Operators are configured via `GREENLIGHT_OPERATORS` environment variable:
-```
-GREENLIGHT_OPERATORS="code1=Name1;code2=Name2"
+Operators are configured directly in `config.py`:
+```python
+OPERATORS = {
+    "ADW": "Aaron Welch",
+    "ISS": "Ian Smith", 
+    "EDR": "Ed Renauld",
+    "SDT": "Sam Tresler",
+}
 ```
 
 Database connection uses standard PostgreSQL environment variables with `GREENLIGHT_` prefix.

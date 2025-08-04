@@ -11,14 +11,28 @@ DB_CONFIG = {
     "port": int(os.getenv("GREENLIGHT_DB_PORT", 5432)),
 }
 
-def parse_operator_env():
-    raw = os.getenv("GREENLIGHT_OPERATORS", "")
-    return dict(
-        entry.split("=", 1) for entry in raw.split(";") if "=" in entry
-    )
+# Application constants
+APP_NAME = "Greenlight Terminal"
+APP_SUBTITLE = "Cable QC + Inventory Terminal"
+EXIT_MESSAGE = "Thank you for using Greenlight!"
+
+OPERATORS = {
+    "ADW": "Aaron Welch",
+    "ISS": "Ian Smith", 
+    "EDR": "Ed Renauld",
+    "SDT": "Sam Tresler",
+}
+
+# Hardware feature flags
+USE_REAL_ARDUINO = os.getenv("GREENLIGHT_USE_REAL_ARDUINO", "false").lower() in ("true", "1", "yes")
+USE_REAL_SCANNER = os.getenv("GREENLIGHT_USE_REAL_SCANNER", "true").lower() in ("true", "1", "yes")
+USE_REAL_PRINTERS = os.getenv("GREENLIGHT_USE_REAL_PRINTERS", "false").lower() in ("true", "1", "yes")
+USE_REAL_GPIO = os.getenv("GREENLIGHT_USE_REAL_GPIO", "true").lower() in ("true", "1", "yes")
+
+# Arduino configuration
+ARDUINO_PORT = os.getenv("GREENLIGHT_ARDUINO_PORT")  # e.g., "/dev/ttyUSB0"
+ARDUINO_BAUDRATE = int(os.getenv("GREENLIGHT_ARDUINO_BAUDRATE", "9600"))
 
 def get_op_name(code):
     return OPERATORS.get(code)
-
-OPERATORS = parse_operator_env()
 
