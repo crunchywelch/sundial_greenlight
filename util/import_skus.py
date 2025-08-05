@@ -1,10 +1,25 @@
+#!/usr/bin/env python3
+
 # util/import_skus.py
+
+"""
+Legacy cable SKU import script.
+DEPRECATED: Use ./util/04_import_skus.sh instead for standardized import process.
+"""
 
 import csv
 import os
+import warnings
 import psycopg2
 from dotenv import load_dotenv
 from greenlight.db import pg_pool
+
+# Show deprecation warning
+warnings.warn(
+    "This script is deprecated. Use ./util/04_import_skus.sh for standardized SKU import.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 CSV_PATH = "util/cable_skus.csv"
 

@@ -1,15 +1,26 @@
+#!/usr/bin/env python3
+
 # util/create_audio_cables_table.py
 
 """
-Database setup script to create the audio_cables table for storing production records.
-Run this once to set up the production database.
+Legacy database setup script to create the audio_cables table.
+DEPRECATED: Use ./util/03_create_tables.sh instead for complete schema setup.
 """
 
 import sys
 import os
+import warnings
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from greenlight.db import pg_pool
+
+# Show deprecation warning
+warnings.warn(
+    "This script is deprecated. Use ./util/03_create_tables.sh for complete database setup.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 def create_audio_cables_table():
     """Create the audio_cables table and associated sequence"""
