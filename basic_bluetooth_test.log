@@ -1,0 +1,36 @@
+🧪 Basic Bluetooth Low Energy Test
+========================================
+🖥️  System Information:
+  Python version: 3.11.2 (main, Apr 28 2025, 14:11:48) [GCC 12.2.0]
+  OS: Linux 6.1.0-37-amd64
+  Bleak version: Unknown
+
+🔧 Testing Bluetooth adapter...
+  ⏳ Quick scan (5 seconds)...
+  ✅ Found 11 devices
+    1. Unknown (A8:51:AB:25:EF:A9) RSSI: N/A
+    2. Unknown (7C:10:15:05:2B:44) RSSI: N/A
+    3. S22 0958 LE (F3:33:91:89:13:18) RSSI: N/A
+    4. Unknown (07:0C:B5:92:0C:58) RSSI: N/A
+    5. Unknown (D8:F7:3E:05:1E:76) RSSI: N/A
+    ... and 6 more devices
+
+🔗 Testing GATT connection to any connectable device...
+  🎯 Attempting connection to S38 D4A8 LE (E1:A1:80:E9:47:69)...
+    ✅ Connected successfully to S38 D4A8 LE!
+    ❌ Connection error to S38 D4A8 LE: object of type 'BleakGATTServiceCollection' has no len()
+  🎯 Attempting connection to [Projector] [Projector] Samsung Projector LSP7 (F4:FE:FB:73:A2:B3)...
+    ⏱️  Connection timeout to [Projector] [Projector] Samsung Projector LSP7
+  🎯 Attempting connection to S22 0958 LE (F3:33:91:89:13:18)...
+    ✅ Connected successfully to S22 0958 LE!
+    ❌ Connection error to S22 0958 LE: object of type 'BleakGATTServiceCollection' has no len()
+  ❌ Could not connect to any devices
+
+⚠️  GATT connections failing
+
+========================================
+Manual MAC Address Test
+Enter a specific MAC address to test connection:
+(Press Enter to skip)
+MAC Address (XX:XX:XX:XX:XX:XX): 
+❌ Test failed: EOF when reading a line

@@ -1,0 +1,7 @@
+Bluetooth monitor ver 5.66
+= Note: Linux version 6.1.0-37-amd64 (x86_64)                          0.800992
+= Note: Bluetooth subsystem version 2.22                               0.800993
+= New Index: E8:48:B8:C8:20:00 (Primary,USB,hci0)               [hci0] 0.800994
+= Open Index: E8:48:B8:C8:20:00                                 [hci0] 0.800994
+= Index Info: E8:48:B8:C.. (Realtek Semiconductor Corporation)  [hci0] 0.800994
+@ MGMT Open: bluetoothd (privileged) version 1.22             {0x0001} 0.800995

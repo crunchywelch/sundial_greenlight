@@ -1,0 +1,24 @@
+🧪 Enhanced Brady M511 Connection Test
+==================================================
+Based on Android app Wireshark analysis
+
+🔍 Enhanced scan for Brady M511...
+   Looking for: M511-PGM5112423102007 (88:8C:19:00:E2:49)
+❌ Enhanced scan failed: 'str' object has no attribute 'name'
+
+==============================
+Trying direct MAC address connection...
+
+🎯 Testing specific Brady MAC: 88:8C:19:00:E2:49
+
+🔌 Enhanced connection test to M511-Test...
+  ⏳ Connecting with enhanced parameters...
+  ❌ Enhanced connection failed: 
+
+❌ All connection attempts FAILED!
+
+🔧 Troubleshooting tips:
+  1. Ensure printer is in pairing mode
+  2. Check if printer is connected to another device
+  3. Try power cycling the printer
+  4. Check Bluetooth permissions

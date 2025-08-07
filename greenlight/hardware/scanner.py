@@ -61,9 +61,9 @@ class ZebraDS2208Scanner(ScannerInterface):
     def _detect_zebra_scanner(self) -> bool:
         """Detect if Zebra DS2208 is connected via USB"""
         try:
-            # Check lsusb output for Zebra scanner
+            # Check lsusb output for Zebra scanner with timeout
             import subprocess
-            result = subprocess.run(['lsusb'], capture_output=True, text=True)
+            result = subprocess.run(['lsusb'], capture_output=True, text=True, timeout=5.0)
             
             # Look for Zebra/Symbol device
             usb_devices = result.stdout.lower()
@@ -95,9 +95,9 @@ class ZebraDS2208Scanner(ScannerInterface):
             
             for device in input_devices:
                 try:
-                    # Check device info
+                    # Check device info with timeout
                     result = subprocess.run(['udevadm', 'info', '--query=property', device], 
-                                          capture_output=True, text=True)
+                                          capture_output=True, text=True, timeout=3.0)
                     device_info = result.stdout.lower()
                     
                     # Look for Zebra/Symbol in device properties

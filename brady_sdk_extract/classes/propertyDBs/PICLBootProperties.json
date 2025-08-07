@@ -1,0 +1,37 @@
+  [
+    {
+      "ComponentId":"B80EB2EA-4F49-423A-875C-8ACB1ACB9734",
+      "GroupId":"222D688A-1554-4C0E-B7A0-0BC377EF4071",
+      "IsBidiProperty":false,
+      "PropertyId":"F2EF2A72-D816-4D36-8F0D-905C3528A5D6",
+      "PropertyName":"Firmware Driver Name"
+    },
+    {
+      "ComponentId":"B80EB2EA-4F49-423A-875C-8ACB1ACB9734",
+      "GroupId":"222D688A-1554-4C0E-B7A0-0BC377EF4071",
+      "IsBidiProperty":false,
+      "PropertyId":"ACEB1224-1DAF-42A2-BBAA-4678D5D3C8DA",
+      "PropertyName":"Firmware Version"
+    },
+    {
+      "ComponentId":"B80EB2EA-4F49-423A-875C-8ACB1ACB9734",
+      "GroupId":"222D688A-1554-4C0E-B7A0-0BC377EF4071",
+      "IsBidiProperty":false,
+      "PropertyId":"AE2955D7-1AE3-4520-BB1C-1DC0C2B5A58B",
+      "PropertyName":"Printer Serial Number"
+    },
+    {
+      "ComponentId": "B80EB2EA-4F49-423A-875C-8ACB1ACB9734",
+      "GroupId": "99A61D40-20CE-41EA-A579-EB92C6ED94C6",
+      "IsBidiProperty": false,
+      "PropertyId": "890AF444-4F6B-44E9-B3F6-EA0239DE6317",
+      "PropertyName": "Dots Per Inch"
+    },
+    {
+      "ComponentId": "B80EB2EA-4F49-423A-875C-8ACB1ACB9734",
+      "GroupId": "AE766260-8427-4D56-B979-E1D9D5524B3E",
+      "IsBidiProperty": false,
+      "PropertyId": "1CC7C409-31A2-4A09-B864-FCE3A6D15FE2",
+      "PropertyName": "Post Print Accessory Type"
+     }
+  ]

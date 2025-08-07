@@ -1,0 +1,41 @@
+🧪 Enhanced Brady M511 Connection Test
+==================================================
+Based on Android app Wireshark analysis
+
+🔍 Enhanced scan for Brady M511...
+   Looking for: M511-PGM5112423102007 (88:8C:19:00:E2:49)
+📱 Found: S22 0958 LE (F3:33:91:89:13:18) RSSI: N/A
+📱 Found: None (07:0C:B5:92:0C:58) RSSI: N/A
+📱 Found: [Projector] [Projector] Samsung Projector LSP7 (F4:FE:FB:73:A2:B3) RSSI: N/A
+📱 Found: None (7C:10:15:05:2B:44) RSSI: N/A
+📱 Found: None (B2:0C:D1:0A:99:FE) RSSI: N/A
+📱 Found: None (7D:E0:1F:39:74:28) RSSI: N/A
+📱 Found: M511-PGM5112423102007 (88:8C:19:00:E2:49) RSSI: N/A
+✅ TARGET FOUND: M511-PGM5112423102007 (88:8C:19:00:E2:49)
+📋 Device Details:
+    Address: 88:8C:19:00:E2:49
+    Name: M511-PGM5112423102007
+    RSSI: N/A
+
+🔌 Enhanced connection test to M511-PGM5112423102007...
+  ⏳ Connecting with enhanced parameters...
+  ❌ Enhanced connection failed: 
+
+❌ Enhanced connection test FAILED!
+
+==============================
+Trying direct MAC address connection...
+
+🎯 Testing specific Brady MAC: 88:8C:19:00:E2:49
+
+🔌 Enhanced connection test to M511-Test...
+  ⏳ Connecting with enhanced parameters...
+  ❌ Enhanced connection failed: 
+
+❌ All connection attempts FAILED!
+
+🔧 Troubleshooting tips:
+  1. Ensure printer is in pairing mode
+  2. Check if printer is connected to another device
+  3. Try power cycling the printer
+  4. Check Bluetooth permissions

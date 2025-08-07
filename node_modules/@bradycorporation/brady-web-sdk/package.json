@@ -1,0 +1,65 @@
+{
+  "name": "@bradycorporation/brady-web-sdk",
+  "version": "3.1.2",
+  "description": "The Brady Web SDK allows users to communicate with Brady Printers using a web browser.",
+  "main": "dist/bundle.js",
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "build": "webpack --mode=production",
+    "tsc": "tsc",
+    "watch": "concurrently \"tsc -w\" \"webpack --config webpack.config.js --watch --mode development\"",
+    "test": "mocha --inline-diffs test/*.js --timeout 60000"
+  },
+  "homepage": "https://sdk.bradyid.com",
+  "repository": {
+    "type": "git",
+    "url": "https://bradycorp1.visualstudio.com/DefaultCollection/Mobile%20Printing/_git/BradySdkWeb"
+  },
+  "keywords": [
+    "Brady",
+    "Corporation",
+    "Brady Corporation",
+    "SDK",
+    "Printing",
+    "Print",
+    "M211",
+    "M611",
+    "Bluetooth",
+    "Bluetooth Low Energy",
+    "Library",
+    "Web SDK",
+    "Progressive Web App",
+    "Bitmap",
+    "Bitmap Printing",
+    "Brady Web SDK",
+    "Brady NPM Package",
+    "NPM Package"
+  ],
+  "author": "Brady Corporation",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "devDependencies": {
+    "@babel/core": "^7.23.9",
+    "@babel/plugin-transform-modules-commonjs": "^7.23.3",
+    "@babel/preset-env": "^7.23.9",
+    "@types/web-bluetooth": "^0.0.20",
+    "babel-loader": "^9.1.3",
+    "canvas": "^2.11.2",
+    "chai": "^5.0.3",
+    "chai-http": "^4.4.0",
+    "concurrently": "^8.2.2",
+    "fs": "^0.0.1-security",
+    "jsdom": "^24.0.0",
+    "mocha": "^10.2.0",
+    "source-map-loader": "^5.0.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.4.3",
+    "url": "^0.11.3",
+    "webpack": "^5.90.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-node-externals": "^3.0.0"
+  },
+  "dependencies": {
+    "firebase": "^10.12.2"
+  }
+}

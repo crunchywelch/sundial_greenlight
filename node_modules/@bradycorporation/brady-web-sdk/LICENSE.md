@@ -1,0 +1,44 @@
+**SOFTWARE LICENSE AGREEMENT**
+
+YOU SHOULD CAREFULLY READ THE FOLLOWING TERMS AND CONDITIONS OF THIS SOFTWARE LICENSE AGREEMENT BEFORE PROCEEDING. BY SELECTING “DOWNLOAD ANDROID SDK” OR “DOWNLOAD IOS SDK” YOU ARE AGREEING TO BECOME BOUND BY THE TERMS OF THIS SOFTWARE LICENSE AGREEMENT.
+
+This Software License Agreement (“Agreement”) is a legal agreement between Brady Worldwide, Inc. (“Brady”) and any natural person or legal entity (“You”) who obtains Brady’s Software Development Kit (SDK). Subject to the terms and conditions of this Agreement, Brady hereby grants You a non-exclusive, non-sublicensable, nontransferable license to use the components within Brady’s SDK, in object code format (hereafter “Software”) and the accompanying documentation according to the following terms:
+
+1. **LICENSE GRANT:** You may integrate the Software into an unlimited number of software applications for the purpose of enabling the software applications to connect and print to a Brady printer. You may use the accompanying documentation in connection with integrating the Software into the software applications.
+
+2. **LICENSE RESTRICTIONS:** You may not, directly or indirectly:
+	
+	a. copy, install, use, modify, create derivative works of, or distribute the Software in any manner or on any device, or permit access to the Software in any manner or on any device, other than as expressly permitted in section 1 of this Agreement;
+	
+	b. translate, disassemble, de-compile, or reverse engineer the Software;
+	
+	c. rent, transfer, or grant any rights in the Software or accompanying documentation without the prior, express written consent of Brady; or
+	
+	d. remove any proprietary notices, labels, or marks on the Software or the accompanying documentation.
+
+3. **NATURE OF THIS AGREEMENT:** This license is not a sale. You agree that Brady owns all legal right, title, and interest in and to the Software, including any Intellectual Property Rights that subsist in the Software. “Intellectual Property Rights” means any and all rights under patent law, copyright law, trade secret law, trademark law, and any and all other proprietary rights. Brady reserves all rights not expressly granted to You. Title and copyrights to the Software, accompanying documentation, and any copies made by You, remain the property of Brady. Unauthorized copying of the Software or the accompanying documentation, or failure to comply with the above restrictions, shall automatically terminate this license, without further notice, and terminate your rights to use the Software, and Brady shall, in addition to its other legal remedies, be entitled to its reasonable attorney fees. Any use of the Software not expressly permitted by this Agreement is a breach of this Agreement and may violate copyright, trademark, and other laws. Brady reserves the right to withdraw, update, or modify the Software, in its sole discretion without notice.
+
+4. **SUPPORT:** Brady may at its sole discretion provide support services for the Software. However, Brady shall not be obligated to provide any support services. If provided, support services may include support for inquiries about Software functionality and programming advice related to the use of the Software.
+
+5. **FEEDBACK:** If You send or transmit any communications or materials to Brady by mail, email, telephone, or otherwise, suggesting or recommending changes to the Software, including without limitation, new features or functionality relating thereto, or any comments, questions, suggestions, or the like (“Feedback”), Brady is free to use such Feedback irrespective of any other obligation or limitation between the parties governing such Feedback. You hereby assign to Brady all right, title, and interest in, and Brady is free to use, without any attribution or compensation to any party, any ideas, know-how, concepts, techniques, or other intellectual property rights contained in the Feedback, for any purpose whatsoever, although Brady is not required to use any Feedback.
+
+6. **DISCLAIMER OF WARRANTIES:** YOU UNDERSTAND THAT BRADY CANNOT AND DOES NOT GUARANTEE OR WARRANT THAT THE SOFTWARE WILL BE FREE OF VIRUSES OR OTHER DESTRUCTIVE CODE. YOU ARE RESPONSIBLE FOR IMPLEMENTING SUFFICIENT PROCEDURES AND CHECKPOINTS TO SATISFY YOUR PARTICULAR REQUIREMENTS FOR ANTI-VIRUS PROTECTION AND ACCURACY OF DATA INPUT AND OUTPUT, AND FOR MAINTAINING A MEANS FOR RECONSTRUCTION OF ANY LOST DATA. TO THE FULLEST EXTENT PROVIDED BY LAW, BRADY WILL NOT BE LIABLE FOR ANY LOSS OR DAMAGE CAUSED BY VIRUSES OR OTHER TECHNOLOGICALLY HARMFUL MATERIAL THAT MAY INFECT YOUR COMPUTER EQUIPMENT, COMPUTER PROGRAMS, DATA, OR OTHER PROPRIETARY MATERIAL DUE TO YOUR USE OF THE SOFTWARE.
+ YOUR USE OF THE SOFTWARE AND RELATED DOCUMENTATION IS AT YOUR OWN RISK. ALL LICENSED SOFTWARE, DOCUMENTATION, AND OTHER PRODUCTS, INFORMATION, MATERIALS, AND SERVICES PROVIDED BY BRADY ARE PROVIDED “AS IS.” BRADY SPECIFICALLY DISCLAIMS ALL IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT, AND ALL WARRANTIES ARISING FROM COURSE OF DEALING, USAGE, OR TRADE PRACTICE. WITHOUT LIMITING THE FOREGOING, BRADY MAKES NO WARRANTY OF ANY KIND THAT THE LICENSED SOFTWARE OR DOCUMENTATION, OR ANY PRODUCTS OR RESULTS OF THE USE THEREOF, WILL MEET YOUR REQUIREMENTS OR ANY OTHER PERSONS’ REQUIREMENTS, OPERATE WITHOUT INTERRUPTION, ACHIEVE ANY INTENDED RESULT, BE COMPATIBLE OR WORK WITH ANY SOFTWARE, SYSTEMS, OR OTHER SERVICES, OR BE SECURE, ACCURATE, COMPLETE, FREE OF HARMFUL CODE, OR ERROR FREE.
+ THE FOREGOING DOES NOT AFFECT ANY WARRANTIES THAT CANNOT BE EXCLUDED OR LIMITED UNDER APPLICABLE LAW.
+
+7. **LIMITATION OF LIABILITY:**
+
+	a. TO THE FULLEST EXTENT PROVIDED BY LAW, IN NO EVENT WILL BRADY, ITS AFFILIATES, OR THEIR LICENSORS, SERVICE PROVIDERS, EMPLOYEES, AGENTS, OFFICERS, OR DIRECTORS BE LIABLE FOR DAMAGES OF ANY KIND, UNDER ANY LEGAL THEORY, ARISING OUT OF OR IN CONNECTION WITH YOUR USE, OR INABILITY TO USE, THE SOFTWARE. THIS LIMITATION OF LIABILITY SHALL APPLY TO ANY DIRECT, INDIRECT, SPECIAL, INCIDENTAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED TO LOSS OF DATA, LOSS OF BUSINESS OR ANTICIPATED SAVINGS, LOSS OF USE, LOSS OF GOODWILL, LOSS OF REVENUE, LOSS OF PROFITS, PERSONAL INJURY, PAIN AND SUFFERING, OR EMOTIONAL DISTRESS. THIS LIMITATION OF LIABILITY SHALL APPLY TO ANY AND ALL DAMAGES, HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER CAUSED BY TORT (INCLUDING NEGLIGENCE), BREACH OF CONTRACT, OR OTHERWISE, EVEN IF FORESEEABLE, AND EVEN IF BRADY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES. BRADY SHALL NOT BE LIABLE IF FOR ANY REASON ALL OR ANY PART OF THE SOFTWARE IS UNAVAILABLE AT ANY TIME OR FOR ANY PERIOD.
+
+	b. You shall indemnify and hold Brady, Brady’s affiliates, and Brady’s suppliers harmless from any and all liabilities, losses, damages, costs, and expenses (including reasonable attorneys’ fees) arising out of or in connection with Your use of the Software.
+
+8. **CONSENT TO USE OF DATA:** You agree that Brady may collect and use technical data and related information — including but not limited to technical information about your device, system, software, and peripherals — that is gathered periodically to facilitate the provision of Software updates, product support, and other services to You (if any) related to this license. Brady may use this information, as long as it is in a form that does not personally identify You, to improve its products or to provide services or technologies to You. Brady’s collection and use of technical data and related information is governed by Brady’s Privacy Policy, which is available at:
+https://www.bradyid.com/legal/privacy-policy
+
+9. **GENERAL:** This Agreement shall be governed by, and interpreted under, the laws of the State of Wisconsin, USA. You acknowledge that U.S. law and regulations may restrict the export/re-export of the Software. You agree not to export/re-export the Software or portions thereof in any form without the appropriate U.S. and foreign government licenses. This obligation shall survive and continue after this Agreement terminates. This Agreement is the entire agreement between the parties and supersedes any other communications or advertising with respect to the Software and accompanying documentation. If any provision of this Agreement is held invalid, the remainder of this Agreement shall continue in full force and effect.
+
+Brady Worldwide, Inc.
+6555 West Good Hope Road
+P.O. Box 571
+Milwaukee, Wisconsin 53201-0571 USA
+Phone +1 (414) 358-6600

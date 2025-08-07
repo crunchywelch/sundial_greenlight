@@ -1,0 +1,54 @@
+🧪 Brady M511 Multi-App Connection Mode Testing
+============================================================
+Testing different approaches for multi-app printer design
+
+
+==================== Rapid Connection ====================
+🚀 Testing rapid connection (like Android ~1 second)...
+  ❌ Rapid connection error: 
+
+==================== Connection During Advertising ====================
+🔍 Testing connection during active advertising...
+  ⏳ Scanning for Brady printer advertising...
+  📡 Brady advertising detected! RSSI: -74
+  🚀 Attempting immediate connection...
+  ❌ Immediate connection error: [org.bluez.Error.InProgress] Operation already in progress
+
+==================== Multiple Rapid Attempts ====================
+🔄 Testing multiple rapid attempts (multi-app simulation)...
+  🎯 Attempt 1/3...
+    ❌ Attempt 1 error: BleakDeviceNotFoundError
+  🎯 Attempt 2/3...
+    ❌ Attempt 2 error: BleakDeviceNotFoundError
+  🎯 Attempt 3/3...
+    ❌ Attempt 3 error: BleakDeviceNotFoundError
+  ❌ All rapid attempts failed
+
+==================== Background Scan & Connect ====================
+🔍 Testing background scan with opportunistic connection...
+  🎯 Background attempt 1/5...
+    ⚠️  Brady not found in scan 1
+  🎯 Background attempt 2/5...
+    📡 Brady found in scan, RSSI: N/A
+    ❌ Background attempt 2 error: TimeoutError
+  🎯 Background attempt 3/5...
+    📡 Brady found in scan, RSSI: N/A
+    ❌ Background attempt 3 error: BleakDeviceNotFoundError
+  🎯 Background attempt 4/5...
+    ⚠️  Brady not found in scan 4
+  🎯 Background attempt 5/5...
+    📡 Brady found in scan, RSSI: N/A
+    ❌ Background attempt 5 error: TimeoutError
+  📊 Success rate: 0/5
+
+============================================================
+📊 RESULTS SUMMARY
+============================================================
+Rapid Connection               ❌ FAIL
+Connection During Advertising  ✅ PASS
+Multiple Rapid Attempts        ❌ FAIL
+Background Scan & Connect      ❌ FAIL
+
+Overall success rate: 1/4
+
+🎉 Found working connection method(s) for multi-app Brady M511!

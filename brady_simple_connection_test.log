@@ -1,0 +1,63 @@
+📍 SETUP CHECKLIST:
+✓ Brady M511 is powered on
+✓ Brady M511 LED is blinking (pairing mode)
+✓ No other devices are connected to the printer
+
+🧪 Brady M511 Direct Connection Test
+==================================================
+🎯 OBJECTIVE: Test connection and observe LED behavior
+
+👁️  LED OBSERVATION GUIDE:
+   BEFORE: LED should be blinking/cycling (pairing mode)
+   DURING: LED should become SOLID when connected
+   AFTER:  LED should return to blinking when disconnected
+
+🔌 Attempting direct connection to 88:8C:19:00:E2:49...
+   ⏳ Connecting...
+   ✅ Connected successfully in 15.99 seconds!
+
+🔗 CONNECTION ACTIVE!
+==============================
+👁️  CHECK THE LED RIGHT NOW:
+   🔍 Is the pairing LED SOLID (not blinking)?
+   ✅ SOLID = Connection working like Android
+   ❌ BLINKING = Connection not fully established
+
+📏 Connection MTU: 23
+🔍 Quick service discovery...
+   📋 Discovered 2 services
+   ✅ Brady service found: 0000fd1c-0000-1000-8000-00805f9b34fb
+   📡 Brady characteristics: 3
+
+⏳ HOLDING CONNECTION FOR 30 SECONDS...
+   (Observe LED behavior during this time)
+   ✅ [14:03:34] Connection active, 30s remaining
+   ✅ [14:03:39] Connection active, 25s remaining
+   ✅ [14:03:44] Connection active, 20s remaining
+   ✅ [14:03:49] Connection active, 15s remaining
+   ✅ [14:03:54] Connection active, 10s remaining
+   ✅ [14:03:59] Connection active, 5s remaining
+
+✅ CONNECTION HELD SUCCESSFULLY FOR 30 SECONDS!
+
+🔌 Disconnecting from Brady M511...
+✅ Disconnected successfully
+👁️  LED should now return to blinking/cycling mode
+
+==================================================
+📊 TEST RESULTS
+==================================================
+✅ CONNECTION SUCCESS!
+
+🔍 VERIFY LED BEHAVIOR:
+   ❓ Did the LED become solid during connection?
+   ❓ Did it return to blinking after disconnect?
+
+If YES to both questions:
+   🎉 Connection works exactly like Android app!
+   📝 The pairing LED cycling is normal behavior
+   ✅ Ready for production integration
+
+If NO to either question:
+   ⚠️  Connection may not be fully established
+   🔧 Further investigation needed

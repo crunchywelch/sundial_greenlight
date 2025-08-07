@@ -8,7 +8,7 @@ from greenlight.screens import SplashScreen
 from greenlight.config import APP_NAME, EXIT_MESSAGE
 from greenlight.hardware.interfaces import hardware_manager
 from greenlight.hardware.scanner import ZebraDS2208Scanner, MockBarcodeScanner
-from greenlight.hardware.label_printer import MockLabelPrinter
+from greenlight.hardware.label_printer import BradyM511Printer, MockLabelPrinter
 from greenlight.hardware.card_printer import MockCardPrinter
 from greenlight.hardware.gpio import MockGPIO
 
@@ -24,32 +24,22 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     
     try:
-        # Initialize hardware manager with real/mock devices
-        print(f"🔧 Initializing {APP_NAME} hardware...")
+        # Create hardware instances without initialization (lazy loading)
+        print(f"🚀 Starting {APP_NAME}...")
         
-        # Try to use real Zebra DS2208 scanner, fallback to mock
-        try:
-            scanner = ZebraDS2208Scanner()
-            print("📱 Attempting Zebra DS2208 scanner initialization...")
-        except Exception as e:
-            print(f"⚠️  Zebra scanner unavailable, using mock: {e}")
-            scanner = MockBarcodeScanner()
-        
-        label_printer = MockLabelPrinter()
+        # Create hardware instances - initialization happens when first used
+        scanner = ZebraDS2208Scanner()
+        label_printer = BradyM511Printer()  # Will auto-discover when needed
         card_printer = MockCardPrinter()
         gpio = MockGPIO()
         
-        hardware_success = hardware_manager.initialize(
+        # Set up hardware manager with lazy initialization
+        hardware_manager.set_hardware(
             scanner=scanner,
             label_printer=label_printer,
             card_printer=card_printer,
             gpio=gpio
         )
-        
-        if hardware_success:
-            print("✅ Hardware initialized successfully")
-        else:
-            print("⚠️  Some hardware failed to initialize - continuing with available devices")
         
         ui = UIBase()
         screen_manager = ScreenManager(ui)

@@ -5,9 +5,12 @@ Provides abstract base classes for all hardware components to enable
 easy testing and hardware swapping.
 """
 
+import logging
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -149,6 +152,50 @@ class HardwareManager:
         self.gpio: Optional[GPIOInterface] = None
         self._initialized = False
     
+    def set_hardware(self, 
+                    scanner: Optional[ScannerInterface] = None,
+                    label_printer: Optional[LabelPrinterInterface] = None,
+                    card_printer: Optional[CardPrinterInterface] = None,
+                    gpio: Optional[GPIOInterface] = None) -> None:
+        """Set hardware components without initialization (lazy loading)"""
+        self.scanner = scanner
+        self.label_printer = label_printer
+        self.card_printer = card_printer
+        self.gpio = gpio
+        self._initialized = True  # Components will initialize when first used
+        logger.info("Hardware components set for lazy initialization")
+    
+    def get_scanner(self) -> Optional[ScannerInterface]:
+        """Get scanner with lazy initialization"""
+        if self.scanner and hasattr(self.scanner, 'initialize'):
+            if not self.scanner.is_connected():
+                logger.info("Lazily initializing scanner...")
+                self.scanner.initialize()
+        return self.scanner
+    
+    def get_label_printer(self) -> Optional[LabelPrinterInterface]:
+        """Get label printer with lazy initialization"""
+        if self.label_printer and hasattr(self.label_printer, 'initialize'):
+            if hasattr(self.label_printer, 'connected') and not self.label_printer.connected:
+                logger.info("Lazily initializing label printer...")
+                if not self.label_printer.initialize():
+                    logger.warning("Label printer initialization failed - may need fallback")
+        return self.label_printer
+    
+    def get_card_printer(self) -> Optional[CardPrinterInterface]:
+        """Get card printer with lazy initialization"""
+        if self.card_printer and hasattr(self.card_printer, 'initialize'):
+            # Card printer lazy initialization if needed
+            pass
+        return self.card_printer
+    
+    def get_gpio(self) -> Optional[GPIOInterface]:
+        """Get GPIO with lazy initialization"""
+        if self.gpio and hasattr(self.gpio, 'initialize'):
+            # GPIO lazy initialization if needed
+            pass
+        return self.gpio
+    
     def initialize(self, 
                    scanner: Optional[ScannerInterface] = None,
                    label_printer: Optional[LabelPrinterInterface] = None,
@@ -163,7 +210,11 @@ class HardwareManager:
         success = True
         
         if self.scanner:
-            success &= self.scanner.initialize()
+            # Skip re-initialization if scanner is already connected
+            if hasattr(self.scanner, 'is_connected') and self.scanner.is_connected():
+                logger.info("Scanner already initialized, skipping re-initialization")
+            else:
+                success &= self.scanner.initialize()
         
         if self.label_printer:
             success &= self.label_printer.initialize()
