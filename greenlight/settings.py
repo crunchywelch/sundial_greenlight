@@ -150,14 +150,12 @@ class settingsUI:
             table = Table(show_header=True, header_style="bold magenta")
             table.add_column("Name", style="cyan")
             table.add_column("Address", style="green")
-            table.add_column("RSSI", style="yellow")
             table.add_column("Type", style="blue")
             
             for printer in printers:
                 table.add_row(
                     printer['name'],
                     printer['address'],
-                    str(printer['rssi']),
                     printer['connection_type']
                 )
             
@@ -231,7 +229,6 @@ class settingsUI:
             
             table.add_row("Printer Name", printer_info['name'])
             table.add_row("Bluetooth Address", printer_info['address'])
-            table.add_row("RSSI", str(printer_info['rssi']))
             
             for key, value in status.items():
                 table.add_row(str(key), str(value))

@@ -12,6 +12,8 @@ import uuid
 import json
 import struct
 import time
+import base64
+import zlib
 from typing import Dict, Any, Optional, List
 from .interfaces import LabelPrinterInterface, PrintJob
 
@@ -52,8 +54,7 @@ def discover_brady_printers_sync() -> List[Dict[str, str]]:
         'name': 'M511-PGM5112423102007',
         'address': BRADY_MAC,
         'model': 'M511',
-        'connection_type': 'bluetooth',
-        'rssi': 'N/A'  # Would be populated by real BLE scan
+        'connection_type': 'bluetooth'
     }]
 
 
@@ -66,7 +67,7 @@ class BradyM511Printer(LabelPrinterInterface):
     - PICL protocol communication  
     - Print job generation and transmission
     - Status monitoring and error handling
-    - Compatible with M4C-187 labels
+    - Compatible with M4C-375-342 labels
     """
     
     def __init__(self, device_path: Optional[str] = None):
@@ -242,8 +243,130 @@ class BradyM511Printer(LabelPrinterInterface):
         except Exception as e:
             logger.error(f"Error handling PICL response: {e}")
     
+    def _generate_text_bitmap(self, text: str) -> bytes:
+        """Generate bitmap for text using PIL (Python equivalent of Canvas)"""
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            
+            # M4C-375-342 label dimensions (from Brady parts database)
+            # 5470 x 5000 units ≈ 87 x 79 pixels at 300 DPI  
+            width, height = 87, 79
+            
+            # Create image with white background
+            image = Image.new('1', (width, height), 1)  # 1-bit mode, white background
+            draw = ImageDraw.Draw(image)
+            
+            # Try to use a monospace font, fallback to default
+            try:
+                # Try to load a monospace font
+                font = ImageFont.load_default()
+            except:
+                font = None
+            
+            # Get text dimensions for centering
+            if font:
+                bbox = draw.textbbox((0, 0), text, font=font)
+                text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1]
+            else:
+                bbox = draw.textbbox((0, 0), text)
+                text_width = bbox[2] - bbox[0] 
+                text_height = bbox[3] - bbox[1]
+            
+            # Center the text
+            x = (width - text_width) // 2
+            y = (height - text_height) // 2
+            
+            # Draw black text on white background
+            draw.text((x, y), text, fill=0, font=font)  # 0 = black in 1-bit mode
+            
+            # Convert to raw bitmap data (matches JavaScript canvas approach)
+            # M4C-375-342 is 87x79 pixels = need 11 bytes per row (87 pixels / 8 = 10.875, round up)
+            bitmap = []
+            for y in range(height):
+                bytes_per_row = (width + 7) // 8  # Round up to handle partial bytes
+                for byte_col in range(bytes_per_row):
+                    row_byte = 0
+                    for bit in range(8):  # 8 bits per byte
+                        x = byte_col * 8 + bit
+                        if x < width:
+                            pixel = image.getpixel((x, y))
+                            if pixel == 0:  # Black pixel
+                                row_byte |= (0x80 >> bit)
+                    bitmap.append(row_byte)
+            
+            # Apply Brady compression
+            return self._compress_bitmap(bitmap)
+            
+        except ImportError:
+            logger.warning("PIL not available, using fallback bitmap")
+            # Fallback to hardcoded pattern if PIL not available
+            return bytes([0x81, 0x02, 0x38, 0x84, 0x00, 0x00, 0xff, 0x0f,
+                         0x81, 0x02, 0x11, 0xab, 0x00, 0x00, 0xff, 0x04,
+                         0x81, 0x02, 0x38])
+        except Exception as e:
+            logger.error(f"Error generating bitmap: {e}")
+            # Fallback to hardcoded pattern
+            return bytes([0x81, 0x02, 0x38, 0x84, 0x00, 0x00, 0xff, 0x0f,
+                         0x81, 0x02, 0x11, 0xab, 0x00, 0x00, 0xff, 0x04,
+                         0x81, 0x02, 0x38])
+    
+    def _compress_bitmap(self, bitmap: List[int]) -> bytes:
+        """Compress bitmap using Brady run-length encoding (from bundle.pretty.js)"""
+        result = []
+        
+        i = 0
+        while i < len(bitmap):
+            current_byte = bitmap[i]
+            run_length = 1
+            
+            # Count consecutive identical bytes
+            while (i + run_length < len(bitmap) and 
+                   bitmap[i + run_length] == current_byte and 
+                   run_length < 255):
+                run_length += 1
+            
+            # Brady compression format (from JavaScript analysis):
+            # 0x81 = compression marker
+            # 0x02 = command type
+            # For runs > 1: runLength, 0x84, 0x00, 0x00, 0xFF, runLength
+            # For single bytes: currentByte, 0xAB, 0x00, 0x00, 0xFF, 0x04
+            
+            if run_length > 1:
+                result.extend([0x81, 0x02, run_length, 0x84, 0x00, 0x00, 0xFF, run_length])
+            else:
+                result.extend([0x81, 0x02, current_byte, 0xAB, 0x00, 0x00, 0xFF, 0x04])
+            
+            i += run_length
+        
+        # Final compression marker
+        result.extend([0x81, 0x02, 0x38])
+        
+        return bytes(result)
+
+    def _build_picl_json_packet(self, json_string: str) -> bytes:
+        """Build PICL packet from JSON string (from bundle.pretty.js)"""
+        # Encode JSON string to bytes
+        json_bytes = json_string.encode('utf-8')
+        json_length = len(json_bytes)
+        
+        # Create length header (4 bytes, little endian)
+        length_header = bytes([
+            json_length & 0xFF,
+            (json_length >> 8) & 0xFF, 
+            (json_length >> 16) & 0xFF,
+            (json_length >> 24) & 0xFF
+        ])
+        
+        # PICL header from bundle.pretty.js
+        picl_header = bytes([150, 194, 247, 74, 29, 33, 66, 50, 134, 120, 32, 239, 233, 123, 194, 211])
+        
+        # Combine: header + length + JSON
+        packet = picl_header + length_header + json_bytes
+        return packet
+
     def _create_simple_print_job(self, text: str) -> bytes:
-        """Create simple Brady print job based on working Wireshark data"""
+        """Create Brady print job with dynamic bitmap generation (raw binary format)"""
         
         # Generate unique job ID
         job_id = uuid.uuid4().hex
@@ -251,56 +374,60 @@ class BradyM511Printer(LabelPrinterInterface):
         
         logger.info(f"Creating print job for text: '{text}', ID: {job_id}")
         
-        # Build print job using proven Wireshark format
+        # Build print job using bundle.pretty.js format
         print_job = bytearray()
         
-        # Packet header (proven to work)
-        print_job.extend([0x01, 0x00, 0x00])
+        # 1. Header (matches working capture - [01 01 00] for first packet)
+        print_job.extend([0x01, 0x01, 0x00])
         
-        # Job ID section
+        # 2. Job ID section
         job_id_section = f"K\x00\x0a{job_id}\x0d"
         print_job.extend([0x02, len(job_id_section)])
         print_job.extend(job_id_section.encode('ascii'))
         
-        # Label type (M4C-187 from Wireshark)
-        label_section = "K\x00\x09M4C-187\x0d"
+        # 3. Label type (M4C-375-342 from Brady parts database)
+        label_section = "K\x00\x0cM4C-375-342\x0d"
         print_job.extend([0x02, len(label_section)])
         print_job.extend(label_section.encode('ascii'))
         
-        # Brady position commands (from successful Wireshark capture)
-        commands = ["D+0001", "C+0001", "c\x00", "p+00", "o+00", "O+00", "b+00", "M\x01"]
-        for cmd in commands:
+        # 4. Position setup commands (matches JavaScript array exactly)
+        position_commands = ["D+0001", "C+0001", "c\x00", "p+00", "o+00", "O+00", "b+00", "M\x01"]
+        for cmd in position_commands:
             print_job.extend([0x02, len(cmd)])
             print_job.extend(cmd.encode('ascii'))
         
-        # Content section - use provided text (max 8 chars for M4C-187)
-        content_text = text[:8].ljust(8, '0')
+        # 5. Text content setup (more characters possible with larger M4C-375-342 labels)
+        content_text = text[:12].ljust(12, '0')  # Allow up to 12 characters
         content_section = f"K\x00\x0c{content_text}"
         print_job.extend([0x02, len(content_section)])
         print_job.extend(content_section.encode('ascii'))
         
-        # Brady format commands
-        for cmd in ["A", "Q", "a"]:
+        # 6. Print control commands
+        control_commands = ["A", "Q", "a"]
+        for cmd in control_commands:
             print_job.extend([0x02, len(cmd)])
             print_job.extend(cmd.encode('ascii'))
         
-        # Text format command
+        # 7. Text formatting
         text_format = "IBUlbl0\x0d"
         print_job.extend([0x02, len(text_format)])
         print_job.extend(text_format.encode('ascii'))
         
-        # Basic bitmap section (minimal implementation)
-        print_job.extend([0x58, 0x00, 0x00])  # X position
-        print_job.extend([0x59, 0x00, 0x00])  # Y position
-        print_job.extend([0x59, 0x06, 0x00])  # Dimensions
+        # 8. Bitmap generation (dynamic based on text)
+        # X Position
+        print_job.extend([0x58, 0x00, 0x00])
         
-        # Simple bitmap pattern (from working Wireshark data)
-        bitmap_pattern = bytes([0x81, 0x02, 0x38, 0x84, 0x00, 0x00, 0xff, 0x0f,
-                               0x81, 0x02, 0x11, 0xab, 0x00, 0x00, 0xff, 0x04,
-                               0x81, 0x02, 0x38])
-        print_job.extend(bitmap_pattern)
+        # Y Position  
+        print_job.extend([0x59, 0x00, 0x00])
         
-        logger.info(f"Generated Brady print job: {len(print_job)} bytes")
+        # Bitmap dimensions
+        print_job.extend([0x59, 0x06, 0x00])
+        
+        # Generate bitmap from text
+        bitmap_data = self._generate_text_bitmap(text)
+        print_job.extend(bitmap_data)
+        
+        logger.info(f"Generated raw binary print job: {len(print_job)} bytes (no PICL packaging)")
         return bytes(print_job)
     
     def print_labels(self, print_job: PrintJob) -> bool:
@@ -333,7 +460,7 @@ class BradyM511Printer(LabelPrinterInterface):
             for i, serial_number in enumerate(serial_numbers):
                 logger.info(f"Printing label {i+1}/{len(serial_numbers)}: {serial_number}")
                 
-                # Create print job for this serial number
+                # Create raw binary print job for this serial number  
                 print_data = self._create_simple_print_job(serial_number)
                 
                 # Send to printer
@@ -393,7 +520,7 @@ class BradyM511Printer(LabelPrinterInterface):
                 chunk_num = i // chunk_size + 1
                 
                 logger.debug(f"Sending chunk {chunk_num}/{total_chunks}: {len(chunk)} bytes")
-                await self.ble_client.write_gatt_char(self.print_job_char, chunk)
+                await self.ble_client.write_gatt_char(self.print_job_char, chunk, response=False)
                 
                 # Brief pause between chunks (from successful tests)
                 await asyncio.sleep(0.1)

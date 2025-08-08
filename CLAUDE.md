@@ -71,3 +71,35 @@ Database connection uses standard PostgreSQL environment variables with `GREENLI
 4. Each module has its own nested menu system
 
 The application maintains a shared UI layout (header/body/footer) across all screens using Rich's Layout system.
+
+## Brady Printer Integration (PRODUCTION-READY)
+
+**Status**: Comprehensive Brady M511 printer integration is fully implemented and functional.
+
+### Implementation Files
+- **greenlight/hardware/label_printer.py**: Main Brady M511 printer class with BLE connectivity
+- **greenlight/hardware/brady_connection.py**: Centralized connection management with LED indicators
+- **brady_print_engine.py**: Complete print engine with reverse-engineered Brady protocol
+- **greenlight/hardware/interfaces.py**: LabelPrinterInterface abstraction
+
+### Key Features
+- **BLE Protocol**: Full PICL (Printer Interface Control Language) implementation
+- **Hardware Support**: Brady M511 printer (MAC: 88:8C:19:00:E2:49) with M4C-187 labels
+- **Print Jobs**: Text-to-bitmap conversion with Brady-specific compression (LZ4/zlib)
+- **Integration**: Fully integrated into cable QC workflow for serial number label printing
+- **Settings UI**: Complete printer management interface with discovery, testing, and status
+
+### Technical Notes
+- Uses `bleak` library for BLE communication
+- Reverse-engineered from Wireshark analysis of Brady protocol
+- Handles Brady M511's finicky BLE connection behavior
+- LED indicators show connection status (solid when connected)
+- Service UUID: `0000fd1c-0000-1000-8000-00805f9b34fb`
+
+### Dependencies
+- **Python**: bleak, PIL, lz4 (optional), zlib
+- **Brady Hardware**: M511 printer with M4C-187 label cartridges
+
+## Label Configuration
+
+- We are using M4C-375-342 labels

@@ -158,15 +158,13 @@ class PrinterSettingsScreen(Screen):
         if printers:
             table = Table(show_header=True, header_style="bold magenta")
             table.add_column("Name", style="cyan")
-            table.add_column("Address", style="green") 
-            table.add_column("RSSI", style="yellow")
+            table.add_column("Address", style="green")
             table.add_column("Type", style="blue")
             
             for printer in printers:
                 table.add_row(
                     printer['name'],
                     printer['address'],
-                    str(printer.get('rssi', 'N/A')),
                     printer['connection_type']
                 )
             
@@ -209,7 +207,7 @@ class PrinterSettingsScreen(Screen):
         
         progress_table.add_row("1. Printer Found", "✓ Success", f"{printer_info['name']}")
         progress_table.add_row("2. Address", "✓ Ready", f"{printer_info['address']}")
-        progress_table.add_row("3. Connection", "⏳ Attempting...", "Multi-app printer - may take 3 attempts")
+        progress_table.add_row("3. Connection", "⏳ Connecting...")
         
         self.ui.layout["body"].update(Panel(progress_table, title="Bluetooth Connection Progress"))
         self.ui.layout["footer"].update(Panel("Testing connection with retry logic for multi-app printer...", title=""))
@@ -220,22 +218,21 @@ class PrinterSettingsScreen(Screen):
         error_details = ""
         
         try:
-            # Import bleak for direct connection test
-            from bleak import BleakClient
+            # Import for connection testing
             import asyncio
             import time
             
             async def test_direct_connection():
-                """Direct connection test - the exact method that was working"""
-                client = BleakClient(printer_info['address'], timeout=15.0)
+                """Direct connection test using centralized connection logic"""
+                from greenlight.hardware.brady_connection import connect_to_brady, disconnect_from_brady
                 
-                # Simple connection that makes LED go solid
-                await client.connect()
+                # Use centralized connection that makes LED go solid
+                client, connected = await connect_to_brady(printer_info['address'], timeout=15.0)
                 
-                if client.is_connected:
+                if connected and client:
                     # Hold connection briefly to see LED behavior
                     await asyncio.sleep(5)
-                    await client.disconnect()
+                    await disconnect_from_brady(client)
                     return True
                 return False
             
@@ -264,7 +261,6 @@ class PrinterSettingsScreen(Screen):
             
             result_table.add_row("Printer Name", printer_info['name'])
             result_table.add_row("Bluetooth Address", printer_info['address'])
-            result_table.add_row("RSSI", str(printer_info.get('rssi', 'N/A')))
             result_table.add_row("Connection Type", "Bluetooth BLE")
             result_table.add_row("Connection Test", "✅ SUCCESS")
             result_table.add_row("LED Behavior", "Should have gone SOLID during test")

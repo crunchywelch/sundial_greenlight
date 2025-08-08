@@ -1,0 +1,62 @@
+Key Classes & Lines
+📦 class D (line ~605)
+
+This is the main compression/packaging class.
+
+    Handles transforming print jobs (likely bitmaps) into packets
+
+    Includes logic for:
+
+        Chunking
+
+        Compression (possibly using DEFLATE/zlib)
+
+        Adding metadata or headers
+
+    Possibly converts raster image data into a printable bitmap format (e.g., monochrome)
+
+🧩 class y (line ~398)
+
+    Contains logic for chunk preparation
+
+    Likely wraps the bitmap or command payload into printable segments
+
+📡 printBitmap() function
+
+Used in view_model.js:
+
+bradySdk.printBitmap(imageToPrint, 0.2, 0.0)
+
+    This calls into the SDK and invokes:
+
+        Image → bitmap conversion
+
+        Compression (via D)
+
+        BLE write packet generation
+
+You could trace this back inside the SDK to:
+
+printBitmap(bitmapImage, xOffset, yOffset)
+
+This eventually leads to the creation of a PICL "PrintJob" object, which then uses the classes above to generate packets.
+🔐 Output Format
+
+Look for:
+
+    Packet payloads starting with GZIP or zlib headers:
+
+        78 9c → DEFLATE
+
+        1f 8b → GZIP
+
+    Encapsulated in PICL JSON like:
+
+    {
+      "PrintJob": {
+        "Data": "<compressed_binary>",
+        ...
+      }
+    }
+
+
