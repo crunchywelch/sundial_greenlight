@@ -42,6 +42,9 @@
 // Test fixture pins
 //#define FIXTURE_DETECT         8     // Cable insertion detection
 
+// Resistance measurement pins
+#define CURRENT_SOURCE_PWM     6     // PWM output for constant current source
+
 // ===== CONFIGURATION =====
 const int UNIT_ID = 1;                    // Arduino unit identifier
 const int BAUD_RATE = 9600;               // Serial communication speed
@@ -201,8 +204,20 @@ void loop() {
   TestResults results;
   testContinuityAndPolarity(results);
   
-  // LED indication
-  bool overall_pass = results.tip_continuity && results.sleeve_continuity && results.polarity_correct;
+  // Add resistance measurement
+  results.resistance_ohms = measureResistance();
+  
+  if (DEBUG_MODE) {
+    Serial.println("=== OVERALL TEST RESULTS ===");
+    Serial.println("TIP: " + String(results.tip_continuity ? "PASS" : "FAIL"));
+    Serial.println("SLEEVE: " + String(results.sleeve_continuity ? "PASS" : "FAIL"));  
+    Serial.println("POLARITY: " + String(results.polarity_correct ? "CORRECT" : "INCORRECT"));
+    Serial.println("RESISTANCE: " + String(results.resistance_ohms, 3) + " ohms");
+  }
+  
+  // LED indication  
+  bool resistance_ok = (results.resistance_ohms > 0.1) && (results.resistance_ohms < 100.0);  // Reasonable range
+  bool overall_pass = results.tip_continuity && results.sleeve_continuity && results.polarity_correct && resistance_ok;
   
   if (overall_pass) {
     digitalWrite(PASS_LED, HIGH);
@@ -402,32 +417,41 @@ float measureResistance() {
   // Setup for resistance measurement
   digitalWrite(CABLE_RELAYS, LOW);   // NC = cap/res tests
   digitalWrite(RES_CAP_TEST_RELAY, HIGH);  // Open = resistance
-  delay(50); // Allow circuit to stabilize
   
-  // Measure voltage drop across cable using A0
+  // Set constant current via PWM (pin 6)
+  // PWM value 128 = ~2.5V reference = ~250mA current (with 10Ω sense resistor)
+  const int PWM_CURRENT_LEVEL = 128;  // Adjust this value to set current
+  const float SENSE_RESISTOR = 10.0;  // 10Ω current sense resistor
+  const float EXPECTED_CURRENT_MA = (PWM_CURRENT_LEVEL / 255.0) * (VOLTAGE_REF * 1000.0) / SENSE_RESISTOR;
+  
+  analogWrite(CURRENT_SOURCE_PWM, PWM_CURRENT_LEVEL);
+  delay(100); // Allow current source to stabilize
+  
+  // Measure voltage drop across cable at A0
+  // Current flows: Current Source → Cable → A0 → GND
   float voltage_drop = readAverageVoltage(RESISTANCE_SENSE_A0, MEASUREMENT_SAMPLES);
   
-  // Calculate resistance using voltage divider
-  // Assumes known test resistor in voltage divider configuration
-  const float TEST_RESISTOR = 1000.0;  // 1K test resistor
-  float resistance;
-  
-  if (voltage_drop > 0.01) {  // Avoid division by zero
-    resistance = (voltage_drop * TEST_RESISTOR) / (VOLTAGE_REF - voltage_drop);
+  // Calculate cable resistance using Ohm's law: R = V / I
+  float cable_resistance;
+  if (EXPECTED_CURRENT_MA > 0.1) {  // Avoid division by zero
+    cable_resistance = (voltage_drop * 1000.0) / EXPECTED_CURRENT_MA;  // Convert mA to A
   } else {
-    resistance = OPEN_CIRCUIT_THRESHOLD;  // Open circuit
+    cable_resistance = OPEN_CIRCUIT_THRESHOLD;  // No current flow
   }
   
   // Apply calibration offset
-  resistance += resistance_offset;
+  cable_resistance += resistance_offset;
   
   // Clean up
+  analogWrite(CURRENT_SOURCE_PWM, 0);  // Turn off current source
   digitalWrite(RES_CAP_TEST_RELAY, LOW);
   digitalWrite(CABLE_RELAYS, LOW);
   
-  Serial.println("DEBUG:RESISTANCE:" + String(resistance, 3) + "_OHMS");
+  if (DEBUG_MODE) {
+    Serial.println("DEBUG:RESISTANCE:I=" + String(EXPECTED_CURRENT_MA, 1) + "mA:V=" + String(voltage_drop, 3) + "V:R=" + String(cable_resistance, 3) + "_OHMS");
+  }
   
-  return resistance;
+  return cable_resistance;
 }
 
 float measureCapacitance() {
