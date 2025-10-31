@@ -8,7 +8,6 @@ from greenlight.screens import SplashScreen
 from greenlight.config import APP_NAME, EXIT_MESSAGE
 from greenlight.hardware.interfaces import hardware_manager
 from greenlight.hardware.scanner import ZebraDS2208Scanner, MockBarcodeScanner
-from greenlight.hardware.label_printer import BradyM511Printer, MockLabelPrinter
 from greenlight.hardware.card_printer import MockCardPrinter
 from greenlight.hardware.gpio import MockGPIO
 
@@ -29,14 +28,13 @@ def main():
         
         # Create hardware instances - initialization happens when first used
         scanner = ZebraDS2208Scanner()
-        label_printer = BradyM511Printer()  # Will auto-discover when needed
         card_printer = MockCardPrinter()
         gpio = MockGPIO()
         
         # Set up hardware manager with lazy initialization
         hardware_manager.set_hardware(
             scanner=scanner,
-            label_printer=label_printer,
+            label_printer=None,  # No label printer configured
             card_printer=card_printer,
             gpio=gpio
         )

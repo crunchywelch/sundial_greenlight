@@ -6,8 +6,5 @@ python-dotenv>=0.19.0
 # Uncomment and install only if using real Arduino hardware
 # pyserial>=3.5
 
-# Bluetooth support for Brady M511 printer
-bleak>=0.20.0
-
 # System information
 psutil>=5.8.0
