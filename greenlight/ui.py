@@ -31,12 +31,8 @@ class UIBase:
         self.console.clear()
         self.console.print(self.layout)
 
-
-
-
-
     def render_footer_menu(self, menu_items, title):
-        menu_items.append({"label": "Exit (q)", "action": "quit"})
+        menu_items.append({"label": "Quit (q)", "action": "quit"})
         rows = [
             f"[green]{i + 1}.[/green] {item['label']}"
             for i, item in enumerate(menu_items)

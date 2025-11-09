@@ -1,3 +1,4 @@
+"""Main application screens: Splash and Main Menu"""
 import os
 import sys
 from rich.panel import Panel
@@ -13,7 +14,7 @@ class SplashScreen(Screen):
         self.ui.header()
 
         # Load and display splash art
-        splash_path = os.path.join(os.path.dirname(__file__), "art", "splash.txt")
+        splash_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "art", "splash.txt")
         with open(splash_path, "r") as f:
             splash_text = f.read()
 
@@ -30,7 +31,6 @@ class SplashScreen(Screen):
 
         codes = list(OPERATORS.keys())
         valid_choices = [str(i + 1) for i in range(len(codes))]
-        valid_choices.append("q")
         choice_str = ",".join(valid_choices)
 
         try:
@@ -40,23 +40,22 @@ class SplashScreen(Screen):
             print(EXIT_MESSAGE)
             sys.exit(0)
 
-        if choice == "q":
-            return ScreenResult(NavigationAction.POP)
-        elif choice in valid_choices:
+        if choice in valid_choices:
             operator_code = codes[int(choice) - 1]
             return ScreenResult(NavigationAction.PUSH, MainMenuScreen, {"operator": operator_code})
         else:
             # Invalid choice - redisplay the same screen
             return ScreenResult(NavigationAction.REPLACE, SplashScreen)
 
+
 class MainMenuScreen(Screen):
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
         menu_items = [
             "Scan and Test Cables",
-            "Fulfill Orders", 
+            "Fulfill Orders",
             "Settings",
-            "Exit (q)"
+            "Quit (q)"
         ]
 
         rows = [
@@ -75,17 +74,17 @@ class MainMenuScreen(Screen):
             print(f"\n\n🛑 Exiting {APP_NAME}...")
             print(EXIT_MESSAGE)
             sys.exit(0)
-            
+
         if choice == "1":
-            from greenlight.cable_screens import CableSelectionForIntakeScreen
+            from greenlight.screens.cable import CableSelectionForIntakeScreen
             new_context = self.context.copy()
             new_context["selection_mode"] = "intake"
             return ScreenResult(NavigationAction.PUSH, CableSelectionForIntakeScreen, new_context)
         elif choice == "2":
-            from greenlight.inventory_screens import InventoryScreen
+            from greenlight.screens.inventory import InventoryScreen
             return ScreenResult(NavigationAction.PUSH, InventoryScreen, self.context)
         elif choice == "3":
-            from greenlight.settings_screens import SettingsScreen
+            from greenlight.screens.settings import SettingsScreen
             return ScreenResult(NavigationAction.PUSH, SettingsScreen, self.context)
         elif choice in ["4", "q"]:
             return ScreenResult(NavigationAction.POP)

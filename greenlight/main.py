@@ -6,12 +6,10 @@ from greenlight.ui import UIBase
 from greenlight.screen_manager import ScreenManager
 from greenlight.screens import SplashScreen
 from greenlight.config import APP_NAME, EXIT_MESSAGE
-from greenlight.hardware.interfaces import hardware_manager
 
 def signal_handler(sig, frame):
     """Handle Ctrl-C gracefully"""
     print(f"\n\n🛑 Exiting {APP_NAME}...")
-    hardware_manager.shutdown()
     print(EXIT_MESSAGE)
     sys.exit(0)
 
@@ -31,12 +29,10 @@ def main():
     except KeyboardInterrupt:
         # Fallback handler in case signal handler doesn't catch it
         print(f"\n\n🛑 Exiting {APP_NAME}...")
-        hardware_manager.shutdown()
         print(EXIT_MESSAGE)
         sys.exit(0)
     except Exception as e:
         print(f"\n❌ An unexpected error occurred: {e}")
-        hardware_manager.shutdown()
         print(f"Exiting {APP_NAME}...")
         sys.exit(1)
 
