@@ -6,10 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Setup virtual environment and install dependencies
-./dev_env.sh
+# IMPORTANT: Must be SOURCED, not executed
+source dev_env.sh
 
 # Run the application
 python -m greenlight.main
+
+# To deactivate the virtual environment
+deactivate
 ```
 
 ## Architecture Overview
@@ -65,10 +69,50 @@ Database connection uses standard PostgreSQL environment variables with `GREENLI
 
 ### Current Menu Structure
 
-1. Splash screen
-2. Operator selection (from config)
-3. Main menu: Cable QC, Inventory Management, Settings
-4. Each module has its own nested menu system
+1. **Splash screen with operator selection** - Combined screen shows app logo and operator list
+2. **Main menu** - Cable QC, Inventory Management, Settings
+3. **Cable QC submenu**:
+   - Register Cables: Select SKU → Scan cable labels → Register in database
+   - Test Cables: Scan serial number → Load from database → Run QC tests
+
+### Cable Workflow
+
+**Register Cables** (Primary workflow):
+1. Select cable type:
+   - Enter SKU: Choose series → Select from SKU list
+   - Select by attributes: Choose series → color → length → connector
+2. After selecting cable type, automatically enter scanning mode
+3. Scan barcode label using Zebra DS2208 scanner (or press 'm' for manual entry)
+4. **Confirmation step**: System displays scanned serial number for verification
+5. Press Enter to confirm and save to database (or 'n' to skip, 'q' to quit)
+6. System saves cable to database and returns to scanning mode
+7. Shows running count and last 5 scanned serial numbers
+8. Duplicate detection prevents re-registering existing serial numbers
+9. Press 'q' at scan prompt when done to see summary report
+10. Supports batch scanning - scan multiple cables of same type in one session
+
+**Test Cables**:
+1. Scan serial number from cable label
+2. System looks up cable record in database
+3. If not tested yet, run Arduino QC tests (resistance, capacitance, continuity)
+4. Save test results to database
+5. Optionally print QC card with results
+
+**Key Features**:
+- No label printing - cables arrive with pre-printed labels
+- Scanner-first workflow optimized for rapid data entry
+- Real-time feedback on successful scans and errors
+- Manual entry fallback if scanner unavailable
+
+### Scanner Operation
+
+The Zebra DS2208 operates as a USB HID keyboard device:
+- Appears to the system as a keyboard input device
+- When scanning a barcode, it types the characters and presses Enter
+- Application uses Rich console.input() to capture this seamlessly
+- No special drivers needed - works with standard keyboard input
+- Scanner is initialized at application startup
+- Both scanned and manually typed serial numbers work identically
 
 The application maintains a shared UI layout (header/body/footer) across all screens using Rich's Layout system.
 

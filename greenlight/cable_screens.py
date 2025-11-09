@@ -16,17 +16,17 @@ from greenlight.cable import (
 from greenlight.testing import MockArduinoTester, ArduinoATmega32Tester
 from greenlight.config import USE_REAL_ARDUINO, ARDUINO_PORT, ARDUINO_BAUDRATE
 from greenlight.db import insert_audio_cable, get_audio_cable
-from greenlight.new_screens import PrintLabelsScreen, TestAssembledCableScreen
+from greenlight.new_screens import TestAssembledCableScreen, ScanCableIntakeScreen
 
 
 class CableQCScreen(Screen):
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
-        
-        # Simple two-option menu
+
+        # Cable management menu
         menu_items = [
+            "Register Cables",
             "Test Cables",
-            "Print Cable Labels", 
             "Back (q)"
         ]
 
@@ -38,26 +38,29 @@ class CableQCScreen(Screen):
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(
             "Audio Cable Management\n\n"
-            "• Test Cables - Scan serial number from assembled cable and run QC tests\n"
-            "• Print Cable Labels - Select cable type and print labels for assembly team",
+            "• Register Cables - Select SKU and scan cable labels to enter into database\n"
+            "• Test Cables - Scan serial number from assembled cable and run QC tests",
             title="Cable Management Options"
         ))
         self.ui.layout["footer"].update(Panel("\n".join(rows), title="Audio Cable Management"))
         self.ui.render()
 
         choice = self.ui.console.input("Choose: ")
-        
-        if choice == "1":  # Test Cables
+
+        if choice == "1":  # Register Cables
+            new_context = self.context.copy()
+            new_context["selection_mode"] = "intake"
+            return ScreenResult(NavigationAction.PUSH, CableSelectionForIntakeScreen, new_context)
+        elif choice == "2":  # Test Cables
             return ScreenResult(NavigationAction.PUSH, TestAssembledCableScreen, self.context)
-        elif choice == "2":  # Print Cable Labels
-            return ScreenResult(NavigationAction.PUSH, CableSelectionScreen, self.context)
         elif choice == "3" or choice.lower() == "q":  # Back
             return ScreenResult(NavigationAction.POP)
         else:
             return ScreenResult(NavigationAction.REPLACE, CableQCScreen, self.context)
 
 
-class CableSelectionScreen(Screen):
+class CableSelectionForIntakeScreen(Screen):
+    """Cable selection for registration workflow"""
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
         menu_items = [
@@ -72,27 +75,30 @@ class CableSelectionScreen(Screen):
         ]
 
         self.ui.header(operator)
-        self.ui.layout["body"].update(Panel("Choose how to select cable type for label printing", title="Cable Selection for Labels"))
+        self.ui.layout["body"].update(Panel("Choose how to select cable type for registration", title="Cable Type Selection"))
         self.ui.layout["footer"].update(Panel("\n".join(rows), title="Selection Method"))
         self.ui.render()
 
         choice = self.ui.console.input("Choose: ")
+        new_context = self.context.copy()
+        new_context["selection_mode"] = "intake"
+
         if choice == "1":
-            return ScreenResult(NavigationAction.REPLACE, SKUEntryScreen, self.context)
+            return ScreenResult(NavigationAction.REPLACE, SKUEntryScreen, new_context)
         elif choice == "2":
-            return ScreenResult(NavigationAction.REPLACE, AttributeSelectionScreen, self.context)
+            return ScreenResult(NavigationAction.REPLACE, AttributeSelectionScreen, new_context)
         elif choice == "3" or choice.lower() == "q":
             return ScreenResult(NavigationAction.POP)
         else:
-            return ScreenResult(NavigationAction.REPLACE, CableSelectionScreen, self.context)
+            return ScreenResult(NavigationAction.REPLACE, CableSelectionForIntakeScreen, self.context)
 
 
 class SKUEntryScreen(Screen):
     def run(self) -> ScreenResult:
         # This screen is just a redirect - go directly to series selection
-        # Set context to indicate this is for SKU selection workflow
+        # Preserve selection_mode (intake vs labels) and add via_sku flag
         new_context = self.context.copy()
-        new_context["selection_mode"] = "sku"
+        new_context["via_sku"] = True  # Using SKU selection method
         return ScreenResult(NavigationAction.REPLACE, SeriesSelectionScreen, new_context)
 
 
@@ -177,26 +183,17 @@ class SKUListSelectionScreen(Screen):
         return ScreenResult(NavigationAction.REPLACE, SKUListSelectionScreen, self.context)
     
     def load_selected_sku(self, sku):
-        """Load the selected SKU and return to cable QC screen"""
+        """Load the selected SKU and go directly to cable scanning"""
         try:
             cable_type = CableType()
             cable_type.load(sku)
-            
+
             # Store cable type in context
             new_context = self.context.copy()
             new_context["cable_type"] = cable_type
-            
-            # Show success
-            self.ui.layout["body"].update(Panel(
-                f"Successfully loaded cable: {sku}\n\n{cable_type.name()}", 
-                title="Success", style="green"
-            ))
-            self.ui.layout["footer"].update(Panel("Press enter to continue...", title=""))
-            self.ui.render()
-            self.ui.console.input("")
-            
-            # Navigate directly to PrintLabelsScreen with selected cable
-            return ScreenResult(NavigationAction.REPLACE, PrintLabelsScreen, new_context)
+
+            # Go directly to scanning screen without pause
+            return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
         except ValueError as e:
             # Show error
             self.ui.layout["body"].update(Panel(f"Error loading {sku}: {str(e)}", title="Error", style="red"))
@@ -209,9 +206,9 @@ class SKUListSelectionScreen(Screen):
 class AttributeSelectionScreen(Screen):
     def run(self) -> ScreenResult:
         # Start the attribute selection flow with series selection
-        # Set context to indicate this is for attribute selection workflow
+        # Preserve selection_mode (intake vs labels), use attribute selection method
         new_context = self.context.copy()
-        new_context["selection_mode"] = "attribute"
+        # No via_sku flag means we'll use attribute selection path
         return ScreenResult(NavigationAction.REPLACE, SeriesSelectionScreen, new_context)
 
 
@@ -260,10 +257,10 @@ class SeriesSelectionScreen(Screen):
                 selected_series = series_options[choice_idx]
                 new_context = self.context.copy()
                 new_context["selected_series"] = selected_series
-                
-                # Route based on selection mode
-                selection_mode = self.context.get("selection_mode", "attribute")
-                if selection_mode == "sku":
+
+                # Route based on selection method (SKU list vs attribute selection)
+                via_sku = self.context.get("via_sku", False)
+                if via_sku:
                     return ScreenResult(NavigationAction.REPLACE, SKUListSelectionScreen, new_context)
                 else:  # attribute mode
                     return ScreenResult(NavigationAction.REPLACE, ColorPatternSelectionScreen, new_context)
@@ -419,25 +416,17 @@ class ConnectorTypeSelectionScreen(Screen):
                 sku = find_cable_by_attributes(selected_series, selected_color, selected_length, selected_connector)
                 
                 if sku:
-                    # Load the cable and show success
+                    # Load the cable and go directly to scanning
                     try:
                         cable_type = CableType()
                         cable_type.load(sku)
-                        
+
                         # Store cable type in context
                         new_context = self.context.copy()
                         new_context["cable_type"] = cable_type
-                        
-                        self.ui.layout["body"].update(Panel(
-                            f"Successfully found cable:\n\nSKU: {sku}\nSeries: {selected_series}\nColor: {selected_color}\nLength: {selected_length} ft\nConnector: {selected_connector}", 
-                            title="Cable Found!", style="green"
-                        ))
-                        self.ui.layout["footer"].update(Panel("Press enter to continue...", title=""))
-                        self.ui.render()
-                        self.ui.console.input("")
-                        
-                        # Navigate directly to PrintLabelsScreen with selected cable
-                        return ScreenResult(NavigationAction.REPLACE, PrintLabelsScreen, new_context)
+
+                        # Go directly to scanning screen without pause
+                        return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
                     except ValueError as e:
                         self.ui.layout["body"].update(Panel(f"Error loading cable: {str(e)}", title="Error", style="red"))
                         self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))

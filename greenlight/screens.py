@@ -8,50 +8,53 @@ from greenlight.config import OPERATORS, APP_NAME, APP_SUBTITLE, EXIT_MESSAGE
 
 class SplashScreen(Screen):
     def run(self) -> ScreenResult:
+        """Combined splash screen and operator selection"""
         self.ui.console.clear()
         self.ui.header()
-        
+
+        # Load and display splash art
         splash_path = os.path.join(os.path.dirname(__file__), "art", "splash.txt")
         with open(splash_path, "r") as f:
             splash_text = f.read()
-        
+
         self.ui.console.print(Panel(splash_text, style="bold green", subtitle=APP_SUBTITLE))
-        self.ui.console.input("Press enter to begin...")
-        
-        return ScreenResult(NavigationAction.PUSH, OperatorSelectionScreen)
 
-
-class OperatorSelectionScreen(Screen):
-    def run(self) -> ScreenResult:
+        # Show operator selection immediately below splash
         rows = [
             f"[green]{i + 1}.[/green] {name} ({code})"
             for i, (code, name) in enumerate(OPERATORS.items())
         ]
 
-        self.ui.header()
-        self.ui.layout["body"].update(Panel("Please identify yourself to begin"))
-        self.ui.layout["footer"].update(Panel("\n".join(rows), title="Who are you?"))
-        self.ui.render()
+        self.ui.console.print()  # Empty line
+        self.ui.console.print(Panel("\n".join(rows), title="[bold cyan]Select Operator[/bold cyan]"))
 
         codes = list(OPERATORS.keys())
         valid_choices = [str(i + 1) for i in range(len(codes))]
         valid_choices.append("q")
         choice_str = ",".join(valid_choices)
-        
+
         try:
-            choice = self.ui.console.input("Choose operator: (" + choice_str + ") ")
+            choice = self.ui.console.input(f"\n[bold]Choose operator:[/bold] ({choice_str}) ")
         except KeyboardInterrupt:
             print(f"\n\n🛑 Exiting {APP_NAME}...")
             print(EXIT_MESSAGE)
             sys.exit(0)
-            
+
         if choice == "q":
             return ScreenResult(NavigationAction.POP)
         elif choice in valid_choices:
             operator_code = codes[int(choice) - 1]
             return ScreenResult(NavigationAction.PUSH, MainMenuScreen, {"operator": operator_code})
         else:
-            return ScreenResult(NavigationAction.REPLACE, OperatorSelectionScreen)
+            # Invalid choice - redisplay the same screen
+            return ScreenResult(NavigationAction.REPLACE, SplashScreen)
+
+
+class OperatorSelectionScreen(Screen):
+    """Deprecated - functionality merged into SplashScreen"""
+    def run(self) -> ScreenResult:
+        # Redirect to SplashScreen if somehow accessed
+        return ScreenResult(NavigationAction.REPLACE, SplashScreen)
 
 
 class MainMenuScreen(Screen):

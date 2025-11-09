@@ -1,152 +1,11 @@
 from rich.panel import Panel
+from rich.table import Table
 from greenlight.screen_manager import Screen, ScreenResult, NavigationAction
 from greenlight.config import APP_NAME
 from greenlight.hardware.interfaces import hardware_manager
+import time
 
-
-class PrintLabelsScreen(Screen):
-    def run(self) -> ScreenResult:
-        operator = self.context.get("operator", "")
-        cable_type = self.context.get("cable_type")
-        
-        if not cable_type or not cable_type.is_loaded():
-            self.ui.header(operator)
-            self.ui.layout["body"].update(Panel("No cable type selected", title="Error", style="red"))
-            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
-            self.ui.render()
-            self.ui.console.input("Press enter to continue...")
-            return ScreenResult(NavigationAction.POP)
-        
-        self.ui.header(operator)
-        self.ui.layout["body"].update(Panel(
-            f"Print labels for: {cable_type.name()}\n\n"
-            f"SKU: {cable_type.sku}\n"
-            f"This will generate serial numbers and print labels for assembly team.",
-            title="Print Labels for Assembly"
-        ))
-        self.ui.layout["footer"].update(Panel("Enter number of labels to print (1-100):", title="Quantity"))
-        self.ui.render()
-        
-        try:
-            quantity_str = self.ui.console.input("Quantity: ")
-            quantity = int(quantity_str)
-            if quantity < 1 or quantity > 100:
-                raise ValueError("Quantity must be between 1 and 100")
-        except (ValueError, KeyboardInterrupt):
-            return ScreenResult(NavigationAction.POP)
-        
-        return self.print_label_batch(operator, cable_type, quantity)
-    
-    def print_label_batch(self, operator, cable_type, quantity):
-        """Generate serial numbers and print labels"""
-        from greenlight.db import create_cable_for_assembly
-        
-        # Generate cable records for the batch
-        serial_numbers = []
-        for i in range(quantity):
-            cable_record = create_cable_for_assembly(cable_type.sku)
-            if cable_record:
-                serial_numbers.append(cable_record['serial_number'])
-            else:
-                # Handle error in serial generation
-                self.ui.layout["body"].update(Panel(
-                    f"❌ Error creating cable record {i+1} of {quantity}\n\n"
-                    f"Generated {len(serial_numbers)} serial numbers before error.",
-                    title="Error", style="red"
-                ))
-                self.ui.layout["footer"].update(Panel("Press enter to continue", title=""))
-                self.ui.render()
-                self.ui.console.input("Press enter to continue...")
-                return ScreenResult(NavigationAction.POP)
-        
-        # Show confirmation and prompt to print
-        self.ui.layout["body"].update(Panel(
-            f"📄 Ready to Print {quantity} Labels\n\n"
-            f"Cable Type: {cable_type.name()}\n"
-            f"SKU: {cable_type.sku}\n"
-            f"Quantity: {quantity} labels\n\n"
-            f"Serial numbers {serial_numbers[0]} through {serial_numbers[-1]} have been reserved in the database.\n\n"
-            f"Press Enter when ready to send labels to printer...",
-            title="Labels Ready", style="green"
-        ))
-        self.ui.layout["footer"].update(Panel("Press Enter to print, 'q' to cancel", title=""))
-        self.ui.render()
-        
-        choice = self.ui.console.input("Print labels? ").lower()
-        if choice == 'q':
-            return ScreenResult(NavigationAction.POP)
-        
-        # Print labels using hardware manager
-        return self.execute_label_printing(cable_type, serial_numbers, quantity)
-    
-    def execute_label_printing(self, cable_type, serial_numbers, quantity):
-        """Execute the actual label printing using hardware manager"""
-        from greenlight.hardware.interfaces import PrintJob
-        
-        # Check if label printer is available
-        printer_available = hardware_manager.label_printer and hardware_manager.label_printer.is_ready()
-        
-        if not printer_available:
-            self.ui.layout["body"].update(Panel(
-                f"⚠️  Label printer not available\n\n"
-                f"Serial numbers have been reserved in database:\n"
-                f"{serial_numbers[0]} through {serial_numbers[-1]}\n\n"
-                f"Please check printer connection and try again.",
-                title="Printer Error", style="yellow"
-            ))
-            self.ui.layout["footer"].update(Panel("Press enter to continue", title=""))
-            self.ui.render()
-            self.ui.console.input("Press enter to continue...")
-            return ScreenResult(NavigationAction.POP)
-        
-        # Show printing in progress
-        self.ui.layout["body"].update(Panel(
-            f"🖨️  Printing {quantity} labels...\n\n"
-            f"Cable Type: {cable_type.name()}\n"
-            f"SKU: {cable_type.sku}\n\n"
-            f"Please wait while labels are printed...",
-            title="Printing", style="blue"
-        ))
-        self.ui.layout["footer"].update(Panel("Printing in progress...", title="Status"))
-        self.ui.render()
-        
-        # Create print job
-        print_job = PrintJob(
-            template="cable_label",
-            data={
-                'sku': cable_type.sku,
-                'cable_name': cable_type.name(),
-                'serial_numbers': serial_numbers
-            },
-            quantity=quantity
-        )
-        
-        # Send to printer
-        print_success = hardware_manager.label_printer.print_labels(print_job)
-        
-        if print_success:
-            self.ui.layout["body"].update(Panel(
-                f"✅ {quantity} labels printed successfully!\n\n"
-                f"Cable Type: {cable_type.name()}\n"
-                f"SKU: {cable_type.sku}\n\n"
-                f"Serial numbers {serial_numbers[0]} through {serial_numbers[-1]}\n"
-                f"are ready for the assembly team.",
-                title="Print Complete", style="green"
-            ))
-        else:
-            self.ui.layout["body"].update(Panel(
-                f"❌ Label printing failed\n\n"
-                f"Serial numbers have been reserved in database:\n"
-                f"{serial_numbers[0]} through {serial_numbers[-1]}\n\n"
-                f"Please check printer and try printing again.",
-                title="Print Error", style="red"
-            ))
-        
-        self.ui.layout["footer"].update(Panel("Press enter to continue", title=""))
-        self.ui.render()
-        
-        self.ui.console.input("Press enter to continue...")
-        return ScreenResult(NavigationAction.POP)
+# Note: CableTestScreen is imported at runtime to avoid circular imports
 
 
 class TestAssembledCableScreen(Screen):
@@ -277,15 +136,16 @@ class TestAssembledCableScreen(Screen):
         
         # Load cable type for testing
         try:
+            from greenlight.cable_screens import CableTestScreen
             cable_type = CableType()
             cable_type.load(cable_record['sku'])
-            
+
             # Show cable info and start testing
             new_context = self.context.copy()
             new_context['cable_type'] = cable_type
             new_context['serial_number'] = serial_number
             new_context['testing_mode'] = 'assembled'  # Flag to indicate this is testing assembled cable
-            
+
             return ScreenResult(NavigationAction.PUSH, CableTestScreen, new_context)
             
         except ValueError as e:
@@ -333,16 +193,218 @@ class TestAssembledCableScreen(Screen):
         if choice == 'r':
             # Allow retesting - load cable type and start test
             try:
+                from greenlight.cable_screens import CableTestScreen
                 cable_type = CableType()
                 cable_type.load(cable_record['sku'])
-                
+
                 new_context = self.context.copy()
                 new_context['cable_type'] = cable_type
                 new_context['serial_number'] = serial_number
                 new_context['testing_mode'] = 'retest'
-                
+
                 return ScreenResult(NavigationAction.PUSH, CableTestScreen, new_context)
             except ValueError as e:
                 return ScreenResult(NavigationAction.POP)
         else:
             return ScreenResult(NavigationAction.POP)
+
+
+class ScanCableIntakeScreen(Screen):
+    """Screen for scanning cables and registering them in the database"""
+
+    def run(self) -> ScreenResult:
+        operator = self.context.get("operator", "")
+        cable_type = self.context.get("cable_type")
+
+        if not cable_type or not cable_type.is_loaded():
+            self.ui.header(operator)
+            self.ui.layout["body"].update(Panel("No cable type selected", title="Error", style="red"))
+            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.render()
+            self.ui.console.input("Press enter to continue...")
+            return ScreenResult(NavigationAction.POP)
+
+        # Show scanning interface
+        return self.scan_cables_loop(operator, cable_type)
+
+    def scan_cables_loop(self, operator, cable_type):
+        """Main scanning loop for registering multiple cables"""
+        from greenlight.db import register_scanned_cable
+
+        scanned_count = 0
+        scanned_serials = []
+
+        while True:
+            # Show current status
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("Property", style="cyan", width=20)
+            table.add_column("Value", style="green")
+
+            table.add_row("Cable Type", cable_type.name())
+            table.add_row("SKU", cable_type.sku)
+            table.add_row("Scanned Count", str(scanned_count))
+            if scanned_serials:
+                recent_serials = scanned_serials[-5:]  # Show last 5
+                table.add_row("Recent Scans", "\n".join(recent_serials))
+
+            self.ui.header(operator)
+            self.ui.layout["body"].update(Panel(
+                table,
+                title="📦 Register Cables - Scan Labels",
+                subtitle="Scan barcode labels to register cables in database"
+            ))
+
+            # Check if scanner is available
+            scanner_available = hardware_manager.scanner and hardware_manager.scanner.is_connected()
+
+            if scanner_available:
+                self.ui.layout["footer"].update(Panel(
+                    "🔍 [bold green]Ready - Scan barcode now[/bold green]\n"
+                    "[dim]Scanner will type serial number automatically[/dim]\n"
+                    "Type 'q' and press Enter to finish",
+                    title="Scanner Active", style="blue"
+                ))
+            else:
+                self.ui.layout["footer"].update(Panel(
+                    "Enter serial number (or 'q' to finish)",
+                    title="Manual Entry Mode", style="yellow"
+                ))
+
+            self.ui.render()
+
+            # Get serial number via scanner or manual entry
+            # Note: Scanner acts as keyboard, so both paths use the same method
+            serial_number = self.get_serial_number_scan_or_manual()
+
+            # Check for quit
+            if not serial_number or serial_number.lower() == 'q':
+                break
+
+            # Show confirmation screen with scanned serial number
+            self.ui.layout["body"].update(Panel(
+                f"[bold cyan]Scanned Serial Number:[/bold cyan]\n\n"
+                f"[bold yellow]{serial_number}[/bold yellow]\n\n"
+                f"Cable Type: {cable_type.name()}\n"
+                f"SKU: {cable_type.sku}",
+                title="📋 Confirm Serial Number",
+                style="blue"
+            ))
+            self.ui.layout["footer"].update(Panel(
+                "Press [green]Enter[/green] to save | 'n' to skip | 'q' to quit",
+                title="Confirm"
+            ))
+            self.ui.render()
+
+            # Wait for confirmation
+            try:
+                confirmation = self.ui.console.input("").strip().lower()
+            except KeyboardInterrupt:
+                break
+
+            # Handle confirmation response
+            if confirmation == 'q':
+                break
+            elif confirmation == 'n':
+                # Skip this serial number
+                self.ui.layout["footer"].update(Panel(
+                    f"⏭️  Skipped: {serial_number}",
+                    title="Skipped", style="yellow"
+                ))
+                self.ui.render()
+                time.sleep(0.8)
+                continue
+            # Empty string (Enter pressed) or anything else means confirm
+
+            # Register the cable in database
+            result = register_scanned_cable(serial_number, cable_type.sku)
+
+            if result.get('success'):
+                # Successfully registered
+                scanned_count += 1
+                scanned_serials.append(serial_number)
+
+                # Show brief success message
+                self.ui.layout["footer"].update(Panel(
+                    f"✅ Saved to database: {serial_number}",
+                    title="Success", style="green"
+                ))
+                self.ui.render()
+                time.sleep(0.8)  # Brief pause to show success
+            else:
+                # Error registering
+                error_type = result.get('error', 'unknown')
+                error_msg = result.get('message', 'Unknown error')
+
+                if error_type == 'duplicate':
+                    error_display = f"⚠️  Duplicate: {serial_number}\n\nThis serial number is already in the database."
+                    error_style = "yellow"
+                else:
+                    error_display = f"❌ Error: {error_msg}"
+                    error_style = "red"
+
+                self.ui.layout["footer"].update(Panel(
+                    error_display,
+                    title="Registration Error", style=error_style
+                ))
+                self.ui.render()
+                time.sleep(1.5)  # Longer pause for errors
+
+        # Show final summary
+        return self.show_intake_summary(operator, cable_type, scanned_count, scanned_serials)
+
+    def get_serial_number_scan_or_manual(self):
+        """Get serial number via scanner - Zebra DS2208 sends as keyboard input"""
+        # Zebra DS2208 scanner appears as USB HID keyboard
+        # When a barcode is scanned, it types the characters and presses Enter
+        # Rich's console.input() will capture this naturally
+
+        try:
+            # This will capture both scanner input and manual keyboard input
+            # The scanner types the serial number and presses Enter automatically
+            # Show a visible prompt so user knows where the input will appear
+            self.ui.console.print("\n[bold cyan]►[/bold cyan] ", end="")
+            serial_number = self.ui.console.input().strip().upper()
+
+            # Check if user wants to quit
+            if serial_number.lower() == 'q':
+                return None
+
+            return serial_number if serial_number else None
+
+        except KeyboardInterrupt:
+            return None
+
+    def get_serial_number_manual_only(self):
+        """Get serial number via manual keyboard entry"""
+        try:
+            serial_number = self.ui.console.input("Serial number: ").strip().upper()
+            return serial_number if serial_number and serial_number.lower() != 'q' else None
+        except KeyboardInterrupt:
+            return None
+
+    def show_intake_summary(self, operator, cable_type, scanned_count, scanned_serials):
+        """Show summary of intake session"""
+
+        summary_table = Table(show_header=True, header_style="bold magenta")
+        summary_table.add_column("Metric", style="cyan", width=25)
+        summary_table.add_column("Value", style="green")
+
+        summary_table.add_row("Cable Type", cable_type.name())
+        summary_table.add_row("SKU", cable_type.sku)
+        summary_table.add_row("Total Scanned", str(scanned_count))
+        summary_table.add_row("Operator", operator)
+
+        if scanned_serials:
+            summary_table.add_row("Serial Range", f"{scanned_serials[0]} to {scanned_serials[-1]}")
+
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(
+            summary_table,
+            title="✅ Cable Registration Complete",
+            style="green"
+        ))
+        self.ui.layout["footer"].update(Panel("Press enter to continue", title=""))
+        self.ui.render()
+
+        self.ui.console.input("Press enter to continue...")
+        return ScreenResult(NavigationAction.POP)

@@ -102,34 +102,37 @@ def get_audio_cable(serial_number):
     finally:
         pg_pool.putconn(conn)
 
-def create_cable_for_assembly(cable_sku):
-    """Create a cable record with serial number for assembly (no test results yet)"""
+def register_scanned_cable(serial_number, cable_sku):
+    """Register a cable with a scanned serial number into the database (intake workflow)"""
     conn = pg_pool.getconn()
     try:
-        serial_number = generate_serial_number()
-        if not serial_number:
-            raise Exception("Failed to generate serial number")
-            
         with conn:
             with conn.cursor() as cur:
+                # Check if serial number already exists
+                cur.execute("SELECT serial_number FROM audio_cables WHERE serial_number = %s", (serial_number,))
+                if cur.fetchone():
+                    return {'error': 'duplicate', 'message': f'Serial number {serial_number} already exists in database'}
+
+                # Insert new cable record with scanned serial number
                 cur.execute("""
-                    INSERT INTO audio_cables 
-                        (serial_number, sku, resistance_ohms, capacitance_pf, 
+                    INSERT INTO audio_cables
+                        (serial_number, sku, resistance_ohms, capacitance_pf,
                          operator, arduino_unit_id, notes)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                     RETURNING serial_number, test_timestamp
-                """, (serial_number, cable_sku, None, None, None, None, None))
+                """, (serial_number, cable_sku, None, None, None, None, 'Scanned intake'))
                 result = cur.fetchone()
                 conn.commit()
                 return {
                     'serial_number': result[0],
                     'timestamp': result[1],
-                    'sku': cable_sku
+                    'sku': cable_sku,
+                    'success': True
                 }
     except Exception as e:
-        print(f"❌ Error creating cable for assembly: {e}")
+        print(f"❌ Error registering scanned cable: {e}")
         conn.rollback()
-        return None
+        return {'error': 'database', 'message': str(e)}
     finally:
         pg_pool.putconn(conn)
 
@@ -140,16 +143,16 @@ def update_cable_test_results(serial_number, test_result):
         with conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    UPDATE audio_cables 
-                    SET resistance_ohms = %s, 
-                        capacitance_pf = %s, 
-                        operator = %s, 
+                    UPDATE audio_cables
+                    SET resistance_ohms = %s,
+                        capacitance_pf = %s,
+                        operator = %s,
                         arduino_unit_id = %s,
                         test_timestamp = CURRENT_TIMESTAMP
                     WHERE serial_number = %s
                     RETURNING test_timestamp
                 """, (
-                    test_result.resistance_ohms, test_result.capacitance_pf, 
+                    test_result.resistance_ohms, test_result.capacitance_pf,
                     test_result.operator, test_result.arduino_unit_id, serial_number
                 ))
                 result = cur.fetchone()

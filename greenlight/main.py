@@ -23,15 +23,22 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     
     try:
-        # Create hardware instances without initialization (lazy loading)
+        # Create and initialize hardware instances
         print(f"🚀 Starting {APP_NAME}...")
-        
-        # Create hardware instances - initialization happens when first used
+
+        # Create scanner and initialize
         scanner = ZebraDS2208Scanner()
+        print("📱 Initializing Zebra DS2208 barcode scanner...")
+        if scanner.initialize():
+            print("   ✅ Scanner ready")
+        else:
+            print("   ⚠️  Scanner not detected - manual entry mode available")
+
+        # Create other hardware (not currently used)
         card_printer = MockCardPrinter()
         gpio = MockGPIO()
-        
-        # Set up hardware manager with lazy initialization
+
+        # Set up hardware manager
         hardware_manager.set_hardware(
             scanner=scanner,
             label_printer=None,  # No label printer configured
