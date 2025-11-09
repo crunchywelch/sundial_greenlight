@@ -8,6 +8,10 @@ python-dotenv>=0.19.0
 
 # USB barcode scanner (Zebra DS2208)
 pyusb>=1.2.0
+evdev>=1.6.0  # For HID barcode scanner input device access
 
 # System information
 psutil>=5.8.0
+
+# shopify python sdk https://github.com/Shopify/shopify_python_api
+ShopifyAPI

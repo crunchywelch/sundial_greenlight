@@ -102,16 +102,79 @@ def get_audio_cable(serial_number):
     finally:
         pg_pool.putconn(conn)
 
-def register_scanned_cable(serial_number, cable_sku):
+def format_serial_number(serial_number):
+    """
+    Format serial number by padding numeric portion to 6 digits.
+    Examples:
+        "123" -> "000123"
+        "SD123" -> "SD000123"
+        "000123" -> "000123" (already formatted)
+    """
+    import re
+
+    # Extract prefix (letters) and numeric part
+    match = re.match(r'^([A-Za-z]*)(\d+)$', serial_number)
+    if match:
+        prefix = match.group(1)
+        number = match.group(2)
+        # Pad numeric part to 6 digits
+        padded_number = number.zfill(6)
+        return f"{prefix}{padded_number}"
+
+    # If doesn't match expected pattern, return as-is
+    return serial_number
+
+def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_exists=False):
     """Register a cable with a scanned serial number into the database (intake workflow)"""
     conn = pg_pool.getconn()
     try:
+        # Format serial number (pad to 6 digits)
+        formatted_serial = format_serial_number(serial_number)
+
         with conn:
             with conn.cursor() as cur:
                 # Check if serial number already exists
-                cur.execute("SELECT serial_number FROM audio_cables WHERE serial_number = %s", (serial_number,))
-                if cur.fetchone():
-                    return {'error': 'duplicate', 'message': f'Serial number {serial_number} already exists in database'}
+                cur.execute("""
+                    SELECT serial_number, sku, operator, test_timestamp, notes
+                    FROM audio_cables
+                    WHERE serial_number = %s
+                """, (formatted_serial,))
+                existing = cur.fetchone()
+
+                if existing:
+                    if not update_if_exists:
+                        # Return duplicate error with existing record info
+                        return {
+                            'error': 'duplicate',
+                            'message': f'Serial number {formatted_serial} already exists in database',
+                            'existing_record': {
+                                'serial_number': existing[0],
+                                'sku': existing[1],
+                                'operator': existing[2],
+                                'timestamp': existing[3],
+                                'notes': existing[4]
+                            }
+                        }
+                    else:
+                        # Update existing record
+                        cur.execute("""
+                            UPDATE audio_cables
+                            SET sku = %s,
+                                operator = %s,
+                                test_timestamp = CURRENT_TIMESTAMP,
+                                notes = %s
+                            WHERE serial_number = %s
+                            RETURNING serial_number, test_timestamp
+                        """, (cable_sku, operator, 'Updated via scan', formatted_serial))
+                        result = cur.fetchone()
+                        conn.commit()
+                        return {
+                            'serial_number': result[0],
+                            'timestamp': result[1],
+                            'sku': cable_sku,
+                            'success': True,
+                            'updated': True
+                        }
 
                 # Insert new cable record with scanned serial number
                 cur.execute("""
@@ -120,7 +183,7 @@ def register_scanned_cable(serial_number, cable_sku):
                          operator, arduino_unit_id, notes)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                     RETURNING serial_number, test_timestamp
-                """, (serial_number, cable_sku, None, None, None, None, 'Scanned intake'))
+                """, (formatted_serial, cable_sku, None, None, operator, None, 'Scanned intake'))
                 result = cur.fetchone()
                 conn.commit()
                 return {

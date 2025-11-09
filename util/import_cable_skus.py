@@ -39,13 +39,12 @@ def import_cable_skus(csv_path='util/cable_skus.csv'):
                     try:
                         cur.execute('''
                             INSERT INTO cable_skus (
-                                sku, series, price, core_cable, braid_material, 
+                                sku, series, core_cable, braid_material, 
                                 color_pattern, length, connector_type, description
                             )
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                             ON CONFLICT (sku) DO UPDATE SET
                                 series = EXCLUDED.series,
-                                price = EXCLUDED.price,
                                 core_cable = EXCLUDED.core_cable,
                                 braid_material = EXCLUDED.braid_material,
                                 color_pattern = EXCLUDED.color_pattern,
@@ -56,7 +55,6 @@ def import_cable_skus(csv_path='util/cable_skus.csv'):
                         ''', (
                             row['SKU'],
                             row['Series'],
-                            row['MSRP'] if row['MSRP'] else None,
                             row['Core Cable'],
                             row['Braid Type'],
                             row['Color/Pattern'],

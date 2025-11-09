@@ -56,7 +56,7 @@ class TestAssembledCableScreen(Screen):
         
         self.ui.layout["footer"].update(Panel(
             "🔍 Ready to scan barcode... (press 'm' for manual entry, 'q' to quit)",
-            title="Scanning", style="blue"
+            title="Scanning", border_style="cyan"
         ))
         self.ui.render()
         
@@ -254,40 +254,50 @@ class ScanCableIntakeScreen(Screen):
                 subtitle="Scan barcode labels to register cables in database"
             ))
 
-            # Check if scanner is available
-            scanner_available = hardware_manager.scanner and hardware_manager.scanner.is_connected()
+            # Check if evdev scanner is available
+            from greenlight.hardware.barcode_scanner import get_scanner
+            scanner = get_scanner()
+            scanner_available = scanner.is_connected() or scanner.initialize()
 
             if scanner_available:
                 self.ui.layout["footer"].update(Panel(
                     "🔍 [bold green]Ready - Scan barcode now[/bold green]\n"
-                    "[dim]Scanner will type serial number automatically[/dim]\n"
+                    "[bright_black]Barcode scanner active - scan label or type manually[/bright_black]\n"
                     "Type 'q' and press Enter to finish",
-                    title="Scanner Active", style="blue"
+                    title="Scanner Active", border_style="green"
                 ))
             else:
                 self.ui.layout["footer"].update(Panel(
+                    "⚠️  [yellow]Scanner not detected - manual entry mode[/yellow]\n"
                     "Enter serial number (or 'q' to finish)",
                     title="Manual Entry Mode", style="yellow"
                 ))
 
             self.ui.render()
 
-            # Get serial number via scanner or manual entry
-            # Note: Scanner acts as keyboard, so both paths use the same method
+            # Get serial number via evdev scanner or manual entry
             serial_number = self.get_serial_number_scan_or_manual()
 
             # Check for quit
             if not serial_number or serial_number.lower() == 'q':
                 break
 
+            # Format the serial number (pad to 6 digits)
+            from greenlight.db import format_serial_number
+            formatted_serial = format_serial_number(serial_number)
+
             # Show confirmation screen with scanned serial number
+            serial_display = f"[bold yellow]{formatted_serial}[/bold yellow]"
+            if formatted_serial != serial_number:
+                serial_display += f"\n[bright_black](formatted from: {serial_number})[/bright_black]"
+
             self.ui.layout["body"].update(Panel(
                 f"[bold cyan]Scanned Serial Number:[/bold cyan]\n\n"
-                f"[bold yellow]{serial_number}[/bold yellow]\n\n"
+                f"{serial_display}\n\n"
                 f"Cable Type: {cable_type.name()}\n"
                 f"SKU: {cable_type.sku}",
                 title="📋 Confirm Serial Number",
-                style="blue"
+                border_style="cyan"
             ))
             self.ui.layout["footer"].update(Panel(
                 "Press [green]Enter[/green] to save | 'n' to skip | 'q' to quit",
@@ -315,17 +325,23 @@ class ScanCableIntakeScreen(Screen):
                 continue
             # Empty string (Enter pressed) or anything else means confirm
 
-            # Register the cable in database
-            result = register_scanned_cable(serial_number, cable_type.sku)
+            # Register the cable in database (note: formatted_serial is already formatted in register_scanned_cable)
+            result = register_scanned_cable(serial_number, cable_type.sku, operator)
 
             if result.get('success'):
-                # Successfully registered
+                # Successfully registered or updated
                 scanned_count += 1
-                scanned_serials.append(serial_number)
+                saved_serial = result['serial_number']  # Use the formatted serial from database
+                scanned_serials.append(saved_serial)
 
-                # Show brief success message
+                # Show success message (different for update vs new)
+                if result.get('updated'):
+                    success_msg = f"🔄 Updated in database: {saved_serial}"
+                else:
+                    success_msg = f"✅ Saved to database: {saved_serial}"
+
                 self.ui.layout["footer"].update(Panel(
-                    f"✅ Saved to database: {serial_number}",
+                    success_msg,
                     title="Success", style="green"
                 ))
                 self.ui.render()
@@ -336,43 +352,152 @@ class ScanCableIntakeScreen(Screen):
                 error_msg = result.get('message', 'Unknown error')
 
                 if error_type == 'duplicate':
-                    error_display = f"⚠️  Duplicate: {serial_number}\n\nThis serial number is already in the database."
-                    error_style = "yellow"
+                    # Show existing record and ask if user wants to update
+                    existing = result.get('existing_record', {})
+                    user_choice = self.show_duplicate_prompt(operator, cable_type, existing)
+
+                    if user_choice == 'quit':
+                        # User wants to quit scanning
+                        break
+                    elif user_choice == 'update':
+                        # User chose to update - retry with update flag
+                        update_result = register_scanned_cable(serial_number, cable_type.sku, operator, update_if_exists=True)
+                        if update_result.get('success'):
+                            scanned_count += 1
+                            saved_serial = update_result['serial_number']
+                            scanned_serials.append(saved_serial)
+
+                            self.ui.layout["footer"].update(Panel(
+                                f"🔄 Updated in database: {saved_serial}",
+                                title="Success", style="green"
+                            ))
+                            self.ui.render()
+                            time.sleep(0.8)
+                    # else: user chose 'skip', just continue to next scan
+                    continue
                 else:
                     error_display = f"❌ Error: {error_msg}"
                     error_style = "red"
 
-                self.ui.layout["footer"].update(Panel(
-                    error_display,
-                    title="Registration Error", style=error_style
-                ))
-                self.ui.render()
-                time.sleep(1.5)  # Longer pause for errors
+                    self.ui.layout["footer"].update(Panel(
+                        error_display,
+                        title="Registration Error", style=error_style
+                    ))
+                    self.ui.render()
+                    time.sleep(1.5)  # Longer pause for errors
 
         # Show final summary
         return self.show_intake_summary(operator, cable_type, scanned_count, scanned_serials)
 
-    def get_serial_number_scan_or_manual(self):
-        """Get serial number via scanner - Zebra DS2208 sends as keyboard input"""
-        # Zebra DS2208 scanner appears as USB HID keyboard
-        # When a barcode is scanned, it types the characters and presses Enter
-        # Rich's console.input() will capture this naturally
+    def show_duplicate_prompt(self, operator, cable_type, existing_record):
+        """Show duplicate record prompt and ask if user wants to update it
+
+        Returns:
+            'update' - User wants to update the record
+            'skip' - User wants to skip this record
+            'quit' - User wants to quit scanning
+        """
+        existing_serial = existing_record.get('serial_number', 'Unknown')
+        existing_sku = existing_record.get('sku', 'Unknown')
+        existing_operator = existing_record.get('operator', 'Unknown')
+        existing_timestamp = existing_record.get('timestamp', 'Unknown')
+        existing_notes = existing_record.get('notes', '')
+
+        # Format timestamp
+        if hasattr(existing_timestamp, 'strftime'):
+            timestamp_str = existing_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            timestamp_str = str(existing_timestamp)
+
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(
+            f"⚠️  [bold yellow]Duplicate Serial Number Found[/bold yellow]\n\n"
+            f"[bold]Existing Record:[/bold]\n"
+            f"  Serial: {existing_serial}\n"
+            f"  SKU: {existing_sku}\n"
+            f"  Operator: {existing_operator}\n"
+            f"  Registered: {timestamp_str}\n"
+            f"  Notes: {existing_notes}\n\n"
+            f"[bold]New Cable Type:[/bold]\n"
+            f"  SKU: {cable_type.sku}\n"
+            f"  Name: {cable_type.name()}\n\n"
+            f"Do you want to update this record with the new cable type?",
+            title="⚠️  Duplicate Serial Number",
+            border_style="yellow"
+        ))
+        self.ui.layout["footer"].update(Panel(
+            "[green]y[/green] = Update record | [red]n[/red] = Skip | [yellow]q[/yellow] = Quit scanning",
+            title="Update Record?"
+        ))
+        self.ui.render()
 
         try:
-            # This will capture both scanner input and manual keyboard input
-            # The scanner types the serial number and presses Enter automatically
-            # Show a visible prompt so user knows where the input will appear
-            self.ui.console.print("\n[bold cyan]►[/bold cyan] ", end="")
+            choice = self.ui.console.input("Update? (y/n/q): ").strip().lower()
+            if choice == 'q':
+                return 'quit'
+            elif choice == 'y' or choice == 'yes':
+                return 'update'
+            else:
+                return 'skip'
+        except KeyboardInterrupt:
+            return 'quit'
+
+    def get_serial_number_scan_or_manual(self):
+        """Get serial number via barcode scanner using evdev or manual keyboard input"""
+        from greenlight.hardware.barcode_scanner import get_scanner
+        import select
+        import sys
+
+        scanner = get_scanner()
+
+        # Try to initialize and start scanner
+        scanner_available = False
+        if scanner.initialize():
+            scanner.start_scanning()
+            scanner.clear_queue()  # Clear any old scans
+            scanner_available = True
+
+        try:
+            # Wait for either a scan or keyboard input
+            start_time = time.time()
+            timeout = 30.0  # 30 second timeout
+
+            while time.time() - start_time < timeout:
+                # Check for scanned barcode
+                if scanner_available:
+                    barcode = scanner.get_scan(timeout=0.1)
+                    if barcode:
+                        serial_number = barcode.strip().upper()
+                        # Show what was scanned
+                        self.ui.console.print(f"\n[bold green]📷 Scanned:[/bold green] {serial_number}")
+                        time.sleep(0.5)  # Brief pause to show what was scanned
+                        return serial_number
+
+                # Check for manual keyboard input
+                if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                    line = sys.stdin.readline().strip().upper()
+                    if line:
+                        if line == 'Q':
+                            return None
+                        return line
+
+                time.sleep(0.05)  # Small sleep to prevent busy-waiting
+
+            # Timeout - ask for manual entry
+            self.ui.console.print("\n[yellow]⏰ No scan detected - enter manually or 'q' to quit[/yellow]")
+            self.ui.console.print("[bold cyan]►[/bold cyan] ", end="")
             serial_number = self.ui.console.input().strip().upper()
 
-            # Check if user wants to quit
-            if serial_number.lower() == 'q':
+            if serial_number == 'Q':
                 return None
 
             return serial_number if serial_number else None
 
         except KeyboardInterrupt:
             return None
+        finally:
+            if scanner_available:
+                scanner.stop_scanning()
 
     def get_serial_number_manual_only(self):
         """Get serial number via manual keyboard entry"""
@@ -384,6 +509,10 @@ class ScanCableIntakeScreen(Screen):
 
     def show_intake_summary(self, operator, cable_type, scanned_count, scanned_serials):
         """Show summary of intake session"""
+
+        # If no cables were scanned, go back to main menu directly
+        if scanned_count == 0:
+            return ScreenResult(NavigationAction.POP, pop_count=3)
 
         summary_table = Table(show_header=True, header_style="bold magenta")
         summary_table.add_column("Metric", style="cyan", width=25)
@@ -407,4 +536,5 @@ class ScanCableIntakeScreen(Screen):
         self.ui.render()
 
         self.ui.console.input("Press enter to continue...")
-        return ScreenResult(NavigationAction.POP)
+        # After showing summary, go back to main menu
+        return ScreenResult(NavigationAction.POP, pop_count=2)

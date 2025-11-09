@@ -49,20 +49,12 @@ class SplashScreen(Screen):
             # Invalid choice - redisplay the same screen
             return ScreenResult(NavigationAction.REPLACE, SplashScreen)
 
-
-class OperatorSelectionScreen(Screen):
-    """Deprecated - functionality merged into SplashScreen"""
-    def run(self) -> ScreenResult:
-        # Redirect to SplashScreen if somehow accessed
-        return ScreenResult(NavigationAction.REPLACE, SplashScreen)
-
-
 class MainMenuScreen(Screen):
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
         menu_items = [
-            "Audio Cable Management",
-            "Inventory Management", 
+            "Scan and Test Cables",
+            "Fulfill Orders", 
             "Settings",
             "Exit (q)"
         ]
@@ -85,8 +77,10 @@ class MainMenuScreen(Screen):
             sys.exit(0)
             
         if choice == "1":
-            from greenlight.cable_screens import CableQCScreen
-            return ScreenResult(NavigationAction.PUSH, CableQCScreen, self.context)
+            from greenlight.cable_screens import CableSelectionForIntakeScreen
+            new_context = self.context.copy()
+            new_context["selection_mode"] = "intake"
+            return ScreenResult(NavigationAction.PUSH, CableSelectionForIntakeScreen, new_context)
         elif choice == "2":
             from greenlight.inventory_screens import InventoryScreen
             return ScreenResult(NavigationAction.PUSH, InventoryScreen, self.context)
