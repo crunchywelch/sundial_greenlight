@@ -34,7 +34,7 @@ class SplashScreen(Screen):
         choice_str = ",".join(valid_choices)
 
         try:
-            choice = self.ui.console.input(f"\n[bold]Choose operator:[/bold] ({choice_str}) ")
+            choice = self.ui.console.input(f"[bold]Choose operator:[/bold] ({choice_str}) ")
         except KeyboardInterrupt:
             print(f"\n\n🛑 Exiting {APP_NAME}...")
             print(EXIT_MESSAGE)
@@ -52,9 +52,9 @@ class MainMenuScreen(Screen):
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
         menu_items = [
-            "Scan and Test Cables",
-            "Fulfill Orders",
-            "Settings",
+            "Scan Cables",
+            "Assign Cables",
+            "View Inventory",
             "Quit (q)"
         ]
 
@@ -64,8 +64,13 @@ class MainMenuScreen(Screen):
         ]
 
         self.ui.header(operator)
-        self.ui.layout["body"].update(Panel("", title=""))
-        self.ui.layout["footer"].update(Panel("\n".join(rows), title="Available Operations"))
+        self.ui.layout["body"].update(Panel(
+            "• Scan Cables - Scan to lookup or register cables\n"
+            "• Assign Cables - Assign cables to customer orders\n"
+            "• View Inventory - See available cables by type",
+            title="Main Menu"
+        ))
+        self.ui.layout["footer"].update(Panel("\n".join(rows), title="Select Option"))
         self.ui.render()
 
         try:
@@ -76,16 +81,17 @@ class MainMenuScreen(Screen):
             sys.exit(0)
 
         if choice == "1":
-            from greenlight.screens.cable import CableSelectionForIntakeScreen
-            new_context = self.context.copy()
-            new_context["selection_mode"] = "intake"
-            return ScreenResult(NavigationAction.PUSH, CableSelectionForIntakeScreen, new_context)
+            # Scan Cables - direct to unified scan/register screen
+            from greenlight.screens.cable import ScanCableLookupScreen
+            return ScreenResult(NavigationAction.PUSH, ScanCableLookupScreen, self.context)
         elif choice == "2":
-            from greenlight.screens.inventory import InventoryScreen
-            return ScreenResult(NavigationAction.PUSH, InventoryScreen, self.context)
+            # Assign Cables - go to customer search
+            from greenlight.screens.orders import CustomerLookupScreen
+            return ScreenResult(NavigationAction.PUSH, CustomerLookupScreen, self.context)
         elif choice == "3":
-            from greenlight.screens.settings import SettingsScreen
-            return ScreenResult(NavigationAction.PUSH, SettingsScreen, self.context)
+            # View Inventory - select series first, then show available inventory by SKU
+            from greenlight.screens.inventory import SeriesSelectionScreen
+            return ScreenResult(NavigationAction.PUSH, SeriesSelectionScreen, self.context)
         elif choice in ["4", "q"]:
             return ScreenResult(NavigationAction.POP)
         else:

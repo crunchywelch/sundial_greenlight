@@ -1,0 +1,29 @@
+# Tour Classic Cable Product Line
+# Rugged touring cables for stage and road use
+
+product_line: Tour Classic
+sku_prefix: TC
+core_cable: Canare GS-6
+braid_material: Cotton
+
+# Available lengths in feet
+lengths:
+  - 3
+  - 6
+  - 10
+  - 15
+  - 20
+
+# Connector configurations
+connectors:
+  - code: ""        # Straight mono 1/4" plugs
+    display: TS–TS
+  - code: "-R"      # Right angle mono 1/4" plug
+    display: RA–TS
+
+# Pricing by length
+pricing:
+  6: 69.00
+  10: 69.00
+  15: 79.00
+  20: 89.00

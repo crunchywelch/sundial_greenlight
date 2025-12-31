@@ -1,0 +1,22 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "57d05e5335f174afd0fc5e91b8e9f617"
+name = "greenlight"
+application_url = "http://localhost:3000"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+dev_store_url = "sundial-audio-dev.myshopify.com"
+
+[webhooks]
+api_version = "2025-10"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_all_orders,read_assigned_fulfillment_orders,write_assigned_fulfillment_orders,read_customers,write_customers,write_draft_orders,read_draft_orders,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders,write_order_edits,read_order_edits,read_orders,write_orders,read_product_feeds,write_product_feeds,read_product_listings,write_product_listings,read_products,write_products,read_third_party_fulfillment_orders,write_third_party_fulfillment_orders"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [ ]

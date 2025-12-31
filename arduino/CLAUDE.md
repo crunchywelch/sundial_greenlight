@@ -9,16 +9,37 @@ This is an Arduino project for cable testing hardware integration with the Green
 ### Build and Upload Commands
 
 ```bash
-# Using Arduino IDE (recommended)
-# 1. Open cable_tester.ino in Arduino IDE
-# 2. Select Board: "Arduino Uno" (or appropriate ATmega32 board)  
-# 3. Select correct COM port
-# 4. Click Upload
+# Using arduino-cli (Recommended for Raspberry Pi)
+# Compile the sketch
+arduino-cli compile --fqbn arduino:avr:mega cable_tester
 
-# Alternative: Using arduino-cli (if installed)
-arduino-cli compile --fqbn arduino:avr:uno cable_tester.ino
-arduino-cli upload -p /dev/ttyUSB0 --fqbn arduino:avr:uno cable_tester.ino
+# Upload to Arduino Mega 2560 (via built-in USB)
+arduino-cli upload -p /dev/ttyACM0 --fqbn arduino:avr:mega cable_tester
+
+# Monitor serial output (9600 baud)
+arduino-cli monitor -p /dev/ttyACM0 -c baudrate=9600
+
+# One-liner: compile and upload
+cd arduino && arduino-cli compile --fqbn arduino:avr:mega cable_tester && arduino-cli upload -p /dev/ttyACM0 --fqbn arduino:avr:mega cable_tester
+
+# Alternative: Using Arduino IDE
+# 1. Open cable_tester/cable_tester.ino in Arduino IDE
+# 2. Select Board: Tools > Board > Arduino AVR Boards > Arduino Mega or Mega 2560
+# 3. Select correct COM port: Tools > Port > /dev/ttyACM0
+# 4. Click Upload button
 ```
+
+**Board Specifications:**
+- **Board:** Arduino Mega 2560 R3
+- **Processor:** ATmega2560
+- **FQBN:** `arduino:avr:mega`
+- **Built-in USB:** No external USB-to-serial adapter needed
+- **Serial Port:** Usually `/dev/ttyACM0` on Linux
+
+**Memory Usage:**
+- Program storage: 12,404 bytes (4% of 253,952 bytes) ✅
+- Dynamic memory: 1,744 bytes (21% of 8,192 bytes) ✅
+- Free RAM: 6,448 bytes for local variables - excellent headroom!
 
 ### Testing and Communication
 

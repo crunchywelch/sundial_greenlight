@@ -167,7 +167,7 @@ class MockArduinoTester:
 
 
 class ArduinoATmega32Tester:
-    """Real Arduino ATmega32 testing interface via USB serial communication"""
+    """Real Arduino Mega 2560 testing interface via USB serial communication"""
     
     def __init__(self, port: Optional[str] = None, baudrate: int = 9600, arduino_unit_id: Optional[int] = None):
         """
@@ -219,7 +219,7 @@ class ArduinoATmega32Tester:
             # Test connection and get unit ID
             if self._test_connection():
                 self.connected = True
-                logger.info(f"Arduino ATmega32 tester connected successfully (Unit #{self.arduino_unit_id})")
+                logger.info(f"Arduino Mega 2560 tester connected successfully (Unit #{self.arduino_unit_id})")
                 return True
             else:
                 logger.error("Arduino connection test failed")

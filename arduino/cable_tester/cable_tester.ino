@@ -1,21 +1,26 @@
 /*
- * Greenlight Cable Tester - ATmega32 Arduino Sketch
- * 
+ * Greenlight Cable Tester - Arduino Mega 2560 Sketch
+ *
  * Comprehensive audio cable testing system supporting:
  * - Continuity testing (tip, ring, sleeve)
- * - Polarity checking 
+ * - Polarity checking
  * - DC resistance measurement
  * - Cable capacitance measurement
  * - USB serial communication with Raspberry Pi
- * 
+ *
  * Author: Greenlight Terminal System
  * Version: 1.0
- * 
- * Arudino board: Arduino Pro Mini
+ *
+ * Arduino board: Arduino Mega 2560 R3
  * Pin Configuration:
  * - A0: Analog measurement inputs
  * - D2-D13: Digital I/O for relays and test signals
- * - Serial: USB communication (pins 0,1)
+ * - Serial: USB communication (built-in USB, pins 0,1)
+ *
+ * Memory Usage (Mega 2560):
+ * - Program: 12,404 bytes (4% of 253,952 bytes)
+ * - RAM: 1,744 bytes (21% of 8,192 bytes)
+ * - Free RAM: 6,448 bytes for local variables
  */
 
 #include <Arduino.h>

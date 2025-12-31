@@ -78,15 +78,21 @@ def insert_audio_cable(cable_type, test_result):
         pg_pool.putconn(conn)
 
 def get_audio_cable(serial_number):
-    """Get audio cable record by serial number"""
+    """Get audio cable record by serial number
+
+    For length: uses cable-specific length (ac.length) if set,
+    otherwise falls back to SKU default (cs.length)
+    """
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT ac.serial_number, ac.sku, ac.resistance_ohms, ac.capacitance_pf,
                        ac.operator, ac.arduino_unit_id, ac.notes, ac.test_timestamp,
-                       cs.series, cs.length, cs.color_pattern, cs.connector_type,
-                       cs.core_cable, cs.braid_material, cs.description
+                       ac.shopify_gid, ac.updated_timestamp, ac.description,
+                       cs.series, COALESCE(ac.length, CAST(cs.length AS REAL)) as length,
+                       cs.color_pattern, cs.connector_type,
+                       cs.core_cable, cs.braid_material
                 FROM audio_cables ac
                 JOIN cable_skus cs ON ac.sku = cs.sku
                 WHERE ac.serial_number = %s
@@ -124,8 +130,17 @@ def format_serial_number(serial_number):
     # If doesn't match expected pattern, return as-is
     return serial_number
 
-def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_exists=False):
-    """Register a cable with a scanned serial number into the database (intake workflow)"""
+def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_exists=False, description=None, length=None):
+    """Register a cable with a scanned serial number into the database (intake workflow)
+
+    Args:
+        serial_number: The serial number from the cable label
+        cable_sku: The SKU code for the cable
+        operator: Operator ID who registered the cable
+        update_if_exists: If True, update existing cable records
+        description: Optional custom description (required for MISC SKUs)
+        length: Optional custom length in feet (for MISC cables with variable lengths)
+    """
     conn = pg_pool.getconn()
     try:
         # Format serial number (pad to 6 digits)
@@ -135,7 +150,7 @@ def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_ex
             with conn.cursor() as cur:
                 # Check if serial number already exists
                 cur.execute("""
-                    SELECT serial_number, sku, operator, test_timestamp, notes
+                    SELECT serial_number, sku, operator, updated_timestamp, notes
                     FROM audio_cables
                     WHERE serial_number = %s
                 """, (formatted_serial,))
@@ -156,16 +171,18 @@ def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_ex
                             }
                         }
                     else:
-                        # Update existing record
+                        # Update existing record (include description and length if provided)
                         cur.execute("""
                             UPDATE audio_cables
                             SET sku = %s,
                                 operator = %s,
-                                test_timestamp = CURRENT_TIMESTAMP,
+                                updated_timestamp = CURRENT_TIMESTAMP,
+                                description = COALESCE(%s, description),
+                                length = COALESCE(%s, length),
                                 notes = %s
                             WHERE serial_number = %s
-                            RETURNING serial_number, test_timestamp
-                        """, (cable_sku, operator, 'Updated via scan', formatted_serial))
+                            RETURNING serial_number, updated_timestamp
+                        """, (cable_sku, operator, description, length, 'Updated via scan', formatted_serial))
                         result = cur.fetchone()
                         conn.commit()
                         return {
@@ -180,10 +197,10 @@ def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_ex
                 cur.execute("""
                     INSERT INTO audio_cables
                         (serial_number, sku, resistance_ohms, capacitance_pf,
-                         operator, arduino_unit_id, notes)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    RETURNING serial_number, test_timestamp
-                """, (formatted_serial, cable_sku, None, None, operator, None, 'Scanned intake'))
+                         operator, arduino_unit_id, description, length, notes)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING serial_number, updated_timestamp
+                """, (formatted_serial, cable_sku, None, None, operator, None, description, length, 'Scanned intake'))
                 result = cur.fetchone()
                 conn.commit()
                 return {
@@ -225,6 +242,251 @@ def update_cable_test_results(serial_number, test_result):
         print(f"❌ Error updating cable test results: {e}")
         conn.rollback()
         return None
+    finally:
+        pg_pool.putconn(conn)
+
+
+def assign_cable_to_customer(serial_number, customer_shopify_gid):
+    """Assign a cable to a customer by updating the shopify_gid field"""
+    conn = pg_pool.getconn()
+    try:
+        # Format serial number
+        formatted_serial = format_serial_number(serial_number)
+
+        with conn:
+            with conn.cursor() as cur:
+                # Check if cable exists
+                cur.execute("""
+                    SELECT serial_number, sku, shopify_gid
+                    FROM audio_cables
+                    WHERE serial_number = %s
+                """, (formatted_serial,))
+                existing = cur.fetchone()
+
+                if not existing:
+                    return {
+                        'error': 'not_found',
+                        'message': f'Cable with serial number {formatted_serial} not found in database'
+                    }
+
+                # Check if cable is already assigned
+                if existing[2]:  # shopify_gid already set
+                    return {
+                        'error': 'already_assigned',
+                        'message': f'Cable {formatted_serial} is already assigned to customer {existing[2]}',
+                        'existing_customer_gid': existing[2]
+                    }
+
+                # Update cable with customer ID
+                cur.execute("""
+                    UPDATE audio_cables
+                    SET shopify_gid = %s
+                    WHERE serial_number = %s
+                    RETURNING serial_number, sku, shopify_gid
+                """, (customer_shopify_gid, formatted_serial))
+                result = cur.fetchone()
+                conn.commit()
+
+                return {
+                    'success': True,
+                    'serial_number': result[0],
+                    'sku': result[1],
+                    'customer_gid': result[2]
+                }
+    except Exception as e:
+        print(f"❌ Error assigning cable to customer: {e}")
+        conn.rollback()
+        return {'error': 'database', 'message': str(e)}
+    finally:
+        pg_pool.putconn(conn)
+
+
+def get_cables_for_customer(customer_shopify_gid):
+    """Get all cables assigned to a customer"""
+    conn = pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT ac.serial_number, ac.sku, ac.updated_timestamp, ac.description,
+                       cs.series, COALESCE(ac.length, CAST(cs.length AS REAL)) as length,
+                       cs.color_pattern, cs.connector_type
+                FROM audio_cables ac
+                JOIN cable_skus cs ON ac.sku = cs.sku
+                WHERE ac.shopify_gid = %s
+                ORDER BY ac.updated_timestamp DESC
+            """, (customer_shopify_gid,))
+            rows = cur.fetchall()
+
+            cables = []
+            for row in rows:
+                cables.append({
+                    'serial_number': row[0],
+                    'sku': row[1],
+                    'updated_timestamp': row[2],
+                    'description': row[3],
+                    'series': row[4],
+                    'length': row[5],
+                    'color_pattern': row[6],
+                    'connector_type': row[7]
+                })
+            return cables
+    except Exception as e:
+        print(f"❌ Error fetching cables for customer: {e}")
+        return []
+    finally:
+        pg_pool.putconn(conn)
+
+def get_all_cables(limit=100, offset=0):
+    """Get all cables ordered by serial number descending (highest first)"""
+    conn = pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT ac.serial_number, ac.sku, ac.updated_timestamp, ac.test_timestamp,
+                       ac.resistance_ohms, ac.capacitance_pf, ac.operator, ac.shopify_gid,
+                       ac.description,
+                       cs.series, COALESCE(ac.length, CAST(cs.length AS REAL)) as length,
+                       cs.color_pattern, cs.connector_type
+                FROM audio_cables ac
+                JOIN cable_skus cs ON ac.sku = cs.sku
+                ORDER BY ac.serial_number DESC
+                LIMIT %s OFFSET %s
+            """, (limit, offset))
+            rows = cur.fetchall()
+
+            cables = []
+            for row in rows:
+                cables.append({
+                    'serial_number': row[0],
+                    'sku': row[1],
+                    'updated_timestamp': row[2],
+                    'test_timestamp': row[3],
+                    'resistance_ohms': row[4],
+                    'capacitance_pf': row[5],
+                    'operator': row[6],
+                    'shopify_gid': row[7],
+                    'description': row[8],
+                    'series': row[9],
+                    'length': row[10],
+                    'color_pattern': row[11],
+                    'connector_type': row[12]
+                })
+            return cables
+    except Exception as e:
+        print(f"❌ Error fetching all cables: {e}")
+        return []
+    finally:
+        pg_pool.putconn(conn)
+
+def get_cable_count():
+    """Get total count of cables in database"""
+    conn = pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM audio_cables")
+            return cur.fetchone()[0]
+    except Exception as e:
+        print(f"❌ Error getting cable count: {e}")
+        return 0
+    finally:
+        pg_pool.putconn(conn)
+
+def get_available_inventory(series=None):
+    """Get count of cables available to sell (not assigned to customer) grouped by SKU
+
+    Args:
+        series: Optional series filter (e.g., 'Standard', 'Signature', 'MISC')
+
+    Note: For MISC SKUs, inventory is not grouped since each cable has unique attributes.
+    MISC cables are listed individually with their custom lengths and descriptions.
+    """
+    conn = pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            # For MISC series, show individual cables with their custom attributes
+            if series and 'misc' in series.lower():
+                query = """
+                    SELECT
+                        ac.sku,
+                        cs.series,
+                        COALESCE(ac.length, CAST(cs.length AS REAL)) as length,
+                        cs.color_pattern,
+                        cs.connector_type,
+                        ac.description,
+                        1 as available_count
+                    FROM audio_cables ac
+                    JOIN cable_skus cs ON ac.sku = cs.sku
+                    WHERE cs.series = %s
+                        AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
+                    ORDER BY ac.length, ac.description
+                """
+                cur.execute(query, [series])
+            else:
+                # For regular SKUs, group by SKU attributes
+                query = """
+                    SELECT
+                        cs.sku,
+                        cs.series,
+                        cs.length,
+                        cs.color_pattern,
+                        cs.connector_type,
+                        cs.description,
+                        COUNT(ac.serial_number) as available_count
+                    FROM cable_skus cs
+                    LEFT JOIN audio_cables ac ON cs.sku = ac.sku
+                        AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
+                """
+
+                params = []
+                if series:
+                    query += " WHERE cs.series = %s"
+                    params.append(series)
+
+                query += """
+                    GROUP BY cs.sku, cs.series, cs.length, cs.color_pattern, cs.connector_type, cs.description
+                    HAVING COUNT(ac.serial_number) > 0
+                    ORDER BY cs.length, cs.color_pattern, cs.connector_type
+                """
+                cur.execute(query, params)
+
+            rows = cur.fetchall()
+
+            inventory = []
+            for row in rows:
+                inventory.append({
+                    'sku': row[0],
+                    'series': row[1],
+                    'length': row[2],
+                    'color_pattern': row[3],
+                    'connector_type': row[4],
+                    'description': row[5],
+                    'available_count': row[6]
+                })
+            return inventory
+    except Exception as e:
+        print(f"❌ Error fetching available inventory: {e}")
+        return []
+    finally:
+        pg_pool.putconn(conn)
+
+def get_available_series():
+    """Get list of product series that have available inventory"""
+    conn = pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT DISTINCT cs.series
+                FROM cable_skus cs
+                LEFT JOIN audio_cables ac ON cs.sku = ac.sku
+                    AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
+                WHERE ac.serial_number IS NOT NULL
+                ORDER BY cs.series
+            """)
+            rows = cur.fetchall()
+            return [row[0] for row in rows if row[0]]
+    except Exception as e:
+        print(f"❌ Error fetching available series: {e}")
+        return []
     finally:
         pg_pool.putconn(conn)
 

@@ -26,6 +26,7 @@ class CableQCScreen(Screen):
 
         # Cable management menu
         menu_items = [
+            "Scan Cables",
             "Register Cables",
             "Test Cables",
             "Back (q)"
@@ -39,7 +40,8 @@ class CableQCScreen(Screen):
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(
             "Audio Cable Management\n\n"
-            "• Register Cables - Select SKU and scan cable labels to enter into database\n"
+            "• Scan Cables - Scan cable label to view information and customer\n"
+            "• Register Cables - Scan cable labels to register or view cable information\n"
             "• Test Cables - Scan serial number from assembled cable and run QC tests",
             title="Cable Management Options"
         ))
@@ -48,168 +50,321 @@ class CableQCScreen(Screen):
 
         choice = self.ui.console.input("Choose: ")
 
-        if choice == "1":  # Register Cables
+        # Debug logging
+        with open("/tmp/greenlight_debug.log", "a") as f:
+            f.write(f"CableQCScreen: User chose option '{choice}'\n")
+
+        if choice == "1":  # Scan Cables
+            with open("/tmp/greenlight_debug.log", "a") as f:
+                f.write(f"CableQCScreen: Pushing ScanCableLookupScreen (class: {ScanCableLookupScreen})\n")
+            return ScreenResult(NavigationAction.PUSH, ScanCableLookupScreen, self.context)
+        elif choice == "2":  # Register Cables
             new_context = self.context.copy()
             new_context["selection_mode"] = "intake"
             return ScreenResult(NavigationAction.PUSH, CableSelectionForIntakeScreen, new_context)
-        elif choice == "2":  # Test Cables
+        elif choice == "3":  # Test Cables
             return ScreenResult(NavigationAction.PUSH, TestAssembledCableScreen, self.context)
-        elif choice == "3" or choice.lower() == "q":  # Back
+        elif choice == "4" or choice.lower() == "q":  # Back
             return ScreenResult(NavigationAction.POP)
         else:
             return ScreenResult(NavigationAction.REPLACE, CableQCScreen, self.context)
 
 
-class CableSelectionForIntakeScreen(Screen):
-    """Cable selection for registration workflow"""
+class ScanCableLookupScreen(Screen):
+    """Simple cable lookup screen - scan and view cable info"""
+
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
-        menu_items = [
-            "Enter SKU",
-            "Select By Attribute",
-            "Back (q)"
-        ]
 
-        rows = [
-            f"[green]{i + 1}.[/green] {name}"
-            for i, name in enumerate(menu_items)
-        ]
+        # Debug log
+        with open("/tmp/greenlight_debug.log", "a") as f:
+            f.write(f"ScanCableLookupScreen.run() called for operator: {operator}\n")
+
+        # Initial body content
+        body_panel = Panel(
+            "🔍 Scan Cable Lookup\n\n"
+            "Scan a cable barcode to view its information, test results, and customer assignment.\n\n"
+            "Or use menu options below to register new cables.\n\n"
+            "Ready to scan...",
+            title="Scan Cables"
+        )
+
+        while True:
+            # Update display with current body content (don't clear console)
+            self.ui.header(operator)
+            self.ui.layout["body"].update(body_panel)
+            self.ui.layout["footer"].update(Panel(
+                "🔍 [bold green]Scan barcode now[/bold green] | [cyan]'r'[/cyan] = Register Cables | [cyan]'q'[/cyan] = Back",
+                title="Options", border_style="green"
+            ))
+            self.ui.render()
+
+            # Debug log
+            with open("/tmp/greenlight_debug.log", "a") as f:
+                f.write("About to call get_serial_number_scan_or_manual()\n")
+
+            # Get serial number or menu command
+            serial_number = self.get_serial_number_scan_or_manual()
+
+            # Debug log
+            with open("/tmp/greenlight_debug.log", "a") as f:
+                f.write(f"Got input: {serial_number}\n")
+
+            # Check for menu commands
+            if not serial_number:
+                continue
+
+            input_lower = serial_number.lower()
+
+            if input_lower == 'q':
+                return ScreenResult(NavigationAction.POP)
+            elif input_lower == 'r':
+                # Go to attribute selection for registration
+                new_context = self.context.copy()
+                new_context["selection_mode"] = "intake"
+                return ScreenResult(NavigationAction.PUSH, SeriesSelectionScreen, new_context)
+
+            # Otherwise treat as serial number lookup
+            # Format serial number
+            from greenlight.db import format_serial_number
+            formatted_serial = format_serial_number(serial_number)
+
+            # Look up cable in database
+            from greenlight.db import get_audio_cable
+            cable_record = get_audio_cable(formatted_serial)
+
+            # Clear console to refresh with new info
+            self.ui.console.clear()
+
+            if cable_record:
+                # Show cable info and handle user actions
+                action_result = self.show_cable_info_with_actions(operator, cable_record)
+                if action_result:
+                    return action_result
+                # If no action result, continue scanning (user pressed enter)
+                body_panel = Panel(
+                    "🔍 Scan Cable Lookup\n\n"
+                    "Ready to scan next cable...",
+                    title="Scan Cables"
+                )
+            else:
+                # Get not found panel and keep it displayed
+                body_panel = self.show_not_found(operator, formatted_serial)
+
+    def get_serial_number_scan_or_manual(self):
+        """Get serial number via barcode scanner using evdev or manual keyboard input"""
+        from greenlight.hardware.barcode_scanner import get_scanner
+        import select
+        import sys
+
+        scanner = get_scanner()
+
+        # Try to initialize and start scanner
+        scanner_available = False
+        if scanner.initialize():
+            scanner.start_scanning()
+            scanner.clear_queue()  # Clear any old scans
+            scanner_available = True
+            logger.info(f"Scanner initialized: {scanner.device_name}")
+        else:
+            logger.warning("Scanner failed to initialize")
+
+        try:
+            # Wait indefinitely for either a scan or keyboard input
+            # No timeout - user must explicitly quit with 'q'
+            logger.info("Waiting for scan or manual input...")
+
+            while True:
+                # Check for scanned barcode
+                if scanner_available:
+                    barcode = scanner.get_scan(timeout=0.1)
+                    if barcode:
+                        serial_number = barcode.strip().upper()
+                        logger.info(f"Scanned barcode: {serial_number}")
+                        return serial_number
+
+                # Check for manual keyboard input
+                if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                    line = sys.stdin.readline().strip().upper()
+                    if line:
+                        logger.info(f"Manual input: {line}")
+                        return line
+
+                time.sleep(0.1)  # Small sleep to prevent busy-waiting
+
+        except KeyboardInterrupt:
+            logger.info("Keyboard interrupt during scan")
+            return None
+        except Exception as e:
+            logger.error(f"Error during scan: {e}")
+            return None
+        finally:
+            if scanner_available:
+                scanner.stop_scanning()
+
+    def show_cable_info_with_actions(self, operator, cable_record):
+        """Display cable info and prompt for action (assign or continue)
+
+        Returns:
+            ScreenResult if user wants to assign to customer, None to continue scanning
+        """
+        # Display cable info
+        cable_info_panel = self.build_cable_info_panel(cable_record)
 
         self.ui.header(operator)
-        self.ui.layout["body"].update(Panel("Choose how to select cable type for registration", title="Cable Type Selection"))
-        self.ui.layout["footer"].update(Panel("\n".join(rows), title="Selection Method"))
+        self.ui.layout["body"].update(cable_info_panel)
+
+        # Check if cable is already assigned
+        customer_gid = cable_record.get("shopify_gid")
+        if customer_gid:
+            footer_text = "[cyan]Press Enter to continue scanning[/cyan]"
+        else:
+            footer_text = "[cyan]'a'[/cyan] = Assign to customer | [cyan]Enter[/cyan] = Continue scanning"
+
+        self.ui.layout["footer"].update(Panel(footer_text, title="Options"))
         self.ui.render()
 
-        choice = self.ui.console.input("Choose: ")
+        try:
+            choice = self.ui.console.input("").strip().lower()
+
+            if choice == 'a' and not customer_gid:
+                # Push customer lookup screen with cable serial in context
+                from greenlight.screens.orders import CustomerLookupScreen
+                new_context = self.context.copy()
+                new_context["assign_cable_serial"] = cable_record['serial_number']
+                new_context["assign_cable_sku"] = cable_record['sku']
+                return ScreenResult(NavigationAction.PUSH, CustomerLookupScreen, new_context)
+
+            # Otherwise continue scanning
+            return None
+
+        except KeyboardInterrupt:
+            return None
+
+    def build_cable_info_panel(self, cable_record):
+        """Build the cable information panel (extracted for reuse)"""
+        serial_number = cable_record.get("serial_number", "N/A")
+        sku = cable_record.get("sku", "N/A")
+        series = cable_record.get("series", "N/A")
+        length = cable_record.get("length", "N/A")
+        color_pattern = cable_record.get("color_pattern", "N/A")
+        connector_type = cable_record.get("connector_type", "N/A")
+        resistance_ohms = cable_record.get("resistance_ohms")
+        capacitance_pf = cable_record.get("capacitance_pf")
+        cable_operator = cable_record.get("operator", "N/A")
+        test_timestamp = cable_record.get("test_timestamp")
+        updated_timestamp = cable_record.get("updated_timestamp")
+
+        # Format test results
+        if resistance_ohms is not None:
+            resistance_str = f"{resistance_ohms:.2f} Ω"
+            test_status = "✅ Tested"
+        else:
+            resistance_str = "Not tested"
+            test_status = "⏳ Not tested"
+
+        if capacitance_pf is not None:
+            capacitance_str = f"{capacitance_pf:.2f} pF"
+        else:
+            capacitance_str = "Not tested"
+
+        # Format timestamps
+        if test_timestamp:
+            if hasattr(test_timestamp, 'strftime'):
+                test_timestamp_str = test_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                test_timestamp_str = str(test_timestamp)
+        else:
+            test_timestamp_str = "Not tested"
+
+        if updated_timestamp:
+            if hasattr(updated_timestamp, 'strftime'):
+                updated_timestamp_str = updated_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                updated_timestamp_str = str(updated_timestamp)
+        else:
+            updated_timestamp_str = "N/A"
+
+        # Build cable info display
+        cable_info = f"""[bold yellow]Serial Number:[/bold yellow] {serial_number}
+[bold yellow]SKU:[/bold yellow] {sku}
+[bold yellow]Registered:[/bold yellow] {updated_timestamp_str}
+
+[bold cyan]Cable Details:[/bold cyan]
+  Series: {series}
+  Length: {length} ft
+  Color: {color_pattern}
+  Connector: {connector_type}"""
+
+        # Add description for MISC cables
+        description = cable_record.get("description")
+        if sku.endswith("-MISC") and description:
+            cable_info += f"\n  Description: {description}"
+
+        cable_info += f"""
+
+[bold green]Test Status:[/bold green] {test_status}
+  Resistance: {resistance_str}
+  Capacitance: {capacitance_str}
+  Tested: {test_timestamp_str}
+  Test Operator: {cable_operator if test_timestamp else 'N/A'}"""
+
+        # Check if cable is assigned to a customer
+        customer_gid = cable_record.get("shopify_gid")
+
+        if customer_gid:
+            # Cable is assigned - fetch customer details
+            from greenlight import shopify_client
+            customer_numeric_id = customer_gid.split('/')[-1]
+            customer = shopify_client.get_customer_by_id(customer_numeric_id)
+
+            if customer:
+                customer_name = customer.get("displayName") or "N/A"
+                customer_email = customer.get("email") or "N/A"
+                customer_phone = customer.get("phone")
+                address = customer.get("defaultAddress")
+                if not customer_phone and address:
+                    customer_phone = address.get("phone")
+                customer_phone = customer_phone or "N/A"
+
+                cable_info += f"""
+
+[bold magenta]✅ Assigned To Customer:[/bold magenta]
+  Name: {customer_name}
+  Email: {customer_email}
+  Phone: {customer_phone}"""
+            else:
+                cable_info += f"""
+
+[bold magenta]Assigned To:[/bold magenta]
+  [yellow]Customer ID: {customer_gid}[/yellow]
+  [dim](Details not available)[/dim]"""
+        else:
+            cable_info += """
+
+[bold magenta]Assignment:[/bold magenta]
+  [yellow]⏳ Not assigned to any customer[/yellow]"""
+
+        # Return the cable info for display
+        return Panel(cable_info, title="📋 Cable Information", style="cyan")
+
+    def show_not_found(self, operator, serial_number):
+        """Show message when cable is not in database and return body content"""
+        return Panel(
+            f"❌ [bold red]Cable Not Found[/bold red]\n\n"
+            f"Serial Number: [yellow]{serial_number}[/yellow]\n\n"
+            f"This cable is not in the database.\n"
+            f"It may not have been registered yet.",
+            title="Not in Database", style="red"
+        )
+
+
+class CableSelectionForIntakeScreen(Screen):
+    """Cable selection for registration workflow - goes directly to attribute selection"""
+    def run(self) -> ScreenResult:
+        # Go directly to series selection (attribute-based selection)
         new_context = self.context.copy()
         new_context["selection_mode"] = "intake"
-
-        if choice == "1":
-            return ScreenResult(NavigationAction.REPLACE, SKUEntryScreen, new_context)
-        elif choice == "2":
-            return ScreenResult(NavigationAction.REPLACE, AttributeSelectionScreen, new_context)
-        elif choice == "3" or choice.lower() == "q":
-            return ScreenResult(NavigationAction.POP)
-        else:
-            return ScreenResult(NavigationAction.REPLACE, CableSelectionForIntakeScreen, self.context)
-
-
-class SKUEntryScreen(Screen):
-    def run(self) -> ScreenResult:
-        # This screen is just a redirect - go directly to series selection
-        # Preserve selection_mode (intake vs labels) and add via_sku flag
-        new_context = self.context.copy()
-        new_context["via_sku"] = True  # Using SKU selection method
-        return ScreenResult(NavigationAction.REPLACE, SeriesSelectionScreen, new_context)
-
-
-
-class SKUListSelectionScreen(Screen):
-    def get_skus_for_series(self, series):
-        """Get all SKUs for a specific series"""
-        from greenlight.cable import pg_pool
-        conn = pg_pool.getconn()
-        try:
-            with conn.cursor() as cur:
-                cur.execute("SELECT sku FROM cable_skus WHERE series = %s ORDER BY sku", (series,))
-                return [row[0] for row in cur.fetchall()]
-        except Exception as e:
-            print(f"Error fetching SKUs: {e}")
-            return []
-        finally:
-            pg_pool.putconn(conn)
-    
-    def run(self) -> ScreenResult:
-        operator = self.context.get("operator", "")
-        selected_series = self.context.get("selected_series")
-        
-        # Get SKUs for the selected series
-        skus = self.get_skus_for_series(selected_series)
-        
-        if not skus:
-            self.ui.header(operator)
-            self.ui.layout["body"].update(Panel(f"No SKUs found for {selected_series}", title="Error", style="red"))
-            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
-            self.ui.render()
-            self.ui.console.input("Press enter to continue...")
-            return ScreenResult(NavigationAction.POP)
-        
-        # Create numbered menu for SKUs
-        menu_items = skus.copy()
-        menu_items.append("Back (q)")
-        
-        # Format as numbered list in multiple columns for better space usage
-        sku_items = []
-        for i, sku in enumerate(skus):
-            sku_items.append(f"[green]{i + 1:2d}.[/green] {sku}")
-        sku_items.append(f"[green]{len(skus) + 1:2d}.[/green] Back (q)")
-        
-        # Arrange in 2 columns to fit more on screen
-        rows = []
-        for i in range(0, len(sku_items), 2):
-            left_item = sku_items[i]
-            right_item = sku_items[i + 1] if i + 1 < len(sku_items) else ""
-            # Pad left item to consistent width for alignment
-            left_padded = f"{left_item:<35}"
-            rows.append(f"{left_padded} {right_item}")
-        
-        sku_display = "\n".join(rows)
-        
-        self.ui.header(operator)
-        self.ui.layout["body"].update(Panel(sku_display, title=f"Available {selected_series} SKUs - Choose a number:"))
-        self.ui.layout["footer"].update(Panel("Enter the number of your choice:", title="Selection"))
-        self.ui.render()
-
-        try:
-            choice = self.ui.console.input("Choose: ")
-        except KeyboardInterrupt:
-            print(f"\n\n🛑 Exiting {APP_NAME}...")
-            print(EXIT_MESSAGE)
-            sys.exit(0)
-        
-        # Handle back/quit
-        if choice.lower() == "q" or choice == str(len(menu_items)):
-            return ScreenResult(NavigationAction.POP)
-        
-        # Handle SKU selection
-        try:
-            choice_idx = int(choice) - 1
-            if 0 <= choice_idx < len(skus):
-                selected_sku = skus[choice_idx]
-                return self.load_selected_sku(selected_sku)
-        except ValueError:
-            pass
-        
-        # Invalid choice, stay on same screen
-        return ScreenResult(NavigationAction.REPLACE, SKUListSelectionScreen, self.context)
-    
-    def load_selected_sku(self, sku):
-        """Load the selected SKU and go directly to cable scanning"""
-        try:
-            cable_type = CableType()
-            cable_type.load(sku)
-
-            # Store cable type in context
-            new_context = self.context.copy()
-            new_context["cable_type"] = cable_type
-
-            # Go directly to scanning screen without pause
-            return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
-        except ValueError as e:
-            # Show error
-            self.ui.layout["body"].update(Panel(f"Error loading {sku}: {str(e)}", title="Error", style="red"))
-            self.ui.layout["footer"].update(Panel("Press enter to try again...", title=""))
-            self.ui.render()
-            self.ui.console.input("")
-            return ScreenResult(NavigationAction.REPLACE, SKUListSelectionScreen, self.context)
-
-
-class AttributeSelectionScreen(Screen):
-    def run(self) -> ScreenResult:
-        # Start the attribute selection flow with series selection
-        # Preserve selection_mode (intake vs labels), use attribute selection method
-        new_context = self.context.copy()
-        # No via_sku flag means we'll use attribute selection path
         return ScreenResult(NavigationAction.REPLACE, SeriesSelectionScreen, new_context)
 
 
@@ -217,7 +372,7 @@ class SeriesSelectionScreen(Screen):
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
         series_options = get_distinct_series()
-        
+
         if not series_options:
             self.ui.header(operator)
             self.ui.layout["body"].update(Panel("No series found in database", title="Error", style="red"))
@@ -225,11 +380,11 @@ class SeriesSelectionScreen(Screen):
             self.ui.render()
             self.ui.console.input("Press enter to continue...")
             return ScreenResult(NavigationAction.POP)
-        
+
         # Create menu items
         menu_items = [f"{series}" for series in series_options]
         menu_items.append("Back (q)")
-        
+
         rows = [
             f"[green]{i + 1}.[/green] {name}"
             for i, name in enumerate(menu_items)
@@ -246,11 +401,11 @@ class SeriesSelectionScreen(Screen):
             print(f"\n\n🛑 Exiting {APP_NAME}...")
             print(EXIT_MESSAGE)
             sys.exit(0)
-        
+
         # Handle back/quit
         if choice.lower() == "q" or choice == str(len(series_options) + 1):
             return ScreenResult(NavigationAction.POP)
-        
+
         # Handle series selection
         try:
             choice_idx = int(choice) - 1
@@ -258,16 +413,11 @@ class SeriesSelectionScreen(Screen):
                 selected_series = series_options[choice_idx]
                 new_context = self.context.copy()
                 new_context["selected_series"] = selected_series
-
-                # Route based on selection method (SKU list vs attribute selection)
-                via_sku = self.context.get("via_sku", False)
-                if via_sku:
-                    return ScreenResult(NavigationAction.REPLACE, SKUListSelectionScreen, new_context)
-                else:  # attribute mode
-                    return ScreenResult(NavigationAction.REPLACE, ColorPatternSelectionScreen, new_context)
+                # Always go to attribute selection (color pattern)
+                return ScreenResult(NavigationAction.REPLACE, ColorPatternSelectionScreen, new_context)
         except ValueError:
             pass
-        
+
         # Invalid choice, stay on same screen
         return ScreenResult(NavigationAction.REPLACE, SeriesSelectionScreen, self.context)
 
@@ -313,12 +463,127 @@ class ColorPatternSelectionScreen(Screen):
                 selected_color = color_options[choice_idx]
                 new_context = self.context.copy()
                 new_context["selected_color_pattern"] = selected_color
-                return ScreenResult(NavigationAction.REPLACE, LengthSelectionScreen, new_context)
+
+                # Check if this is a MISC/Miscellaneous cable
+                if selected_color.lower() in ['misc', 'miscellaneous']:
+                    # Go to custom MISC cable entry screen
+                    return ScreenResult(NavigationAction.REPLACE, MiscCableEntryScreen, new_context)
+                else:
+                    # Normal flow - go to length selection
+                    return ScreenResult(NavigationAction.REPLACE, LengthSelectionScreen, new_context)
         except ValueError:
             pass
-        
+
         # Invalid choice, stay on same screen
         return ScreenResult(NavigationAction.REPLACE, ColorPatternSelectionScreen, self.context)
+
+
+class MiscCableEntryScreen(Screen):
+    """Custom entry screen for MISC cables - prompts for length"""
+    def run(self) -> ScreenResult:
+        operator = self.context.get("operator", "")
+        selected_series = self.context.get("selected_series")
+
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(
+            f"[bold yellow]Miscellaneous Cable Entry[/bold yellow]\n\n"
+            f"Series: {selected_series}\n"
+            f"Pattern: Miscellaneous (one-off/custom cable)\n\n"
+            f"[bold cyan]Enter cable length in feet:[/bold cyan]\n"
+            f"Examples: 3, 6, 10, 15, 20, 25\n\n"
+            f"This will be used for the cable description.",
+            title="MISC Cable - Enter Length",
+            border_style="yellow"
+        ))
+        self.ui.layout["footer"].update(Panel(
+            "Enter length in feet (number only) or 'q' to go back",
+            title="Length Entry"
+        ))
+        self.ui.render()
+
+        try:
+            length_input = self.ui.console.input("Length (ft): ").strip()
+
+            if length_input.lower() == 'q':
+                return ScreenResult(NavigationAction.POP)
+
+            # Try to parse as a number
+            try:
+                length_value = float(length_input)
+                if length_value <= 0:
+                    self.ui.layout["body"].update(Panel(
+                        "❌ Length must be greater than 0",
+                        title="Invalid Length",
+                        style="red"
+                    ))
+                    self.ui.layout["footer"].update(Panel("Press enter to try again", title=""))
+                    self.ui.render()
+                    self.ui.console.input()
+                    return ScreenResult(NavigationAction.REPLACE, MiscCableEntryScreen, self.context)
+
+                # Store the custom length
+                new_context = self.context.copy()
+                new_context["custom_length"] = length_value
+
+                # Load the MISC SKU for this series
+                # MISC SKUs follow pattern: SeriesPrefix-MISC (e.g., SC-MISC, TC-MISC)
+                # Extract series prefix from the series name
+                series_prefix_map = {
+                    'Studio Classic': 'SC',
+                    'Studio Patch': 'SP',
+                    'Studio Vocal Classic': 'SV',
+                    'Tour Classic': 'TC',
+                    'Tour Vocal Classic': 'TV'
+                }
+
+                series_prefix = series_prefix_map.get(selected_series)
+                if not series_prefix:
+                    self.ui.layout["body"].update(Panel(
+                        f"❌ Unknown series: {selected_series}",
+                        title="Error",
+                        style="red"
+                    ))
+                    self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+                    self.ui.render()
+                    self.ui.console.input()
+                    return ScreenResult(NavigationAction.POP)
+
+                misc_sku = f"{series_prefix}-MISC"
+
+                # Load the cable type
+                try:
+                    cable_type = CableType()
+                    cable_type.load(misc_sku)
+
+                    # Store cable type in context
+                    new_context["cable_type"] = cable_type
+
+                    # Go directly to scanning screen
+                    return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
+                except ValueError as e:
+                    self.ui.layout["body"].update(Panel(
+                        f"❌ Error loading MISC SKU {misc_sku}: {str(e)}",
+                        title="Error",
+                        style="red"
+                    ))
+                    self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+                    self.ui.render()
+                    self.ui.console.input()
+                    return ScreenResult(NavigationAction.POP)
+
+            except ValueError:
+                self.ui.layout["body"].update(Panel(
+                    f"❌ Invalid number: {length_input}\n\nPlease enter a valid number (e.g., 3, 6, 10, 15)",
+                    title="Invalid Input",
+                    style="red"
+                ))
+                self.ui.layout["footer"].update(Panel("Press enter to try again", title=""))
+                self.ui.render()
+                self.ui.console.input()
+                return ScreenResult(NavigationAction.REPLACE, MiscCableEntryScreen, self.context)
+
+        except KeyboardInterrupt:
+            return ScreenResult(NavigationAction.POP)
 
 
 class LengthSelectionScreen(Screen):
@@ -1023,17 +1288,91 @@ class ScanCableIntakeScreen(Screen):
             self.ui.console.input("Press enter to continue...")
             return ScreenResult(NavigationAction.POP)
 
-        # Show scanning interface
-        return self.scan_cables_loop(operator, cable_type)
+        # Check if this is a MISC SKU that needs custom description
+        cable_description = None
+        if cable_type.sku.endswith("-MISC"):
+            cable_description = self.get_misc_cable_description(operator, cable_type)
+            if cable_description is None:
+                # User cancelled
+                return ScreenResult(NavigationAction.POP)
 
-    def scan_cables_loop(self, operator, cable_type):
-        """Main scanning loop for registering multiple cables"""
+        # Show scanning interface
+        return self.scan_cables_loop(operator, cable_type, cable_description)
+
+    def get_misc_cable_description(self, operator, cable_type):
+        """Prompt for custom description for miscellaneous cable
+
+        Returns:
+            Description string, or None if user cancels
+        """
+        self.ui.console.clear()
+        self.ui.header(operator)
+
+        # Get custom length from context if available
+        custom_length = self.context.get("custom_length")
+        length_info = ""
+        if custom_length:
+            # Format length nicely
+            if custom_length == int(custom_length):
+                length_str = f"{int(custom_length)}ft"
+            else:
+                length_str = f"{custom_length}ft"
+            length_info = f"Length: [bold green]{length_str}[/bold green]\n"
+
+        self.ui.layout["body"].update(Panel(
+            f"[bold yellow]Miscellaneous Cable Registration[/bold yellow]\n\n"
+            f"SKU: {cable_type.sku}\n"
+            f"Series: {cable_type.series}\n"
+            f"{length_info}\n"
+            f"This is a miscellaneous (MISC) SKU for one-off and oddball cables\n"
+            f"that don't fit standard definitions.\n\n"
+            f"[bold cyan]Please enter a description for this cable:[/bold cyan]\n"
+            f"[dim](Length is already stored separately - don't include it here)[/dim]\n\n"
+            f"Include details like:\n"
+            f"  • Color/pattern (e.g., 'custom blue/orange')\n"
+            f"  • Connector types (e.g., 'Neutrik TS-TRS')\n"
+            f"  • Cable construction (e.g., 'cotton braid')\n"
+            f"  • Any special attributes\n\n"
+            f"Example: 'dark putty houndstooth with gold connectors instead of nickel'",
+            title="📝 Custom Cable Description",
+            border_style="yellow"
+        ))
+        self.ui.layout["footer"].update(Panel(
+            "Enter description or 'q' to cancel",
+            title="Description"
+        ))
+        self.ui.render()
+
+        try:
+            description = self.ui.console.input("Description: ").strip()
+            if description.lower() == 'q' or not description:
+                return None
+
+            # Return description as-is (length is stored separately in audio_cables.length)
+            return description
+        except KeyboardInterrupt:
+            return None
+
+    def scan_cables_loop(self, operator, cable_type, cable_description=None):
+        """Main scanning loop for registering multiple cables
+
+        Args:
+            operator: Operator ID
+            cable_type: CableType object
+            cable_description: Optional custom description for MISC SKUs
+        """
         from greenlight.db import register_scanned_cable
+
+        # Get custom length from context if this is a MISC cable
+        custom_length = self.context.get("custom_length")
 
         scanned_count = 0
         scanned_serials = []
 
         while True:
+            # Clear console before rendering to avoid layout corruption
+            self.ui.console.clear()
+
             # Show current status
             table = Table(show_header=True, header_style="bold magenta")
             table.add_column("Property", style="cyan", width=20)
@@ -1041,6 +1380,8 @@ class ScanCableIntakeScreen(Screen):
 
             table.add_row("Cable Type", cable_type.name())
             table.add_row("SKU", cable_type.sku)
+            if cable_description:
+                table.add_row("Description", cable_description)
             table.add_row("Scanned Count", str(scanned_count))
             if scanned_serials:
                 recent_serials = scanned_serials[-5:]  # Show last 5
@@ -1085,11 +1426,11 @@ class ScanCableIntakeScreen(Screen):
             from greenlight.db import format_serial_number
             formatted_serial = format_serial_number(serial_number)
 
-            # Show confirmation screen with scanned serial number
+            # Clear and show confirmation screen with scanned serial number
+            self.ui.console.clear()
             serial_display = f"[bold yellow]{formatted_serial}[/bold yellow]"
-            if formatted_serial != serial_number:
-                serial_display += f"\n[bright_black](formatted from: {serial_number})[/bright_black]"
 
+            self.ui.header(operator)
             self.ui.layout["body"].update(Panel(
                 f"[bold cyan]Scanned Serial Number:[/bold cyan]\n\n"
                 f"{serial_display}\n\n"
@@ -1124,8 +1465,14 @@ class ScanCableIntakeScreen(Screen):
                 continue
             # Empty string (Enter pressed) or anything else means confirm
 
+            # For MISC cables, always try to update if exists (to add/update description)
+            is_misc_cable = cable_type.sku.endswith("-MISC")
+
             # Register the cable in database (note: formatted_serial is already formatted in register_scanned_cable)
-            result = register_scanned_cable(serial_number, cable_type.sku, operator)
+            result = register_scanned_cable(serial_number, cable_type.sku, operator,
+                                          update_if_exists=is_misc_cable,
+                                          description=cable_description,
+                                          length=custom_length)
 
             if result.get('success'):
                 # Successfully registered or updated
@@ -1145,35 +1492,52 @@ class ScanCableIntakeScreen(Screen):
                 ))
                 self.ui.render()
                 time.sleep(0.8)  # Brief pause to show success
+
+                # Offer to print label
+                self.offer_print_label(operator, cable_type, saved_serial, custom_length, cable_description)
             else:
                 # Error registering
                 error_type = result.get('error', 'unknown')
                 error_msg = result.get('message', 'Unknown error')
 
                 if error_type == 'duplicate':
-                    # Show existing record and ask if user wants to update
-                    existing = result.get('existing_record', {})
-                    user_choice = self.show_duplicate_prompt(operator, cable_type, existing)
+                    # Cable already exists
+                    from greenlight.db import get_audio_cable
+                    cable_record = get_audio_cable(formatted_serial)
 
-                    if user_choice == 'quit':
-                        # User wants to quit scanning
-                        break
-                    elif user_choice == 'update':
-                        # User chose to update - retry with update flag
-                        update_result = register_scanned_cable(serial_number, cable_type.sku, operator, update_if_exists=True)
-                        if update_result.get('success'):
-                            scanned_count += 1
-                            saved_serial = update_result['serial_number']
-                            scanned_serials.append(saved_serial)
+                    if cable_record:
+                        # For non-MISC cables, show the detailed cable info
+                        # For MISC cables, this shouldn't happen since we set update_if_exists=True
+                        self.show_cable_info_inline(operator, cable_record)
+                        # Continue to next scan
+                        continue
+                    else:
+                        # Fallback to duplicate prompt if we can't get the record
+                        existing = result.get('existing_record', {})
+                        user_choice = self.show_duplicate_prompt(operator, cable_type, existing)
 
-                            self.ui.layout["footer"].update(Panel(
-                                f"🔄 Updated in database: {saved_serial}",
-                                title="Success", style="green"
-                            ))
-                            self.ui.render()
-                            time.sleep(0.8)
-                    # else: user chose 'skip', just continue to next scan
-                    continue
+                        if user_choice == 'quit':
+                            # User wants to quit scanning
+                            break
+                        elif user_choice == 'update':
+                            # User chose to update - retry with update flag
+                            update_result = register_scanned_cable(serial_number, cable_type.sku, operator,
+                                                                  update_if_exists=True,
+                                                                  description=cable_description,
+                                                                  length=custom_length)
+                            if update_result.get('success'):
+                                scanned_count += 1
+                                saved_serial = update_result['serial_number']
+                                scanned_serials.append(saved_serial)
+
+                                self.ui.layout["footer"].update(Panel(
+                                    f"🔄 Updated in database: {saved_serial}",
+                                    title="Success", style="green"
+                                ))
+                                self.ui.render()
+                                time.sleep(0.8)
+                        # else: user chose 'skip', just continue to next scan
+                        continue
                 else:
                     error_display = f"❌ Error: {error_msg}"
                     error_style = "red"
@@ -1185,8 +1549,252 @@ class ScanCableIntakeScreen(Screen):
                     self.ui.render()
                     time.sleep(1.5)  # Longer pause for errors
 
-        # Show final summary
-        return self.show_intake_summary(operator, cable_type, scanned_count, scanned_serials)
+        # Go back to SKU selection screen
+        return ScreenResult(NavigationAction.REPLACE, CableSelectionForIntakeScreen, self.context)
+
+    def offer_print_label(self, operator, cable_type, serial_number, custom_length=None, cable_description=None):
+        """Offer to print a label for the registered cable
+
+        Args:
+            operator: Operator ID
+            cable_type: CableType object
+            serial_number: Registered serial number
+            custom_length: Optional custom length for MISC cables
+            cable_description: Optional description for MISC cables
+        """
+        from greenlight.hardware.interfaces import hardware_manager, PrintJob
+
+        # Check if label printer is available
+        label_printer = hardware_manager.get_label_printer()
+        if not label_printer or not label_printer.is_ready():
+            # Printer not available, skip label printing
+            return
+
+        # Clear console and show print prompt
+        self.ui.console.clear()
+        self.ui.header(operator)
+
+        self.ui.layout["body"].update(Panel(
+            f"[bold green]✅ Cable Registered[/bold green]\n\n"
+            f"Serial Number: {serial_number}\n"
+            f"SKU: {cable_type.sku}\n"
+            f"Cable: {cable_type.name()}\n\n"
+            f"[bold yellow]Print label now?[/bold yellow]",
+            title="🏷️  Label Printing",
+            border_style="yellow"
+        ))
+        self.ui.layout["footer"].update(Panel(
+            "[green]y[/green] = Print label | [cyan]n[/cyan] = Skip | [yellow]Enter[/yellow] = Skip",
+            title="Print Label?"
+        ))
+        self.ui.render()
+
+        try:
+            choice = self.ui.console.input("").strip().lower()
+
+            if choice == 'y' or choice == 'yes':
+                # Print the label
+                self.print_cable_label(operator, cable_type, serial_number, custom_length, cable_description)
+
+        except KeyboardInterrupt:
+            pass
+
+    def print_cable_label(self, operator, cable_type, serial_number, custom_length=None, cable_description=None):
+        """Print a cable label
+
+        Args:
+            operator: Operator ID
+            cable_type: CableType object
+            serial_number: Cable serial number
+            custom_length: Optional custom length for MISC cables
+            cable_description: Optional description for MISC cables
+        """
+        from greenlight.hardware.interfaces import hardware_manager, PrintJob
+
+        label_printer = hardware_manager.get_label_printer()
+        if not label_printer:
+            return
+
+        # Show printing in progress
+        self.ui.console.clear()
+        self.ui.header(operator)
+
+        self.ui.layout["body"].update(Panel(
+            f"🖨️  Printing label...\n\n"
+            f"Serial: {serial_number}\n"
+            f"SKU: {cable_type.sku}\n\n"
+            f"Please wait...",
+            title="Printing Label", style="blue"
+        ))
+        self.ui.render()
+
+        # Prepare label data
+        label_data = {
+            'series': cable_type.series,
+            'length': custom_length if custom_length else cable_type.length,
+            'color_pattern': cable_type.color_pattern,
+            'connector_type': cable_type.connector_type,
+            'sku': cable_type.sku,
+        }
+
+        # Add description for MISC cables
+        if cable_description:
+            label_data['description'] = cable_description
+
+        # Create print job
+        print_job = PrintJob(
+            template="cable_label",
+            data=label_data,
+            quantity=1
+        )
+
+        # Send to printer
+        success = label_printer.print_labels(print_job)
+
+        # Show result
+        self.ui.console.clear()
+        self.ui.header(operator)
+
+        if success:
+            self.ui.layout["body"].update(Panel(
+                f"✅ [bold green]Label Printed Successfully![/bold green]\n\n"
+                f"Serial: {serial_number}\n"
+                f"SKU: {cable_type.sku}\n\n"
+                f"Label ready to apply to cable.",
+                title="Print Complete", style="green"
+            ))
+        else:
+            self.ui.layout["body"].update(Panel(
+                f"❌ [bold red]Label Printing Failed[/bold red]\n\n"
+                f"Serial: {serial_number}\n"
+                f"SKU: {cable_type.sku}\n\n"
+                f"Please check printer and try again.",
+                title="Print Error", style="red"
+            ))
+
+        self.ui.layout["footer"].update(Panel("Press enter to continue scanning", title=""))
+        self.ui.render()
+
+        # Brief pause to show result
+        try:
+            self.ui.console.input("")
+        except KeyboardInterrupt:
+            pass
+
+    def show_cable_info_inline(self, operator, cable_record):
+        """Display detailed cable information during scanning workflow"""
+        self.ui.console.clear()
+
+        serial_number = cable_record.get("serial_number", "N/A")
+        sku = cable_record.get("sku", "N/A")
+        series = cable_record.get("series", "N/A")
+        length = cable_record.get("length", "N/A")
+        color_pattern = cable_record.get("color_pattern", "N/A")
+        connector_type = cable_record.get("connector_type", "N/A")
+        resistance_ohms = cable_record.get("resistance_ohms")
+        capacitance_pf = cable_record.get("capacitance_pf")
+        cable_operator = cable_record.get("operator", "N/A")
+        test_timestamp = cable_record.get("test_timestamp")
+        updated_timestamp = cable_record.get("updated_timestamp")
+
+        # Format test results
+        if resistance_ohms is not None:
+            resistance_str = f"{resistance_ohms:.2f} Ω"
+            test_status = "✅ Tested"
+        else:
+            resistance_str = "Not tested"
+            test_status = "⏳ Not tested"
+
+        if capacitance_pf is not None:
+            capacitance_str = f"{capacitance_pf:.2f} pF"
+        else:
+            capacitance_str = "Not tested"
+
+        # Format timestamps
+        if test_timestamp:
+            if hasattr(test_timestamp, 'strftime'):
+                test_timestamp_str = test_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                test_timestamp_str = str(test_timestamp)
+        else:
+            test_timestamp_str = "Not tested"
+
+        if updated_timestamp:
+            if hasattr(updated_timestamp, 'strftime'):
+                updated_timestamp_str = updated_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                updated_timestamp_str = str(updated_timestamp)
+        else:
+            updated_timestamp_str = "N/A"
+
+        # Build cable info display
+        cable_info = f"""[bold yellow]Serial Number:[/bold yellow] {serial_number}
+[bold yellow]SKU:[/bold yellow] {sku}
+[bold yellow]Registered:[/bold yellow] {updated_timestamp_str}
+
+[bold cyan]Cable Details:[/bold cyan]
+  Series: {series}
+  Length: {length} ft
+  Color: {color_pattern}
+  Connector: {connector_type}"""
+
+        # Add description for MISC cables
+        description = cable_record.get("description")
+        if sku.endswith("-MISC") and description:
+            cable_info += f"\n  Description: {description}"
+
+        cable_info += f"""
+
+[bold green]Test Status:[/bold green] {test_status}
+  Resistance: {resistance_str}
+  Capacitance: {capacitance_str}
+  Tested: {test_timestamp_str}
+  Test Operator: {cable_operator if test_timestamp else 'N/A'}"""
+
+        # Check if cable is assigned to a customer
+        customer_gid = cable_record.get("shopify_gid")
+
+        if customer_gid:
+            # Cable is assigned - fetch customer details
+            from greenlight import shopify_client
+            customer_numeric_id = customer_gid.split('/')[-1]
+            customer = shopify_client.get_customer_by_id(customer_numeric_id)
+
+            if customer:
+                customer_name = customer.get("displayName") or "N/A"
+                customer_email = customer.get("email") or "N/A"
+                customer_phone = customer.get("phone")
+                address = customer.get("defaultAddress")
+                if not customer_phone and address:
+                    customer_phone = address.get("phone")
+                customer_phone = customer_phone or "N/A"
+
+                cable_info += f"""
+
+[bold magenta]✅ Assigned To Customer:[/bold magenta]
+  Name: {customer_name}
+  Email: {customer_email}
+  Phone: {customer_phone}"""
+            else:
+                cable_info += f"""
+
+[bold magenta]Assigned To:[/bold magenta]
+  [yellow]Customer ID: {customer_gid}[/yellow]
+  [dim](Details not available)[/dim]"""
+        else:
+            cable_info += """
+
+[bold magenta]Assignment:[/bold magenta]
+  [yellow]⏳ Not assigned to any customer[/yellow]"""
+
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(cable_info, title="📋 Cable Information (Already Registered)", style="cyan"))
+        self.ui.layout["footer"].update(Panel(
+            "Press enter to scan another cable",
+            title=""
+        ))
+        self.ui.render()
+        self.ui.console.input()
 
     def show_duplicate_prompt(self, operator, cable_type, existing_record):
         """Show duplicate record prompt and ask if user wants to update it
@@ -1257,19 +1865,15 @@ class ScanCableIntakeScreen(Screen):
             scanner_available = True
 
         try:
-            # Wait for either a scan or keyboard input
-            start_time = time.time()
-            timeout = 30.0  # 30 second timeout
-
-            while time.time() - start_time < timeout:
+            # Wait indefinitely for either a scan or keyboard input
+            # No timeout - user must explicitly quit with 'q'
+            while True:
                 # Check for scanned barcode
                 if scanner_available:
                     barcode = scanner.get_scan(timeout=0.1)
                     if barcode:
                         serial_number = barcode.strip().upper()
-                        # Show what was scanned
-                        self.ui.console.print(f"\n[bold green]📷 Scanned:[/bold green] {serial_number}")
-                        time.sleep(0.5)  # Brief pause to show what was scanned
+                        # Return immediately without printing (confirmation screen will show it)
                         return serial_number
 
                 # Check for manual keyboard input
@@ -1280,17 +1884,7 @@ class ScanCableIntakeScreen(Screen):
                             return None
                         return line
 
-                time.sleep(0.05)  # Small sleep to prevent busy-waiting
-
-            # Timeout - ask for manual entry
-            self.ui.console.print("\n[yellow]⏰ No scan detected - enter manually or 'q' to quit[/yellow]")
-            self.ui.console.print("[bold cyan]►[/bold cyan] ", end="")
-            serial_number = self.ui.console.input().strip().upper()
-
-            if serial_number == 'Q':
-                return None
-
-            return serial_number if serial_number else None
+                time.sleep(0.1)  # Small sleep to prevent busy-waiting (increased from 0.05 to 0.1)
 
         except KeyboardInterrupt:
             return None
@@ -1337,3 +1931,5 @@ class ScanCableIntakeScreen(Screen):
         self.ui.console.input("Press enter to continue...")
         # After showing summary, go back to main menu
         return ScreenResult(NavigationAction.POP, pop_count=1)
+
+

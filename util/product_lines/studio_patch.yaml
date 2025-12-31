@@ -1,0 +1,38 @@
+# Studio Patch Cable Product Line
+# Short patch cables for studio rack connections
+
+product_line: Studio Patch
+sku_prefix: SP
+core_cable: Canare GS-6
+braid_material: Rayon
+
+# Available colors
+colors:
+  - code: BG
+    name: Black/Gold
+    description: Studio patch cable with black rayon braid and gold tracer
+  - code: W
+    name: White
+    description: Studio patch cable with white rayon braid
+
+# Available lengths in feet
+lengths:
+  - 1
+
+# Connector configurations
+connectors:
+  - code: ""        # Straight plugs
+    display: TS–TS
+  - code: R         # Straight / Right angle plugs
+    display: TS–RA
+  - code: R2         # Right angle plugs
+    display: TS–RA
+
+# Pricing by length
+pricing:
+  0.5: 32.00
+
+# SKU format: {prefix}-06{color_code}{connector_code}
+# Example: SP-06BG, SP-06W, SP-06BGR, SP-06WR
+# Note: 0.5ft = 6 inches, so we use "06" in SKU
+include_color_in_sku: true  # Multiple colors available

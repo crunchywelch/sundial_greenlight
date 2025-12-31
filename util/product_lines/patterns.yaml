@@ -1,0 +1,57 @@
+# Cable Color Patterns and Fabric Types
+#
+# This file defines all available color patterns with their:
+# - SKU code (2-3 letter code used in product SKUs)
+# - Fabric type (rayon or cotton)
+# - Description (generic description of the pattern/color)
+#
+# Product lines will reference these patterns based on matching fabric type.
+
+patterns:
+  # ========================================
+  # RAYON PATTERNS
+  # ========================================
+
+  - code: GL
+    name: Goldline
+    fabric_type: rayon
+    description: Black rayon braid with gold tracer
+
+  - code: PW
+    name: Pearl White
+    fabric_type: rayon
+    description: Solid white rayon braid
+
+  # ========================================
+  # COTTON PATTERNS
+  # ========================================
+
+  - code: RS
+    name: Road Stripe
+    fabric_type: cotton
+    description: Black cotton braid with red tracer
+
+  - code: BU
+    name: Bungalow
+    fabric_type: cotton
+    description: Cotton bungalow braid
+
+  - code: HP
+    name: Houndstooth Putty
+    fabric_type: cotton
+    description: Putty cotton braid with black houndstooth tracer
+
+  - code: HB
+    name: Houndstooth Brown
+    fabric_type: cotton
+    description: Brown cotton braid with black houndstooth tracer
+
+# ========================================
+# FABRIC TYPE REFERENCE
+# ========================================
+#
+# Product lines should specify their fabric type (braid_material)
+# and will automatically get access to patterns matching that fabric type.
+#
+# Rayon patterns: BG, W
+# Cotton patterns: RS, BU, HP, HB, EH

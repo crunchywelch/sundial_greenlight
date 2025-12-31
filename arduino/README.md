@@ -15,14 +15,22 @@ This directory contains the Arduino firmware for the Greenlight Cable Testing sy
 ## Quick Start
 
 ### 1. Hardware Setup
-1. Connect ATmega32 Arduino to your computer via USB
-2. Build test circuit according to `HARDWARE_SETUP.md` 
+1. Connect Arduino Mega 2560 to Raspberry Pi via USB
+2. Build test circuit according to `HARDWARE_SETUP.md`
 3. Connect cable test fixture to designated pins
 
 ### 2. Upload Firmware
-1. Open `cable_tester.ino` in Arduino IDE
-2. Select Board: "Arduino Uno" (or appropriate ATmega32 board)
-3. Select correct COM port
+**Using arduino-cli (Recommended):**
+```bash
+cd arduino
+arduino-cli compile --fqbn arduino:avr:mega cable_tester
+arduino-cli upload -p /dev/ttyACM0 --fqbn arduino:avr:mega cable_tester
+```
+
+**Using Arduino IDE:**
+1. Open `cable_tester/cable_tester.ino` in Arduino IDE
+2. Select Board: "Arduino Mega or Mega 2560"
+3. Select correct COM port: /dev/ttyACM0
 4. Click Upload
 
 ### 3. Test Communication
@@ -60,14 +68,22 @@ TEST_RESULT:CONTINUITY:1:RESISTANCE:0.245:CAPACITANCE:156.2:POLARITY:1:OVERALL:1
 
 ## Hardware Requirements
 
-### Minimum Components
-- ATmega32 Arduino board
+### Arduino Board
+- **Arduino Mega 2560 R3** (official or compatible clone)
+- Built-in USB connection (no external adapter needed)
+- Provides excellent memory headroom:
+  - 253KB Flash (4% used)
+  - 8KB RAM (21% used)
+  - 54 Digital I/O pins
+  - 16 Analog inputs
+
+### Circuit Components
 - 3x 5V SPDT relays (continuity switching)
 - Basic test circuit (see HARDWARE_SETUP.md)
 - 4x LEDs for status indication
 - Cable test fixture with insertion detection
 
-### Recommended Components  
+### Recommended Components
 - Precision current source for resistance measurement
 - RC timing circuit for capacitance measurement
 - Voltage reference for calibration

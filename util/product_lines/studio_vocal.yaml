@@ -1,0 +1,34 @@
+# Studio Vocal Classic Cable Product Line
+# Professional studio-grade microphone cables
+
+product_line: Studio Vocal Classic
+sku_prefix: SV
+core_cable: Canare L-4E6S
+braid_material: Rayon
+
+# Available lengths in feet
+lengths:
+  - 3
+  - 6
+  - 10
+  - 15
+  - 20
+  - 25
+
+# Connector configurations
+connectors:
+  - code: ""        # Standard XLR connectors
+    display: XLR–XLR
+
+# Pricing by length
+pricing:
+  3: 59.00
+  6: 69.00
+  10: 79.00
+  15: 89.00
+  20: 99.00
+  25: 109.00
+
+# SKU format: {prefix}-{length}{color_code}
+# Example: SV-3GL, SV-6PW, SV-10GL
+include_color_in_sku: true
