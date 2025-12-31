@@ -25,6 +25,12 @@ if [[ "${SKIP_BOOTSTRAP:-0}" != "1" ]]; then
   ensure_pkg python3-venv
   ensure_pkg python3-pip
 
+  # Check if venv exists but is incomplete/corrupted
+  if [[ -d "$ENV_DIR" && ! -f "$ENV_DIR/bin/activate" ]]; then
+    echo "[!] Incomplete virtual environment detected, removing..."
+    rm -rf "$ENV_DIR"
+  fi
+
   if [[ ! -d "$ENV_DIR" ]]; then
     echo "[+] Creating virtual environment in ./$ENV_DIR"
     python3 -m venv "$ENV_DIR"

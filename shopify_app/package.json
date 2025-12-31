@@ -8,17 +8,23 @@
     "deploy": "shopify app deploy"
   },
   "dependencies": {
+    "@preact/signals": "^2.5.1",
     "@remix-run/node": "^2.8.0",
     "@remix-run/react": "^2.8.0",
     "@remix-run/serve": "^2.8.0",
     "@shopify/app-bridge-react": "^4.1.2",
     "@shopify/polaris": "^12.0.0",
+    "@shopify/shopify-api": "^11.14.1",
     "@shopify/shopify-app-remix": "^3.0.0",
+    "@shopify/ui-extensions": "2025.10.11",
+    "isbot": "^4",
+    "preact": "^10.28.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@remix-run/dev": "^2.8.0",
-    "@shopify/app": "^3.58.0"
+    "@shopify/app": "^3.58.0",
+    "esbuild": "^0.17.6"
   }
 }

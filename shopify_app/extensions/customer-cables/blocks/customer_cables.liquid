@@ -1,0 +1,120 @@
+<div class="customer-cables" id="customer-cables-{{ block.id }}">
+  <h2>{{ block.settings.heading }}</h2>
+
+  <div id="cables-loading-{{ block.id }}">
+    <p>Loading your cables...</p>
+  </div>
+
+  <div id="cables-list-{{ block.id }}" style="display: none;">
+    <!-- Cables will be loaded here via JavaScript -->
+  </div>
+
+  <div id="cables-error-{{ block.id }}" style="display: none; color: red;">
+    <!-- Error messages will appear here -->
+  </div>
+</div>
+
+<script>
+(function() {
+  const blockId = '{{ block.id }}';
+  const customerId = '{{ customer.id }}';
+  const appUrl = '{{ block.settings.app_url }}';
+
+  if (!customerId) {
+    document.getElementById('cables-loading-' + blockId).style.display = 'none';
+    document.getElementById('cables-error-' + blockId).style.display = 'block';
+    document.getElementById('cables-error-' + blockId).innerHTML = '<p>Please log in to view your cables.</p>';
+    return;
+  }
+
+  // Fetch customer cables from your app
+  fetch(appUrl + '/api/customer-cables?customerId=' + customerId)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Failed to load cables');
+      }
+      return response.json();
+    })
+    .then(data => {
+      const loadingEl = document.getElementById('cables-loading-' + blockId);
+      const listEl = document.getElementById('cables-list-' + blockId);
+      const errorEl = document.getElementById('cables-error-' + blockId);
+
+      loadingEl.style.display = 'none';
+
+      if (data.cables && data.cables.length > 0) {
+        let html = '<ul class="cable-list">';
+        data.cables.forEach(cable => {
+          html += '<li class="cable-item">';
+          html += '<strong>' + cable.name + '</strong><br>';
+          html += 'Serial: ' + cable.serial_number + '<br>';
+          html += 'Type: ' + cable.cable_type + '<br>';
+          if (cable.test_date) {
+            html += 'Tested: ' + cable.test_date + '<br>';
+          }
+          html += '</li>';
+        });
+        html += '</ul>';
+        listEl.innerHTML = html;
+        listEl.style.display = 'block';
+      } else {
+        listEl.innerHTML = '<p>You don\'t have any cables registered yet.</p>';
+        listEl.style.display = 'block';
+      }
+    })
+    .catch(error => {
+      document.getElementById('cables-loading-' + blockId).style.display = 'none';
+      document.getElementById('cables-error-' + blockId).style.display = 'block';
+      document.getElementById('cables-error-' + blockId).innerHTML = '<p>Error loading cables: ' + error.message + '</p>';
+    });
+})();
+</script>
+
+<style>
+.customer-cables {
+  margin: 20px 0;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+.cable-list {
+  list-style: none;
+  padding: 0;
+}
+
+.cable-item {
+  padding: 15px;
+  margin: 10px 0;
+  background: #f9f9f9;
+  border-radius: 4px;
+  border-left: 4px solid #4CAF50;
+}
+
+.cable-item strong {
+  font-size: 1.1em;
+  color: #333;
+}
+</style>
+
+{% schema %}
+{
+  "name": "Customer Cables",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "My Cables"
+    },
+    {
+      "type": "text",
+      "id": "app_url",
+      "label": "App URL",
+      "default": "https://greenlight.sundialwire.com",
+      "info": "Your Greenlight app URL (no trailing slash)"
+    }
+  ]
+}
+{% endschema %}

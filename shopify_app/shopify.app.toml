@@ -2,12 +2,11 @@
 
 client_id = "57d05e5335f174afd0fc5e91b8e9f617"
 name = "greenlight"
-application_url = "http://localhost:3000"
+application_url = "https://greenlight.sundialwire.com"
 embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
-dev_store_url = "sundial-audio-dev.myshopify.com"
 
 [webhooks]
 api_version = "2025-10"
