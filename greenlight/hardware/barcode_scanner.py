@@ -244,9 +244,28 @@ class BarcodeScanner:
 # Global scanner instance
 _scanner_instance = None
 
-def get_scanner() -> BarcodeScanner:
-    """Get the global scanner instance"""
+# Use MQTT scanner by default (requires scanner daemon running)
+# Set to False to use direct evdev access (legacy mode)
+USE_MQTT_SCANNER = True
+
+
+def get_scanner():
+    """
+    Get the global scanner instance.
+
+    By default, returns an MQTTScanner that subscribes to the scanner daemon.
+    Set USE_MQTT_SCANNER = False for direct evdev access (legacy mode).
+    """
     global _scanner_instance
     if _scanner_instance is None:
-        _scanner_instance = BarcodeScanner()
+        if USE_MQTT_SCANNER:
+            from greenlight.hardware.mqtt_scanner import MQTTScanner
+            _scanner_instance = MQTTScanner()
+        else:
+            _scanner_instance = BarcodeScanner()
     return _scanner_instance
+
+
+def get_evdev_scanner() -> BarcodeScanner:
+    """Get a direct evdev scanner (for use by scanner daemon)"""
+    return BarcodeScanner()

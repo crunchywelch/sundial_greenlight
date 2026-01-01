@@ -49,15 +49,12 @@ class TSCLabelPrinter(LabelPrinterInterface):
     def initialize(self) -> bool:
         """Initialize printer connection"""
         try:
-            # Test connection by sending a simple status query
+            # Test connection with short timeout for fast startup
             test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            test_socket.settimeout(5.0)
+            test_socket.settimeout(2.0)  # Reduced from 5.0 to 2.0 for faster startup
             test_socket.connect((self.ip_address, self.port))
 
-            # Send a simple command to verify printer responds
-            test_socket.sendall(b'~!T\r\n')  # Request printer status
-
-            # If we got here, connection works
+            # Don't wait for response - just test if we can connect
             test_socket.close()
             self.connected = True
             logger.info(f"TSC printer initialized at {self.ip_address}:{self.port}")
@@ -85,12 +82,13 @@ class TSCLabelPrinter(LabelPrinterInterface):
             sock.connect((self.ip_address, self.port))
 
             # Send commands
-            sock.sendall(commands.encode('utf-8'))
+            bytes_sent = sock.sendall(commands.encode('utf-8'))
 
             # Close socket
             sock.close()
 
-            logger.debug(f"Sent TSPL commands:\n{commands}")
+            logger.info(f"Sent {len(commands)} bytes to printer at {self.ip_address}")
+            logger.debug(f"TSPL commands:\n{commands}")
             return True
 
         except (socket.timeout, socket.error, OSError) as e:
@@ -159,6 +157,10 @@ class TSCLabelPrinter(LabelPrinterInterface):
         # Extract data
         series = data.get('series', 'Unknown')
         length = data.get('length', '?')
+        # Convert length to string and handle floats (database returns REAL/float)
+        if isinstance(length, (int, float)):
+            # Format as integer if it's a whole number (20.0 -> 20)
+            length = str(int(length)) if length == int(length) else str(length)
         color_pattern = data.get('color_pattern', 'Unknown')
         connector_type = data.get('connector_type', 'Unknown')
         sku = data.get('sku', 'UNKNOWN')
@@ -249,7 +251,8 @@ class TSCLabelPrinter(LabelPrinterInterface):
         tspl_commands.append(f'TEXT {x_sku},{y_connector},"2",0,1,1,"{sku}"')
 
         # Print the label
-        tspl_commands.append("PRINT 1,1")  # Print 1 copy, 1 set
+        tspl_commands.append("PRINT 1")  # Print 1 copy
+        tspl_commands.append("")  # Blank line to ensure command is processed
 
         # Join all commands with CRLF
         return '\r\n'.join(tspl_commands) + '\r\n'

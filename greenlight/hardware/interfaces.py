@@ -174,12 +174,8 @@ class HardwareManager:
         return self.scanner
     
     def get_label_printer(self) -> Optional[LabelPrinterInterface]:
-        """Get label printer with lazy initialization"""
-        if self.label_printer and hasattr(self.label_printer, 'initialize'):
-            if hasattr(self.label_printer, 'connected') and not self.label_printer.connected:
-                logger.info("Lazily initializing label printer...")
-                if not self.label_printer.initialize():
-                    logger.warning("Label printer initialization failed - may need fallback")
+        """Get label printer (already initialized at startup)"""
+        # No lazy initialization - printer is initialized in main.py init_hardware()
         return self.label_printer
     
     def get_card_printer(self) -> Optional[CardPrinterInterface]:

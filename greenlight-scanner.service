@@ -1,0 +1,26 @@
+[Unit]
+Description=Greenlight Barcode Scanner Daemon
+Documentation=https://github.com/sundialwire/greenlight
+After=network.target mosquitto.service
+Wants=mosquitto.service
+
+[Service]
+Type=simple
+User=welch
+Group=welch
+WorkingDirectory=/home/welch/projects/sundial_greenlight
+Environment="PATH=/home/welch/projects/sundial_greenlight/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/welch/projects/sundial_greenlight/venv/bin/python -m greenlight.hardware.scanner_daemon
+Restart=always
+RestartSec=5
+
+# Give access to input devices
+SupplementaryGroups=input
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=greenlight-scanner
+
+[Install]
+WantedBy=multi-user.target

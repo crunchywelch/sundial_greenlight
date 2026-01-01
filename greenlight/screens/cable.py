@@ -214,12 +214,23 @@ class ScanCableLookupScreen(Screen):
         self.ui.header(operator)
         self.ui.layout["body"].update(cable_info_panel)
 
-        # Check if cable is already assigned
+        # Check if cable is already assigned and if printer is available
         customer_gid = cable_record.get("shopify_gid")
-        if customer_gid:
-            footer_text = "[cyan]Press Enter to continue scanning[/cyan]"
-        else:
-            footer_text = "[cyan]'a'[/cyan] = Assign to customer | [cyan]Enter[/cyan] = Continue scanning"
+
+        # Check if label printer is available
+        from greenlight.hardware.interfaces import hardware_manager
+        label_printer = hardware_manager.get_label_printer()
+        printer_available = label_printer and label_printer.is_ready() if label_printer else False
+
+        # Build footer text based on options
+        footer_options = []
+        if not customer_gid:
+            footer_options.append("[cyan]'a'[/cyan] = Assign to customer")
+        if printer_available:
+            footer_options.append("[cyan]'p'[/cyan] = Print label")
+        footer_options.append("[cyan]Enter[/cyan] = Continue scanning")
+
+        footer_text = " | ".join(footer_options)
 
         self.ui.layout["footer"].update(Panel(footer_text, title="Options"))
         self.ui.render()
@@ -235,11 +246,112 @@ class ScanCableLookupScreen(Screen):
                 new_context["assign_cable_sku"] = cable_record['sku']
                 return ScreenResult(NavigationAction.PUSH, CustomerLookupScreen, new_context)
 
+            elif choice == 'p' and printer_available:
+                # Print label for this cable
+                self.print_label_for_cable(operator, cable_record)
+                # Return None to continue scanning
+                return None
+
             # Otherwise continue scanning
             return None
 
         except KeyboardInterrupt:
             return None
+
+    def print_label_for_cable(self, operator, cable_record):
+        """Print a label for an existing cable from the database
+
+        Args:
+            operator: Operator ID
+            cable_record: Cable record from database
+        """
+        from greenlight.hardware.interfaces import hardware_manager, PrintJob
+        from greenlight.cable import CableType
+
+        label_printer = hardware_manager.get_label_printer()
+        if not label_printer:
+            return
+
+        serial_number = cable_record.get('serial_number')
+        sku = cable_record.get('sku')
+        series = cable_record.get('series')
+        length = cable_record.get('length')
+        color_pattern = cable_record.get('color_pattern')
+        connector_type = cable_record.get('connector_type')
+        description = cable_record.get('description')
+
+        # Show printing in progress
+        self.ui.console.clear()
+        self.ui.header(operator)
+
+        self.ui.layout["body"].update(Panel(
+            f"🖨️  Printing label...\n\n"
+            f"Serial: {serial_number}\n"
+            f"SKU: {sku}\n\n"
+            f"Please wait...",
+            title="Printing Label", style="blue"
+        ))
+        self.ui.render()
+
+        # Prepare label data
+        label_data = {
+            'series': series,
+            'length': length,
+            'color_pattern': color_pattern,
+            'connector_type': connector_type,
+            'sku': sku,
+        }
+
+        # Add description for MISC cables
+        if description:
+            label_data['description'] = description
+
+        # Debug logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Printing label for cable {serial_number}")
+        logger.info(f"Label data: {label_data}")
+
+        # Create print job
+        print_job = PrintJob(
+            template="cable_label",
+            data=label_data,
+            quantity=1
+        )
+
+        # Send to printer
+        success = label_printer.print_labels(print_job)
+        logger.info(f"Print result: {success}")
+
+        # Show result
+        self.ui.console.clear()
+        self.ui.header(operator)
+
+        if success:
+            self.ui.layout["body"].update(Panel(
+                f"✅ [bold green]Label Printed Successfully![/bold green]\n\n"
+                f"Serial: {serial_number}\n"
+                f"SKU: {sku}\n\n"
+                f"Label ready to apply to cable.",
+                title="Print Complete", style="green"
+            ))
+        else:
+            self.ui.layout["body"].update(Panel(
+                f"❌ [bold red]Label Printing Failed[/bold red]\n\n"
+                f"Serial: {serial_number}\n"
+                f"SKU: {sku}\n\n"
+                f"Please check printer and try again.",
+                title="Print Error", style="red"
+            ))
+
+        self.ui.layout["footer"].update(Panel("Press enter to continue scanning", title=""))
+        self.ui.render()
+
+        # Brief pause to show result
+        try:
+            self.ui.console.input("")
+        except KeyboardInterrupt:
+            pass
 
     def build_cable_info_panel(self, cable_record):
         """Build the cable information panel (extracted for reuse)"""
@@ -1567,7 +1679,14 @@ class ScanCableIntakeScreen(Screen):
         # Check if label printer is available
         label_printer = hardware_manager.get_label_printer()
         if not label_printer or not label_printer.is_ready():
-            # Printer not available, skip label printing
+            # Printer not available, show brief notice
+            import time
+            self.ui.layout["footer"].update(Panel(
+                "[dim]Label printer not available - enable in .env with GREENLIGHT_USE_REAL_PRINTERS=true[/dim]",
+                title="Notice", style="dim"
+            ))
+            self.ui.render()
+            time.sleep(1.5)
             return
 
         # Clear console and show print prompt
