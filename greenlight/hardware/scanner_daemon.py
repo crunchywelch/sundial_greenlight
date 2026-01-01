@@ -5,11 +5,17 @@ Scanner daemon - owns the USB barcode scanner and publishes scans to MQTT.
 This daemon runs as a systemd service and makes scans available to any
 subscriber (Greenlight TUI, Shopify app, etc.) via MQTT.
 
+It also POSTs scans to the Shopify app's SSE endpoint for real-time
+browser updates.
+
 Usage:
     python -m greenlight.hardware.scanner_daemon
 
 MQTT Topic:
     scanner/barcode - Published when a barcode is scanned
+
+HTTP Webhook:
+    POST https://greenlight.sundialwire.com/api/scanner-events
 
 Message format (JSON):
     {"barcode": "SD000123", "timestamp": 1234567890.123}
@@ -20,6 +26,7 @@ import signal
 import sys
 import time
 import logging
+import threading
 
 # Configure logging
 logging.basicConfig(
@@ -36,6 +43,13 @@ except ImportError:
     MQTT_AVAILABLE = False
     logger.error("paho-mqtt not installed. Install with: pip install paho-mqtt")
 
+try:
+    import requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
+    logger.warning("requests not installed - HTTP webhook disabled")
+
 from greenlight.hardware.barcode_scanner import get_evdev_scanner, EVDEV_AVAILABLE
 
 # MQTT Configuration
@@ -43,6 +57,11 @@ MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
 MQTT_TOPIC = "scanner/barcode"
 MQTT_CLIENT_ID = "scanner-daemon"
+
+# HTTP Webhook Configuration (Shopify app SSE endpoint)
+WEBHOOK_URL = "https://greenlight.sundialwire.com/api/scanner-events"
+WEBHOOK_TIMEOUT = 2  # seconds
+WEBHOOK_ENABLED = True  # Set to False to disable HTTP posting
 
 # Reconnect settings
 RECONNECT_DELAY = 5  # seconds
@@ -108,23 +127,51 @@ class ScannerDaemon:
         return True
 
     def publish_scan(self, barcode: str):
-        """Publish a scanned barcode to MQTT"""
-        if not self.mqtt_client:
-            return
+        """Publish a scanned barcode to MQTT and HTTP webhook"""
+        timestamp = time.time()
 
-        message = json.dumps({
-            "barcode": barcode,
-            "timestamp": time.time()
-        })
+        # Publish to MQTT
+        if self.mqtt_client:
+            message = json.dumps({
+                "barcode": barcode,
+                "timestamp": timestamp
+            })
 
+            try:
+                result = self.mqtt_client.publish(MQTT_TOPIC, message, qos=1)
+                if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                    logger.info(f"MQTT published: {barcode}")
+                else:
+                    logger.warning(f"MQTT failed: {barcode} (rc={result.rc})")
+            except Exception as e:
+                logger.error(f"MQTT error: {e}")
+
+        # POST to HTTP webhook (fire and forget in background thread)
+        if WEBHOOK_ENABLED and REQUESTS_AVAILABLE:
+            threading.Thread(
+                target=self._post_to_webhook,
+                args=(barcode,),
+                daemon=True
+            ).start()
+
+    def _post_to_webhook(self, barcode: str):
+        """POST scan to HTTP webhook (runs in background thread)"""
         try:
-            result = self.mqtt_client.publish(MQTT_TOPIC, message, qos=1)
-            if result.rc == mqtt.MQTT_ERR_SUCCESS:
-                logger.info(f"Published: {barcode}")
+            response = requests.post(
+                WEBHOOK_URL,
+                json={"serial": barcode},
+                timeout=WEBHOOK_TIMEOUT
+            )
+            if response.ok:
+                logger.debug(f"Webhook posted: {barcode}")
             else:
-                logger.warning(f"Failed to publish: {barcode} (rc={result.rc})")
+                logger.warning(f"Webhook failed: {response.status_code}")
+        except requests.exceptions.Timeout:
+            logger.warning("Webhook timeout")
+        except requests.exceptions.ConnectionError:
+            logger.debug("Webhook connection failed (server may be down)")
         except Exception as e:
-            logger.error(f"Error publishing to MQTT: {e}")
+            logger.warning(f"Webhook error: {e}")
 
     def run(self):
         """Main daemon loop"""
