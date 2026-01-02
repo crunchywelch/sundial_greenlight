@@ -18,4 +18,4 @@ optional_scopes = [ ]
 use_legacy_install_flow = false
 
 [auth]
-redirect_urls = [ ]
+redirect_urls = [ "https://greenlight.sundialwire.com/auth/callback" ]

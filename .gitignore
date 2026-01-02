@@ -1,2 +1,10 @@
-.env
+.swp
+.env*
 venv
+shopify_app/.cache
+shopify_app/build
+shopify_app/public/build
+shopify_app/node_modules
+shopify_app/extensions/*/node_modules/
+shopify_app/extensions/*/dist
+

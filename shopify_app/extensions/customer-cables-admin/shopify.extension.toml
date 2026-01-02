@@ -1,0 +1,11 @@
+api_version = "2025-01"
+
+[[extensions]]
+name = "Customer Cables"
+handle = "customer-cables-admin"
+uid = "bda50b4f-f72e-0e21-ca18-fba49302a51243d8ed5c"
+type = "ui_extension"
+
+[[extensions.targeting]]
+module = "./src/BlockExtension.jsx"
+target = "admin.customer-details.block.render"

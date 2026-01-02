@@ -16,8 +16,10 @@
     "@shopify/polaris": "^12.0.0",
     "@shopify/shopify-api": "^11.14.1",
     "@shopify/shopify-app-remix": "^3.0.0",
+    "@shopify/shopify-app-session-storage-postgresql": "^4.0.20",
     "@shopify/ui-extensions": "2025.10.11",
     "isbot": "^4",
+    "pg": "^8.16.3",
     "preact": "^10.28.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

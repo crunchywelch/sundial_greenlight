@@ -1,0 +1,14 @@
+[Unit]
+Description=Greenlight Shopify App (Development)
+After=network.target
+
+[Service]
+Type=simple
+User=welch
+WorkingDirectory=/home/welch/projects/sundial_greenlight/shopify_app
+EnvironmentFile=/home/welch/projects/sundial_greenlight/shopify_app/.env_dev
+ExecStart=/usr/bin/npx @remix-run/serve build/index.js
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

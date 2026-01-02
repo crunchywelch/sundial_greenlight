@@ -1,0 +1,12 @@
+{
+  "name": "customer-cables-admin",
+  "private": true,
+  "scripts": {
+    "build": "shopify app build --include-config-on-deploy"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "@shopify/ui-extensions": "^2025.1.0",
+    "@shopify/ui-extensions-react": "^2025.1.0"
+  }
+}

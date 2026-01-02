@@ -46,13 +46,14 @@ sudo systemctl restart greenlight-shopify
 ### Important Routes
 
 - `/` - Redirects to `/app` with query params preserved
-- `/app` - Main app page (currently shows Hello World via child route)
-- `/app/_index.jsx` - The actual Hello World content
-- `/auth/exit-iframe.jsx` - **Current entry point** - Shows Hello World in iframe
+- `/app` - Main app page with cable assignment UI
+- `/app/_index.jsx` - Cable assignment interface (search customers, search cables, assign)
+- `/app/settings` - Settings page
+- `/auth/exit-iframe.jsx` - OAuth exit iframe handler
 - `/auth/login.jsx` - Redirects to OAuth flow
 - `/auth/callback.jsx` - OAuth callback handler
 - `/auth.jsx` - Shopify OAuth redirect
-- `/api/customer-cables.jsx` - API endpoint (ready to connect to PostgreSQL)
+- `/api/customer-cables.jsx` - API endpoint for fetching customer cables (connected to PostgreSQL)
 
 ### App Architecture
 
@@ -60,13 +61,26 @@ sudo systemctl restart greenlight-shopify
 1. Shopify admin loads app in iframe
 2. Requests hit `/` with `?shop=...` params
 3. Redirects to `/app` preserving params
-4. Currently shows "Hello World!" from `/app/_index.jsx`
+4. Shows cable assignment UI from `/app/_index.jsx`
 
-**Auth Flow (for when needed):**
+**Auth Flow:**
 1. `/auth/login?shop=...` → `/auth?shop=...`
 2. Redirects to Shopify OAuth
 3. Callback to `/auth/callback`
 4. Creates session and redirects to `/app`
+
+**Cable Assignment Workflow:**
+1. Search for customer by name, email, or phone
+2. Search for cable by serial number or SKU
+3. Select customer and cable from results
+4. Click "Assign Cable to Customer" button
+5. Updates `shopify_gid` field in `audio_cables` table
+
+**Database Connection:**
+- PostgreSQL database hosted on DigitalOcean
+- Connection pool managed by `app/db.server.js`
+- Credentials stored in systemd service environment variables
+- Tables: `audio_cables`, `cable_skus`, `test_results`
 
 ### API Credentials
 
@@ -88,8 +102,23 @@ The Shopify CLI will:
 - Create a tunnel URL (using Cloudflare)
 - Open your app in the Shopify admin
 
+## Features
+
+### Cable Assignment ✅
+- Search for Shopify customers by name, email, or phone
+- Search for cables by serial number or SKU
+- Assign cables to customers (updates database)
+- Visual indicators for already-assigned cables
+
+### Customer Cable API ✅
+- Public API endpoint: `/api/customer-cables?customerId=<gid>`
+- Returns all cables assigned to a customer
+- Includes cable details, test results, and SKU information
+- CORS-enabled for storefront access
+
 ## Next Steps
 
-1. Replace Hello World content in `app/routes/auth.exit-iframe.jsx` with actual app UI
-2. Connect `/api/customer-cables` endpoint to PostgreSQL database
-3. Build customer cable display extension (in `extensions/` directory)
+1. Build customer cable display extension (in `extensions/` directory)
+2. Add cable unassignment functionality
+3. Add bulk cable assignment
+4. Add cable history/audit log

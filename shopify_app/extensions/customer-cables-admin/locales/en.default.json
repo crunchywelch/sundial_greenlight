@@ -1,0 +1,6 @@
+{
+  "name": "Customer Cables",
+  "loading": "Loading cables...",
+  "noCables": "No cables assigned to this customer.",
+  "error": "Error loading cables"
+}

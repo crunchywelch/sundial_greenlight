@@ -1,29 +1,6 @@
 import { shopifyApp } from "@shopify/shopify-app-remix/server";
 import { restResources } from "@shopify/shopify-api/rest/admin/2025-07";
-
-// Simple in-memory session storage (not for production use - use database-backed storage)
-const sessions = new Map();
-
-const customSessionStorage = {
-  async storeSession(session) {
-    sessions.set(session.id, session);
-    return true;
-  },
-  async loadSession(id) {
-    return sessions.get(id) || null;
-  },
-  async deleteSession(id) {
-    sessions.delete(id);
-    return true;
-  },
-  async deleteSessions(ids) {
-    ids.forEach(id => sessions.delete(id));
-    return true;
-  },
-  async findSessionsByShop(shop) {
-    return Array.from(sessions.values()).filter(session => session.shop === shop);
-  },
-};
+import customSessionStorage from "./session-storage.server.js";
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,

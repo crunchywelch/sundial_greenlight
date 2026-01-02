@@ -1,7 +1,7 @@
 import { json } from "@remix-run/node";
+import { query } from "../db.server.js";
 
 // This is a public API endpoint that the storefront can call
-// Note: In production, you'll want to connect this to your actual database
 export async function loader({ request }) {
   const url = new URL(request.url);
   const customerId = url.searchParams.get("customerId");
@@ -11,75 +11,53 @@ export async function loader({ request }) {
   }
 
   try {
-    // TODO: Replace this with actual database query
-    // For now, returning mock data
     const cables = await fetchCustomerCables(customerId);
 
-    // Set CORS headers to allow storefront to access this endpoint
-    return json(
-      { cables },
-      {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        },
-      }
-    );
+    return json({ cables });
   } catch (error) {
     console.error("Error fetching customer cables:", error);
-    return json(
-      { error: "Failed to fetch cables" },
-      {
-        status: 500,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-        },
-      }
-    );
+    return json({ error: "Failed to fetch cables" }, { status: 500 });
   }
 }
 
-// Handle OPTIONS requests for CORS
-export async function options() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
-  });
-}
-
-// Mock function - replace with actual database query
 async function fetchCustomerCables(customerId) {
-  // TODO: Connect to your Greenlight PostgreSQL database
-  // Example query (pseudocode):
-  // const cables = await db.query(
-  //   'SELECT * FROM audio_cables WHERE customer_id = $1',
-  //   [customerId]
-  // );
+  // Query the database for cables associated with this customer
+  // The schema uses serial_number as primary key and shopify_gid for customer association
+  const result = await query(
+    `SELECT
+      ac.serial_number,
+      ac.sku,
+      ac.description,
+      ac.length,
+      ac.resistance_ohms,
+      ac.capacitance_pf,
+      ac.test_timestamp,
+      ac.operator,
+      ac.shopify_gid,
+      cs.series,
+      cs.color_pattern,
+      cs.connector_type,
+      cs.core_cable
+    FROM audio_cables ac
+    LEFT JOIN cable_skus cs ON ac.sku = cs.sku
+    WHERE ac.shopify_gid = $1
+    ORDER BY ac.test_timestamp DESC NULLS LAST`,
+    [customerId]
+  );
 
-  // For now, return mock data
-  return [
-    {
-      id: 1,
-      name: "Premium XLR Cable",
-      serial_number: "XLR-2024-001",
-      cable_type: "XLR",
-      length: "10ft",
-      test_date: "2024-12-15",
-      test_status: "passed",
-    },
-    {
-      id: 2,
-      name: "TRS Patch Cable",
-      serial_number: "TRS-2024-042",
-      cable_type: "TRS",
-      length: "6ft",
-      test_date: "2024-12-20",
-      test_status: "passed",
-    },
-  ];
+  return result.rows.map((row) => ({
+    serial_number: row.serial_number,
+    sku: row.sku,
+    description: row.description,
+    length: row.length,
+    series: row.series,
+    color: row.color_pattern,
+    connector_type: row.connector_type,
+    core_cable: row.core_cable,
+    test_date: row.test_timestamp,
+    resistance_ohms: row.resistance_ohms,
+    capacitance_pf: row.capacitance_pf,
+    test_status: row.resistance_ohms !== null && row.capacitance_pf !== null ? "tested" : "not tested",
+    operator: row.operator,
+  }));
 }
