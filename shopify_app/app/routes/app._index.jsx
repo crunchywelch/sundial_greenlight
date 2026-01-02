@@ -489,14 +489,15 @@ export default function Index() {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [selectedCable, setSelectedCable] = useState(null);
   const [scannerActive, setScannerActive] = useState(false);
+  const [cableInputFocused, setCableInputFocused] = useState(false);
 
   const customers = actionData?.customers || [];
   const cables = actionData?.cables || [];
   const inventory = actionData?.inventory || [];
   const syncResults = actionData?.syncResults || null;
 
-  // Listen for scanner events (only on scan/assign views)
-  const scannerEnabled = view === "scan" || view === "assign";
+  // Listen for scanner events (only when cable search input is focused)
+  const scannerEnabled = (view === "scan" || view === "assign") && cableInputFocused;
   const scanEvent = useScannerEvents(scannerEnabled);
 
   // Auto-fill and search when scanner sends a serial number
@@ -646,6 +647,8 @@ export default function Index() {
                     type="text"
                     value={cableSearch}
                     onChange={(e) => setCableSearch(e.target.value)}
+                    onFocus={() => setCableInputFocused(true)}
+                    onBlur={() => setCableInputFocused(false)}
                     style={{
                       flex: 1,
                       padding: '10px',
@@ -666,7 +669,7 @@ export default function Index() {
                   <h3 style={{ fontSize: '16px', marginBottom: '10px' }}>Results:</h3>
                   {cables.map((item) => {
                     // For MISC cables, use cable_length; otherwise use sku_length
-                    const displayLength = item.sku === 'MISC' ? item.cable_length : item.sku_length;
+                    const displayLength = item.sku?.endsWith('MISC') ? item.cable_length : item.sku_length;
 
                     return (
                       <div
@@ -801,6 +804,8 @@ export default function Index() {
                       type="text"
                       value={cableSearch}
                       onChange={(e) => setCableSearch(e.target.value)}
+                      onFocus={() => setCableInputFocused(true)}
+                      onBlur={() => setCableInputFocused(false)}
                       style={{
                         flex: 1,
                         padding: '8px',

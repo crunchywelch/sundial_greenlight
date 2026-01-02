@@ -48,6 +48,12 @@ echo ""
 echo "Restarting production service..."
 sudo systemctl restart greenlight-shopify
 
+# Wait for service to be ready, then reload nginx
+echo ""
+echo "Waiting for service to start..."
+sleep 3
+sudo systemctl reload nginx
+
 # Check status
 echo ""
 echo "Service status:"

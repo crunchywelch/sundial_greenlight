@@ -20,7 +20,7 @@ function getCableLength(cable) {
   if (cable.length) return `${cable.length}'`;
 
   // Parse length from SKU - number after first dash (skip MISC skus)
-  if (cable.sku && !cable.sku.startsWith("MISC")) {
+  if (cable.sku && !cable.sku.endsWith("MISC")) {
     const match = cable.sku.match(/-(\d+)/);
     if (match) return `${match[1]}'`;
   }
@@ -115,7 +115,7 @@ function CustomerCablesBlock() {
 
               <Text tone="subdued" size="small">{cable.sku}</Text>
 
-              {cable.sku?.includes("MISC") && cable.description && (
+              {cable.sku?.endsWith("MISC") && cable.description && (
                 <Text tone="subdued" size="small">{cable.description}</Text>
               )}
 
