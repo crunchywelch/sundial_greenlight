@@ -14,8 +14,9 @@ Usage:
 MQTT Topic:
     scanner/barcode - Published when a barcode is scanned
 
-HTTP Webhook:
+HTTP Webhooks:
     POST https://greenlight.sundialwire.com/api/scanner-events
+    POST https://greenlightdev.sundialwire.com/api/scanner-events
 
 Message format (JSON):
     {"barcode": "SD000123", "timestamp": 1234567890.123}
@@ -58,8 +59,11 @@ MQTT_PORT = 1883
 MQTT_TOPIC = "scanner/barcode"
 MQTT_CLIENT_ID = "scanner-daemon"
 
-# HTTP Webhook Configuration (Shopify app SSE endpoint)
-WEBHOOK_URL = "https://greenlight.sundialwire.com/api/scanner-events"
+# HTTP Webhook Configuration (Shopify app SSE endpoints)
+WEBHOOK_URLS = [
+    "https://greenlight.sundialwire.com/api/scanner-events",
+    "https://greenlightdev.sundialwire.com/api/scanner-events",
+]
 WEBHOOK_TIMEOUT = 2  # seconds
 WEBHOOK_ENABLED = True  # Set to False to disable HTTP posting
 
@@ -146,32 +150,33 @@ class ScannerDaemon:
             except Exception as e:
                 logger.error(f"MQTT error: {e}")
 
-        # POST to HTTP webhook (fire and forget in background thread)
+        # POST to HTTP webhooks (fire and forget in background threads)
         if WEBHOOK_ENABLED and REQUESTS_AVAILABLE:
-            threading.Thread(
-                target=self._post_to_webhook,
-                args=(barcode,),
-                daemon=True
-            ).start()
+            for url in WEBHOOK_URLS:
+                threading.Thread(
+                    target=self._post_to_webhook,
+                    args=(barcode, url),
+                    daemon=True
+                ).start()
 
-    def _post_to_webhook(self, barcode: str):
+    def _post_to_webhook(self, barcode: str, url: str):
         """POST scan to HTTP webhook (runs in background thread)"""
         try:
             response = requests.post(
-                WEBHOOK_URL,
+                url,
                 json={"serial": barcode},
                 timeout=WEBHOOK_TIMEOUT
             )
             if response.ok:
-                logger.debug(f"Webhook posted: {barcode}")
+                logger.debug(f"Webhook posted to {url}: {barcode}")
             else:
-                logger.warning(f"Webhook failed: {response.status_code}")
+                logger.warning(f"Webhook failed {url}: {response.status_code}")
         except requests.exceptions.Timeout:
-            logger.warning("Webhook timeout")
+            logger.warning(f"Webhook timeout: {url}")
         except requests.exceptions.ConnectionError:
-            logger.debug("Webhook connection failed (server may be down)")
+            logger.debug(f"Webhook connection failed (server may be down): {url}")
         except Exception as e:
-            logger.warning(f"Webhook error: {e}")
+            logger.warning(f"Webhook error {url}: {e}")
 
     def run(self):
         """Main daemon loop"""

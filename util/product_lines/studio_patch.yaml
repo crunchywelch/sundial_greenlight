@@ -23,10 +23,10 @@ lengths:
 connectors:
   - code: ""        # Straight plugs
     display: TS–TS
-  - code: R         # Straight / Right angle plugs
+  - code: "-R"         # Straight / Right angle plugs
     display: TS–RA
-  - code: R2         # Right angle plugs
-    display: TS–RA
+  - code: "-R2"         # Right angle plugs
+    display: RA–RA
 
 # Pricing by length
 pricing:
