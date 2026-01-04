@@ -1,1 +1,0 @@
-import{b as o}from"/build/_shared/chunk-4HXKWYDW.js";import{c as d}from"/build/_shared/chunk-Q3IECNXJ.js";var t=d(o(),1);function e(){return(0,t.jsx)("div",{style:{padding:"20px",fontSize:"24px",fontWeight:"bold"},children:"Hello World!"})}export{e as default};

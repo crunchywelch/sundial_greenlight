@@ -1,9 +1,9 @@
-// SSE endpoint for real-time scanner events
-// - GET: React connects here to receive scan events
-// - POST: Greenlight sends scans here to broadcast
+// Polling endpoint for scanner events (SSE blocked in Shopify iframe)
+// - GET: React polls this to get latest scan
+// - POST: Greenlight sends scans here
 
-// In-memory store for connected SSE clients
-const clients = new Set();
+// In-memory store for the last scan event
+let lastScanEvent = null;
 
 // POST endpoint - Greenlight sends scans here
 export async function action({ request }) {
@@ -11,40 +11,88 @@ export async function action({ request }) {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  const { serial } = await request.json();
-  const event = `data: ${JSON.stringify({ serial, timestamp: Date.now() })}\n\n`;
+  try {
+    // Get raw body text first to clean it
+    const bodyText = await request.text();
 
-  // Broadcast to all connected clients
-  for (const client of clients) {
+    // Parse JSON, handling potential control characters
+    let data;
     try {
-      client.enqueue(event);
-    } catch {
-      clients.delete(client);
+      data = JSON.parse(bodyText);
+    } catch (jsonError) {
+      // Try cleaning the body text of control characters
+      const cleanedBody = bodyText.replace(/[\x00-\x1F\x7F]/g, '');
+      console.log("Cleaned body:", cleanedBody);
+      data = JSON.parse(cleanedBody);
     }
-  }
 
-  return new Response("ok", {
-    headers: { "Access-Control-Allow-Origin": "*" },
-  });
+    // Clean and validate the serial number
+    let serial = data.serial;
+    if (!serial) {
+      return new Response(JSON.stringify({ error: "Missing serial" }), {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*"
+        },
+      });
+    }
+
+    // Trim whitespace and control characters
+    serial = serial.trim().replace(/[\x00-\x1F\x7F]/g, '');
+
+    // Store the last scan event with timestamp
+    lastScanEvent = {
+      serial,
+      timestamp: Date.now()
+    };
+
+    console.log(`Scanner event stored: "${serial}" at ${lastScanEvent.timestamp}`);
+
+    return new Response(JSON.stringify({ success: true, serial }), {
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*"
+      },
+    });
+  } catch (error) {
+    console.error("Scanner event error:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*"
+      },
+    });
+  }
 }
 
-// GET endpoint - React connects here for SSE stream
+// GET endpoint - React polls this to get latest scan
 export async function loader({ request }) {
-  const stream = new ReadableStream({
-    start(controller) {
-      clients.add(controller);
-      controller.enqueue(": connected\n\n");
-    },
-    cancel(controller) {
-      clients.delete(controller);
-    },
-  });
+  const url = new URL(request.url);
+  const since = parseInt(url.searchParams.get("since") || "0");
 
-  return new Response(stream, {
+  // Expire scans after 5 seconds (so they don't reappear on page reload)
+  const now = Date.now();
+  const SCAN_TTL = 5000; // 5 seconds
+
+  // Return the last scan event if it's newer than what the client has seen
+  // and hasn't expired
+  if (lastScanEvent &&
+      lastScanEvent.timestamp > since &&
+      (now - lastScanEvent.timestamp) < SCAN_TTL) {
+    return new Response(JSON.stringify(lastScanEvent), {
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
+
+  // Return empty response if no new events
+  return new Response(JSON.stringify({}), {
     headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
+      "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
     },
   });
