@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class TestResult:
     """Results from cable testing"""
     continuity_pass: bool
-    resistance_ohms: float
+    resistance_adc: int  # Raw ADC value (0-1023), pass threshold indicates < 0.5Ω
     capacitance_pf: float
     test_time: float
     cable_sku: str
@@ -122,9 +122,12 @@ class MockArduinoTester:
         
         test_time = time.time() - start_time
         
+        # Mock ADC value - good cables have ADC > 700
+        resistance_adc = random.randint(750, 850) if resistance < 0.5 else random.randint(400, 650)
+
         result = TestResult(
             continuity_pass=continuity,
-            resistance_ohms=resistance,
+            resistance_adc=resistance_adc,
             capacitance_pf=capacitance,
             test_time=test_time,
             cable_sku=cable_type.sku,
@@ -149,19 +152,20 @@ class MockArduinoTester:
     
     def validate_results(self, result: TestResult, cable_type) -> dict:
         """Validate test results against expected ranges"""
-        resistance_range, capacitance_range = self.get_expected_ranges(cable_type)
-        
-        resistance_pass = resistance_range[0] <= result.resistance_ohms <= resistance_range[1]
+        _, capacitance_range = self.get_expected_ranges(cable_type)
+
+        # ADC > 700 indicates good low resistance (< 0.5Ω)
+        resistance_pass = result.resistance_adc >= 700
         capacitance_pass = capacitance_range[0] <= result.capacitance_pf <= capacitance_range[1]
-        
+
         overall_pass = result.continuity_pass and resistance_pass and capacitance_pass
-        
+
         return {
             "overall_pass": overall_pass,
             "continuity_pass": result.continuity_pass,
             "resistance_pass": resistance_pass,
             "capacitance_pass": capacitance_pass,
-            "resistance_range": resistance_range,
+            "resistance_adc": result.resistance_adc,
             "capacitance_range": capacitance_range
         }
 
@@ -363,22 +367,22 @@ class ArduinoATmega32Tester:
     def _parse_test_response(self, response: str, cable_type, operator: str, start_time: float) -> TestResult:
         """Parse Arduino test response into TestResult"""
         try:
-            # Parse response format: "TEST_RESULT:CONTINUITY:1:RESISTANCE:0.25:CAPACITANCE:145.2"
+            # Parse response format: "TEST_RESULT:CONTINUITY:1:RESISTANCE_ADC:789:CAPACITANCE:145.2"
             if not response.startswith('TEST_RESULT:'):
                 raise ValueError(f"Invalid response format: {response}")
-            
+
             parts = response.split(':')
-            
+
             # Extract values
             continuity_pass = bool(int(parts[2]))
-            resistance_ohms = float(parts[4])
+            resistance_adc = int(parts[4])  # Raw ADC value
             capacitance_pf = float(parts[6])
-            
+
             test_time = time.time() - start_time
-            
+
             return TestResult(
                 continuity_pass=continuity_pass,
-                resistance_ohms=resistance_ohms,
+                resistance_adc=resistance_adc,
                 capacitance_pf=capacitance_pf,
                 test_time=test_time,
                 cable_sku=cable_type.sku,
@@ -418,19 +422,20 @@ class ArduinoATmega32Tester:
     
     def validate_results(self, result: TestResult, cable_type) -> dict:
         """Validate test results against expected ranges"""
-        resistance_range, capacitance_range = self.get_expected_ranges(cable_type)
-        
-        resistance_pass = resistance_range[0] <= result.resistance_ohms <= resistance_range[1]
+        _, capacitance_range = self.get_expected_ranges(cable_type)
+
+        # ADC > 700 indicates good low resistance (< 0.5Ω)
+        resistance_pass = result.resistance_adc >= 700
         capacitance_pass = capacitance_range[0] <= result.capacitance_pf <= capacitance_range[1]
-        
+
         overall_pass = result.continuity_pass and resistance_pass and capacitance_pass
-        
+
         return {
             "overall_pass": overall_pass,
             "continuity_pass": result.continuity_pass,
             "resistance_pass": resistance_pass,
             "capacitance_pass": capacitance_pass,
-            "resistance_range": resistance_range,
+            "resistance_adc": result.resistance_adc,
             "capacitance_range": capacitance_range
         }
     

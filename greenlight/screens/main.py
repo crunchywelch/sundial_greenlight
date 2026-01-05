@@ -9,7 +9,7 @@ from greenlight.config import OPERATORS, APP_NAME, APP_SUBTITLE, EXIT_MESSAGE
 
 class SplashScreen(Screen):
     def run(self) -> ScreenResult:
-        """Combined splash screen and operator selection"""
+        """Combined splash screen and operator selection - goes directly to scan interface"""
         self.ui.console.clear()
         self.ui.header()
 
@@ -42,7 +42,9 @@ class SplashScreen(Screen):
 
         if choice in valid_choices:
             operator_code = codes[int(choice) - 1]
-            return ScreenResult(NavigationAction.PUSH, MainMenuScreen, {"operator": operator_code})
+            # Go directly to scan interface
+            from greenlight.screens.cable import ScanCableLookupScreen
+            return ScreenResult(NavigationAction.PUSH, ScanCableLookupScreen, {"operator": operator_code})
         else:
             # Invalid choice - redisplay the same screen
             return ScreenResult(NavigationAction.REPLACE, SplashScreen)

@@ -10,10 +10,15 @@ Communication: TCP/IP socket on port 9100
 
 import socket
 import logging
+import struct
+import os
 from typing import Dict, Any, Optional
 from greenlight.hardware.interfaces import LabelPrinterInterface, PrintJob
 
 logger = logging.getLogger(__name__)
+
+# Path to logo bitmap
+WIRE_LOGO_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'wire_mono.bmp')
 
 
 class TSCLabelPrinter(LabelPrinterInterface):
@@ -46,6 +51,83 @@ class TSCLabelPrinter(LabelPrinterInterface):
                    f"Label: {label_width_mm}x{label_height_mm}mm "
                    f"({self.label_width_dots}x{self.label_height_dots} dots)")
 
+        # Load wire logo bitmap if available
+        self.wire_logo_data = self._load_bitmap(WIRE_LOGO_PATH)
+
+    def _load_bitmap(self, filepath: str) -> Optional[Dict[str, Any]]:
+        """Load a 1-bit BMP file and prepare it for inline BITMAP command."""
+        try:
+            if not os.path.exists(filepath):
+                logger.warning(f"Bitmap not found: {filepath}")
+                return None
+
+            with open(filepath, 'rb') as f:
+                data = f.read()
+
+            if data[:2] != b'BM':
+                logger.warning(f"Invalid BMP file: {filepath}")
+                return None
+
+            # Parse BMP header
+            width = struct.unpack('<I', data[18:22])[0]
+            height = struct.unpack('<I', data[22:26])[0]
+            bpp = struct.unpack('<H', data[28:30])[0]
+            data_offset = struct.unpack('<I', data[10:14])[0]
+
+            if bpp != 1:
+                logger.warning(f"Bitmap must be 1-bit, got {bpp}-bit")
+                return None
+
+            # Get pixel data (BMP stores rows bottom-to-top, need to flip)
+            pixel_data = data[data_offset:]
+            bytes_per_row = ((width + 31) // 32) * 4  # BMP row padding
+
+            # Flip rows (BMP is bottom-up)
+            rows = [pixel_data[i:i+bytes_per_row] for i in range(0, len(pixel_data), bytes_per_row)]
+            rows.reverse()
+
+            # TSPL BITMAP uses ceil(width/8) bytes per row, no padding
+            # Crop 2 pixels off right edge to remove artifacts
+            width = width - 2 if width > 8 else width
+            tspl_bytes_per_row = (width + 7) // 8
+
+            # Calculate mask for last byte to clear unused bits
+            valid_bits_in_last_byte = width % 8
+            if valid_bits_in_last_byte == 0:
+                last_byte_mask = 0xFF
+            else:
+                last_byte_mask = (0xFF << (8 - valid_bits_in_last_byte)) & 0xFF
+
+            # Build TSPL data, masking the last byte of each row
+            tspl_rows = []
+            for row in rows:
+                row_data = bytearray(row[:tspl_bytes_per_row])
+                if len(row_data) > 0:
+                    row_data[-1] &= last_byte_mask  # Clear unused bits
+                tspl_rows.append(bytes(row_data))
+            tspl_data = b''.join(tspl_rows)
+
+            logger.info(f"Loaded bitmap: {width}x{height} pixels")
+            return {
+                'width': width,
+                'height': height,
+                'width_bytes': tspl_bytes_per_row,
+                'data': tspl_data
+            }
+        except Exception as e:
+            logger.error(f"Error loading bitmap: {e}")
+            return None
+
+    def _get_bitmap_command(self, x: int, y: int) -> Optional[bytes]:
+        """Generate TSPL BITMAP command for the wire logo."""
+        if not self.wire_logo_data:
+            return None
+
+        d = self.wire_logo_data
+        # BITMAP x,y,width_bytes,height,mode,data
+        cmd = f'BITMAP {x},{y},{d["width_bytes"]},{d["height"]},0,'.encode()
+        return cmd + d['data']
+
     def initialize(self) -> bool:
         """Initialize printer connection"""
         try:
@@ -65,12 +147,13 @@ class TSCLabelPrinter(LabelPrinterInterface):
             self.connected = False
             return False
 
-    def _send_tspl_commands(self, commands: str) -> bool:
+    def _send_tspl_commands(self, commands, bitmap_commands: list = None) -> bool:
         """
         Send TSPL commands to printer
 
         Args:
-            commands: TSPL command string
+            commands: TSPL command string or bytes
+            bitmap_commands: Optional list of (position_in_commands, bitmap_bytes) tuples
 
         Returns:
             True if successful, False otherwise
@@ -81,14 +164,17 @@ class TSCLabelPrinter(LabelPrinterInterface):
             sock.settimeout(10.0)
             sock.connect((self.ip_address, self.port))
 
+            # Convert string to bytes if needed
+            if isinstance(commands, str):
+                commands = commands.encode('utf-8')
+
             # Send commands
-            bytes_sent = sock.sendall(commands.encode('utf-8'))
+            sock.sendall(commands)
 
             # Close socket
             sock.close()
 
             logger.info(f"Sent {len(commands)} bytes to printer at {self.ip_address}")
-            logger.debug(f"TSPL commands:\n{commands}")
             return True
 
         except (socket.timeout, socket.error, OSError) as e:
@@ -129,18 +215,18 @@ class TSCLabelPrinter(LabelPrinterInterface):
             logger.error(f"Error printing labels: {e}")
             return False
 
-    def _generate_cable_label_tspl(self, data: Dict[str, Any]) -> str:
+    def _generate_cable_label_tspl(self, data: Dict[str, Any]) -> bytes:
         """
         Generate TSPL commands for cable label
 
         Label layout (1" x 3"):
-        +----------------------------------+
-        | SUNDIAL AUDIO     [Logo]         |
-        |                                  |
-        | Studio Series                    |
-        | 20' Goldline                     |
-        | Straight Connectors    SC-20GL   |
-        +----------------------------------+
+        +----------------------------------------------------+
+        | SUNDIAL AUDIO                         QC: ADW      |
+        | ────────────────                                   |
+        | Studio Series                    ✓ Continuity      |
+        | 20' Goldline                     ✓ Res < 0.5Ω      |
+        | Straight TS              SC-20GL ✓ Capacitance     |
+        +----------------------------------------------------+
 
         Args:
             data: Dictionary with cable information:
@@ -150,11 +236,17 @@ class TSCLabelPrinter(LabelPrinterInterface):
                 - connector_type: Connector type (e.g., "Straight")
                 - sku: SKU code (e.g., "SC-20GL")
                 - description: Optional custom description for MISC cables
+                - test_results: Optional dict with test info:
+                    - continuity_pass: bool
+                    - resistance_pass: bool
+                    - capacitance_pass: bool
+                    - operator: str (operator initials)
 
         Returns:
-            TSPL command string
+            TSPL commands as bytes (includes binary bitmap data)
         """
         # Extract data
+        serial_number = data.get('serial_number', '')
         series = data.get('series', 'Unknown')
         length = data.get('length', '?')
         # Convert length to string and handle floats (database returns REAL/float)
@@ -165,6 +257,14 @@ class TSCLabelPrinter(LabelPrinterInterface):
         connector_type = data.get('connector_type', 'Unknown')
         sku = data.get('sku', 'UNKNOWN')
         description = data.get('description')
+
+        # Extract test results if present
+        test_results = data.get('test_results', {})
+        has_test_results = bool(test_results)
+        continuity_pass = test_results.get('continuity_pass', False)
+        resistance_pass = test_results.get('resistance_pass', False)
+        capacitance_pass = test_results.get('capacitance_pass', False)
+        operator = test_results.get('operator', '')
 
         # Format connector type for display
         connector_display = self._format_connector_type(connector_type)
@@ -201,12 +301,20 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         # Y positions (from top, in dots at 203 DPI)
         # Label is 1" tall = ~203 dots
-        # Add more top margin to prevent cutoff
-        y_brand = 20      # SUNDIAL AUDIO at top (moved down from 10)
-        y_series = 70     # Series name (moved down from 60)
-        y_length = 105    # Length and color/pattern (moved down from 95)
-        y_connector = 140 # Connector type and SKU (moved down from 130)
-        y_misc_desc = 175 # For MISC description (moved down from 165)
+        # Tighter spacing to fit all content
+        y_brand = 8       # SUNDIAL AUDIO at top
+        y_serial = 8      # Serial number (right side, same line as brand)
+        y_sku_right = 30  # SKU under serial number on right
+        y_series = 50     # Series name
+        y_length = 82     # Length and color/pattern
+        y_connector = 114 # Connector type
+        y_sku = 146       # SKU at bottom left (for non-tested cables)
+        y_misc_desc = 146 # For MISC description
+        # QC results column - tighter spacing
+        y_qc_con = 70     # CON result
+        y_qc_res = 90     # RES result
+        y_qc_cap = 110    # CAP result
+        y_qc_op = 130     # QC operator
 
         # X positions (from left, in dots)
         # Label is 3" wide = ~609 dots
@@ -217,28 +325,46 @@ class TSCLabelPrinter(LabelPrinterInterface):
         # SKU is typically 6-8 characters, so reserve ~100 dots
         # Label width is ~609 dots, so position SKU to prevent cutoff
         x_sku = 450  # SKU position (adjusted to prevent cutoff)
+        x_qc = 420   # QC results column on right side
 
-        # Line 1: SUNDIAL AUDIO (brand)
+        # Line 1: SUNDIAL [wire] AUDIO and serial number + SKU
         tspl_commands.append(f'TEXT {x_left},{y_brand},"3",0,1,1,"SUNDIAL"')
-        tspl_commands.append(f'TEXT {x_left + 180},{y_brand},"3",0,1,1,"AUDIO"')
+        # Wire logo between SUNDIAL and AUDIO - will be inserted as binary
+        wire_logo_position = len(tspl_commands)  # Mark position for bitmap
+        tspl_commands.append('__WIRE_LOGO__')  # Placeholder
+        tspl_commands.append(f'TEXT {x_left + 190},{y_brand},"3",0,1,1,"AUDIO"')
+        if serial_number:
+            tspl_commands.append(f'TEXT {x_qc},{y_serial},"2",0,1,1,"#{serial_number}"')
+        # SKU under serial number
+        tspl_commands.append(f'TEXT {x_qc},{y_sku_right},"1",0,1,1,"{sku}"')
 
         # Add small decorative line under brand
-        tspl_commands.append(f'BAR {x_left},{y_brand + 30},250,2')
+        tspl_commands.append(f'BAR {x_left},{y_brand + 28},300,2')
 
         # Line 2: Series name
         tspl_commands.append(f'TEXT {x_left},{y_series},"2",0,1,1,"{series}"')
 
-        # Line 3: Length and Color/Pattern
-        if is_misc and description:
-            # For MISC cables, show custom description
-            # Split description if it's too long
-            desc_parts = self._split_text(description, max_length=35)
-            length_text = f"{length}'"
+        # QC results in a tight column on the right (if tested)
+        if has_test_results:
+            cont_status = "PASS" if continuity_pass else "X"
+            tspl_commands.append(f'TEXT {x_qc},{y_qc_con},"1",0,1,1,"CON: {cont_status}"')
+
+        # Line 3: Length and Color/Pattern + Resistance result
+        if is_misc:
+            # For MISC cables, show "Special Baby" instead of color pattern
+            length_text = f"{length}' Special Baby"
             tspl_commands.append(f'TEXT {x_left},{y_length},"2",0,1,1,"{length_text}"')
 
-            # Add description on next line(s)
-            for i, part in enumerate(desc_parts[:2]):  # Max 2 lines
-                tspl_commands.append(f'TEXT {x_left},{y_connector + (i * 30)},"1",0,1,1,"{part}"')
+            # Line 4: Connector type (or custom description if provided)
+            if description:
+                desc_parts = self._split_text(description, max_length=35)
+                tspl_commands.append(f'TEXT {x_left},{y_connector},"1",0,1,1,"{desc_parts[0]}"')
+                # Line 5: Second line of description if present
+                if len(desc_parts) > 1:
+                    y_desc_line2 = y_connector + 24  # 24 dots below first description line
+                    tspl_commands.append(f'TEXT {x_left},{y_desc_line2},"1",0,1,1,"{desc_parts[1]}"')
+            else:
+                tspl_commands.append(f'TEXT {x_left},{y_connector},"1",0,1,1,"{connector_display}"')
         else:
             # Normal cable: show length and color pattern
             length_text = f"{length}' {color_pattern}"
@@ -247,15 +373,38 @@ class TSCLabelPrinter(LabelPrinterInterface):
             # Line 4: Connector type
             tspl_commands.append(f'TEXT {x_left},{y_connector},"1",0,1,1,"{connector_display}"')
 
-        # SKU (right side on connector line)
-        tspl_commands.append(f'TEXT {x_sku},{y_connector},"2",0,1,1,"{sku}"')
+        # Add resistance result
+        if has_test_results:
+            res_status = "PASS" if resistance_pass else "X"
+            tspl_commands.append(f'TEXT {x_qc},{y_qc_res},"1",0,1,1,"RES: {res_status}"')
+
+        # Add capacitance result
+        if has_test_results:
+            cap_status = "PASS" if capacitance_pass else "X"
+            tspl_commands.append(f'TEXT {x_qc},{y_qc_cap},"1",0,1,1,"CAP: {cap_status}"')
+
+        # Operator at bottom of QC column
+        if has_test_results and operator:
+            tspl_commands.append(f'TEXT {x_qc},{y_qc_op},"1",0,1,1,"QC: {operator}"')
 
         # Print the label
         tspl_commands.append("PRINT 1")  # Print 1 copy
         tspl_commands.append("")  # Blank line to ensure command is processed
 
-        # Join all commands with CRLF
-        return '\r\n'.join(tspl_commands) + '\r\n'
+        # Build output as bytes, handling inline bitmap
+        output = b''
+        for cmd in tspl_commands:
+            if cmd == '__WIRE_LOGO__':
+                # Insert wire logo bitmap between SUNDIAL and AUDIO
+                # Position: after SUNDIAL text (x_left + ~90 dots for "SUNDIAL"), same y as brand
+                bitmap_cmd = self._get_bitmap_command(x_left + 120, y_brand + 2)
+                if bitmap_cmd:
+                    output += bitmap_cmd + b'\r\n'
+                # Skip placeholder if no bitmap available
+            else:
+                output += cmd.encode('utf-8') + b'\r\n'
+
+        return output
 
     def _format_connector_type(self, connector_type: str) -> str:
         """Format connector type for display on label"""

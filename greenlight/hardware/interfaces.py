@@ -56,7 +56,7 @@ class ScannerInterface(ABC):
 
 
 class LabelPrinterInterface(ABC):
-    """Abstract interface for label printers (Brady M511, etc.)"""
+    """Abstract interface for label printers"""
     
     @abstractmethod
     def initialize(self) -> bool:
@@ -142,25 +142,67 @@ class GPIOInterface(ABC):
         pass
 
 
+class CableTesterInterface(ABC):
+    """Abstract interface for cable testers (Arduino-based)"""
+
+    @abstractmethod
+    def initialize(self) -> bool:
+        """Initialize cable tester hardware"""
+        pass
+
+    @abstractmethod
+    def run_continuity_test(self) -> Any:
+        """Run continuity/polarity test"""
+        pass
+
+    @abstractmethod
+    def run_resistance_test(self) -> Any:
+        """Run resistance test"""
+        pass
+
+    @abstractmethod
+    def calibrate(self) -> Any:
+        """Calibrate with zero-ohm reference"""
+        pass
+
+    @abstractmethod
+    def get_status(self) -> Dict[str, Any]:
+        """Get tester status"""
+        pass
+
+    @abstractmethod
+    def is_ready(self) -> bool:
+        """Check if tester is ready"""
+        pass
+
+    @abstractmethod
+    def close(self) -> None:
+        """Close tester connection"""
+        pass
+
+
 class HardwareManager:
     """Central manager for all hardware interfaces"""
-    
+
     def __init__(self):
         self.scanner: Optional[ScannerInterface] = None
         self.label_printer: Optional[LabelPrinterInterface] = None
         self.card_printer: Optional[CardPrinterInterface] = None
+        self.cable_tester: Optional[CableTesterInterface] = None
         self.gpio: Optional[GPIOInterface] = None
         self._initialized = False
     
-    def set_hardware(self, 
+    def set_hardware(self,
                     scanner: Optional[ScannerInterface] = None,
                     label_printer: Optional[LabelPrinterInterface] = None,
                     card_printer: Optional[CardPrinterInterface] = None,
+                    cable_tester: Optional[CableTesterInterface] = None,
                     gpio: Optional[GPIOInterface] = None) -> None:
         """Set hardware components without initialization (lazy loading)"""
         self.scanner = scanner
         self.label_printer = label_printer
         self.card_printer = card_printer
+        self.cable_tester = cable_tester
         self.gpio = gpio
         self._initialized = True  # Components will initialize when first used
         logger.info("Hardware components set for lazy initialization")
@@ -184,7 +226,15 @@ class HardwareManager:
             # Card printer lazy initialization if needed
             pass
         return self.card_printer
-    
+
+    def get_cable_tester(self) -> Optional[CableTesterInterface]:
+        """Get cable tester with lazy initialization"""
+        if self.cable_tester and hasattr(self.cable_tester, 'is_ready'):
+            if not self.cable_tester.is_ready():
+                logger.info("Lazily initializing cable tester...")
+                self.cable_tester.initialize()
+        return self.cable_tester
+
     def get_gpio(self) -> Optional[GPIOInterface]:
         """Get GPIO with lazy initialization"""
         if self.gpio and hasattr(self.gpio, 'initialize'):
@@ -192,35 +242,40 @@ class HardwareManager:
             pass
         return self.gpio
     
-    def initialize(self, 
+    def initialize(self,
                    scanner: Optional[ScannerInterface] = None,
                    label_printer: Optional[LabelPrinterInterface] = None,
                    card_printer: Optional[CardPrinterInterface] = None,
+                   cable_tester: Optional[CableTesterInterface] = None,
                    gpio: Optional[GPIOInterface] = None) -> bool:
         """Initialize all hardware components"""
         self.scanner = scanner
         self.label_printer = label_printer
         self.card_printer = card_printer
+        self.cable_tester = cable_tester
         self.gpio = gpio
-        
+
         success = True
-        
+
         if self.scanner:
             # Skip re-initialization if scanner is already connected
             if hasattr(self.scanner, 'is_connected') and self.scanner.is_connected():
                 logger.info("Scanner already initialized, skipping re-initialization")
             else:
                 success &= self.scanner.initialize()
-        
+
         if self.label_printer:
             success &= self.label_printer.initialize()
-            
+
         if self.card_printer:
             success &= self.card_printer.initialize()
-            
+
+        if self.cable_tester:
+            success &= self.cable_tester.initialize()
+
         if self.gpio:
             success &= self.gpio.initialize()
-        
+
         self._initialized = success
         return success
     
@@ -231,43 +286,50 @@ class HardwareManager:
     def get_hardware_status(self) -> Dict[str, Dict[str, Any]]:
         """Get status of all hardware components"""
         status = {}
-        
+
         if self.scanner:
             status['scanner'] = {
                 'connected': self.scanner.is_connected(),
                 'type': type(self.scanner).__name__
             }
-        
+
         if self.label_printer:
             status['label_printer'] = self.label_printer.get_status()
             status['label_printer']['type'] = type(self.label_printer).__name__
-        
+
         if self.card_printer:
             status['card_printer'] = self.card_printer.get_status()
             status['card_printer']['type'] = type(self.card_printer).__name__
-        
+
+        if self.cable_tester:
+            status['cable_tester'] = self.cable_tester.get_status()
+            status['cable_tester']['type'] = type(self.cable_tester).__name__
+
         if self.gpio:
             status['gpio'] = {
                 'initialized': True,
                 'type': type(self.gpio).__name__
             }
-        
+
         return status
     
     def shutdown(self) -> None:
         """Shutdown all hardware components"""
         if self.scanner:
             self.scanner.close()
-        
+
         if self.label_printer:
             self.label_printer.close()
-            
+
         if self.card_printer:
             self.card_printer.close()
-            
+
+        if self.cable_tester:
+            self.cable_tester.close()
+
         if self.gpio:
             self.gpio.cleanup()
-        
+
         self._initialized = False
 
 

@@ -3,9 +3,8 @@ psycopg2-binary>=2.8.0
 python-dotenv>=0.19.0
 requests>=2.28.0
 
-# Optional hardware dependencies
-# Uncomment and install only if using real Arduino hardware
-# pyserial>=3.5
+# Arduino cable tester serial communication
+pyserial>=3.5
 
 # USB barcode scanner (Zebra DS2208)
 pyusb>=1.2.0

@@ -5,7 +5,11 @@ import logging
 from greenlight.ui import UIBase
 from greenlight.screen_manager import ScreenManager
 from greenlight.screens import SplashScreen
-from greenlight.config import APP_NAME, EXIT_MESSAGE, USE_REAL_PRINTERS, TSC_PRINTER_IP, TSC_PRINTER_PORT, TSC_LABEL_WIDTH_MM, TSC_LABEL_HEIGHT_MM
+from greenlight.config import (
+    APP_NAME, EXIT_MESSAGE,
+    USE_REAL_PRINTERS, TSC_PRINTER_IP, TSC_PRINTER_PORT, TSC_LABEL_WIDTH_MM, TSC_LABEL_HEIGHT_MM,
+    USE_REAL_ARDUINO, ARDUINO_PORT, ARDUINO_BAUDRATE
+)
 
 def signal_handler(sig, frame):
     """Handle Ctrl-C gracefully"""
@@ -14,10 +18,14 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 def init_hardware():
-    """Initialize hardware devices (printers, scanners, etc.)
+    """Initialize hardware devices (printers, scanners, cable tester, etc.)
 
     This is non-blocking - app will start even if hardware is unavailable
     """
+    label_printer = None
+    cable_tester = None
+    scanner = None
+
     try:
         from greenlight.hardware.interfaces import hardware_manager
 
@@ -39,16 +47,56 @@ def init_hardware():
             else:
                 print(f"⚠️  TSC printer not responding at {TSC_PRINTER_IP}")
                 print("   Label printing will be unavailable")
-
-            hardware_manager.set_hardware(label_printer=label_printer)
         else:
             print("🖨️  Using mock label printer (USE_REAL_PRINTERS=false)")
             from greenlight.hardware.tsc_label_printer import MockTSCLabelPrinter
 
-            mock_printer = MockTSCLabelPrinter(ip_address=TSC_PRINTER_IP, port=TSC_PRINTER_PORT)
-            mock_printer.initialize()
-            hardware_manager.set_hardware(label_printer=mock_printer)
+            label_printer = MockTSCLabelPrinter(ip_address=TSC_PRINTER_IP, port=TSC_PRINTER_PORT)
+            label_printer.initialize()
             print("✅ Mock label printer initialized")
+
+        # Initialize Arduino cable tester
+        if USE_REAL_ARDUINO:
+            print("🔌 Initializing Arduino cable tester...")
+            from greenlight.hardware.cable_tester import ArduinoCableTester
+
+            cable_tester = ArduinoCableTester(
+                port=ARDUINO_PORT,  # None for auto-detect
+                baudrate=ARDUINO_BAUDRATE
+            )
+
+            # Try to initialize
+            if cable_tester.initialize():
+                print(f"✅ Cable tester ready: {cable_tester.tester_id} on {cable_tester.port}")
+            else:
+                print("⚠️  Cable tester not found")
+                print("   Cable testing will be unavailable")
+        else:
+            print("🔌 Using mock cable tester (USE_REAL_ARDUINO=false)")
+            from greenlight.hardware.cable_tester import MockCableTester
+
+            cable_tester = MockCableTester()
+            cable_tester.initialize()
+            print("✅ Mock cable tester initialized")
+
+        # Initialize MQTT barcode scanner
+        # Scanner daemon must be running to publish scans to MQTT
+        print("📷 Initializing MQTT barcode scanner...")
+        from greenlight.hardware.mqtt_scanner import MQTTScanner
+
+        scanner = MQTTScanner()
+        if scanner.initialize():
+            print("✅ MQTT scanner connected (subscribing to scanner/barcode)")
+        else:
+            print("⚠️  MQTT scanner not connected")
+            print("   Check that mosquitto and scanner daemon are running")
+
+        # Set all hardware in manager
+        hardware_manager.set_hardware(
+            label_printer=label_printer,
+            cable_tester=cable_tester,
+            scanner=scanner
+        )
 
     except Exception as e:
         # Don't crash the app, just warn

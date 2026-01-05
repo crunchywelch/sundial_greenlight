@@ -11,6 +11,7 @@ import threading
 import time
 import logging
 from typing import Optional
+from greenlight.hardware.interfaces import ScanResult
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +150,22 @@ class MQTTScanner:
             return self.scan_queue.get(timeout=timeout)
         except queue.Empty:
             return None
+
+    def scan(self, timeout: float = 5.0) -> Optional[ScanResult]:
+        """Scan for barcode with timeout - returns ScanResult for ScannerInterface compatibility"""
+        barcode = self.get_scan(timeout=timeout)
+        if barcode:
+            return ScanResult(
+                data=barcode,
+                format="CODE128",  # Assume CODE128 for cable barcodes
+                timestamp=time.time(),
+                success=True
+            )
+        return None
+
+    def close(self) -> None:
+        """Close connection - alias for shutdown() for ScannerInterface compatibility"""
+        self.shutdown()
 
     def clear_queue(self):
         """Clear any pending scans from the queue"""

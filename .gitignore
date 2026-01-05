@@ -1,6 +1,8 @@
 .swp
 .env*
 venv
+__pycache__/
+*.pyc
 shopify_app/.cache
 shopify_app/build
 shopify_app/public/build

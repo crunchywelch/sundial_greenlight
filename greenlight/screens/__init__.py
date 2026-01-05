@@ -16,7 +16,6 @@ from greenlight.screens.main import (
 
 # Cable workflow screens
 from greenlight.screens.cable import (
-    CableQCScreen,
     ScanCableLookupScreen,
     CableSelectionForIntakeScreen,
     SeriesSelectionScreen,
@@ -27,7 +26,6 @@ from greenlight.screens.cable import (
     CableTestScreen,
     PrintCableTagScreen,
     PrintCableWrapScreen,
-    TestAssembledCableScreen,
     ScanCableIntakeScreen
 )
 
@@ -53,7 +51,6 @@ __all__ = [
     'SplashScreen',
     'MainMenuScreen',
     # Cable
-    'CableQCScreen',
     'ScanCableLookupScreen',
     'CableSelectionForIntakeScreen',
     'SeriesSelectionScreen',
@@ -64,7 +61,6 @@ __all__ = [
     'CableTestScreen',
     'PrintCableTagScreen',
     'PrintCableWrapScreen',
-    'TestAssembledCableScreen',
     'ScanCableIntakeScreen',
     # Inventory
     'InventoryScreen',

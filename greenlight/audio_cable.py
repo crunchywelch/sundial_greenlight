@@ -19,7 +19,7 @@ class AudioCable:
     Attributes:
         serial_number: Unique identifier for the cable (e.g., "SD000123" or scanned barcode)
         sku: Cable type SKU (foreign key to cable_skus table)
-        resistance_ohms: Measured resistance in ohms
+        resistance_adc: Raw ADC value from resistance test (0-1023), pass threshold indicates < 0.5Ω
         capacitance_pf: Measured capacitance in picofarads
         operator: Operator who tested/registered the cable
         arduino_unit_id: ID of Arduino unit used for testing
@@ -46,7 +46,7 @@ class AudioCable:
         # Core cable properties (from audio_cables table)
         self.serial_number = None
         self.sku = None
-        self.resistance_ohms = None
+        self.resistance_adc = None
         self.capacitance_pf = None
         self.operator = None
         self.arduino_unit_id = None
@@ -88,7 +88,7 @@ class AudioCable:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT ac.serial_number, ac.sku, ac.resistance_ohms, ac.capacitance_pf,
+                    SELECT ac.serial_number, ac.sku, ac.resistance_adc, ac.capacitance_pf,
                            ac.operator, ac.arduino_unit_id, ac.notes, ac.test_timestamp,
                            cs.series, cs.length, cs.color_pattern, cs.connector_type,
                            cs.core_cable, cs.braid_material, cs.description
@@ -108,7 +108,7 @@ class AudioCable:
                 # Populate core properties
                 self.serial_number = cable_data.get('serial_number')
                 self.sku = cable_data.get('sku')
-                self.resistance_ohms = cable_data.get('resistance_ohms')
+                self.resistance_adc = cable_data.get('resistance_adc')
                 self.capacitance_pf = cable_data.get('capacitance_pf')
                 self.operator = cable_data.get('operator')
                 self.arduino_unit_id = cable_data.get('arduino_unit_id')
@@ -165,14 +165,14 @@ class AudioCable:
                     # Insert new cable record
                     cur.execute("""
                         INSERT INTO audio_cables
-                            (serial_number, sku, resistance_ohms, capacitance_pf,
+                            (serial_number, sku, resistance_adc, capacitance_pf,
                              operator, arduino_unit_id, notes)
                         VALUES (%s, %s, %s, %s, %s, %s, %s)
                         RETURNING test_timestamp
                     """, (
                         self.serial_number,
                         self.sku,
-                        self.resistance_ohms,
+                        self.resistance_adc,
                         self.capacitance_pf,
                         self.operator,
                         self.arduino_unit_id,
@@ -226,7 +226,7 @@ class AudioCable:
                     cur.execute("""
                         UPDATE audio_cables
                         SET sku = %s,
-                            resistance_ohms = %s,
+                            resistance_adc = %s,
                             capacitance_pf = %s,
                             operator = %s,
                             arduino_unit_id = %s,
@@ -236,7 +236,7 @@ class AudioCable:
                         RETURNING test_timestamp
                     """, (
                         self.sku,
-                        self.resistance_ohms,
+                        self.resistance_adc,
                         self.capacitance_pf,
                         self.operator,
                         self.arduino_unit_id,
@@ -278,7 +278,7 @@ class AudioCable:
 
     def has_test_results(self):
         """Check if cable has test results recorded."""
-        return self.resistance_ohms is not None and self.capacitance_pf is not None
+        return self.resistance_adc is not None and self.capacitance_pf is not None
 
     def get_display_name(self):
         """
@@ -319,7 +319,7 @@ class AudioCable:
         if self.has_test_results():
             info_lines.extend([
                 "Test Results:",
-                f"  Resistance: {self.resistance_ohms:.2f} Ω",
+                f"  Resistance: < 0.5Ω (ADC: {self.resistance_adc})",
                 f"  Capacitance: {self.capacitance_pf:.1f} pF",
                 f"  Operator: {self.operator or 'N/A'}",
                 f"  Arduino Unit: {self.arduino_unit_id or 'N/A'}",

@@ -20,95 +20,51 @@ from rich.table import Table
 import time
 
 
-class CableQCScreen(Screen):
-    def run(self) -> ScreenResult:
-        operator = self.context.get("operator", "")
-
-        # Cable management menu
-        menu_items = [
-            "Scan Cables",
-            "Register Cables",
-            "Test Cables",
-            "Back (q)"
-        ]
-
-        rows = [
-            f"[green]{i + 1}.[/green] {name}"
-            for i, name in enumerate(menu_items)
-        ]
-
-        self.ui.header(operator)
-        self.ui.layout["body"].update(Panel(
-            "Audio Cable Management\n\n"
-            "• Scan Cables - Scan cable label to view information and customer\n"
-            "• Register Cables - Scan cable labels to register or view cable information\n"
-            "• Test Cables - Scan serial number from assembled cable and run QC tests",
-            title="Cable Management Options"
-        ))
-        self.ui.layout["footer"].update(Panel("\n".join(rows), title="Audio Cable Management"))
-        self.ui.render()
-
-        choice = self.ui.console.input("Choose: ")
-
-        # Debug logging
-        with open("/tmp/greenlight_debug.log", "a") as f:
-            f.write(f"CableQCScreen: User chose option '{choice}'\n")
-
-        if choice == "1":  # Scan Cables
-            with open("/tmp/greenlight_debug.log", "a") as f:
-                f.write(f"CableQCScreen: Pushing ScanCableLookupScreen (class: {ScanCableLookupScreen})\n")
-            return ScreenResult(NavigationAction.PUSH, ScanCableLookupScreen, self.context)
-        elif choice == "2":  # Register Cables
-            new_context = self.context.copy()
-            new_context["selection_mode"] = "intake"
-            return ScreenResult(NavigationAction.PUSH, CableSelectionForIntakeScreen, new_context)
-        elif choice == "3":  # Test Cables
-            return ScreenResult(NavigationAction.PUSH, TestAssembledCableScreen, self.context)
-        elif choice == "4" or choice.lower() == "q":  # Back
-            return ScreenResult(NavigationAction.POP)
-        else:
-            return ScreenResult(NavigationAction.REPLACE, CableQCScreen, self.context)
-
-
 class ScanCableLookupScreen(Screen):
-    """Simple cable lookup screen - scan and view cable info"""
+    """Main cable interface - scan to lookup, test, assign, or register cables"""
 
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
 
-        # Debug log
-        with open("/tmp/greenlight_debug.log", "a") as f:
-            f.write(f"ScanCableLookupScreen.run() called for operator: {operator}\n")
+        # Check if we're returning from assignment and should show cable details
+        return_to_cable = self.context.get("return_to_cable_serial")
+        if return_to_cable:
+            # Clear the return flag
+            self.context.pop("return_to_cable_serial", None)
+            # Load and show the cable details
+            from greenlight.db import get_audio_cable
+            cable_record = get_audio_cable(return_to_cable)
+            if cable_record:
+                action_result = self.show_cable_info_with_actions(operator, cable_record)
+                if action_result:
+                    return action_result
 
         # Initial body content
         body_panel = Panel(
-            "🔍 Scan Cable Lookup\n\n"
-            "Scan a cable barcode to view its information, test results, and customer assignment.\n\n"
-            "Or use menu options below to register new cables.\n\n"
-            "Ready to scan...",
-            title="Scan Cables"
+            "🔍 Ready to Scan\n\n"
+            "Scan a cable barcode to:\n"
+            "  • View cable information\n"
+            "  • Run continuity/resistance tests\n"
+            "  • Assign to customer\n"
+            "  • Print label\n\n"
+            "[dim]Waiting for scan...[/dim]",
+            title="Greenlight Cable Station"
         )
 
         while True:
-            # Update display with current body content (don't clear console)
+            # Update display
             self.ui.header(operator)
             self.ui.layout["body"].update(body_panel)
             self.ui.layout["footer"].update(Panel(
-                "🔍 [bold green]Scan barcode now[/bold green] | [cyan]'r'[/cyan] = Register Cables | [cyan]'q'[/cyan] = Back",
+                "🔍 [bold green]Scan barcode[/bold green] | "
+                "[cyan]'r'[/cyan] = Register cables | "
+                "[cyan]'q'[/cyan] = Logout",
                 title="Options", border_style="green"
             ))
             self.ui.render()
 
-            # Debug log
-            with open("/tmp/greenlight_debug.log", "a") as f:
-                f.write("About to call get_serial_number_scan_or_manual()\n")
-
             # Get serial number or menu command
             serial_number = self.get_serial_number_scan_or_manual()
-
-            # Debug log
-            with open("/tmp/greenlight_debug.log", "a") as f:
-                f.write(f"Got input: {serial_number}\n")
 
             # Check for menu commands
             if not serial_number:
@@ -117,20 +73,17 @@ class ScanCableLookupScreen(Screen):
             input_lower = serial_number.lower()
 
             if input_lower == 'q':
+                # Logout - go back to operator selection
                 return ScreenResult(NavigationAction.POP)
             elif input_lower == 'r':
-                # Go to attribute selection for registration
+                # Go to register cables flow
                 new_context = self.context.copy()
                 new_context["selection_mode"] = "intake"
                 return ScreenResult(NavigationAction.PUSH, SeriesSelectionScreen, new_context)
 
             # Otherwise treat as serial number lookup
-            # Format serial number
-            from greenlight.db import format_serial_number
+            from greenlight.db import format_serial_number, get_audio_cable
             formatted_serial = format_serial_number(serial_number)
-
-            # Look up cable in database
-            from greenlight.db import get_audio_cable
             cable_record = get_audio_cable(formatted_serial)
 
             # Clear console to refresh with new info
@@ -141,15 +94,23 @@ class ScanCableLookupScreen(Screen):
                 action_result = self.show_cable_info_with_actions(operator, cable_record)
                 if action_result:
                     return action_result
-                # If no action result, continue scanning (user pressed enter)
+                # If no action result, continue scanning
                 body_panel = Panel(
-                    "🔍 Scan Cable Lookup\n\n"
-                    "Ready to scan next cable...",
-                    title="Scan Cables"
+                    "🔍 Ready to Scan\n\n"
+                    "[dim]Waiting for next cable...[/dim]",
+                    title="Greenlight Cable Station"
                 )
             else:
-                # Get not found panel and keep it displayed
-                body_panel = self.show_not_found(operator, formatted_serial)
+                # Cable not found - offer to register
+                register_result = self.show_not_found_with_register(operator, formatted_serial)
+                if register_result:
+                    return register_result
+                # If no result, continue scanning
+                body_panel = Panel(
+                    "🔍 Ready to Scan\n\n"
+                    "[dim]Waiting for scan...[/dim]",
+                    title="Greenlight Cable Station"
+                )
 
     def get_serial_number_scan_or_manual(self):
         """Get serial number via barcode scanner using evdev or manual keyboard input"""
@@ -203,7 +164,7 @@ class ScanCableLookupScreen(Screen):
                 scanner.stop_scanning()
 
     def show_cable_info_with_actions(self, operator, cable_record):
-        """Display cable info and prompt for action (assign or continue)
+        """Display cable info and prompt for action (test, assign, print, or continue)
 
         Returns:
             ScreenResult if user wants to assign to customer, None to continue scanning
@@ -222,11 +183,19 @@ class ScanCableLookupScreen(Screen):
         label_printer = hardware_manager.get_label_printer()
         printer_available = label_printer and label_printer.is_ready() if label_printer else False
 
+        # Check if cable tester is available
+        cable_tester = hardware_manager.get_cable_tester()
+        tester_available = cable_tester and cable_tester.is_ready() if cable_tester else False
+
+        # Check if cable has been tested
+        cable_tested = cable_record.get('resistance_adc') is not None
+
         # Build footer text based on options
         footer_options = []
-        if not customer_gid:
-            footer_options.append("[cyan]'a'[/cyan] = Assign to customer")
-        if printer_available:
+        if tester_available:
+            footer_options.append("[cyan]'t'[/cyan] = Test cable")
+        footer_options.append("[cyan]'a'[/cyan] = Assign cable")
+        if printer_available and cable_tested:
             footer_options.append("[cyan]'p'[/cyan] = Print label")
         footer_options.append("[cyan]Enter[/cyan] = Continue scanning")
 
@@ -238,19 +207,30 @@ class ScanCableLookupScreen(Screen):
         try:
             choice = self.ui.console.input("").strip().lower()
 
-            if choice == 'a' and not customer_gid:
+            if choice == 't' and tester_available:
+                # Run cable tests
+                self.run_cable_test(operator, cable_record)
+                # Refresh cable record and show details again
+                from greenlight.db import get_audio_cable
+                updated_record = get_audio_cable(cable_record['serial_number'])
+                if updated_record:
+                    return self.show_cable_info_with_actions(operator, updated_record)
+                return None
+
+            elif choice == 'a':
                 # Push customer lookup screen with cable serial in context
                 from greenlight.screens.orders import CustomerLookupScreen
                 new_context = self.context.copy()
                 new_context["assign_cable_serial"] = cable_record['serial_number']
                 new_context["assign_cable_sku"] = cable_record['sku']
+                new_context["return_to_cable_serial"] = cable_record['serial_number']
                 return ScreenResult(NavigationAction.PUSH, CustomerLookupScreen, new_context)
 
-            elif choice == 'p' and printer_available:
+            elif choice == 'p' and printer_available and cable_tested:
                 # Print label for this cable
                 self.print_label_for_cable(operator, cable_record)
-                # Return None to continue scanning
-                return None
+                # Go back to cable details
+                return self.show_cable_info_with_actions(operator, cable_record)
 
             # Otherwise continue scanning
             return None
@@ -266,7 +246,6 @@ class ScanCableLookupScreen(Screen):
             cable_record: Cable record from database
         """
         from greenlight.hardware.interfaces import hardware_manager, PrintJob
-        from greenlight.cable import CableType
 
         label_printer = hardware_manager.get_label_printer()
         if not label_printer:
@@ -279,22 +258,13 @@ class ScanCableLookupScreen(Screen):
         color_pattern = cable_record.get('color_pattern')
         connector_type = cable_record.get('connector_type')
         description = cable_record.get('description')
-
-        # Show printing in progress
-        self.ui.console.clear()
-        self.ui.header(operator)
-
-        self.ui.layout["body"].update(Panel(
-            f"🖨️  Printing label...\n\n"
-            f"Serial: {serial_number}\n"
-            f"SKU: {sku}\n\n"
-            f"Please wait...",
-            title="Printing Label", style="blue"
-        ))
-        self.ui.render()
+        resistance_adc = cable_record.get('resistance_adc')
+        capacitance_pf = cable_record.get('capacitance_pf')
+        cable_operator = cable_record.get('operator')
 
         # Prepare label data
         label_data = {
+            'serial_number': serial_number,
             'series': series,
             'length': length,
             'color_pattern': color_pattern,
@@ -306,48 +276,110 @@ class ScanCableLookupScreen(Screen):
         if description:
             label_data['description'] = description
 
-        # Debug logging
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"Printing label for cable {serial_number}")
-        logger.info(f"Label data: {label_data}")
+        # Add test results if cable has been tested
+        if resistance_adc is not None:
+            label_data['test_results'] = {
+                'continuity_pass': True,  # If tested, continuity passed
+                'resistance_pass': resistance_adc >= 700,  # ADC > 700 = pass
+                'capacitance_pass': capacitance_pf is not None,
+                'operator': cable_operator or operator,
+            }
 
-        # Create print job
+        # Create print job and send to printer
         print_job = PrintJob(
             template="cable_label",
             data=label_data,
             quantity=1
         )
+        label_printer.print_labels(print_job)
 
-        # Send to printer
-        success = label_printer.print_labels(print_job)
-        logger.info(f"Print result: {success}")
+    def run_cable_test(self, operator, cable_record):
+        """Run cable tests (continuity and resistance) and save results
 
-        # Show result
-        self.ui.console.clear()
-        self.ui.header(operator)
+        Shows test progress and results in the footer while keeping cable details visible.
 
-        if success:
-            self.ui.layout["body"].update(Panel(
-                f"✅ [bold green]Label Printed Successfully![/bold green]\n\n"
-                f"Serial: {serial_number}\n"
-                f"SKU: {sku}\n\n"
-                f"Label ready to apply to cable.",
-                title="Print Complete", style="green"
-            ))
-        else:
-            self.ui.layout["body"].update(Panel(
-                f"❌ [bold red]Label Printing Failed[/bold red]\n\n"
-                f"Serial: {serial_number}\n"
-                f"SKU: {sku}\n\n"
-                f"Please check printer and try again.",
-                title="Print Error", style="red"
-            ))
+        Args:
+            operator: Operator ID
+            cable_record: Cable record from database
+        """
+        from greenlight.hardware.interfaces import hardware_manager
 
-        self.ui.layout["footer"].update(Panel("Press enter to continue scanning", title=""))
+        cable_tester = hardware_manager.get_cable_tester()
+        if not cable_tester:
+            return
+
+        serial_number = cable_record.get('serial_number')
+        sku = cable_record.get('sku')
+
+        # Keep cable info in body, show testing status in footer
+        cable_info_panel = self.build_cable_info_panel(cable_record)
+        self.ui.layout["body"].update(cable_info_panel)
+        self.ui.layout["footer"].update(Panel("🔬 Testing... Running continuity test", title="Testing"))
         self.ui.render()
 
-        # Brief pause to show result
+        all_passed = True
+        cont_status = "?"
+        res_status = "?"
+        resistance_adc = None
+
+        # Run continuity test
+        try:
+            cont_result = cable_tester.run_continuity_test()
+            if cont_result.passed:
+                cont_status = "[green]PASS[/green]"
+            else:
+                cont_status = "[red]FAIL[/red]"
+                all_passed = False
+        except Exception as e:
+            cont_status = "[yellow]ERROR[/yellow]"
+            all_passed = False
+
+        # Update footer and run resistance test
+        self.ui.layout["footer"].update(Panel(f"🔬 Testing... CON: {cont_status} | Running resistance test", title="Testing"))
+        self.ui.render()
+
+        try:
+            res_result = cable_tester.run_resistance_test()
+            resistance_adc = res_result.adc_value
+            if res_result.passed:
+                res_status = "[green]PASS[/green]"
+            else:
+                res_status = "[red]FAIL[/red]"
+                all_passed = False
+        except Exception as e:
+            res_status = "[yellow]ERROR[/yellow]"
+            all_passed = False
+
+        # Save test results to database if tests passed
+        saved_status = ""
+        if all_passed and resistance_adc is not None:
+            try:
+                from greenlight.testing import TestResult
+                test_result = TestResult(
+                    continuity_pass=True,
+                    resistance_adc=resistance_adc,
+                    capacitance_pf=0.0,
+                    test_time=time.time(),
+                    cable_sku=sku,
+                    operator=operator,
+                    arduino_unit_id=1
+                )
+                update_cable_test_results(serial_number, test_result)
+                saved_status = " | [green]Saved[/green]"
+            except Exception as e:
+                logger.error(f"Failed to save test results: {e}")
+                saved_status = " | [red]Save failed[/red]"
+
+        # Show final results in footer
+        if all_passed:
+            result_text = f"✅ CON: {cont_status} | RES: {res_status}{saved_status} | Press enter to continue"
+        else:
+            result_text = f"❌ CON: {cont_status} | RES: {res_status} | Press enter to continue"
+
+        self.ui.layout["footer"].update(Panel(result_text, title="Test Complete"))
+        self.ui.render()
+
+        # Wait for user to acknowledge
         try:
             self.ui.console.input("")
         except KeyboardInterrupt:
@@ -361,15 +393,16 @@ class ScanCableLookupScreen(Screen):
         length = cable_record.get("length", "N/A")
         color_pattern = cable_record.get("color_pattern", "N/A")
         connector_type = cable_record.get("connector_type", "N/A")
-        resistance_ohms = cable_record.get("resistance_ohms")
+        resistance_adc = cable_record.get("resistance_adc")
         capacitance_pf = cable_record.get("capacitance_pf")
         cable_operator = cable_record.get("operator", "N/A")
         test_timestamp = cable_record.get("test_timestamp")
         updated_timestamp = cable_record.get("updated_timestamp")
 
         # Format test results
-        if resistance_ohms is not None:
-            resistance_str = f"{resistance_ohms:.2f} Ω"
+        if resistance_adc is not None:
+            # Display "< 0.5Ω" for tested cables - indicates pass threshold
+            resistance_str = f"< 0.5Ω (ADC: {resistance_adc})"
             test_status = "✅ Tested"
         else:
             resistance_str = "Not tested"
@@ -460,15 +493,78 @@ class ScanCableLookupScreen(Screen):
         # Return the cable info for display
         return Panel(cable_info, title="📋 Cable Information", style="cyan")
 
-    def show_not_found(self, operator, serial_number):
-        """Show message when cable is not in database and return body content"""
-        return Panel(
+    def show_menu(self, operator):
+        """Show menu for additional options (inventory, orders, etc.)
+
+        Returns:
+            ScreenResult if user selects an option, None to return to scanning
+        """
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(
+            "Additional Options\n\n"
+            "[green]1.[/green] View Inventory - See available cables by type\n"
+            "[green]2.[/green] Assign Cables - Assign cables to customer orders\n"
+            "[green]3.[/green] Back to Scanning",
+            title="Menu"
+        ))
+        self.ui.layout["footer"].update(Panel(
+            "Enter choice (1-3) or press Enter to go back",
+            title=""
+        ))
+        self.ui.render()
+
+        try:
+            choice = self.ui.console.input("Choose: ").strip()
+
+            if choice == "1":
+                # View Inventory
+                from greenlight.screens.inventory import SeriesSelectionScreen
+                return ScreenResult(NavigationAction.PUSH, SeriesSelectionScreen, self.context)
+            elif choice == "2":
+                # Assign Cables - go to customer search
+                from greenlight.screens.orders import CustomerLookupScreen
+                return ScreenResult(NavigationAction.PUSH, CustomerLookupScreen, self.context)
+            # Choice 3 or empty = back to scanning
+            return None
+
+        except KeyboardInterrupt:
+            return None
+
+    def show_not_found_with_register(self, operator, serial_number):
+        """Show not found message with option to register the cable
+
+        Returns:
+            ScreenResult if user chooses to register, None to continue scanning
+        """
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(
             f"❌ [bold red]Cable Not Found[/bold red]\n\n"
             f"Serial Number: [yellow]{serial_number}[/yellow]\n\n"
             f"This cable is not in the database.\n"
-            f"It may not have been registered yet.",
+            f"Would you like to register it?",
             title="Not in Database", style="red"
-        )
+        ))
+        self.ui.layout["footer"].update(Panel(
+            "[cyan]'r'[/cyan] = Register this cable | [cyan]Enter[/cyan] = Continue scanning",
+            title="Options"
+        ))
+        self.ui.render()
+
+        try:
+            choice = self.ui.console.input("").strip().lower()
+
+            if choice == 'r':
+                # Go to register flow with this serial number pre-filled
+                new_context = self.context.copy()
+                new_context["selection_mode"] = "intake"
+                new_context["prefill_serial"] = serial_number
+                return ScreenResult(NavigationAction.PUSH, SeriesSelectionScreen, new_context)
+
+            # Otherwise continue scanning
+            return None
+
+        except KeyboardInterrupt:
+            return None
 
 
 class CableSelectionForIntakeScreen(Screen):
@@ -972,10 +1068,15 @@ class CableTestScreen(Screen):
         # Create test result for database insertion
         from greenlight.testing import TestResult
         from greenlight.db import update_cable_test_results, insert_audio_cable
-        
+        import random
+
+        # Convert mock resistance (ohms) to mock ADC value
+        # Passing cables (< 0.5Ω) have high ADC values (> 700)
+        resistance_adc = random.randint(750, 850) if resistance < 0.5 else random.randint(500, 650)
+
         test_result = TestResult(
             continuity_pass=True,  # Only passing cables get here
-            resistance_ohms=resistance,
+            resistance_adc=resistance_adc,
             capacitance_pf=capacitance,
             test_time=0,  # Not used for database
             cable_sku=cable_type.sku,
@@ -1047,7 +1148,7 @@ class CableTestScreen(Screen):
             f"Color: {cable_type.color_pattern}\n"
             f"Connector: {cable_type.connector_type}\n\n"
             f"Test Results:\n"
-            f"  • Resistance: {test_result.resistance_ohms} Ω\n"
+            f"  • Resistance: < 0.5Ω\n"
             f"  • Capacitance: {test_result.capacitance_pf} pF\n"
             f"Operator: {test_result.operator}\n"
             f"Testing Unit: Arduino #{test_result.arduino_unit_id}\n"
@@ -1096,7 +1197,8 @@ class CableTestScreen(Screen):
                 'sku': cable_type.sku,
                 'cable_name': cable_type.name(),
                 'test_results': {
-                    'resistance_ohms': test_result.resistance_ohms,
+                    'resistance_display': '< 0.5Ω',  # Display value for label
+                    'resistance_adc': test_result.resistance_adc,  # Raw ADC value
                     'capacitance_pf': test_result.capacitance_pf,
                     'pass': True
                 },
@@ -1182,207 +1284,6 @@ class PrintCableWrapScreen(Screen):
 # ============================================================================
 # Additional Cable Screens (from new_screens.py)
 # ============================================================================
-
-
-class TestAssembledCableScreen(Screen):
-    def run(self) -> ScreenResult:
-        operator = self.context.get("operator", "")
-        
-        self.ui.header(operator)
-        self.ui.layout["body"].update(Panel(
-            "🔍 Test Assembled Cable\n\n"
-            "Scan the barcode on the cable label or manually enter the serial number\n"
-            "to look up cable information and run tests.",
-            title="Test Assembled Cable"
-        ))
-        
-        # Check if scanner is available
-        scanner_available = hardware_manager.scanner and hardware_manager.scanner.is_connected()
-        
-        if scanner_available:
-            self.ui.layout["footer"].update(Panel(
-                "Scan barcode or press 'm' for manual entry | Back (q)",
-                title="Input Method"
-            ))
-        else:
-            self.ui.layout["footer"].update(Panel(
-                "Enter serial number (SD######) | Back (q)",
-                title="Serial Number"
-            ))
-        
-        self.ui.render()
-        
-        # Try barcode scanning first if available
-        if scanner_available:
-            serial_number = self.get_serial_number_with_scanner()
-        else:
-            serial_number = self.get_serial_number_manual()
-        
-        if not serial_number:
-            return ScreenResult(NavigationAction.POP)
-        
-        # Look up cable record
-        return self.lookup_and_test_cable(operator, serial_number)
-    
-    def get_serial_number_with_scanner(self):
-        """Get serial number via barcode scanner or manual entry"""
-        import time
-        import sys
-        import select
-        
-        self.ui.layout["footer"].update(Panel(
-            "🔍 Ready to scan barcode... (press 'm' for manual entry, 'q' to quit)",
-            title="Scanning", border_style="cyan"
-        ))
-        self.ui.render()
-        
-        # Wait for scan or manual input
-        start_time = time.time()
-        timeout = 10.0  # 10 second timeout
-        
-        while time.time() - start_time < timeout:
-            # Check for keyboard input (manual mode)
-            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-                key = sys.stdin.read(1).lower()
-                if key == 'q':
-                    return None
-                elif key == 'm':
-                    return self.get_serial_number_manual()
-            
-            # Try barcode scan
-            scan_result = hardware_manager.scanner.scan(timeout=0.5)
-            if scan_result and scan_result.success:
-                serial_number = scan_result.data.strip().upper()
-                self.ui.layout["footer"].update(Panel(
-                    f"✅ Scanned: {serial_number}",
-                    title="Scan Complete", style="green"
-                ))
-                self.ui.render()
-                time.sleep(1)  # Brief pause to show result
-                return serial_number
-            
-            time.sleep(0.1)  # Brief pause between scan attempts
-        
-        # Timeout - fallback to manual entry
-        self.ui.layout["footer"].update(Panel(
-            "⏰ Scan timeout - switching to manual entry",
-            title="Timeout", style="yellow"
-        ))
-        self.ui.render()
-        time.sleep(1)
-        return self.get_serial_number_manual()
-    
-    def get_serial_number_manual(self):
-        """Get serial number via manual keyboard entry"""
-        self.ui.layout["footer"].update(Panel(
-            "Enter serial number (SD######):",
-            title="Manual Entry"
-        ))
-        self.ui.render()
-        
-        try:
-            serial_number = self.ui.console.input("Serial number: ").strip().upper()
-            return serial_number if serial_number else None
-        except KeyboardInterrupt:
-            return None
-    
-    def lookup_and_test_cable(self, operator, serial_number):
-        """Look up cable by serial number and start testing"""
-        from greenlight.db import get_audio_cable
-        from greenlight.cable import CableType
-        
-        # Check if serial number exists
-        cable_record = get_audio_cable(serial_number)
-        
-        if not cable_record:
-            self.ui.layout["body"].update(Panel(
-                f"❌ Serial number not found: {serial_number}\n\n"
-                f"This serial number may not exist or has not been generated yet.\n"
-                f"Check the label and try again.",
-                title="Serial Number Not Found", style="red"
-            ))
-            self.ui.layout["footer"].update(Panel("Press enter to try again", title=""))
-            self.ui.render()
-            self.ui.console.input("Press enter to continue...")
-            return ScreenResult(NavigationAction.REPLACE, TestAssembledCableScreen, self.context)
-        
-        # Check if already tested
-        if cable_record.get('resistance_ohms') is not None:
-            return self.show_existing_test_results(operator, serial_number, cable_record)
-        
-        # Load cable type for testing
-        try:
-            from greenlight.cable_screens import CableTestScreen
-            cable_type = CableType()
-            cable_type.load(cable_record['sku'])
-
-            # Show cable info and start testing
-            new_context = self.context.copy()
-            new_context['cable_type'] = cable_type
-            new_context['serial_number'] = serial_number
-            new_context['testing_mode'] = 'assembled'  # Flag to indicate this is testing assembled cable
-
-            return ScreenResult(NavigationAction.PUSH, CableTestScreen, new_context)
-            
-        except ValueError as e:
-            self.ui.layout["body"].update(Panel(
-                f"❌ Error loading cable type: {str(e)}\n\n"
-                f"Serial: {serial_number}\n"
-                f"SKU: {cable_record.get('sku', 'Unknown')}",
-                title="Error", style="red"
-            ))
-            self.ui.layout["footer"].update(Panel("Press enter to continue", title=""))
-            self.ui.render()
-            self.ui.console.input("Press enter to continue...")
-            return ScreenResult(NavigationAction.POP)
-    
-    def show_existing_test_results(self, operator, serial_number, cable_record):
-        """Display results for already tested cable"""
-        resistance = cable_record.get('resistance_ohms', 'N/A')
-        capacitance = cable_record.get('capacitance_pf', 'N/A')
-        test_operator = cable_record.get('operator', 'Unknown')
-        arduino_unit = cable_record.get('arduino_unit_id', 'Unknown')
-        test_time = cable_record.get('test_timestamp', 'Unknown')
-        
-        if hasattr(test_time, 'strftime'):
-            timestamp_str = test_time.strftime("%Y-%m-%d %H:%M:%S")
-        else:
-            timestamp_str = str(test_time)
-        
-        self.ui.layout["body"].update(Panel(
-            f"📋 Cable Already Tested\n\n"
-            f"Serial: {serial_number}\n"
-            f"SKU: {cable_record.get('sku', 'Unknown')}\n"
-            f"Name: {cable_record.get('series', '')} {cable_record.get('length', '')}ft {cable_record.get('color_pattern', '')}\n\n"
-            f"Test Results:\n"
-            f"• Resistance: {resistance} Ω\n"
-            f"• Capacitance: {capacitance} pF\n"
-            f"• Tested by: {test_operator}\n"
-            f"• Arduino Unit: #{arduino_unit}\n"
-            f"• Test Time: {timestamp_str}",
-            title="Test Results", style="green"
-        ))
-        self.ui.layout["footer"].update(Panel("Press 'r' to retest, Enter to continue", title=""))
-        self.ui.render()
-        
-        choice = self.ui.console.input("Action: ").lower()
-        if choice == 'r':
-            # Allow retesting - load cable type and start test
-            try:
-                from greenlight.cable_screens import CableTestScreen
-                cable_type = CableType()
-                cable_type.load(cable_record['sku'])
-
-                new_context = self.context.copy()
-                new_context['cable_type'] = cable_type
-                new_context['serial_number'] = serial_number
-                new_context['testing_mode'] = 'retest'
-
-                return ScreenResult(NavigationAction.PUSH, CableTestScreen, new_context)
-            except ValueError as e:
-                return ScreenResult(NavigationAction.POP)
-        else:
-            return ScreenResult(NavigationAction.POP)
 
 
 class ScanCableIntakeScreen(Screen):
@@ -1605,8 +1506,10 @@ class ScanCableIntakeScreen(Screen):
                 self.ui.render()
                 time.sleep(0.8)  # Brief pause to show success
 
-                # Offer to print label
-                self.offer_print_label(operator, cable_type, saved_serial, custom_length, cable_description)
+                # Show success and ask what to do next
+                next_action = self.offer_print_label(operator, cable_type, saved_serial, custom_length, cable_description)
+                if next_action == 'quit':
+                    break
             else:
                 # Error registering
                 error_type = result.get('error', 'unknown')
@@ -1661,11 +1564,11 @@ class ScanCableIntakeScreen(Screen):
                     self.ui.render()
                     time.sleep(1.5)  # Longer pause for errors
 
-        # Go back to SKU selection screen
-        return ScreenResult(NavigationAction.REPLACE, CableSelectionForIntakeScreen, self.context)
+        # Go back to main scan screen
+        return ScreenResult(NavigationAction.REPLACE, ScanCableLookupScreen, self.context)
 
     def offer_print_label(self, operator, cable_type, serial_number, custom_length=None, cable_description=None):
-        """Offer to print a label for the registered cable
+        """Show registration success and prompt for next action
 
         Args:
             operator: Operator ID
@@ -1673,23 +1576,11 @@ class ScanCableIntakeScreen(Screen):
             serial_number: Registered serial number
             custom_length: Optional custom length for MISC cables
             cable_description: Optional description for MISC cables
+
+        Returns:
+            'continue' to register another cable, 'quit' to go back
         """
-        from greenlight.hardware.interfaces import hardware_manager, PrintJob
-
-        # Check if label printer is available
-        label_printer = hardware_manager.get_label_printer()
-        if not label_printer or not label_printer.is_ready():
-            # Printer not available, show brief notice
-            import time
-            self.ui.layout["footer"].update(Panel(
-                "[dim]Label printer not available - enable in .env with GREENLIGHT_USE_REAL_PRINTERS=true[/dim]",
-                title="Notice", style="dim"
-            ))
-            self.ui.render()
-            time.sleep(1.5)
-            return
-
-        # Clear console and show print prompt
+        # Clear console and show success
         self.ui.console.clear()
         self.ui.header(operator)
 
@@ -1697,26 +1588,26 @@ class ScanCableIntakeScreen(Screen):
             f"[bold green]✅ Cable Registered[/bold green]\n\n"
             f"Serial Number: {serial_number}\n"
             f"SKU: {cable_type.sku}\n"
-            f"Cable: {cable_type.name()}\n\n"
-            f"[bold yellow]Print label now?[/bold yellow]",
-            title="🏷️  Label Printing",
-            border_style="yellow"
+            f"Cable: {cable_type.name()}",
+            title="Registration Complete",
+            border_style="green"
         ))
         self.ui.layout["footer"].update(Panel(
-            "[green]y[/green] = Print label | [cyan]n[/cyan] = Skip | [yellow]Enter[/yellow] = Skip",
-            title="Print Label?"
+            "[cyan]'r'[/cyan] = Register another cable | [cyan]'q'[/cyan] = Go back",
+            title="Options"
         ))
         self.ui.render()
 
         try:
             choice = self.ui.console.input("").strip().lower()
 
-            if choice == 'y' or choice == 'yes':
-                # Print the label
-                self.print_cable_label(operator, cable_type, serial_number, custom_length, cable_description)
+            if choice == 'q':
+                return 'quit'
+            else:
+                return 'continue'
 
         except KeyboardInterrupt:
-            pass
+            return 'quit'
 
     def print_cable_label(self, operator, cable_type, serial_number, custom_length=None, cable_description=None):
         """Print a cable label
@@ -1749,6 +1640,7 @@ class ScanCableIntakeScreen(Screen):
 
         # Prepare label data
         label_data = {
+            'serial_number': serial_number,
             'series': cable_type.series,
             'length': custom_length if custom_length else cable_type.length,
             'color_pattern': cable_type.color_pattern,
@@ -1810,15 +1702,16 @@ class ScanCableIntakeScreen(Screen):
         length = cable_record.get("length", "N/A")
         color_pattern = cable_record.get("color_pattern", "N/A")
         connector_type = cable_record.get("connector_type", "N/A")
-        resistance_ohms = cable_record.get("resistance_ohms")
+        resistance_adc = cable_record.get("resistance_adc")
         capacitance_pf = cable_record.get("capacitance_pf")
         cable_operator = cable_record.get("operator", "N/A")
         test_timestamp = cable_record.get("test_timestamp")
         updated_timestamp = cable_record.get("updated_timestamp")
 
         # Format test results
-        if resistance_ohms is not None:
-            resistance_str = f"{resistance_ohms:.2f} Ω"
+        if resistance_adc is not None:
+            # Display "< 0.5Ω" for tested cables - indicates pass threshold
+            resistance_str = f"< 0.5Ω (ADC: {resistance_adc})"
             test_status = "✅ Tested"
         else:
             resistance_str = "Not tested"

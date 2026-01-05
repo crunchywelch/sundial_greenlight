@@ -1,7 +1,10 @@
 from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
 from greenlight.db import pg_pool
 from greenlight.enums import fetch_enum_values
+from greenlight.hardware.interfaces import hardware_manager
 
 def get_all_skus():
     """Fetch all SKUs from the database"""
@@ -236,7 +239,141 @@ class cableUI:
         return
 
     def test_cable(self):
-        return
+        """Run cable tests using Arduino tester"""
+        cable_tester = hardware_manager.get_cable_tester()
+
+        if not cable_tester:
+            self.ui.layout["body"].update(Panel(
+                "[red]Cable tester not available.[/red]\n\n"
+                "Please check that the Arduino is connected.",
+                title="Test Error"
+            ))
+            self.ui.render()
+            self.ui.console.input("(press enter to continue)")
+            return None
+
+        if not cable_tester.is_ready():
+            self.ui.layout["body"].update(Panel(
+                "[yellow]Cable tester not ready. Attempting to connect...[/yellow]",
+                title="Connecting"
+            ))
+            self.ui.render()
+
+            if not cable_tester.initialize():
+                self.ui.layout["body"].update(Panel(
+                    "[red]Failed to connect to cable tester.[/red]\n\n"
+                    "Check USB connection and try again.",
+                    title="Connection Failed"
+                ))
+                self.ui.render()
+                self.ui.console.input("(press enter to continue)")
+                return None
+
+        # Build test results display
+        results_table = Table(show_header=True, header_style="bold")
+        results_table.add_column("Test", width=20)
+        results_table.add_column("Result", width=15)
+        results_table.add_column("Details", width=30)
+
+        all_passed = True
+        test_data = {}
+
+        # Run continuity test
+        self.ui.layout["body"].update(Panel(
+            "[cyan]Running continuity test...[/cyan]",
+            title="Testing"
+        ))
+        self.ui.render()
+
+        try:
+            cont_result = cable_tester.run_continuity_test()
+            test_data['continuity'] = cont_result
+
+            if cont_result.passed:
+                results_table.add_row(
+                    "Continuity",
+                    Text("PASS", style="bold green"),
+                    "Tip-Tip OK, Sleeve-Sleeve OK"
+                )
+            else:
+                all_passed = False
+                reason_text = cont_result.reason or "Unknown failure"
+                reason_display = {
+                    "REVERSED": "Polarity reversed (tip/sleeve swapped)",
+                    "CROSSED": "Short between tip and sleeve",
+                    "NO_CABLE": "No cable detected",
+                    "TIP_OPEN": "Tip connection open",
+                    "SLEEVE_OPEN": "Sleeve connection open"
+                }.get(reason_text, reason_text)
+
+                results_table.add_row(
+                    "Continuity",
+                    Text("FAIL", style="bold red"),
+                    reason_display
+                )
+        except Exception as e:
+            all_passed = False
+            results_table.add_row(
+                "Continuity",
+                Text("ERROR", style="bold yellow"),
+                str(e)[:30]
+            )
+
+        # Run resistance test
+        self.ui.layout["body"].update(Panel(
+            "[cyan]Running resistance test...[/cyan]",
+            title="Testing"
+        ))
+        self.ui.render()
+
+        try:
+            res_result = cable_tester.run_resistance_test()
+            test_data['resistance'] = res_result
+
+            if res_result.passed:
+                if res_result.calibrated and res_result.milliohms is not None:
+                    details = f"{res_result.milliohms} mOhm"
+                else:
+                    details = f"ADC: {res_result.adc_value} (uncalibrated)"
+
+                results_table.add_row(
+                    "Resistance",
+                    Text("PASS", style="bold green"),
+                    details
+                )
+            else:
+                all_passed = False
+                results_table.add_row(
+                    "Resistance",
+                    Text("FAIL", style="bold red"),
+                    f"High resistance (ADC: {res_result.adc_value})"
+                )
+        except Exception as e:
+            all_passed = False
+            results_table.add_row(
+                "Resistance",
+                Text("ERROR", style="bold yellow"),
+                str(e)[:30]
+            )
+
+        # Show results
+        overall_status = Text("ALL TESTS PASSED", style="bold green") if all_passed else Text("TESTS FAILED", style="bold red")
+
+        result_content = Table.grid()
+        result_content.add_row(overall_status)
+        result_content.add_row("")
+        result_content.add_row(results_table)
+
+        self.ui.layout["body"].update(Panel(result_content, title="Test Results"))
+        self.ui.render()
+
+        self.ui.console.input("(press enter to continue)")
+
+        return {
+            'passed': all_passed,
+            'continuity': test_data.get('continuity'),
+            'resistance': test_data.get('resistance')
+        }
 
     def print_cable_tag(self):
         self.coming_soon("Print Cable Tag")
