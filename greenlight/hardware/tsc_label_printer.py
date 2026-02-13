@@ -11,14 +11,27 @@ Communication: TCP/IP socket on port 9100
 import socket
 import logging
 import struct
-import os
 from typing import Dict, Any, Optional
 from greenlight.hardware.interfaces import LabelPrinterInterface, PrintJob
 
 logger = logging.getLogger(__name__)
 
-# Path to logo bitmap
-WIRE_LOGO_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'wire_mono.bmp')
+# Wire logo bitmap (50x15 pixels, 1-bit BMP) - embedded to avoid file dependency
+WIRE_LOGO_BMP_DATA = (
+    b'BM\xfa\x00\x00\x00\x00\x00\x00\x00\x82\x00\x00\x00l\x00\x00\x002\x00\x00\x00'
+    b'\x0f\x00\x00\x00\x01\x00\x01\x00\x00\x00\x00\x00x\x00\x00\x00\x13\x0b\x00\x00'
+    b'\x13\x0b\x00\x00\x02\x00\x00\x00\x02\x00\x00\x00\x00\x00\xff\x00\x00\xff\x00'
+    b'\x00\xff\x00\x00\x00\x00\x00\x00\xffBGRs\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    b'\x00\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00'
+    b'\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    b'\x00\x00\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xc0\x00\xff\xe0\x07\xff\xff'
+    b'\xff\xc0\x004\x00\x00\x7f\xf6\x02\xc0\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00'
+    b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00 \x00\x00\x80\x00'
+    b'\x00\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\xff\x90!.\x80\x00\x00\x00\xff\xfb'
+    b'U\xff\xe0\x00\x00\x00\xff\xff\xff\xff\xff\xaf\xc0\x00\xff\xff\xff\xff\xff\xff'
+    b'\xc0\x00\xff\xff\xff\xff\xff\xff\xc0\x00\xff\xff\xff\xff\xff\xff\xc0\x00\xff'
+    b'\xff\xff\xff\xff\xff\xc0\x00'
+)
 
 
 class TSCLabelPrinter(LabelPrinterInterface):
@@ -51,21 +64,14 @@ class TSCLabelPrinter(LabelPrinterInterface):
                    f"Label: {label_width_mm}x{label_height_mm}mm "
                    f"({self.label_width_dots}x{self.label_height_dots} dots)")
 
-        # Load wire logo bitmap if available
-        self.wire_logo_data = self._load_bitmap(WIRE_LOGO_PATH)
+        # Parse embedded wire logo bitmap
+        self.wire_logo_data = self._parse_bitmap(WIRE_LOGO_BMP_DATA)
 
-    def _load_bitmap(self, filepath: str) -> Optional[Dict[str, Any]]:
-        """Load a 1-bit BMP file and prepare it for inline BITMAP command."""
+    def _parse_bitmap(self, data: bytes) -> Optional[Dict[str, Any]]:
+        """Parse a 1-bit BMP and prepare it for inline BITMAP command."""
         try:
-            if not os.path.exists(filepath):
-                logger.warning(f"Bitmap not found: {filepath}")
-                return None
-
-            with open(filepath, 'rb') as f:
-                data = f.read()
-
             if data[:2] != b'BM':
-                logger.warning(f"Invalid BMP file: {filepath}")
+                logger.warning("Invalid BMP data: missing BM header")
                 return None
 
             # Parse BMP header
@@ -107,7 +113,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
                 tspl_rows.append(bytes(row_data))
             tspl_data = b''.join(tspl_rows)
 
-            logger.info(f"Loaded bitmap: {width}x{height} pixels")
+            logger.debug(f"Parsed wire logo bitmap: {width}x{height} pixels")
             return {
                 'width': width,
                 'height': height,
@@ -115,7 +121,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
                 'data': tspl_data
             }
         except Exception as e:
-            logger.error(f"Error loading bitmap: {e}")
+            logger.error(f"Error parsing bitmap: {e}")
             return None
 
     def _get_bitmap_command(self, x: int, y: int) -> Optional[bytes]:

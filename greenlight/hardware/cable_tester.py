@@ -2,10 +2,10 @@
 Arduino Cable Tester Serial Interface
 
 Communicates with Arduino Mega 2560 cable tester via USB serial.
-Supports continuity testing, resistance testing, and calibration.
+Supports continuity, resistance, and capacitance testing with calibration.
 
 Communication: USB serial at 9600 baud
-Protocol: Text-based command/response (CONT, RES, CAL, STATUS, ID, RESET)
+Protocol: Text-based command/response (CONT, RES, CAP, CAL, CALCAP, STATUS, ID, RESET)
 """
 
 import serial
@@ -49,6 +49,16 @@ class CalibrationResult:
     error: Optional[str] = None
 
 
+@dataclass
+class CapacitanceResult:
+    """Result from capacitance test"""
+    passed: bool
+    capacitance_pf: Optional[float] = None  # Capacitance in picofarads
+    charge_time_us: Optional[int] = None    # Charge time in microseconds
+    num_samples: int = 0
+    error: Optional[str] = None
+
+
 class CableTesterInterface(ABC):
     """Abstract interface for cable testers"""
 
@@ -69,7 +79,17 @@ class CableTesterInterface(ABC):
 
     @abstractmethod
     def calibrate(self) -> CalibrationResult:
-        """Calibrate with zero-ohm reference"""
+        """Calibrate resistance with zero-ohm reference"""
+        pass
+
+    @abstractmethod
+    def run_capacitance_test(self) -> CapacitanceResult:
+        """Run capacitance test"""
+        pass
+
+    @abstractmethod
+    def calibrate_capacitance(self) -> CalibrationResult:
+        """Calibrate capacitance (measure stray capacitance with shorted jacks)"""
         pass
 
     @abstractmethod
@@ -341,6 +361,95 @@ class ArduinoCableTester(CableTesterInterface):
 
         return CalibrationResult(success=True, adc_value=adc_value)
 
+    def run_capacitance_test(self) -> CapacitanceResult:
+        """
+        Run capacitance test
+
+        Returns:
+            CapacitanceResult with test outcome
+
+        Response format: CAP:PASS/WARN/FAIL:PF:xxx:TIME_US:xxx:SAMPLES:xxx
+        """
+        if not self.connected:
+            raise RuntimeError("Cable tester not connected")
+
+        self._send_command("CAP")
+        response = self._read_until_response("CAP:", timeout=15.0)
+
+        if not response:
+            raise RuntimeError("No response from capacitance test")
+
+        if response.startswith("ERROR:"):
+            raise RuntimeError(f"Tester error: {response}")
+
+        # Parse response
+        parts = response.split(":")
+
+        # Check for timeout/failure
+        if parts[1] == "FAIL":
+            error_msg = ":".join(parts[2:]) if len(parts) > 2 else "Unknown error"
+            return CapacitanceResult(passed=False, error=error_msg)
+
+        # Parse successful measurement: CAP:PASS:PF:523.4:TIME_US:802:SAMPLES:5
+        passed = parts[1] in ("PASS", "WARN")
+
+        capacitance_pf = None
+        charge_time_us = None
+        num_samples = 0
+
+        if "PF" in parts:
+            pf_idx = parts.index("PF")
+            capacitance_pf = float(parts[pf_idx + 1])
+
+        if "TIME_US" in parts:
+            time_idx = parts.index("TIME_US")
+            charge_time_us = int(parts[time_idx + 1])
+
+        if "SAMPLES" in parts:
+            samples_idx = parts.index("SAMPLES")
+            num_samples = int(parts[samples_idx + 1])
+
+        return CapacitanceResult(
+            passed=passed,
+            capacitance_pf=capacitance_pf,
+            charge_time_us=charge_time_us,
+            num_samples=num_samples
+        )
+
+    def calibrate_capacitance(self) -> CalibrationResult:
+        """
+        Calibrate capacitance measurement (measure stray capacitance with shorted jacks)
+
+        Returns:
+            CalibrationResult with calibration outcome
+        """
+        if not self.connected:
+            raise RuntimeError("Cable tester not connected")
+
+        self._send_command("CALCAP")
+
+        # Wait for calibration result
+        response = self._read_until_response("CAP_CAL:", timeout=15.0)
+
+        if not response:
+            return CalibrationResult(success=False, error="No response from capacitance calibration")
+
+        if "FAILED" in response:
+            return CalibrationResult(success=False, error=response)
+
+        # Parse: CAP_CAL:Measured stray capacitance: 25.0 pF
+        # Or look for the measurement value
+        if "Measured stray capacitance:" in response:
+            # Extract the pF value
+            try:
+                pf_str = response.split(":")[-1].strip().replace(" pF", "")
+                pf_value = int(float(pf_str))
+                return CalibrationResult(success=True, adc_value=pf_value)
+            except (ValueError, IndexError):
+                return CalibrationResult(success=True, adc_value=None)
+
+        return CalibrationResult(success=True)
+
     def reset(self) -> bool:
         """Reset the test circuit"""
         if not self.connected:
@@ -399,7 +508,7 @@ class MockCableTester(CableTesterInterface):
     def __init__(self):
         self.connected = False
         self.calibrated = False
-        self.calibration_adc = 820
+        self.calibration_adc = 60  # Low ADC baseline (high-side sense topology)
         logger.info("Mock cable tester initialized")
 
     def initialize(self) -> bool:
@@ -422,7 +531,7 @@ class MockCableTester(CableTesterInterface):
         logger.info("Mock cable tester: Simulating resistance test - PASS")
         return ResistanceResult(
             passed=True,
-            adc_value=800,
+            adc_value=65,  # Low ADC = good cable (high-side sense topology)
             calibrated=self.calibrated,
             calibration_adc=self.calibration_adc if self.calibrated else None,
             milliohms=50 if self.calibrated else None,
@@ -445,6 +554,19 @@ class MockCableTester(CableTesterInterface):
 
     def is_ready(self) -> bool:
         return self.connected
+
+    def run_capacitance_test(self) -> CapacitanceResult:
+        logger.info("Mock cable tester: Simulating capacitance test - PASS")
+        return CapacitanceResult(
+            passed=True,
+            capacitance_pf=523.4,  # Simulated ~20ft cable
+            charge_time_us=802,
+            num_samples=5
+        )
+
+    def calibrate_capacitance(self) -> CalibrationResult:
+        logger.info("Mock cable tester: Simulating capacitance calibration")
+        return CalibrationResult(success=True, adc_value=20)  # 20 pF stray capacitance
 
     def close(self) -> None:
         self.connected = False
