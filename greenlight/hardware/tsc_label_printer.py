@@ -245,7 +245,6 @@ class TSCLabelPrinter(LabelPrinterInterface):
                 - test_results: Optional dict with test info:
                     - continuity_pass: bool
                     - resistance_pass: bool
-                    - capacitance_pass: bool
                     - operator: str (operator initials)
 
         Returns:
@@ -269,7 +268,6 @@ class TSCLabelPrinter(LabelPrinterInterface):
         has_test_results = bool(test_results)
         continuity_pass = test_results.get('continuity_pass', False)
         resistance_pass = test_results.get('resistance_pass', False)
-        capacitance_pass = test_results.get('capacitance_pass', False)
         operator = test_results.get('operator', '')
 
         # Format connector type for display
@@ -383,11 +381,6 @@ class TSCLabelPrinter(LabelPrinterInterface):
         if has_test_results:
             res_status = "PASS" if resistance_pass else "X"
             tspl_commands.append(f'TEXT {x_qc},{y_qc_res},"1",0,1,1,"RES: {res_status}"')
-
-        # Add capacitance result
-        if has_test_results:
-            cap_status = "PASS" if capacitance_pass else "X"
-            tspl_commands.append(f'TEXT {x_qc},{y_qc_cap},"1",0,1,1,"CAP: {cap_status}"')
 
         # Operator at bottom of QC column
         if has_test_results and operator:

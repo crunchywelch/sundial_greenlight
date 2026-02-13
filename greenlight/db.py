@@ -10,16 +10,16 @@ pg_pool = psycopg2.pool.SimpleConnectionPool(
     **DB_CONFIG
 )
 
-def insert_test_result(serial, resistance_adc, capacitance, operator=None, source_node=None):
+def insert_test_result(serial, resistance_adc, operator=None, source_node=None):
     conn = pg_pool.getconn()
     try:
         with conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     INSERT INTO test_results
-                        (serial, resistance_adc, capacitance_pf, operator, source_node)
-                    VALUES (%s, %s, %s, %s, %s)
-                """, (serial, resistance_adc, capacitance, operator, source_node))
+                        (serial, resistance_adc, operator, source_node)
+                    VALUES (%s, %s, %s, %s)
+                """, (serial, resistance_adc, operator, source_node))
             conn.commit()
     except Exception as e:
         print(f"❌ Error creating tables: {e}")
@@ -54,13 +54,13 @@ def insert_audio_cable(cable_type, test_result):
             with conn.cursor() as cur:
                 cur.execute("""
                     INSERT INTO audio_cables
-                        (serial_number, sku, resistance_adc, capacitance_pf,
+                        (serial_number, sku, resistance_adc,
                          operator, arduino_unit_id, notes)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     RETURNING serial_number, test_timestamp
                 """, (
                     serial_number, cable_type.sku, test_result.resistance_adc,
-                    test_result.capacitance_pf, test_result.operator,
+                    test_result.operator,
                     test_result.arduino_unit_id, None  # notes can be added later
                 ))
                 result = cur.fetchone()
@@ -87,7 +87,7 @@ def get_audio_cable(serial_number):
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT ac.serial_number, ac.sku, ac.resistance_adc, ac.capacitance_pf,
+                SELECT ac.serial_number, ac.sku, ac.resistance_adc, ac.test_passed,
                        ac.operator, ac.arduino_unit_id, ac.notes, ac.test_timestamp,
                        ac.shopify_gid, ac.updated_timestamp, ac.description,
                        cs.series, COALESCE(ac.length, CAST(cs.length AS REAL)) as length,
@@ -196,11 +196,11 @@ def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_ex
                 # Insert new cable record with scanned serial number
                 cur.execute("""
                     INSERT INTO audio_cables
-                        (serial_number, sku, resistance_adc, capacitance_pf,
+                        (serial_number, sku, resistance_adc,
                          operator, arduino_unit_id, description, length, notes)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING serial_number, updated_timestamp
-                """, (formatted_serial, cable_sku, None, None, operator, None, description, length, 'Scanned intake'))
+                """, (formatted_serial, cable_sku, None, operator, None, description, length, 'Scanned intake'))
                 result = cur.fetchone()
                 conn.commit()
                 return {
@@ -216,24 +216,31 @@ def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_ex
     finally:
         pg_pool.putconn(conn)
 
-def update_cable_test_results(serial_number, test_result):
-    """Update an existing cable record with test results"""
+def update_cable_test_results(serial_number, test_passed, resistance_adc=None, operator=None, arduino_unit_id=None):
+    """Update an existing cable record with test results
+
+    Args:
+        serial_number: Cable serial number
+        test_passed: Whether the cable passed all tests
+        resistance_adc: Raw ADC value from resistance test
+        operator: Operator ID who ran the test
+        arduino_unit_id: Arduino tester unit ID
+    """
     conn = pg_pool.getconn()
     try:
         with conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE audio_cables
-                    SET resistance_adc = %s,
-                        capacitance_pf = %s,
+                    SET test_passed = %s,
+                        resistance_adc = %s,
                         operator = %s,
                         arduino_unit_id = %s,
                         test_timestamp = CURRENT_TIMESTAMP
                     WHERE serial_number = %s
                     RETURNING test_timestamp
                 """, (
-                    test_result.resistance_adc, test_result.capacitance_pf,
-                    test_result.operator, test_result.arduino_unit_id, serial_number
+                    test_passed, resistance_adc, operator, arduino_unit_id, serial_number
                 ))
                 result = cur.fetchone()
                 conn.commit()
@@ -343,7 +350,7 @@ def get_all_cables(limit=100, offset=0):
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT ac.serial_number, ac.sku, ac.updated_timestamp, ac.test_timestamp,
-                       ac.resistance_adc, ac.capacitance_pf, ac.operator, ac.shopify_gid,
+                       ac.resistance_adc, ac.test_passed, ac.operator, ac.shopify_gid,
                        ac.description,
                        cs.series, COALESCE(ac.length, CAST(cs.length AS REAL)) as length,
                        cs.color_pattern, cs.connector_type
@@ -362,7 +369,7 @@ def get_all_cables(limit=100, offset=0):
                     'updated_timestamp': row[2],
                     'test_timestamp': row[3],
                     'resistance_adc': row[4],
-                    'capacitance_pf': row[5],
+                    'test_passed': row[5],
                     'operator': row[6],
                     'shopify_gid': row[7],
                     'description': row[8],
@@ -507,7 +514,6 @@ def init_db():
                 cable_type cable_type NOT NULL,
                 serial TEXT UNIQUE NOT NULL,
                 resistance_adc INTEGER,
-                capacitance_pf REAL,
                 operator TEXT,
                 source_node TEXT,
                 label_version TEXT,

@@ -23,9 +23,6 @@ from greenlight.screens.cable import (
     MiscCableEntryScreen,
     LengthSelectionScreen,
     ConnectorTypeSelectionScreen,
-    CableTestScreen,
-    PrintCableTagScreen,
-    PrintCableWrapScreen,
     ScanCableIntakeScreen
 )
 
@@ -58,9 +55,6 @@ __all__ = [
     'MiscCableEntryScreen',
     'LengthSelectionScreen',
     'ConnectorTypeSelectionScreen',
-    'CableTestScreen',
-    'PrintCableTagScreen',
-    'PrintCableWrapScreen',
     'ScanCableIntakeScreen',
     # Inventory
     'InventoryScreen',
