@@ -1,23 +1,21 @@
 /*
  * Greenlight TS/XLR Cable Tester - Arduino Mega 2560
  *
- * Continuity, polarity, resistance, and capacitance testing for TS/XLR cables.
+ * Continuity, polarity, and resistance testing for TS/XLR cables.
  * Communicates with Raspberry Pi via USB serial.
  *
  * Commands:
  *   CONT     - Run continuity/polarity test, returns RESULT:...
  *   RES      - Run resistance test, returns RES:...
- *   CAP      - Run capacitance test, returns CAP:...
  *   CAL      - Calibrate resistance (use short cable)
- *   CALCAP   - Calibrate capacitance (use shorted jacks)
  *   STATUS   - Get tester status, returns STATUS:...
  *   ID       - Get tester ID, returns ID:...
  *
  * Relay Configuration:
  *   K1+K2 (D16)    - Tied together. TS test mode switching. LOW = short far end + res/cap path, HIGH = continuity mode
- *   K3 (D15)       - XLR/TS capacitance test mode. LOW = TS, HIGH = XLR
- *   K4 (D14)       - CAP/RES test mode switching. LOW = capacitance mode, HIGH = resistance mode (for TS only)
- *   K5+K6+K7 (D69) - Tied together. XLR test mode switching. LOW = short far end + pins 2+3 tied to capacitance test circuit. pin 1 tied to ground, HIGH = continuity/resistance test mode on all pins
+ *   K3 (D15)       - XLR/TS test mode. LOW = TS, HIGH = XLR
+ *   K4 (D14)       - Resistance test mode. HIGH = resistance mode (for TS only)
+ *   K5+K6+K7 (D69) - Tied together. XLR test mode switching. LOW = short far end, HIGH = continuity/resistance test mode on all pins
  *   K8+K9 (D68)    - Tied together. XLR continuity/resistance test mode switching. LOW = continuity mode, HIGH = resistance mode
  *
  * Pin Configuration:
@@ -26,11 +24,9 @@
  *   D4  - TS continuity sense, SLEEVE
  *   D5  - TS continuity sense, TIP
  *   D6  - TS_RES_TEST_OUT (PN2222A base drive via 330Ω)
- *   D7  - CAP_CHARGE (charges cable through 2.2MΩ)
- *   D8  - CAP_DISCHARGE (discharges cable through 1kΩ)
  *   D13 - STATUS_LED (built-in)
- *   D14 - K4_DRIVE, CAP/RES test mode
- *   D15 - K3_DRIVE, XLR/TS cap test mode
+ *   D14 - K4_DRIVE, RES test mode
+ *   D15 - K3_DRIVE, XLR/TS test mode
  *   D16 - K1_K2_DRIVE, TS test mode
  *   D19 - FAIL_LED (red)
  *   D20 - PASS_LED (green)
@@ -46,12 +42,9 @@
  *   D68 - K8_K9_DRIVE
  *   D69 - K5_K6_K7_DRIVE
  *   A0  - TS_RES_SENSE (analog input - high-side sense resistor junction)
- *   A1  - CAP_SENSE (analog input - capacitance measurement)
  *   A2  - XLR_RES_SENSE_PIN2 (analog input - resistance measure XLR pin 2)
  *   A3  - XLR_RES_SENSE_PIN3 (analog input - resistance measure XLR pin 3)
  */
-
-#include "capacitance.h"
 
 // ===== PIN DEFINITIONS =====
 
@@ -65,14 +58,11 @@
 #define TS_RES_TEST_OUT      6    // PN2222A base drive for resistance test
 #define TS_RES_SENSE         A0   // Analog input: resistance measurement
 
-// --- Capacitance (shared TS/XLR) ---
-// Defined in capacitance.h: CAP_CHARGE_PIN=7, CAP_DISCHARGE_PIN=8, CAP_SENSE_PIN=A1
-
 // --- Relay Drives ---
-#define K1_K2_RELAY         16   // TS test mode: LOW = short far end + res/cap path, HIGH = continuity
-#define K3_RELAY            15   // XLR/TS cap mode: LOW = TS, HIGH = XLR
-#define K4_RELAY            14   // CAP/RES mode (TS only): LOW = capacitance, HIGH = resistance
-#define K5_K6_K7_RELAY      69   // XLR test mode: LOW = short far end + cap circuit, HIGH = cont/res mode
+#define K1_K2_RELAY         16   // TS test mode: LOW = short far end + res path, HIGH = continuity
+#define K3_RELAY            15   // XLR/TS mode: LOW = TS, HIGH = XLR
+#define K4_RELAY            14   // RES mode (TS only): HIGH = resistance
+#define K5_K6_K7_RELAY      69   // XLR test mode: LOW = short far end, HIGH = cont/res mode
 #define K8_K9_RELAY         68   // XLR cont/res mode: LOW = continuity, HIGH = resistance
 
 // --- XLR Cable Testing ---
@@ -94,12 +84,6 @@
 #define ERROR_LED           21   // Blue
 #define PASS_LED            20   // Green
 #define FAIL_LED            19   // Red
-
-// Export for capacitance.h
-const int K1_K2_RELAY_PIN = K1_K2_RELAY;
-const int K4_RELAY_PIN = K4_RELAY;
-const int TS_CONT_OUT_SLEEVE_PIN = TS_CONT_OUT_SLEEVE;
-const int TS_CONT_OUT_TIP_PIN = TS_CONT_OUT_TIP;
 
 // ===== CONFIGURATION =====
 const char* TESTER_ID = "TS_TESTER_1";
@@ -204,9 +188,6 @@ void setup() {
   digitalWrite(XLR_RES_OUT_PIN2, LOW);
   digitalWrite(XLR_RES_OUT_PIN3, LOW);
 
-  // Initialize capacitance test pins
-  setupCapacitancePins();
-
   // All LEDs off
   setResultLED();
   digitalWrite(STATUS_LED, LOW);
@@ -271,20 +252,6 @@ void handleCommand(String cmd) {
       return;
     }
     runCalibration();
-
-  } else if (cmd == "CAP") {
-    if (!systemReady) {
-      Serial.println("ERROR:NOT_READY");
-      return;
-    }
-    runCapacitanceTest();
-
-  } else if (cmd == "CALCAP") {
-    if (!systemReady) {
-      Serial.println("ERROR:NOT_READY");
-      return;
-    }
-    calibrateStrayCapacitance();
 
   } else if (cmd == "STATUS") {
     sendStatus();
@@ -389,17 +356,6 @@ void handleCommand(String cmd) {
     digitalWrite(XLR_RES_OUT_PIN3, state);
     Serial.println("DEBUG:XLR_RES_OUT_PIN3(D60):" + String(state ? "HIGH" : "LOW"));
 
-  // --- Capacitance Debug ---
-  } else if (cmd == "CAPCHG") {
-    bool state = !digitalRead(CAP_CHARGE_PIN);
-    digitalWrite(CAP_CHARGE_PIN, state);
-    Serial.println("DEBUG:CAP_CHARGE(D7):" + String(state ? "HIGH" : "LOW"));
-
-  } else if (cmd == "CAPDIS") {
-    bool state = !digitalRead(CAP_DISCHARGE_PIN);
-    digitalWrite(CAP_DISCHARGE_PIN, state);
-    Serial.println("DEBUG:CAP_DISCHARGE(D8):" + String(state ? "HIGH" : "LOW"));
-
   // --- Read Sensors ---
   } else if (cmd == "READ") {
     Serial.println("=== TS SENSE ===");
@@ -412,9 +368,6 @@ void handleCommand(String cmd) {
     Serial.println("  PIN3(D67):  " + String(digitalRead(XLR_CONT_IN_PIN3)));
     Serial.println("  RES2(A2):   " + String(analogRead(XLR_RES_SENSE_PIN2)));
     Serial.println("  RES3(A3):   " + String(analogRead(XLR_RES_SENSE_PIN3)));
-    Serial.println("=== CAP ===");
-    Serial.println("  CAP(A1):    " + String(analogRead(CAP_SENSE_PIN)));
-
   } else if (cmd == "PINS") {
     Serial.println("=== RELAYS ===");
     Serial.println("  D16 K1+K2:     " + String(digitalRead(K1_K2_RELAY) ? "HIGH" : "LOW") + " (TS mode)");
@@ -442,10 +395,6 @@ void handleCommand(String cmd) {
     Serial.println("  D67 PIN3:    " + String(digitalRead(XLR_CONT_IN_PIN3) ? "HIGH" : "LOW"));
     Serial.println("  A2  RES2:    " + String(analogRead(XLR_RES_SENSE_PIN2)));
     Serial.println("  A3  RES3:    " + String(analogRead(XLR_RES_SENSE_PIN3)));
-    Serial.println("=== CAPACITANCE ===");
-    Serial.println("  D7  CHARGE:  " + String(digitalRead(CAP_CHARGE_PIN) ? "HIGH" : "LOW"));
-    Serial.println("  D8  DISCHRG: " + String(digitalRead(CAP_DISCHARGE_PIN) ? "HIGH" : "LOW"));
-    Serial.println("  A1  SENSE:   " + String(analogRead(CAP_SENSE_PIN)));
     Serial.println("=== LEDS ===");
     Serial.println("  D13 STATUS:  " + String(digitalRead(STATUS_LED) ? "ON" : "OFF"));
     Serial.println("  D19 FAIL:    " + String(digitalRead(FAIL_LED) ? "OFF" : "ON"));
@@ -456,9 +405,7 @@ void handleCommand(String cmd) {
     Serial.println("=== COMMANDS ===");
     Serial.println("CONT    - Run TS continuity test");
     Serial.println("RES     - Run TS resistance test");
-    Serial.println("CAP     - Run capacitance test");
     Serial.println("CAL     - Calibrate resistance (short cable)");
-    Serial.println("CALCAP  - Calibrate capacitance (shorted jacks)");
     Serial.println("STATUS  - Get tester status");
     Serial.println("ID      - Get tester ID");
     Serial.println("RESET   - Reset circuit");
@@ -478,9 +425,6 @@ void handleCommand(String cmd) {
     Serial.println("XLR3    - Toggle XLR pin3 out (D64)");
     Serial.println("XLRR2   - Toggle XLR res pin2 (D61)");
     Serial.println("XLRR3   - Toggle XLR res pin3 (D60)");
-    Serial.println("--- DEBUG: CAP ---");
-    Serial.println("CAPCHG  - Toggle cap charge (D7)");
-    Serial.println("CAPDIS  - Toggle cap discharge (D8)");
     Serial.println("--- DEBUG: READ ---");
     Serial.println("READ    - Read all sense pins");
     Serial.println("PINS    - Show all pin states");
@@ -613,9 +557,6 @@ void resetCircuit() {
   digitalWrite(XLR_RES_OUT_PIN2, LOW);
   digitalWrite(XLR_RES_OUT_PIN3, LOW);
 
-  // Capacitance circuit off
-  digitalWrite(CAP_CHARGE_PIN, LOW);
-  digitalWrite(CAP_DISCHARGE_PIN, LOW);
 }
 
 // ===== CALIBRATION =====
