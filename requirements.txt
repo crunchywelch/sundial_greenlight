@@ -13,5 +13,8 @@ evdev>=1.6.0  # For HID barcode scanner input device access
 # System information
 psutil>=5.8.0
 
+# QR code generation for registration labels
+segno>=1.5.0
+
 # shopify python sdk https://github.com/Shopify/shopify_python_api
 ShopifyAPI

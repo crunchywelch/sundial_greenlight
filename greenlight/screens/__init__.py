@@ -35,6 +35,11 @@ from greenlight.screens.inventory import (
     ReportsScreen
 )
 
+# Wholesale screens
+from greenlight.screens.wholesale import (
+    WholesaleBatchScreen
+)
+
 # Settings screens
 from greenlight.screens.settings import (
     SettingsScreen,
@@ -56,6 +61,8 @@ __all__ = [
     'LengthSelectionScreen',
     'ConnectorTypeSelectionScreen',
     'ScanCableIntakeScreen',
+    # Wholesale
+    'WholesaleBatchScreen',
     # Inventory
     'InventoryScreen',
     'ViewInventoryScreen',

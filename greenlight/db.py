@@ -90,6 +90,7 @@ def get_audio_cable(serial_number):
                 SELECT ac.serial_number, ac.sku, ac.resistance_adc, ac.test_passed,
                        ac.operator, ac.arduino_unit_id, ac.notes, ac.test_timestamp,
                        ac.shopify_gid, ac.updated_timestamp, ac.description,
+                       ac.registration_code,
                        cs.series, COALESCE(ac.length, CAST(cs.length AS REAL)) as length,
                        cs.color_pattern, cs.connector_type,
                        cs.core_cable, cs.braid_material
@@ -475,6 +476,124 @@ def get_available_inventory(series=None):
         return []
     finally:
         pg_pool.putconn(conn)
+
+def assign_registration_code(serial_number, code):
+    """Assign a registration code to a cable for wholesale/reseller sales.
+
+    Args:
+        serial_number: Cable serial number
+        code: Registration code (format: XXXX-XXXX)
+
+    Returns:
+        dict with 'success' bool, or 'error'/'message' on failure
+    """
+    conn = pg_pool.getconn()
+    try:
+        formatted_serial = format_serial_number(serial_number)
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE audio_cables
+                    SET registration_code = %s
+                    WHERE serial_number = %s
+                    RETURNING serial_number, registration_code
+                """, (code, formatted_serial))
+                result = cur.fetchone()
+                conn.commit()
+                if result:
+                    return {'success': True, 'serial_number': result[0], 'registration_code': result[1]}
+                return {'error': 'not_found', 'message': f'Cable {formatted_serial} not found'}
+    except Exception as e:
+        conn.rollback()
+        error_msg = str(e)
+        if 'unique' in error_msg.lower() or 'duplicate' in error_msg.lower():
+            return {'error': 'duplicate_code', 'message': f'Registration code {code} already in use'}
+        return {'error': 'database', 'message': error_msg}
+    finally:
+        pg_pool.putconn(conn)
+
+
+def batch_assign_registration_codes(serial_numbers):
+    """Generate and assign registration codes to a list of cables in a single transaction.
+
+    Retries with new codes on collision (up to 3 attempts per cable).
+
+    Args:
+        serial_numbers: List of cable serial numbers
+
+    Returns:
+        dict with:
+            'success': bool
+            'results': list of {serial_number, registration_code} dicts
+            'errors': list of {serial_number, error} dicts
+    """
+    from greenlight.registration import generate_registration_code
+
+    conn = pg_pool.getconn()
+    results = []
+    errors = []
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                for serial in serial_numbers:
+                    formatted_serial = format_serial_number(serial)
+                    assigned = False
+                    for attempt in range(3):
+                        code = generate_registration_code()
+                        try:
+                            cur.execute("""
+                                UPDATE audio_cables
+                                SET registration_code = %s
+                                WHERE serial_number = %s AND registration_code IS NULL
+                                RETURNING serial_number, registration_code
+                            """, (code, formatted_serial))
+                            result = cur.fetchone()
+                            if result:
+                                results.append({
+                                    'serial_number': result[0],
+                                    'registration_code': result[1]
+                                })
+                                assigned = True
+                                break
+                            else:
+                                # Cable not found or already has a code
+                                cur.execute(
+                                    "SELECT registration_code FROM audio_cables WHERE serial_number = %s",
+                                    (formatted_serial,)
+                                )
+                                existing = cur.fetchone()
+                                if existing and existing[0]:
+                                    errors.append({
+                                        'serial_number': formatted_serial,
+                                        'error': f'Already has code: {existing[0]}'
+                                    })
+                                else:
+                                    errors.append({
+                                        'serial_number': formatted_serial,
+                                        'error': 'Cable not found'
+                                    })
+                                assigned = True  # Don't retry
+                                break
+                        except Exception as e:
+                            if 'unique' in str(e).lower() or 'duplicate' in str(e).lower():
+                                # Code collision, retry with new code
+                                conn.rollback()
+                                continue
+                            raise
+                    if not assigned:
+                        errors.append({
+                            'serial_number': formatted_serial,
+                            'error': 'Failed after 3 code generation attempts'
+                        })
+                conn.commit()
+        return {'success': len(errors) == 0, 'results': results, 'errors': errors}
+    except Exception as e:
+        conn.rollback()
+        return {'success': False, 'results': results, 'errors': errors,
+                'message': str(e)}
+    finally:
+        pg_pool.putconn(conn)
+
 
 def get_available_series():
     """Get list of product series that have available inventory"""

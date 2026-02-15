@@ -11,6 +11,7 @@ Communication: TCP/IP socket on port 9100
 import socket
 import logging
 import struct
+import io
 from typing import Dict, Any, Optional
 from greenlight.hardware.interfaces import LabelPrinterInterface, PrintJob
 
@@ -205,6 +206,8 @@ class TSCLabelPrinter(LabelPrinterInterface):
             # Generate TSPL commands based on template
             if print_job.template == "cable_label":
                 tspl = self._generate_cable_label_tspl(print_job.data)
+            elif print_job.template == "registration_label":
+                tspl = self._generate_registration_label_tspl(print_job.data)
             else:
                 logger.error(f"Unknown template: {print_job.template}")
                 return False
@@ -405,6 +408,170 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         return output
 
+    def _generate_qr_bitmap(self, data: str, module_size: int = 3) -> Optional[bytes]:
+        """Generate a QR code and convert to TSPL BITMAP format.
+
+        Args:
+            data: Data to encode in QR code
+            module_size: Size of each QR module in dots (default 3)
+
+        Returns:
+            TSPL BITMAP command bytes, or None on error
+        """
+        try:
+            import segno
+
+            qr = segno.make(data, error='M')
+
+            # Get the QR matrix (list of lists of bools)
+            # Use buffer to get the raw matrix
+            matrix = []
+            buf = io.StringIO()
+            qr.save(buf, kind='txt')
+            buf.seek(0)
+            for line in buf:
+                line = line.rstrip('\n')
+                if line:
+                    row = [c == '1' for c in line]
+                    matrix.append(row)
+
+            if not matrix:
+                return None
+
+            qr_modules = len(matrix)
+            # Scale up by module_size
+            pixel_width = qr_modules * module_size
+            pixel_height = qr_modules * module_size
+
+            # TSPL BITMAP: width_bytes = ceil(pixel_width / 8)
+            width_bytes = (pixel_width + 7) // 8
+
+            # Build bitmap data row by row (scaled)
+            bitmap_data = bytearray()
+            for row in matrix:
+                # Build one pixel row
+                pixel_row = bytearray(width_bytes)
+                for col_idx, module_on in enumerate(row):
+                    if module_on:
+                        for s in range(module_size):
+                            bit_pos = col_idx * module_size + s
+                            byte_idx = bit_pos // 8
+                            bit_idx = 7 - (bit_pos % 8)
+                            if byte_idx < width_bytes:
+                                pixel_row[byte_idx] |= (1 << bit_idx)
+                # Repeat row for module_size height
+                for _ in range(module_size):
+                    bitmap_data.extend(pixel_row)
+
+            return {
+                'width_bytes': width_bytes,
+                'height': pixel_height,
+                'data': bytes(bitmap_data)
+            }
+        except Exception as e:
+            logger.error(f"Error generating QR bitmap: {e}")
+            return None
+
+    def _generate_registration_label_tspl(self, data: Dict[str, Any]) -> bytes:
+        """Generate TSPL commands for wholesale registration label.
+
+        Label layout (1" x 3"):
+        +---------------------------------------------------+
+        |  [QR CODE]   SUNDIAL AUDIO                        |
+        |  [QR CODE]   Register Your Cable                  |
+        |  [QR CODE]   XKDF-7M2P            #SD000123      |
+        |              sundial.audio/register    SC-20GL     |
+        +---------------------------------------------------+
+
+        Args:
+            data: Dictionary with:
+                - registration_code: str (e.g., "XKDF-7M2P")
+                - registration_url: str (full URL with code)
+                - serial_number: str
+                - sku: str
+
+        Returns:
+            TSPL commands as bytes
+        """
+        reg_code = data.get('registration_code', '')
+        reg_url = data.get('registration_url', '')
+        serial_number = data.get('serial_number', '')
+        sku = data.get('sku', '')
+
+        # Start TSPL commands
+        tspl_commands = []
+        tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
+        tspl_commands.append("GAP 2 mm, 2 mm")
+        tspl_commands.append("DIRECTION 1,0")
+        tspl_commands.append("REFERENCE 0,0")
+        tspl_commands.append("SET TEAR ON")
+        tspl_commands.append("SET PEEL OFF")
+        tspl_commands.append("CLS")
+        tspl_commands.append("DENSITY 10")
+        tspl_commands.append("SPEED 3")
+
+        # QR code on left (~0.6" square = ~122 dots at 203 DPI)
+        # Position QR at x=10, y=10
+        qr_x = 10
+        qr_y = 10
+
+        # Generate QR bitmap for the registration URL
+        qr_bitmap = self._generate_qr_bitmap(reg_url, module_size=3)
+
+        # Text positions (right of QR code)
+        x_text = 145  # Right of QR code area
+        x_right = 450  # Right-aligned items
+
+        # Y positions
+        y_brand = 12
+        y_subtitle = 45
+        y_code = 80
+        y_url = 130
+        y_serial = 80
+        y_sku = 130
+
+        # Brand
+        tspl_commands.append(f'TEXT {x_text},{y_brand},"3",0,1,1,"SUNDIAL AUDIO"')
+
+        # Subtitle
+        tspl_commands.append(f'TEXT {x_text},{y_subtitle},"2",0,1,1,"Register Your Cable"')
+
+        # Registration code (large, prominent)
+        tspl_commands.append(f'TEXT {x_text},{y_code},"3",0,1,1,"{reg_code}"')
+
+        # Serial number on right
+        if serial_number:
+            tspl_commands.append(f'TEXT {x_right},{y_serial},"2",0,1,1,"#{serial_number}"')
+
+        # URL at bottom left of text area
+        tspl_commands.append(f'TEXT {x_text},{y_url},"1",0,1,1,"sundial.audio/register"')
+
+        # SKU at bottom right
+        if sku:
+            tspl_commands.append(f'TEXT {x_right},{y_sku},"1",0,1,1,"{sku}"')
+
+        # Decorative line under brand
+        tspl_commands.append(f'BAR {x_text},{y_brand + 28},300,2')
+
+        # QR code bitmap placeholder
+        tspl_commands.append("__QR_CODE__")
+
+        # Print
+        tspl_commands.append("PRINT 1")
+        tspl_commands.append("")
+
+        # Build output as bytes
+        output = b''
+        for cmd in tspl_commands:
+            if cmd == '__QR_CODE__':
+                if qr_bitmap:
+                    bitmap_cmd = f'BITMAP {qr_x},{qr_y},{qr_bitmap["width_bytes"]},{qr_bitmap["height"]},0,'.encode()
+                    output += bitmap_cmd + qr_bitmap['data'] + b'\r\n'
+            else:
+                output += cmd.encode('utf-8') + b'\r\n'
+
+        return output
+
     def _format_connector_type(self, connector_type: str) -> str:
         """Format connector type for display on label"""
         # Map connector types to display text
@@ -529,7 +696,9 @@ class MockTSCLabelPrinter(LabelPrinterInterface):
 
         # Simulate TSPL generation
         if print_job.template == "cable_label":
-            logger.debug("Mock TSPL commands would be generated here")
+            logger.debug("Mock TSPL commands would be generated for cable label")
+        elif print_job.template == "registration_label":
+            logger.debug("Mock TSPL commands would be generated for registration label")
 
         return True
 

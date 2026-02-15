@@ -60,6 +60,9 @@ class AudioCable:
         self.braid_material = None
         self.description = None
 
+        # Registration code for wholesale/reseller cables
+        self.registration_code = None
+
         # Load data if serial number provided
         if serial_number:
             self.load(serial_number)
@@ -88,6 +91,7 @@ class AudioCable:
                 cur.execute("""
                     SELECT ac.serial_number, ac.sku, ac.resistance_adc,
                            ac.operator, ac.arduino_unit_id, ac.notes, ac.test_timestamp,
+                           ac.registration_code,
                            cs.series, cs.length, cs.color_pattern, cs.connector_type,
                            cs.core_cable, cs.braid_material, cs.description
                     FROM audio_cables ac
@@ -111,6 +115,7 @@ class AudioCable:
                 self.arduino_unit_id = cable_data.get('arduino_unit_id')
                 self.notes = cable_data.get('notes')
                 self.test_timestamp = cable_data.get('test_timestamp')
+                self.registration_code = cable_data.get('registration_code')
 
                 # Populate extended properties from cable_skus
                 self.series = cable_data.get('series')
@@ -338,6 +343,13 @@ class AudioCable:
             ])
             if self.description:
                 info_lines.append(f"  Description: {self.description}")
+
+        if self.registration_code:
+            info_lines.extend([
+                "",
+                "Registration:",
+                f"  Code: {self.registration_code}",
+            ])
 
         if self.notes:
             info_lines.extend([

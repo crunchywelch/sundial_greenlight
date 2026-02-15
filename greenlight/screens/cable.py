@@ -56,6 +56,7 @@ class ScanCableLookupScreen(Screen):
             self.ui.layout["footer"].update(Panel(
                 "🔍 [bold green]Scan barcode[/bold green] | "
                 "[cyan]'r'[/cyan] = Register cables | "
+                "[cyan]'w'[/cyan] = Wholesale codes | "
                 "[cyan]'q'[/cyan] = Logout",
                 title="Options", border_style="green"
             ))
@@ -78,6 +79,10 @@ class ScanCableLookupScreen(Screen):
                 new_context = self.context.copy()
                 new_context["selection_mode"] = "intake"
                 return ScreenResult(NavigationAction.PUSH, SeriesSelectionScreen, new_context)
+            elif input_lower == 'w':
+                # Go to wholesale batch registration codes
+                from greenlight.screens.wholesale import WholesaleBatchScreen
+                return ScreenResult(NavigationAction.PUSH, WholesaleBatchScreen, self.context.copy())
 
             # Otherwise treat as serial number lookup
             from greenlight.db import format_serial_number, get_audio_cable
@@ -526,6 +531,13 @@ class ScanCableLookupScreen(Screen):
   Resistance: {resistance_str}
   Tested: {test_timestamp_str}
   Test Operator: {cable_operator if test_timestamp else 'N/A'}"""
+
+        # Registration code (wholesale)
+        registration_code = cable_record.get("registration_code")
+        if registration_code:
+            cable_info += f"""
+
+[bold blue]Registration Code:[/bold blue] {registration_code}"""
 
         # Check if cable is assigned to a customer
         customer_gid = cable_record.get("shopify_gid")
@@ -1470,6 +1482,13 @@ class ScanCableIntakeScreen(Screen):
   Resistance: {resistance_str}
   Tested: {test_timestamp_str}
   Test Operator: {cable_operator if test_timestamp else 'N/A'}"""
+
+        # Registration code (wholesale)
+        registration_code = cable_record.get("registration_code")
+        if registration_code:
+            cable_info += f"""
+
+[bold blue]Registration Code:[/bold blue] {registration_code}"""
 
         # Check if cable is assigned to a customer
         customer_gid = cable_record.get("shopify_gid")
