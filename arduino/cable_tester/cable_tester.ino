@@ -7,9 +7,10 @@
  * Commands:
  *   CONT     - Run TS continuity/polarity test, returns RESULT:...
  *   RES      - Run TS resistance test, returns RES:...
- *   XLRRES   - Run XLR resistance test (pin 2 + pin 3), returns XLRRES:...
+ *   XRES     - Run XLR resistance test (pin 2 + pin 3), returns XRES:...
  *   CAL      - Calibrate TS resistance (use short cable)
- *   XLRCAL   - Calibrate XLR resistance (use short cable)
+ *   XSHELL   - Run XLR shell bond test, returns XSHELL:...
+ *   XCAL     - Calibrate XLR resistance (use short cable)
  *   STATUS   - Get tester status, returns STATUS:...
  *   ID       - Get tester ID, returns ID:...
  *
@@ -17,8 +18,8 @@
  *   K1+K2 (D14)    - Tied together. TS test mode switching. LOW = short far end + res path, HIGH = continuity mode
  *   K3 (D15)       - Resistance circuit switching. LOW = TS, HIGH = XLR
  *   K4 (D16)       - XLR resistance pin select. LOW = Pin 2, HIGH = Pin 3
- *   K5 (D62)       - XLR Pin 2 mode. LOW = continuity, HIGH = resistance (into K4)
- *   K6 (D63)       - XLR Pin 3 mode. LOW = continuity, HIGH = resistance (into K4)
+ *   K5 (D63)       - XLR Pin 2 mode. LOW = continuity, HIGH = resistance (into K4)
+ *   K6 (D62)       - XLR Pin 3 mode. LOW = continuity, HIGH = resistance (into K4)
  *
  * Pin Configuration:
  *   D2  - TS continuity signal, SLEEVE
@@ -33,14 +34,16 @@
  *   D19 - FAIL_LED (red)
  *   D20 - PASS_LED (green)
  *   D21 - ERROR_LED (blue)
- *   D62 - K5_DRIVE, XLR Pin 2 cont/res switch
- *   D63 - K6_DRIVE, XLR Pin 3 cont/res switch
- *   D64 - XLR_CONT_OUT_PIN1 (drive)
- *   D65 - XLR_CONT_IN_PIN1 (read)
- *   D66 - XLR_CONT_OUT_PIN2 (drive), K5 must be LOW
- *   D67 - XLR_CONT_IN_PIN2 (read), K5 must be LOW
- *   D68 - XLR_CONT_OUT_PIN3 (drive), K6 must be LOW
- *   D69 - XLR_CONT_IN_PIN3 (read), K6 must be LOW
+ *   D60 - XLR_CONT_IN_SHELL (read, shell sense far side)
+ *   D61 - XLR_CONT_OUT_SHELL (drive, shell drive near side)
+ *   D62 - K6_DRIVE, XLR Pin 3 cont/res switch
+ *   D63 - K5_DRIVE, XLR Pin 2 cont/res switch
+ *   D64 - XLR_CONT_OUT_PIN3 (drive), K6
+ *   D65 - XLR_CONT_OUT_PIN2 (drive), K5
+ *   D66 - XLR_CONT_IN_PIN3 (read), K6
+ *   D67 - XLR_CONT_IN_PIN2 (read), K5
+ *   D68 - XLR_CONT_IN_PIN1 (read)
+ *   D69 - XLR_CONT_OUT_PIN1 (drive)
  *   A0  - RES_SENSE (analog input - high-side sense resistor junction, shared TS/XLR)
  */
 
@@ -61,17 +64,19 @@
 #define K1_K2_RELAY         14   // TS test mode: LOW = short far end + res path, HIGH = continuity
 #define K3_RELAY            15   // Resistance circuit: LOW = TS, HIGH = XLR
 #define K4_RELAY            16   // XLR resistance pin select: LOW = Pin 2, HIGH = Pin 3
-#define K5_RELAY            62   // XLR Pin 2: LOW = continuity, HIGH = resistance (into K4)
-#define K6_RELAY            63   // XLR Pin 3: LOW = continuity, HIGH = resistance (into K4)
+#define K5_RELAY            63   // XLR Pin 2: LOW = continuity, HIGH = resistance (into K4)
+#define K6_RELAY            62   // XLR Pin 3: LOW = continuity, HIGH = resistance (into K4)
 
 // --- XLR Cable Testing ---
 // Continuity signals (paired drive/read with pulldown resistors)
-#define XLR_CONT_OUT_PIN1   64   // Continuity signal output to XLR Pin 1
-#define XLR_CONT_IN_PIN1    65   // Continuity sense input from XLR Pin 1
-#define XLR_CONT_OUT_PIN2   66   // Continuity signal output to XLR Pin 2
-#define XLR_CONT_IN_PIN2    67   // Continuity sense input from XLR Pin 2
-#define XLR_CONT_OUT_PIN3   68   // Continuity signal output to XLR Pin 3
-#define XLR_CONT_IN_PIN3    69   // Continuity sense input from XLR Pin 3
+#define XLR_CONT_OUT_PIN1   69   // Continuity signal output to XLR Pin 1
+#define XLR_CONT_IN_PIN1    68   // Continuity sense input from XLR Pin 1
+#define XLR_CONT_OUT_PIN2   65   // Continuity signal output to XLR Pin 2 (K5)
+#define XLR_CONT_IN_PIN2    67   // Continuity sense input from XLR Pin 2 (K5)
+#define XLR_CONT_OUT_PIN3   64   // Continuity signal output to XLR Pin 3 (K6)
+#define XLR_CONT_IN_PIN3    66   // Continuity sense input from XLR Pin 3 (K6)
+#define XLR_CONT_OUT_SHELL  61   // Continuity signal output to XLR shell (near side)
+#define XLR_CONT_IN_SHELL   60   // Continuity sense input from XLR shell (far side)
 
 // --- LEDs ---
 #define STATUS_LED          13   // Built-in LED
@@ -88,7 +93,8 @@ const int SIGNAL_SETTLE_MS = 50;
 // Resistance test config
 // High-side sense topology: 5V → R_sense(20Ω) → cable → relay → collector, emitter → GND
 // A0 reads junction of R_sense and cable. Lower ADC = more current = lower cable resistance.
-const int RES_PASS_THRESHOLD = 500;  // ADC value below this = PASS (low cable resistance)
+const int RES_PASS_THRESHOLD = 500;  // Absolute ADC threshold (uncalibrated fallback)
+const float MAX_CABLE_RESISTANCE = 10.0;  // Max cable resistance in ohms to pass
 const float RES_SENSE_OHM = 20.0;   // High-side sense resistor (20Ω)
 const float SUPPLY_VOLTAGE = 5.0;    // Arduino USB supply voltage
 const float VCE_SAT = 0.3;           // PN2222A saturation voltage estimate
@@ -97,7 +103,8 @@ const float VCE_SAT = 0.3;           // PN2222A saturation voltage estimate
 // Calibration (stored in RAM, lost on reset - could use EEPROM)
 int calibrationADC = 0;              // TS ADC reading with zero-ohm reference
 bool isCalibrated = false;
-int xlrCalibrationADC = 0;           // XLR ADC reading with zero-ohm reference
+int xlrCalibrationADC_P2 = 0;        // XLR Pin 2 ADC reading with zero-ohm reference
+int xlrCalibrationADC_P3 = 0;        // XLR Pin 3 ADC reading with zero-ohm reference
 bool isXlrCalibrated = false;
 
 // Forward declaration for default argument
@@ -124,8 +131,18 @@ struct TestResults {
 
 // ===== XLR TEST RESULTS =====
 struct XlrContResults {
-  // 3x3 continuity matrix: [drive][read]
-  bool p[3][3];  // p[0]=drive pin1, p[1]=drive pin2, p[2]=drive pin3
+  // 3x3 continuity matrix: [drive][sense]
+  // Index 0=pin1, 1=pin2, 2=pin3
+  bool p[3][3];
+  bool overallPass;
+};
+
+struct XlrShellResults {
+  bool nearShellBond;   // drive shell, sense pin1
+  bool farShellBond;    // drive pin1, sense shell
+  bool shellToShell;    // drive shell, sense shell
+  bool shellToP2;       // shell shorted to pin2
+  bool shellToP3;       // shell shorted to pin3
   bool overallPass;
 };
 
@@ -157,11 +174,13 @@ void setup() {
   pinMode(XLR_CONT_OUT_PIN1, OUTPUT);
   pinMode(XLR_CONT_OUT_PIN2, OUTPUT);
   pinMode(XLR_CONT_OUT_PIN3, OUTPUT);
+  pinMode(XLR_CONT_OUT_SHELL, OUTPUT);
 
   // --- XLR continuity inputs ---
   pinMode(XLR_CONT_IN_PIN1, INPUT);
   pinMode(XLR_CONT_IN_PIN2, INPUT);
   pinMode(XLR_CONT_IN_PIN3, INPUT);
+  pinMode(XLR_CONT_IN_SHELL, INPUT);
 
   // --- LEDs ---
   pinMode(FAIL_LED, OUTPUT);
@@ -183,6 +202,7 @@ void setup() {
   digitalWrite(XLR_CONT_OUT_PIN1, LOW);
   digitalWrite(XLR_CONT_OUT_PIN2, LOW);
   digitalWrite(XLR_CONT_OUT_PIN3, LOW);
+  digitalWrite(XLR_CONT_OUT_SHELL, LOW);
 
   // All LEDs off
   setResultLED();
@@ -235,12 +255,19 @@ void handleCommand(String cmd) {
     }
     runContinuityTest();
 
-  } else if (cmd == "XLRCONT") {
+  } else if (cmd == "XCONT") {
     if (!systemReady) {
       Serial.println("ERROR:NOT_READY");
       return;
     }
     runXlrContinuityTest();
+
+  } else if (cmd == "XSHELL") {
+    if (!systemReady) {
+      Serial.println("ERROR:NOT_READY");
+      return;
+    }
+    runXlrShellTest();
 
   } else if (cmd == "RES") {
     if (!systemReady) {
@@ -249,7 +276,7 @@ void handleCommand(String cmd) {
     }
     runResistanceTest();
 
-  } else if (cmd == "XLRRES") {
+  } else if (cmd == "XRES") {
     if (!systemReady) {
       Serial.println("ERROR:NOT_READY");
       return;
@@ -263,7 +290,7 @@ void handleCommand(String cmd) {
     }
     runCalibration();
 
-  } else if (cmd == "XLRCAL") {
+  } else if (cmd == "XCAL") {
     if (!systemReady) {
       Serial.println("ERROR:NOT_READY");
       return;
@@ -351,17 +378,22 @@ void handleCommand(String cmd) {
   } else if (cmd == "XLR1") {
     bool state = !digitalRead(XLR_CONT_OUT_PIN1);
     digitalWrite(XLR_CONT_OUT_PIN1, state);
-    Serial.println("DEBUG:XLR_CONT_OUT_PIN1(D64):" + String(state ? "HIGH" : "LOW"));
+    Serial.println("DEBUG:XLR_CONT_OUT_PIN1(D69):" + String(state ? "HIGH" : "LOW"));
 
   } else if (cmd == "XLR2") {
     bool state = !digitalRead(XLR_CONT_OUT_PIN2);
     digitalWrite(XLR_CONT_OUT_PIN2, state);
-    Serial.println("DEBUG:XLR_CONT_OUT_PIN2(D66):" + String(state ? "HIGH" : "LOW"));
+    Serial.println("DEBUG:XLR_CONT_OUT_PIN2(D65):" + String(state ? "HIGH" : "LOW"));
 
   } else if (cmd == "XLR3") {
     bool state = !digitalRead(XLR_CONT_OUT_PIN3);
     digitalWrite(XLR_CONT_OUT_PIN3, state);
-    Serial.println("DEBUG:XLR_CONT_OUT_PIN3(D68):" + String(state ? "HIGH" : "LOW"));
+    Serial.println("DEBUG:XLR_CONT_OUT_PIN3(D64):" + String(state ? "HIGH" : "LOW"));
+
+  } else if (cmd == "XLRS") {
+    bool state = !digitalRead(XLR_CONT_OUT_SHELL);
+    digitalWrite(XLR_CONT_OUT_SHELL, state);
+    Serial.println("DEBUG:XLR_CONT_OUT_SHELL(D61):" + String(state ? "HIGH" : "LOW"));
 
   // --- Read Sensors ---
   } else if (cmd == "READ") {
@@ -371,16 +403,17 @@ void handleCommand(String cmd) {
     Serial.println("=== RES SENSE (shared) ===");
     Serial.println("  RES(A0):    " + String(analogRead(RES_SENSE)));
     Serial.println("=== XLR SENSE ===");
-    Serial.println("  PIN1(D65):  " + String(digitalRead(XLR_CONT_IN_PIN1)));
+    Serial.println("  PIN1(D68):  " + String(digitalRead(XLR_CONT_IN_PIN1)));
     Serial.println("  PIN2(D67):  " + String(digitalRead(XLR_CONT_IN_PIN2)));
-    Serial.println("  PIN3(D69):  " + String(digitalRead(XLR_CONT_IN_PIN3)));
+    Serial.println("  PIN3(D66):  " + String(digitalRead(XLR_CONT_IN_PIN3)));
+    Serial.println("  SHELL(D60): " + String(digitalRead(XLR_CONT_IN_SHELL)));
   } else if (cmd == "PINS") {
     Serial.println("=== RELAYS ===");
     Serial.println("  D14 K1+K2:     " + String(digitalRead(K1_K2_RELAY) ? "HIGH" : "LOW") + " (TS far end)");
     Serial.println("  D15 K3:        " + String(digitalRead(K3_RELAY) ? "HIGH" : "LOW") + " (res: L=TS H=XLR)");
     Serial.println("  D16 K4:        " + String(digitalRead(K4_RELAY) ? "HIGH" : "LOW") + " (XLR: L=P2 H=P3)");
-    Serial.println("  D62 K5:        " + String(digitalRead(K5_RELAY) ? "HIGH" : "LOW") + " (XLR P2: L=cont H=res)");
-    Serial.println("  D63 K6:        " + String(digitalRead(K6_RELAY) ? "HIGH" : "LOW") + " (XLR P3: L=cont H=res)");
+    Serial.println("  D63 K5:        " + String(digitalRead(K5_RELAY) ? "HIGH" : "LOW") + " (XLR P2: L=cont H=res)");
+    Serial.println("  D62 K6:        " + String(digitalRead(K6_RELAY) ? "HIGH" : "LOW") + " (XLR P3: L=cont H=res)");
     Serial.println("=== TS OUTPUTS ===");
     Serial.println("  D2  SLEEVE:  " + String(digitalRead(TS_CONT_OUT_SLEEVE) ? "HIGH" : "LOW"));
     Serial.println("  D3  TIP:     " + String(digitalRead(TS_CONT_OUT_TIP) ? "HIGH" : "LOW"));
@@ -391,12 +424,14 @@ void handleCommand(String cmd) {
     Serial.println("  D6  DRIVE:   " + String(digitalRead(RES_TEST_OUT) ? "HIGH" : "LOW"));
     Serial.println("  A0  SENSE:   " + String(analogRead(RES_SENSE)));
     Serial.println("=== XLR CONTINUITY ===");
-    Serial.println("  D64 PIN1 OUT: " + String(digitalRead(XLR_CONT_OUT_PIN1) ? "HIGH" : "LOW"));
-    Serial.println("  D65 PIN1 IN:  " + String(digitalRead(XLR_CONT_IN_PIN1) ? "HIGH" : "LOW"));
-    Serial.println("  D66 PIN2 OUT: " + String(digitalRead(XLR_CONT_OUT_PIN2) ? "HIGH" : "LOW"));
-    Serial.println("  D67 PIN2 IN:  " + String(digitalRead(XLR_CONT_IN_PIN2) ? "HIGH" : "LOW"));
-    Serial.println("  D68 PIN3 OUT: " + String(digitalRead(XLR_CONT_OUT_PIN3) ? "HIGH" : "LOW"));
-    Serial.println("  D69 PIN3 IN:  " + String(digitalRead(XLR_CONT_IN_PIN3) ? "HIGH" : "LOW"));
+    Serial.println("  D69 PIN1 OUT:  " + String(digitalRead(XLR_CONT_OUT_PIN1) ? "HIGH" : "LOW"));
+    Serial.println("  D68 PIN1 IN:   " + String(digitalRead(XLR_CONT_IN_PIN1) ? "HIGH" : "LOW"));
+    Serial.println("  D65 PIN2 OUT:  " + String(digitalRead(XLR_CONT_OUT_PIN2) ? "HIGH" : "LOW"));
+    Serial.println("  D67 PIN2 IN:   " + String(digitalRead(XLR_CONT_IN_PIN2) ? "HIGH" : "LOW"));
+    Serial.println("  D64 PIN3 OUT:  " + String(digitalRead(XLR_CONT_OUT_PIN3) ? "HIGH" : "LOW"));
+    Serial.println("  D66 PIN3 IN:   " + String(digitalRead(XLR_CONT_IN_PIN3) ? "HIGH" : "LOW"));
+    Serial.println("  D61 SHELL OUT: " + String(digitalRead(XLR_CONT_OUT_SHELL) ? "HIGH" : "LOW"));
+    Serial.println("  D60 SHELL IN:  " + String(digitalRead(XLR_CONT_IN_SHELL) ? "HIGH" : "LOW"));
     Serial.println("=== LEDS ===");
     Serial.println("  D13 STATUS:  " + String(digitalRead(STATUS_LED) ? "ON" : "OFF"));
     Serial.println("  D19 FAIL:    " + String(digitalRead(FAIL_LED) ? "OFF" : "ON"));
@@ -406,11 +441,12 @@ void handleCommand(String cmd) {
   } else if (cmd == "HELP") {
     Serial.println("=== COMMANDS ===");
     Serial.println("CONT    - Run TS continuity test");
-    Serial.println("XLRCONT - Run XLR continuity test");
+    Serial.println("XCONT   - Run XLR continuity test (pins 1-3)");
+    Serial.println("XSHELL  - Run XLR shell bond test");
     Serial.println("RES     - Run TS resistance test");
-    Serial.println("XLRRES  - Run XLR resistance test (pin 2+3)");
+    Serial.println("XRES    - Run XLR resistance test (pin 2+3)");
     Serial.println("CAL     - Calibrate TS resistance (short cable)");
-    Serial.println("XLRCAL  - Calibrate XLR resistance (short cable)");
+    Serial.println("XCAL    - Calibrate XLR resistance (short cable)");
     Serial.println("STATUS  - Get tester status");
     Serial.println("ID      - Get tester ID");
     Serial.println("RESET   - Reset circuit");
@@ -418,18 +454,20 @@ void handleCommand(String cmd) {
     Serial.println("K12     - Toggle K1+K2 (D14)");
     Serial.println("K3      - Toggle K3 (D15)");
     Serial.println("K4      - Toggle K4 (D16)");
-    Serial.println("K5      - Toggle K5 (D62) XLR P2 cont/res");
-    Serial.println("K6      - Toggle K6 (D63) XLR P3 cont/res");
+    Serial.println("K5      - Toggle K5 (D63) XLR P2 cont/res");
+    Serial.println("K6      - Toggle K6 (D62) XLR P3 cont/res");
     Serial.println("--- DEBUG: TS ---");
     Serial.println("TSTIP   - Toggle TS tip out (D3)");
     Serial.println("TSSLV   - Toggle TS sleeve out (D2)");
     Serial.println("TSRES   - Toggle resistance drive (D6)");
     Serial.println("--- DEBUG: XLR ---");
-    Serial.println("XLR1    - Toggle XLR pin1 out (D64)");
-    Serial.println("XLR2    - Toggle XLR pin2 out (D66)");
-    Serial.println("XLR3    - Toggle XLR pin3 out (D68)");
+    Serial.println("XLR1    - Toggle XLR pin1 out (D69)");
+    Serial.println("XLR2    - Toggle XLR pin2 out (D65)");
+    Serial.println("XLR3    - Toggle XLR pin3 out (D64)");
+    Serial.println("XLRS    - Toggle XLR shell out (D61)");
     Serial.println("--- DEBUG: XLR TESTS ---");
-    Serial.println("XC      - Test XLR continuity (all pins)");
+    Serial.println("XC      - Test XLR continuity (pins 1-3)");
+    Serial.println("XS      - Test XLR shell bond");
     Serial.println("XR      - Test XLR resistance (pin 2+3)");
     Serial.println("--- DEBUG: READ ---");
     Serial.println("READ    - Read all sense pins");
@@ -439,6 +477,9 @@ void handleCommand(String cmd) {
   // ===== XLR DEBUG TESTS =====
   } else if (cmd == "XC") {
     runXlrContinuityTest();
+
+  } else if (cmd == "XS") {
+    runXlrShellTest();
 
   } else if (cmd == "XR") {
     runXlrResistanceTest();
@@ -545,6 +586,9 @@ void sendResults(TestResults &r) {
 }
 
 // ===== XLR CONTINUITY TEST =====
+// 3x3 matrix: pin1, pin2, pin3 only (no shell)
+// Shell bond is tested separately via XSHELL command since some
+// connectors have non-conductive coated shells.
 void runXlrContinuityTest() {
   XlrContResults r;
 
@@ -555,12 +599,22 @@ void runXlrContinuityTest() {
   resetCircuit();
   delay(RELAY_SETTLE_MS);
 
-  // Pin mapping arrays for compact loop
+  // Pin mapping arrays: index 0=pin1, 1=pin2, 2=pin3
   const int outPins[] = {XLR_CONT_OUT_PIN1, XLR_CONT_OUT_PIN2, XLR_CONT_OUT_PIN3};
   const int inPins[]  = {XLR_CONT_IN_PIN1,  XLR_CONT_IN_PIN2,  XLR_CONT_IN_PIN3};
 
-  // Drive each pin and read all three
+  // Shell drive must be high-Z during pin tests — if a cable has shell
+  // bonded to pin1, D61 held LOW would fight the pin1 drive signal
+  pinMode(XLR_CONT_OUT_SHELL, INPUT);
+
+  // Drive each of 3 channels and read all three
   for (int d = 0; d < 3; d++) {
+    // Set all drive pins to high-Z first to avoid fighting through cable bonds
+    for (int i = 0; i < 3; i++) {
+      pinMode(outPins[i], INPUT);
+    }
+    // Drive only the selected channel
+    pinMode(outPins[d], OUTPUT);
     digitalWrite(outPins[d], HIGH);
     delay(SIGNAL_SETTLE_MS);
     for (int s = 0; s < 3; s++) {
@@ -570,9 +624,15 @@ void runXlrContinuityTest() {
     delay(RELAY_SETTLE_MS);
   }
 
+  // Restore all drive pins to OUTPUT for resetCircuit()
+  for (int i = 0; i < 3; i++) {
+    pinMode(outPins[i], OUTPUT);
+  }
+  pinMode(XLR_CONT_OUT_SHELL, OUTPUT);
+
   resetCircuit();
 
-  // PASS: each pin connects only to itself (identity matrix)
+  // === EVALUATE RESULTS ===
   r.overallPass = true;
   for (int d = 0; d < 3; d++) {
     for (int s = 0; s < 3; s++) {
@@ -585,7 +645,6 @@ void runXlrContinuityTest() {
   if (r.overallPass) {
     setResultLED(PASS_LED);
   } else {
-    // Check if it's a wiring error vs open
     bool anyConnection = false;
     for (int d = 0; d < 3; d++)
       for (int s = 0; s < 3; s++)
@@ -594,8 +653,7 @@ void runXlrContinuityTest() {
   }
 
   // Send result
-  // Format: XLRCONT:PASS:P11:1:P12:0:P13:0:P21:0:P22:1:P23:0:P31:0:P32:0:P33:1[:REASON:xxx]
-  String response = "XLRCONT:";
+  String response = "XCONT:";
   response += r.overallPass ? "PASS" : "FAIL";
   for (int d = 0; d < 3; d++) {
     for (int s = 0; s < 3; s++) {
@@ -606,7 +664,6 @@ void runXlrContinuityTest() {
   // Failure reason
   if (!r.overallPass) {
     response += ":REASON:";
-    // Check for no cable (nothing connected)
     bool allOpen = true;
     for (int d = 0; d < 3; d++)
       for (int s = 0; s < 3; s++)
@@ -614,7 +671,6 @@ void runXlrContinuityTest() {
     if (allOpen) {
       response += "NO_CABLE";
     } else {
-      // Build list of issues
       String issues = "";
       for (int i = 0; i < 3; i++) {
         if (!r.p[i][i]) {
@@ -632,6 +688,88 @@ void runXlrContinuityTest() {
       }
       response += issues.length() > 0 ? issues : "UNKNOWN";
     }
+  }
+
+  Serial.println(response);
+}
+
+// ===== XLR SHELL BOND TEST =====
+// Tests shell-to-pin1 bond at both cable ends.
+// Only usable with uncoated/conductive connector shells.
+// Test jacks must have shell UNBONDED from pin 1.
+//
+// Drives pin1 and shell separately, reads cross-connections:
+//   drive pin1 → sense shell = far end shell bond
+//   drive shell → sense pin1 = near end shell bond
+void runXlrShellTest() {
+  XlrShellResults r;
+
+  setResultLED();
+  digitalWrite(STATUS_LED, HIGH);
+
+  resetCircuit();
+  delay(RELAY_SETTLE_MS);
+
+  // All 4 drive/sense pins involved
+  const int outPins[] = {XLR_CONT_OUT_PIN1, XLR_CONT_OUT_PIN2, XLR_CONT_OUT_PIN3, XLR_CONT_OUT_SHELL};
+  const int inPins[]  = {XLR_CONT_IN_PIN1,  XLR_CONT_IN_PIN2,  XLR_CONT_IN_PIN3,  XLR_CONT_IN_SHELL};
+
+  // --- Drive pin1, read shell (far end bond) ---
+  for (int i = 0; i < 4; i++) pinMode(outPins[i], INPUT);
+  pinMode(XLR_CONT_OUT_PIN1, OUTPUT);
+  digitalWrite(XLR_CONT_OUT_PIN1, HIGH);
+  delay(SIGNAL_SETTLE_MS);
+  r.farShellBond = digitalRead(XLR_CONT_IN_SHELL) == HIGH;
+  digitalWrite(XLR_CONT_OUT_PIN1, LOW);
+  delay(RELAY_SETTLE_MS);
+
+  // --- Drive shell, read pin1/pin2/pin3/shell (near end bond + shorts) ---
+  for (int i = 0; i < 4; i++) pinMode(outPins[i], INPUT);
+  pinMode(XLR_CONT_OUT_SHELL, OUTPUT);
+  digitalWrite(XLR_CONT_OUT_SHELL, HIGH);
+  delay(SIGNAL_SETTLE_MS);
+  r.nearShellBond = digitalRead(XLR_CONT_IN_PIN1) == HIGH;
+  r.shellToP2 = digitalRead(XLR_CONT_IN_PIN2) == HIGH;
+  r.shellToP3 = digitalRead(XLR_CONT_IN_PIN3) == HIGH;
+  r.shellToShell = digitalRead(XLR_CONT_IN_SHELL) == HIGH;
+  digitalWrite(XLR_CONT_OUT_SHELL, LOW);
+
+  // Restore drive pins to OUTPUT
+  for (int i = 0; i < 4; i++) {
+    pinMode(outPins[i], OUTPUT);
+    digitalWrite(outPins[i], LOW);
+  }
+  resetCircuit();
+
+  // === EVALUATE ===
+  r.overallPass = r.nearShellBond && r.farShellBond && !r.shellToP2 && !r.shellToP3;
+
+  setResultLED(r.overallPass ? PASS_LED : (r.nearShellBond || r.farShellBond ? ERROR_LED : FAIL_LED));
+
+  // Send result
+  String response = "XSHELL:";
+  response += r.overallPass ? "PASS" : "FAIL";
+  response += ":NEAR:" + String(r.nearShellBond ? 1 : 0);
+  response += ":FAR:" + String(r.farShellBond ? 1 : 0);
+  response += ":SS:" + String(r.shellToShell ? 1 : 0);
+
+  if (!r.overallPass) {
+    response += ":REASON:";
+    String issues = "";
+    if (!r.nearShellBond) issues += "NEAR_SHELL_OPEN";
+    if (!r.farShellBond) {
+      if (issues.length() > 0) issues += ",";
+      issues += "FAR_SHELL_OPEN";
+    }
+    if (r.shellToP2) {
+      if (issues.length() > 0) issues += ",";
+      issues += "SHELL_P2_SHORT";
+    }
+    if (r.shellToP3) {
+      if (issues.length() > 0) issues += ",";
+      issues += "SHELL_P3_SHORT";
+    }
+    response += issues.length() > 0 ? issues : "UNKNOWN";
   }
 
   Serial.println(response);
@@ -658,6 +796,7 @@ void resetCircuit() {
   digitalWrite(XLR_CONT_OUT_PIN1, LOW);
   digitalWrite(XLR_CONT_OUT_PIN2, LOW);
   digitalWrite(XLR_CONT_OUT_PIN3, LOW);
+  digitalWrite(XLR_CONT_OUT_SHELL, LOW);
 
 }
 
@@ -708,48 +847,66 @@ void runCalibration() {
 }
 
 // ===== XLR CALIBRATION =====
+// Calibrates both pin 2 and pin 3 paths separately since relay contact
+// resistance can differ between K4 LOW (pin 2) and K4 HIGH (pin 3).
 void runXlrCalibration() {
   setResultLED();
   digitalWrite(STATUS_LED, HIGH);
 
-  Serial.println("XLRCAL:MEASURING...");
+  Serial.println("XCAL:MEASURING...");
 
-  // Configure for XLR resistance path (use pin 2)
+  const int NUM_SAMPLES = 50;
+
+  // Common setup: both pins to resistance mode, route to XLR
   digitalWrite(K5_RELAY, HIGH);      // Pin 2 to resistance mode
-  digitalWrite(K6_RELAY, HIGH);      // Pin 3 to resistance mode (return path)
+  digitalWrite(K6_RELAY, HIGH);      // Pin 3 to resistance mode
   digitalWrite(K3_RELAY, HIGH);      // Route resistance circuit to XLR
+
+  // --- Calibrate Pin 2 ---
   digitalWrite(K4_RELAY, LOW);       // Select Pin 2
   delay(RELAY_SETTLE_MS);
-
-  // Enable current through PN2222A
   digitalWrite(RES_TEST_OUT, HIGH);
   delay(SIGNAL_SETTLE_MS);
 
-  // Take multiple samples for stable calibration
   long adcSum = 0;
-  const int NUM_SAMPLES = 50;
   for (int i = 0; i < NUM_SAMPLES; i++) {
     adcSum += analogRead(RES_SENSE);
     delay(10);
   }
-  int measuredADC = adcSum / NUM_SAMPLES;
+  int measuredP2 = adcSum / NUM_SAMPLES;
 
-  // Disable test current
+  digitalWrite(RES_TEST_OUT, LOW);
+  delay(RELAY_SETTLE_MS);
+
+  // --- Calibrate Pin 3 ---
+  digitalWrite(K4_RELAY, HIGH);      // Select Pin 3
+  delay(RELAY_SETTLE_MS);
+  digitalWrite(RES_TEST_OUT, HIGH);
+  delay(SIGNAL_SETTLE_MS);
+
+  adcSum = 0;
+  for (int i = 0; i < NUM_SAMPLES; i++) {
+    adcSum += analogRead(RES_SENSE);
+    delay(10);
+  }
+  int measuredP3 = adcSum / NUM_SAMPLES;
+
   digitalWrite(RES_TEST_OUT, LOW);
   resetCircuit();
 
-  // Reject if reading is too high (no cable or bad connection)
-  if (measuredADC > 600) {
+  // Reject if either reading is too high (no cable or bad connection)
+  if (measuredP2 > 600 || measuredP3 > 600) {
     setResultLED(FAIL_LED);
-    Serial.println("XLRCAL:FAIL:ADC:" + String(measuredADC) + ":NO_CABLE");
+    Serial.println("XCAL:FAIL:P2ADC:" + String(measuredP2) + ":P3ADC:" + String(measuredP3) + ":NO_CABLE");
     return;
   }
 
-  xlrCalibrationADC = measuredADC;
+  xlrCalibrationADC_P2 = measuredP2;
+  xlrCalibrationADC_P3 = measuredP3;
   isXlrCalibrated = true;
 
   setResultLED(PASS_LED);
-  Serial.println("XLRCAL:OK:ADC:" + String(xlrCalibrationADC));
+  Serial.println("XCAL:OK:P2ADC:" + String(xlrCalibrationADC_P2) + ":P3ADC:" + String(xlrCalibrationADC_P3));
 }
 
 // ===== RESISTANCE MEASUREMENT HELPER =====
@@ -766,11 +923,9 @@ int readResistanceADC() {
 }
 
 // Calculate cable resistance from ADC reading relative to calibration
-float calcCableResistance(int adcValue) {
-  if (!isCalibrated) return 0.0;
-
+float calcCableResistance(int adcValue, int calADC) {
   float senseVoltage = (adcValue / 1023.0) * SUPPLY_VOLTAGE;
-  float calVoltage = (calibrationADC / 1023.0) * SUPPLY_VOLTAGE;
+  float calVoltage = (calADC / 1023.0) * SUPPLY_VOLTAGE;
   float calCurrent = (SUPPLY_VOLTAGE - calVoltage) / RES_SENSE_OHM;
   if (calCurrent <= 0.001) return 0.0;
 
@@ -779,10 +934,18 @@ float calcCableResistance(int adcValue) {
   return cableResistance;
 }
 
+// Check pass/fail: use calibrated resistance if available, else absolute ADC
+bool resPassCheck(int adcValue, bool calibrated, int calADC) {
+  if (calibrated) {
+    return calcCableResistance(adcValue, calADC) <= MAX_CABLE_RESISTANCE;
+  }
+  return adcValue <= RES_PASS_THRESHOLD;
+}
+
 // Format and send resistance result for a single reading
 void sendResResult(const char* prefix, int adcValue) {
-  bool pass = adcValue <= RES_PASS_THRESHOLD;
-  float cableResistance = calcCableResistance(adcValue);
+  bool pass = resPassCheck(adcValue, isCalibrated, calibrationADC);
+  float cableResistance = isCalibrated ? calcCableResistance(adcValue, calibrationADC) : 0.0;
 
   String response = String(prefix);
   response += pass ? "PASS" : "FAIL";
@@ -821,7 +984,7 @@ void runResistanceTest() {
   resetCircuit();
 
   // Update LED
-  bool pass = adcValue <= RES_PASS_THRESHOLD;
+  bool pass = resPassCheck(adcValue, isCalibrated, calibrationADC);
   setResultLED(pass ? PASS_LED : FAIL_LED);
 
   sendResResult("RES:", adcValue);
@@ -864,31 +1027,27 @@ void runXlrResistanceTest() {
   digitalWrite(RES_TEST_OUT, LOW);
   resetCircuit();
 
-  // Evaluate: both pins must pass
-  bool pin2Pass = adcPin2 <= RES_PASS_THRESHOLD;
-  bool pin3Pass = adcPin3 <= RES_PASS_THRESHOLD;
+  // Evaluate: both pins must pass (each against its own calibration)
+  bool pin2Pass = resPassCheck(adcPin2, isXlrCalibrated, xlrCalibrationADC_P2);
+  bool pin3Pass = resPassCheck(adcPin3, isXlrCalibrated, xlrCalibrationADC_P3);
   bool overallPass = pin2Pass && pin3Pass;
 
   setResultLED(overallPass ? PASS_LED : FAIL_LED);
 
-  // Send combined result using XLR calibration
-  String response = "XLRRES:";
+  // Send combined result using per-pin XLR calibration
+  float res2 = 0.0, res3 = 0.0;
+  if (isXlrCalibrated) {
+    res2 = calcCableResistance(adcPin2, xlrCalibrationADC_P2);
+    res3 = calcCableResistance(adcPin3, xlrCalibrationADC_P3);
+  }
+
+  String response = "XRES:";
   response += overallPass ? "PASS" : "FAIL";
   response += ":P2ADC:" + String(adcPin2);
   response += ":P3ADC:" + String(adcPin3);
   if (isXlrCalibrated) {
-    float calVoltage = (xlrCalibrationADC / 1023.0) * SUPPLY_VOLTAGE;
-    float calCurrent = (SUPPLY_VOLTAGE - calVoltage) / RES_SENSE_OHM;
-    float res2 = 0.0, res3 = 0.0;
-    if (calCurrent > 0.001) {
-      float v2 = (adcPin2 / 1023.0) * SUPPLY_VOLTAGE;
-      float v3 = (adcPin3 / 1023.0) * SUPPLY_VOLTAGE;
-      res2 = (v2 - calVoltage) / calCurrent;
-      res3 = (v3 - calVoltage) / calCurrent;
-      if (res2 < 0) res2 = 0;
-      if (res3 < 0) res3 = 0;
-    }
-    response += ":CAL:" + String(xlrCalibrationADC);
+    response += ":P2CAL:" + String(xlrCalibrationADC_P2);
+    response += ":P3CAL:" + String(xlrCalibrationADC_P3);
     response += ":P2MOHM:" + String((int)(res2 * 1000));
     response += ":P2OHM:" + String(res2, 3);
     response += ":P3MOHM:" + String((int)(res3 * 1000));
