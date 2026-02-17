@@ -57,6 +57,7 @@ class ScanCableLookupScreen(Screen):
                 "🔍 [bold green]Scan barcode[/bold green] | "
                 "[cyan]'r'[/cyan] = Register cables | "
                 "[cyan]'w'[/cyan] = Wholesale codes | "
+                "[cyan]'p'[/cyan] = Wire labels | "
                 "[cyan]'q'[/cyan] = Logout",
                 title="Options", border_style="green"
             ))
@@ -83,6 +84,10 @@ class ScanCableLookupScreen(Screen):
                 # Go to wholesale batch registration codes
                 from greenlight.screens.wholesale import WholesaleBatchScreen
                 return ScreenResult(NavigationAction.PUSH, WholesaleBatchScreen, self.context.copy())
+            elif input_lower == 'p':
+                # Go to wire label printing
+                from greenlight.screens.wire import WireLabelScreen
+                return ScreenResult(NavigationAction.PUSH, WireLabelScreen, self.context.copy())
 
             # Otherwise treat as serial number lookup
             from greenlight.db import format_serial_number, get_audio_cable
@@ -295,7 +300,20 @@ class ScanCableLookupScreen(Screen):
         label_printer.print_labels(print_job)
 
     def run_cable_test(self, operator, cable_record):
-        """Run cable tests (continuity and resistance) and save results
+        """Run cable tests and save results. Routes to TS or XLR test flow.
+
+        Args:
+            operator: Operator ID
+            cable_record: Cable record from database
+        """
+        connector_type = cable_record.get('connector_type', '').upper()
+        if 'XLR' in connector_type:
+            self._run_xlr_cable_test(operator, cable_record)
+        else:
+            self._run_ts_cable_test(operator, cable_record)
+
+    def _run_ts_cable_test(self, operator, cable_record):
+        """Run TS cable tests (continuity and resistance) and save results
 
         Shows test progress and results in the footer while keeping cable details visible.
         If the tester is not calibrated, prompts the user to calibrate first.
@@ -396,6 +414,129 @@ class ScanCableLookupScreen(Screen):
         except KeyboardInterrupt:
             pass
 
+    def _run_xlr_cable_test(self, operator, cable_record):
+        """Run XLR cable tests (continuity, shell bond, resistance) and save results
+
+        Shell bond test only runs for touring series cables (studio XLR has coated shells).
+
+        Args:
+            operator: Operator ID
+            cable_record: Cable record from database
+        """
+        from greenlight.hardware.interfaces import hardware_manager
+
+        cable_tester = hardware_manager.get_cable_tester()
+        if not cable_tester:
+            return
+
+        serial_number = cable_record.get('serial_number')
+        series = cable_record.get('series', '')
+        is_touring = series.startswith("Tour")
+
+        # Keep cable info in body
+        cable_info_panel = self.build_cable_info_panel(cable_record)
+        self.ui.layout["body"].update(cable_info_panel)
+
+        # Check XLR calibration
+        self.ui.layout["footer"].update(Panel("🔬 Checking XLR calibration...", title="Testing"))
+        self.ui.render()
+
+        try:
+            check_result = cable_tester.run_xlr_resistance_test()
+            if not check_result.calibrated:
+                cal_result = self.run_xlr_calibration_prompt(operator, cable_record, cable_tester)
+                if not cal_result:
+                    return
+        except Exception:
+            cal_result = self.run_xlr_calibration_prompt(operator, cable_record, cable_tester)
+            if not cal_result:
+                return
+
+        # Run XLR continuity test
+        self.ui.layout["body"].update(cable_info_panel)
+        self.ui.layout["footer"].update(Panel("🔬 Testing... Running XLR continuity test", title="Testing"))
+        self.ui.render()
+
+        all_passed = True
+        cont_status = "?"
+        shell_status = "?"
+        res_status = "?"
+        resistance_adc = None
+
+        try:
+            cont_result = cable_tester.run_xlr_continuity_test()
+            if cont_result.passed:
+                cont_status = "[green]PASS[/green]"
+            else:
+                cont_status = "[red]FAIL[/red]"
+                all_passed = False
+        except Exception as e:
+            cont_status = "[yellow]ERROR[/yellow]"
+            all_passed = False
+
+        # Run shell bond test (touring series only)
+        if is_touring:
+            progress = f"🔬 Testing... CON: {cont_status} | Running shell bond test"
+            self.ui.layout["footer"].update(Panel(progress, title="Testing"))
+            self.ui.render()
+
+            try:
+                shell_result = cable_tester.run_xlr_shell_test()
+                if shell_result.passed:
+                    shell_status = "[green]PASS[/green]"
+                else:
+                    shell_status = "[red]FAIL[/red]"
+                    all_passed = False
+            except Exception as e:
+                shell_status = "[yellow]ERROR[/yellow]"
+                all_passed = False
+
+        # Run XLR resistance test
+        if is_touring:
+            progress = f"🔬 Testing... CON: {cont_status} | SHELL: {shell_status} | Running resistance test"
+        else:
+            progress = f"🔬 Testing... CON: {cont_status} | Running resistance test"
+        self.ui.layout["footer"].update(Panel(progress, title="Testing"))
+        self.ui.render()
+
+        try:
+            res_result = cable_tester.run_xlr_resistance_test()
+            resistance_adc = res_result.pin2_adc  # Store pin2 ADC as primary
+            if res_result.passed:
+                res_status = "[green]PASS[/green]"
+            else:
+                res_status = "[red]FAIL[/red]"
+                all_passed = False
+        except Exception as e:
+            res_status = "[yellow]ERROR[/yellow]"
+            all_passed = False
+
+        # Save test results
+        saved_status = ""
+        try:
+            update_cable_test_results(serial_number, all_passed, resistance_adc=resistance_adc, operator=operator)
+            saved_status = " | [green]Saved[/green]"
+        except Exception as e:
+            logger.error(f"Failed to save test results: {e}")
+            saved_status = " | [red]Save failed[/red]"
+
+        # Show final results
+        if is_touring:
+            summary = f"CON: {cont_status} | SHELL: {shell_status} | RES: {res_status}"
+        else:
+            summary = f"CON: {cont_status} | RES: {res_status}"
+
+        icon = "✅" if all_passed else "❌"
+        result_text = f"{icon} {summary}{saved_status} | Press enter to continue"
+
+        self.ui.layout["footer"].update(Panel(result_text, title="Test Complete"))
+        self.ui.render()
+
+        try:
+            self.ui.console.input("")
+        except KeyboardInterrupt:
+            pass
+
     def run_calibration_prompt(self, operator, cable_record, cable_tester):
         """Prompt user to insert reference cable and run calibration
 
@@ -458,6 +599,78 @@ class ScanCableLookupScreen(Screen):
             logger.error(f"Calibration error: {e}")
             self.ui.layout["footer"].update(Panel(
                 f"❌ [red]Calibration error[/red]: {e}\n\nPress enter to cancel",
+                title="Calibration Error", border_style="red"
+            ))
+            self.ui.render()
+            try:
+                self.ui.console.input("")
+            except KeyboardInterrupt:
+                pass
+            return False
+
+    def run_xlr_calibration_prompt(self, operator, cable_record, cable_tester):
+        """Prompt user to insert XLR reference cable and run calibration
+
+        Args:
+            operator: Operator ID
+            cable_record: Cable record from database
+            cable_tester: Cable tester instance
+
+        Returns:
+            True if calibration succeeded, False if user cancelled
+        """
+        cable_info_panel = self.build_cable_info_panel(cable_record)
+        self.ui.layout["body"].update(cable_info_panel)
+        self.ui.layout["footer"].update(Panel(
+            "⚠️  [yellow]XLR tester not calibrated[/yellow]\n\n"
+            "Insert the [bold]XLR reference cable[/bold] (zero-ohm short) and press [green]Enter[/green] to calibrate\n"
+            "Press [cyan]'q'[/cyan] to cancel",
+            title="XLR Calibration Required", border_style="yellow"
+        ))
+        self.ui.render()
+
+        try:
+            choice = self.ui.console.input("").strip().lower()
+        except KeyboardInterrupt:
+            return False
+
+        if choice == 'q':
+            return False
+
+        # Run XLR calibration
+        self.ui.layout["footer"].update(Panel("🔧 Calibrating XLR...", title="XLR Calibration"))
+        self.ui.render()
+
+        try:
+            cal_result = cable_tester.xlr_calibrate()
+            if cal_result.success:
+                self.ui.layout["footer"].update(Panel(
+                    f"✅ [green]XLR calibration complete[/green]\n"
+                    f"Pin 2 ADC: {cal_result.pin2_adc}  |  Pin 3 ADC: {cal_result.pin3_adc}\n\n"
+                    "Now insert the [bold]cable to test[/bold] and press [green]Enter[/green]",
+                    title="XLR Calibration OK", border_style="green"
+                ))
+                self.ui.render()
+                try:
+                    self.ui.console.input("")
+                except KeyboardInterrupt:
+                    return False
+                return True
+            else:
+                self.ui.layout["footer"].update(Panel(
+                    f"❌ [red]XLR calibration failed[/red]: {cal_result.error}\n\nPress enter to cancel",
+                    title="Calibration Error", border_style="red"
+                ))
+                self.ui.render()
+                try:
+                    self.ui.console.input("")
+                except KeyboardInterrupt:
+                    pass
+                return False
+        except Exception as e:
+            logger.error(f"XLR calibration error: {e}")
+            self.ui.layout["footer"].update(Panel(
+                f"❌ [red]XLR calibration error[/red]: {e}\n\nPress enter to cancel",
                 title="Calibration Error", border_style="red"
             ))
             self.ui.render()
@@ -921,10 +1134,24 @@ class LengthSelectionScreen(Screen):
                 selected_length = length_options[choice_idx]
                 new_context = self.context.copy()
                 new_context["selected_length"] = selected_length
+
+                # If there's only one connector type, skip the connector selection screen
+                connector_options = get_distinct_connector_types(selected_series, selected_color, selected_length)
+                if len(connector_options) == 1:
+                    sku = find_cable_by_attributes(selected_series, selected_color, selected_length, connector_options[0])
+                    if sku:
+                        try:
+                            cable_type = CableType()
+                            cable_type.load(sku)
+                            new_context["cable_type"] = cable_type
+                            return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
+                        except ValueError:
+                            pass  # Fall through to connector selection screen
+
                 return ScreenResult(NavigationAction.REPLACE, ConnectorTypeSelectionScreen, new_context)
         except ValueError:
             pass
-        
+
         # Invalid choice, stay on same screen
         return ScreenResult(NavigationAction.REPLACE, LengthSelectionScreen, self.context)
 
@@ -1304,6 +1531,11 @@ class ScanCableIntakeScreen(Screen):
         Returns:
             'continue' to register another cable, 'quit' to go back
         """
+        # Check if cable tester is available
+        from greenlight.hardware.interfaces import hardware_manager
+        cable_tester = hardware_manager.get_cable_tester()
+        tester_available = cable_tester and cable_tester.is_ready() if cable_tester else False
+
         # Clear console and show success
         self.ui.console.clear()
         self.ui.header(operator)
@@ -1316,8 +1548,15 @@ class ScanCableIntakeScreen(Screen):
             title="Registration Complete",
             border_style="green"
         ))
+
+        footer_options = []
+        if tester_available:
+            footer_options.append("[cyan]'t'[/cyan] = Test cable")
+        footer_options.append("[cyan]'r'[/cyan] = Register another cable")
+        footer_options.append("[cyan]'q'[/cyan] = Go back")
+
         self.ui.layout["footer"].update(Panel(
-            "[cyan]'r'[/cyan] = Register another cable | [cyan]'q'[/cyan] = Go back",
+            " | ".join(footer_options),
             title="Options"
         ))
         self.ui.render()
@@ -1325,7 +1564,16 @@ class ScanCableIntakeScreen(Screen):
         try:
             choice = self.ui.console.input("").strip().lower()
 
-            if choice == 'q':
+            if choice == 't' and tester_available:
+                # Look up the cable record and run tests
+                from greenlight.db import get_audio_cable
+                cable_record = get_audio_cable(serial_number)
+                if cable_record:
+                    # Use ScanCableLookupScreen to run test (shares same UI)
+                    lookup_screen = ScanCableLookupScreen(self.ui, self.context)
+                    lookup_screen.run_cable_test(operator, cable_record)
+                return 'continue'
+            elif choice == 'q':
                 return 'quit'
             else:
                 return 'continue'

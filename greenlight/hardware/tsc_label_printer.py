@@ -208,6 +208,8 @@ class TSCLabelPrinter(LabelPrinterInterface):
                 tspl = self._generate_cable_label_tspl(print_job.data)
             elif print_job.template == "registration_label":
                 tspl = self._generate_registration_label_tspl(print_job.data)
+            elif print_job.template == "wire_label":
+                tspl = self._generate_wire_label_tspl(print_job.data)
             else:
                 logger.error(f"Unknown template: {print_job.template}")
                 return False
@@ -572,6 +574,99 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         return output
 
+    def _generate_wire_label_tspl(self, data: Dict[str, Any]) -> bytes:
+        """Generate TSPL commands for Sundial Wire product label.
+
+        Label layout (1" x 3"):
+        +---------------------------------------------------+
+        |  [QR CODE]   SUNDIAL WIRE                         |
+        |  [QR CODE]   ────────────────                     |
+        |  [QR CODE]   Product Name Here That               |
+        |              Wraps If Needed                       |
+        |              SKU-123-ABC                           |
+        +---------------------------------------------------+
+
+        Args:
+            data: Dictionary with:
+                - product_title: str (product name from Shopify)
+                - sku: str
+                - product_url: str (full URL for QR code)
+
+        Returns:
+            TSPL commands as bytes
+        """
+        product_title = data.get('product_title', '')
+        sku = data.get('sku', '')
+        product_url = data.get('product_url', '')
+
+        # Start TSPL commands
+        tspl_commands = []
+        tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
+        tspl_commands.append("GAP 2 mm, 2 mm")
+        tspl_commands.append("DIRECTION 1,0")
+        tspl_commands.append("REFERENCE 0,0")
+        tspl_commands.append("SET TEAR ON")
+        tspl_commands.append("SET PEEL OFF")
+        tspl_commands.append("CLS")
+        tspl_commands.append("DENSITY 10")
+        tspl_commands.append("SPEED 3")
+
+        # QR code on left (~0.6" square = ~122 dots at 203 DPI)
+        qr_x = 10
+        qr_y = 10
+
+        # Generate QR bitmap for the product URL
+        qr_bitmap = self._generate_qr_bitmap(product_url, module_size=3) if product_url else None
+
+        # Text positions (right of QR code, with clearance for large QR codes)
+        x_text = 170
+
+        # Y positions
+        y_brand = 12
+        y_line = y_brand + 28  # Decorative line under brand
+        y_title = 50
+        y_title_line2 = 80  # Second line of title if wrapped
+        y_sku = 130
+
+        # Brand header
+        tspl_commands.append(f'TEXT {x_text},{y_brand},"3",0,1,1,"SUNDIAL WIRE"')
+
+        # Decorative line under brand
+        tspl_commands.append(f'BAR {x_text},{y_line},300,2')
+
+        # Product title (word-wrap if long)
+        title_parts = self._split_text(product_title, max_length=28)
+        tspl_commands.append(f'TEXT {x_text},{y_title},"2",0,1,1,"{title_parts[0]}"')
+        if len(title_parts) > 1:
+            tspl_commands.append(f'TEXT {x_text},{y_title_line2},"2",0,1,1,"{title_parts[1]}"')
+            # SKU goes below second title line
+            y_sku = y_title_line2 + 30
+        else:
+            # SKU goes below first title line
+            y_sku = y_title + 30
+
+        # SKU
+        tspl_commands.append(f'TEXT {x_text},{y_sku},"2",0,1,1,"{sku}"')
+
+        # QR code bitmap placeholder
+        tspl_commands.append("__QR_CODE__")
+
+        # Print
+        tspl_commands.append("PRINT 1")
+        tspl_commands.append("")
+
+        # Build output as bytes
+        output = b''
+        for cmd in tspl_commands:
+            if cmd == '__QR_CODE__':
+                if qr_bitmap:
+                    bitmap_cmd = f'BITMAP {qr_x},{qr_y},{qr_bitmap["width_bytes"]},{qr_bitmap["height"]},0,'.encode()
+                    output += bitmap_cmd + qr_bitmap['data'] + b'\r\n'
+            else:
+                output += cmd.encode('utf-8') + b'\r\n'
+
+        return output
+
     def _format_connector_type(self, connector_type: str) -> str:
         """Format connector type for display on label"""
         # Map connector types to display text
@@ -699,6 +794,8 @@ class MockTSCLabelPrinter(LabelPrinterInterface):
             logger.debug("Mock TSPL commands would be generated for cable label")
         elif print_job.template == "registration_label":
             logger.debug("Mock TSPL commands would be generated for registration label")
+        elif print_job.template == "wire_label":
+            logger.debug("Mock TSPL commands would be generated for wire label")
 
         return True
 

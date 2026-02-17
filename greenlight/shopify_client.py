@@ -3,10 +3,13 @@ Shopify API integration for customer lookup and order information
 """
 
 import os
+import logging
 import shopify
 import requests
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv, set_key, find_dotenv
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -17,6 +20,12 @@ SHOPIFY_ACCESS_TOKEN = os.getenv("SHOPIFY_ACCESS_TOKEN")  # For custom apps / ca
 SHOPIFY_PRIVATE_APP_PASSWORD = os.getenv("SHOPIFY_PRIVATE_APP_PASSWORD")  # For private apps
 SHOPIFY_CLIENT_ID = os.getenv("SHOPIFY_CLIENT_ID")  # For client credentials grant
 SHOPIFY_CLIENT_SECRET = os.getenv("SHOPIFY_CLIENT_SECRET")  # For client credentials grant
+
+# Sundial Wire store (separate Shopify store)
+SHOPIFY_WIRE_SHOP_URL = os.getenv("SHOPIFY_WIRE_SHOP_URL")
+SHOPIFY_WIRE_ACCESS_TOKEN = os.getenv("SHOPIFY_WIRE_ACCESS_TOKEN")
+SHOPIFY_WIRE_CLIENT_ID = os.getenv("SHOPIFY_WIRE_CLIENT_ID")
+SHOPIFY_WIRE_CLIENT_SECRET = os.getenv("SHOPIFY_WIRE_CLIENT_SECRET")
 
 
 def get_access_token_from_client_credentials() -> Optional[str]:
@@ -145,6 +154,113 @@ def get_shopify_session():
 def close_shopify_session():
     """Close the active Shopify session"""
     shopify.ShopifyResource.clear_session()
+
+
+def _get_wire_access_token() -> Optional[str]:
+    """Exchange wire store client credentials for an access token.
+
+    Same flow as get_access_token_from_client_credentials() but hits
+    the Sundial Wire store URL with wire store credentials.
+    Caches the token to SHOPIFY_WIRE_ACCESS_TOKEN in .env.
+    """
+    if not SHOPIFY_WIRE_SHOP_URL:
+        raise ValueError("SHOPIFY_WIRE_SHOP_URL not configured in .env file")
+    if not SHOPIFY_WIRE_CLIENT_ID or not SHOPIFY_WIRE_CLIENT_SECRET:
+        raise ValueError("SHOPIFY_WIRE_CLIENT_ID and SHOPIFY_WIRE_CLIENT_SECRET must be set in .env")
+
+    token_url = f"https://{SHOPIFY_WIRE_SHOP_URL}/admin/oauth/access_token"
+    payload = {
+        "client_id": SHOPIFY_WIRE_CLIENT_ID,
+        "client_secret": SHOPIFY_WIRE_CLIENT_SECRET,
+        "grant_type": "client_credentials"
+    }
+    try:
+        response = requests.post(token_url, json=payload)
+        response.raise_for_status()
+        data = response.json()
+        access_token = data.get("access_token")
+        if access_token:
+            env_file = find_dotenv()
+            if env_file:
+                set_key(env_file, "SHOPIFY_WIRE_ACCESS_TOKEN", access_token)
+            return access_token
+        logger.error(f"No access token in wire store response: {data}")
+        return None
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error getting wire store access token: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            logger.error(f"   Response: {e.response.text}")
+        return None
+
+
+def _validate_wire_token(token):
+    """Check if a wire store access token is valid.
+
+    Same approach as validate_token() but targets the wire store URL.
+    Important: uses SHOPIFY_WIRE_SHOP_URL, not SHOPIFY_SHOP_URL.
+    """
+    if not token or not SHOPIFY_WIRE_SHOP_URL:
+        return False
+
+    try:
+        session = shopify.Session(SHOPIFY_WIRE_SHOP_URL, SHOPIFY_API_VERSION, token)
+        shopify.ShopifyResource.activate_session(session)
+
+        query = "{ shop { name } }"
+        result = shopify.GraphQL().execute(query)
+
+        import json
+        data = json.loads(result)
+
+        if "errors" in data:
+            error_msg = str(data.get("errors", ""))
+            if "Invalid API key" in error_msg or "Unauthorized" in error_msg:
+                shopify.ShopifyResource.clear_session()
+                return False
+
+        shopify.ShopifyResource.clear_session()
+        return True
+
+    except Exception:
+        shopify.ShopifyResource.clear_session()
+        return False
+
+
+def get_wire_shopify_session():
+    """Create and return an active Shopify session for the Sundial Wire store.
+
+    Mirrors get_shopify_session() but uses SHOPIFY_WIRE_* env vars.
+    Validates cached token and refreshes via client credentials if stale.
+    """
+    if not SHOPIFY_WIRE_SHOP_URL:
+        raise ValueError("SHOPIFY_WIRE_SHOP_URL not configured in .env file")
+
+    token = SHOPIFY_WIRE_ACCESS_TOKEN
+
+    # Validate existing token
+    if token and not _validate_wire_token(token):
+        if SHOPIFY_WIRE_CLIENT_ID and SHOPIFY_WIRE_CLIENT_SECRET:
+            new_token = _get_wire_access_token()
+            if new_token:
+                token = new_token
+            else:
+                token = None
+        else:
+            token = None
+
+    # If no token yet, try client credentials grant
+    if not token and SHOPIFY_WIRE_CLIENT_ID and SHOPIFY_WIRE_CLIENT_SECRET:
+        token = _get_wire_access_token()
+
+    if not token:
+        raise ValueError(
+            "Could not obtain wire store access token. "
+            "Set SHOPIFY_WIRE_ACCESS_TOKEN or SHOPIFY_WIRE_CLIENT_ID/SHOPIFY_WIRE_CLIENT_SECRET in .env"
+        )
+
+    session = shopify.Session(SHOPIFY_WIRE_SHOP_URL, SHOPIFY_API_VERSION, token)
+    shopify.ShopifyResource.activate_session(session)
+    return session
 
 
 def get_customer_by_id(customer_id: str) -> Optional[Dict[str, Any]]:
@@ -434,6 +550,90 @@ def get_customer_orders(customer_id: str, limit: int = 10) -> list[Dict[str, Any
     except Exception as e:
         print(f"❌ Error fetching customer orders: {e}")
         return []
+    finally:
+        close_shopify_session()
+
+
+def get_product_by_sku(sku: str) -> Optional[Dict[str, Any]]:
+    """
+    Look up a single product variant by SKU from the Sundial Wire Shopify store.
+    Uses GraphQL for fast single-SKU lookup.
+
+    Args:
+        sku: The SKU string to search for
+
+    Returns:
+        Dictionary with product info or None if not found:
+        {
+            "product_title": "...",
+            "variant_title": "...",
+            "sku": "...",
+            "handle": "...",
+            "price": "29.99"
+        }
+    """
+    try:
+        session = get_wire_shopify_session()
+
+        query = """
+        query getVariantBySku($query: String!) {
+            productVariants(first: 1, query: $query) {
+                edges {
+                    node {
+                        sku
+                        title
+                        price
+                        product {
+                            title
+                            handle
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        # Try exact match first, then prefix match (base SKU without variant suffix)
+        variables = {"query": f"sku:{sku}"}
+        result = shopify.GraphQL().execute(query, variables=variables)
+
+        import json
+        data = json.loads(result)
+
+        if "errors" in data:
+            logger.warning(f"GraphQL errors looking up SKU {sku}: {data['errors']}")
+            return None
+
+        edges = data.get("data", {}).get("productVariants", {}).get("edges", [])
+
+        # If exact match failed, try wildcard prefix search
+        if not edges:
+            variables = {"query": f"sku:{sku}*"}
+            result = shopify.GraphQL().execute(query, variables=variables)
+            data = json.loads(result)
+
+            if "errors" in data:
+                return None
+
+            edges = data.get("data", {}).get("productVariants", {}).get("edges", [])
+
+        if not edges:
+            return None
+
+        variant = edges[0]["node"]
+        product = variant.get("product", {})
+
+        return {
+            "product_title": product.get("title", ""),
+            "variant_title": variant.get("title", ""),
+            "sku": variant.get("sku", sku),
+            "handle": product.get("handle", ""),
+            "price": variant.get("price", ""),
+        }
+
+    except Exception as e:
+        logger.error(f"Error looking up SKU {sku}: {e}")
+        return None
     finally:
         close_shopify_session()
 

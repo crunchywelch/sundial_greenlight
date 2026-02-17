@@ -35,6 +35,11 @@ from greenlight.screens.inventory import (
     ReportsScreen
 )
 
+# Wire label screens
+from greenlight.screens.wire import (
+    WireLabelScreen
+)
+
 # Wholesale screens
 from greenlight.screens.wholesale import (
     WholesaleBatchScreen
@@ -61,6 +66,8 @@ __all__ = [
     'LengthSelectionScreen',
     'ConnectorTypeSelectionScreen',
     'ScanCableIntakeScreen',
+    # Wire
+    'WireLabelScreen',
     # Wholesale
     'WholesaleBatchScreen',
     # Inventory
