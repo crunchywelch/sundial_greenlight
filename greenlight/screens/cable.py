@@ -127,6 +127,12 @@ class ScanCableLookupScreen(Screen):
                 self.run_manual_calibration(operator)
                 continue
 
+            # Validate input looks like a serial number (must be numeric)
+            from greenlight.db import validate_serial_number
+            valid, _ = validate_serial_number(serial_number)
+            if not valid:
+                continue
+
             # Otherwise treat as serial number lookup
             from greenlight.db import format_serial_number, get_audio_cable
             formatted_serial = format_serial_number(serial_number)
@@ -248,6 +254,7 @@ class ScanCableLookupScreen(Screen):
             footer_options.append("[cyan]'p'[/cyan] = Print label")
         if is_misc:
             footer_options.append("[cyan]'d'[/cyan] = Edit description")
+        footer_options.append("[cyan]'e'[/cyan] = Re-register")
         footer_options.append("[bold green]Scan[/bold green] next cable")
 
         footer_text = " | ".join(footer_options)
@@ -294,10 +301,22 @@ class ScanCableLookupScreen(Screen):
                 updated_record = self.edit_cable_description(operator, cable_record)
                 return self.show_cable_info_with_actions(operator, updated_record)
 
+            elif choice_lower == 'e':
+                # Re-register: drop into attribute selection to change SKU
+                new_context = self.context.copy()
+                new_context["selection_mode"] = "intake"
+                new_context["prefill_serial"] = cable_record['serial_number']
+                new_context["re_register"] = True
+                return ScreenResult(NavigationAction.PUSH, SeriesSelectionScreen, new_context)
+
             else:
-                # Input is not a command — treat as a new serial number scan
-                self._pending_serial = choice.strip().upper()
-                return None
+                # Only treat as serial number if it contains at least one digit
+                import re
+                if re.search(r'\d', choice):
+                    self._pending_serial = choice.strip().upper()
+                    return None
+                # Otherwise ignore (e.g. accidental "tt", "pp")
+                return self.show_cable_info_with_actions(operator, cable_record)
 
         except KeyboardInterrupt:
             return None
@@ -1749,16 +1768,25 @@ class ScanCableIntakeScreen(Screen):
             if not serial_number or serial_number.lower() == 'q':
                 break
 
+            # Validate serial number is numeric
+            from greenlight.db import validate_serial_number
+            valid, error_msg = validate_serial_number(serial_number)
+            if not valid:
+                self.ui.console.print(f"[red]⚠️  {error_msg}[/red]")
+                time.sleep(1.5)
+                continue
+
             # Format the serial number (pad to 6 digits)
             from greenlight.db import format_serial_number
             formatted_serial = format_serial_number(serial_number)
 
-            # For MISC cables, always try to update if exists (to add/update description)
+            # Allow update if MISC cable or re-registering an existing cable
             is_misc_cable = cable_type.sku.endswith("-MISC")
+            allow_update = is_misc_cable or self.context.get("re_register", False)
 
             # Register the cable in database (note: formatted_serial is already formatted in register_scanned_cable)
             result = register_scanned_cable(serial_number, cable_type.sku, operator,
-                                          update_if_exists=is_misc_cable,
+                                          update_if_exists=allow_update,
                                           description=cable_description,
                                           length=custom_length)
 
@@ -1780,6 +1808,11 @@ class ScanCableIntakeScreen(Screen):
                 ))
                 self.ui.render()
                 time.sleep(0.8)  # Brief pause to show success
+
+                # Re-register mode: just update the one cable and return to its info screen
+                if self.context.get("re_register"):
+                    self.context["return_to_cable_serial"] = saved_serial
+                    break
 
                 # Show success and ask what to do next
                 next_action = self.offer_print_label(operator, cable_type, saved_serial, custom_length, cable_description)

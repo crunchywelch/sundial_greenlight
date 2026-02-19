@@ -111,6 +111,20 @@ def get_audio_cable(serial_number):
     finally:
         pg_pool.putconn(conn)
 
+def validate_serial_number(serial_number):
+    """Check that a serial number is purely numeric.
+
+    Returns:
+        (True, None) if valid, (False, error_message) if invalid.
+    """
+    if not serial_number or not serial_number.strip():
+        return False, "Serial number is empty"
+    s = serial_number.strip()
+    if not s.isdigit():
+        return False, f"Invalid serial number '{s}' — must be numeric"
+    return True, None
+
+
 def format_serial_number(serial_number):
     """
     Format serial number by padding numeric portion to 6 digits.
@@ -181,11 +195,10 @@ def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_ex
                                 operator = %s,
                                 updated_timestamp = CURRENT_TIMESTAMP,
                                 description = COALESCE(%s, description),
-                                length = COALESCE(%s, length),
-                                notes = %s
+                                length = COALESCE(%s, length)
                             WHERE serial_number = %s
                             RETURNING serial_number, updated_timestamp
-                        """, (cable_sku, operator, description, length, 'Updated via scan', formatted_serial))
+                        """, (cable_sku, operator, description, length, formatted_serial))
                         result = cur.fetchone()
                         conn.commit()
                         return {
