@@ -124,7 +124,7 @@ struct TestResults {
   // Interpreted results
   bool overallPass;
   bool reversed;
-  bool crossed;
+  bool shorted;
   bool openTip;
   bool openSleeve;
 };
@@ -529,8 +529,8 @@ void runContinuityTest() {
   results.reversed = !results.tipToTip && results.tipToSleeve &&
                      !results.sleeveToSleeve && results.sleeveToTip;
 
-  // CROSSED: signal bleeds to both pins (short between tip and sleeve)
-  results.crossed = results.tipToTip && results.tipToSleeve;
+  // SHORT: tip and sleeve are shorted together
+  results.shorted = results.tipToSleeve || results.sleeveToTip;
 
   // OPEN: no signal detected
   results.openTip = !results.tipToTip && !results.tipToSleeve;
@@ -542,7 +542,7 @@ void runContinuityTest() {
   // Update LEDs
   if (results.overallPass) {
     setResultLED(PASS_LED);
-  } else if (results.reversed || results.crossed) {
+  } else if (results.reversed || results.shorted) {
     // Wiring error (reversed polarity or short)
     setResultLED(ERROR_LED);
   } else {
@@ -569,8 +569,8 @@ void sendResults(TestResults &r) {
     response += ":REASON:";
     if (r.reversed) {
       response += "REVERSED";
-    } else if (r.crossed) {
-      response += "CROSSED";
+    } else if (r.shorted) {
+      response += "SHORT";
     } else if (r.openTip && r.openSleeve) {
       response += "NO_CABLE";
     } else if (r.openTip) {

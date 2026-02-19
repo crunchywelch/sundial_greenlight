@@ -487,6 +487,7 @@ class ScanCableLookupScreen(Screen):
         res_status = "?"
         resistance_adc = None
         calibration_adc = None
+        failure_reasons = []
 
         # Run continuity test
         cont_reason = None
@@ -498,15 +499,17 @@ class ScanCableLookupScreen(Screen):
                 cont_reason = cont_result.reason
                 reason_display = {
                     'REVERSED': 'Reversed polarity',
-                    'CROSSED': 'Tip/sleeve shorted',
+                    'SHORT': 'Tip/sleeve shorted',
                     'NO_CABLE': 'No cable detected',
                     'TIP_OPEN': 'Tip open',
                     'SLEEVE_OPEN': 'Sleeve open',
                 }.get(cont_reason, cont_reason or 'Unknown')
                 cont_status = f"[red]FAIL ({reason_display})[/red]"
+                failure_reasons.append(f"CON: {reason_display}")
                 all_passed = False
         except Exception as e:
             cont_status = "[yellow]ERROR[/yellow]"
+            failure_reasons.append(f"CON: Error")
             all_passed = False
 
         # Only run resistance test if continuity passed
@@ -522,28 +525,34 @@ class ScanCableLookupScreen(Screen):
                     res_status = "[green]PASS[/green]"
                 else:
                     res_status = "[red]FAIL[/red]"
+                    failure_reasons.append("RES: Fail")
                     all_passed = False
             except Exception as e:
                 res_status = "[yellow]ERROR[/yellow]"
+                failure_reasons.append("RES: Error")
                 all_passed = False
         else:
             res_status = "[dim]SKIP[/dim]"
 
+        # Build notes from failure reasons (None if passed clears old notes)
+        test_notes = "; ".join(failure_reasons) if failure_reasons else None
+
         # Always save test results to database
         saved_status = ""
         try:
-            update_cable_test_results(serial_number, all_passed, resistance_adc=resistance_adc, calibration_adc=calibration_adc, operator=operator)
+            update_cable_test_results(serial_number, all_passed, resistance_adc=resistance_adc, calibration_adc=calibration_adc, operator=operator, notes=test_notes)
             saved_status = " | [green]Saved[/green]"
         except Exception as e:
             logger.error(f"Failed to save test results: {e}")
             saved_status = " | [red]Save failed[/red]"
 
-        # Show final results in footer briefly
-        if all_passed:
-            result_text = f"✅ CON: {cont_status} | RES: {res_status}{saved_status}"
-        else:
-            result_text = f"❌ CON: {cont_status} | RES: {res_status}{saved_status}"
+        # Show final results - refresh body with updated record from DB
+        result_icon = "✅" if all_passed else "❌"
+        result_text = f"{result_icon} CON: {cont_status} | RES: {res_status}{saved_status}"
 
+        updated_record = get_audio_cable(serial_number)
+        if updated_record:
+            self.ui.layout["body"].update(self.build_cable_info_panel(updated_record))
         self.ui.layout["footer"].update(Panel(result_text, title="Test Complete"))
         self.ui.render()
         time.sleep(1.5)
@@ -600,6 +609,7 @@ class ScanCableLookupScreen(Screen):
         calibration_adc = None
         resistance_adc_p3 = None
         calibration_adc_p3 = None
+        failure_reasons = []
 
         try:
             cont_result = cable_tester.run_xlr_continuity_test()
@@ -622,9 +632,11 @@ class ScanCableLookupScreen(Screen):
                     else:
                         friendly.append(part)
                 cont_status = f"[red]FAIL ({', '.join(friendly)})[/red]"
+                failure_reasons.append(f"CON: {', '.join(friendly)}")
                 all_passed = False
         except Exception as e:
             cont_status = "[yellow]ERROR[/yellow]"
+            failure_reasons.append("CON: Error")
             all_passed = False
 
         # Run shell bond test (touring series only, skip if continuity failed)
@@ -652,9 +664,11 @@ class ScanCableLookupScreen(Screen):
                         else:
                             friendly.append(part)
                     shell_status = f"[red]FAIL ({', '.join(friendly)})[/red]"
+                    failure_reasons.append(f"SHELL: {', '.join(friendly)}")
                     all_passed = False
             except Exception as e:
                 shell_status = "[yellow]ERROR[/yellow]"
+                failure_reasons.append("SHELL: Error")
                 all_passed = False
         elif is_touring:
             shell_status = "[dim]SKIP[/dim]"
@@ -678,24 +692,29 @@ class ScanCableLookupScreen(Screen):
                     res_status = "[green]PASS[/green]"
                 else:
                     res_status = "[red]FAIL[/red]"
+                    failure_reasons.append("RES: Fail")
                     all_passed = False
             except Exception as e:
                 res_status = "[yellow]ERROR[/yellow]"
+                failure_reasons.append("RES: Error")
                 all_passed = False
         else:
             res_status = "[dim]SKIP[/dim]"
+
+        # Build notes from failure reasons (None if passed clears old notes)
+        test_notes = "; ".join(failure_reasons) if failure_reasons else None
 
         # Save test results
         saved_status = ""
         try:
             update_cable_test_results(serial_number, all_passed, resistance_adc=resistance_adc, calibration_adc=calibration_adc,
-                                     resistance_adc_p3=resistance_adc_p3, calibration_adc_p3=calibration_adc_p3, operator=operator)
+                                     resistance_adc_p3=resistance_adc_p3, calibration_adc_p3=calibration_adc_p3, operator=operator, notes=test_notes)
             saved_status = " | [green]Saved[/green]"
         except Exception as e:
             logger.error(f"Failed to save test results: {e}")
             saved_status = " | [red]Save failed[/red]"
 
-        # Show final results
+        # Show final results - refresh body with updated record from DB
         if is_touring:
             summary = f"CON: {cont_status} | SHELL: {shell_status} | RES: {res_status}"
         else:
@@ -704,6 +723,9 @@ class ScanCableLookupScreen(Screen):
         icon = "✅" if all_passed else "❌"
         result_text = f"{icon} {summary}{saved_status}"
 
+        updated_record = get_audio_cable(serial_number)
+        if updated_record:
+            self.ui.layout["body"].update(self.build_cable_info_panel(updated_record))
         self.ui.layout["footer"].update(Panel(result_text, title="Test Complete"))
         self.ui.render()
         time.sleep(1.5)
@@ -968,7 +990,7 @@ class ScanCableLookupScreen(Screen):
             pass
 
     def build_cable_info_panel(self, cable_record):
-        """Build the cable information panel (extracted for reuse)"""
+        """Build the cable information panel in two-column layout"""
         serial_number = cable_record.get("serial_number", "N/A")
         sku = cable_record.get("sku", "N/A")
         series = cable_record.get("series", "N/A")
@@ -997,7 +1019,6 @@ class ScanCableLookupScreen(Screen):
         if test_passed is not None and resistance_adc is not None:
             pass_fail = "PASS" if test_passed else "FAIL"
             if is_xlr and resistance_adc_p3 is not None:
-                # XLR: show both pins on one line
                 p2_detail = f"ADC:{resistance_adc}"
                 if calibration_adc is not None:
                     p2_detail += f"/{_calc_milliohms(resistance_adc, calibration_adc)}mOhm"
@@ -1006,7 +1027,6 @@ class ScanCableLookupScreen(Screen):
                     p3_detail += f"/{_calc_milliohms(resistance_adc_p3, calibration_adc_p3)}mOhm"
                 resistance_str = f"{pass_fail} (P2: {p2_detail}, P3: {p3_detail})"
             else:
-                # TS or legacy XLR without pin3 data
                 resistance_str = f"{pass_fail} (ADC: {resistance_adc}"
                 if calibration_adc is not None:
                     milliohms = _calc_milliohms(resistance_adc, calibration_adc)
@@ -1032,8 +1052,8 @@ class ScanCableLookupScreen(Screen):
         else:
             updated_timestamp_str = "N/A"
 
-        # Build cable info display
-        cable_info = f"""[bold yellow]Serial Number:[/bold yellow] {serial_number}
+        # -- Left column: cable identity --
+        left = f"""[bold yellow]Serial:[/bold yellow] {serial_number}
 [bold yellow]SKU:[/bold yellow] {sku}
 [bold yellow]Registered:[/bold yellow] {updated_timestamp_str}
 
@@ -1043,30 +1063,27 @@ class ScanCableLookupScreen(Screen):
   Color: {color_pattern}
   Connector: {connector_type}"""
 
-        # Add description for MISC cables
         description = cable_record.get("description")
         if sku.endswith("-MISC") and description:
-            cable_info += f"\n  Description: {description}"
+            left += f"\n  Description: {description}"
 
-        cable_info += f"""
-
-[bold green]Test Status:[/bold green] {test_status}
-  Resistance: {resistance_str}
-  Tested: {test_timestamp_str}
-  Test Operator: {cable_operator if test_timestamp else 'N/A'}"""
-
-        # Registration code (wholesale)
         registration_code = cable_record.get("registration_code")
         if registration_code:
-            cable_info += f"""
+            left += f"\n\n[bold blue]Reg Code:[/bold blue] {registration_code}"
 
-[bold blue]Registration Code:[/bold blue] {registration_code}"""
+        # -- Right column: test results & assignment --
+        test_notes = cable_record.get("notes")
+        right = f"[bold green]Test Status:[/bold green] {test_status}"
+        if test_passed is False and test_notes:
+            right += f"\n  [bold red]Failure:[/bold red] {test_notes}"
+        right += f"""
+  Resistance: {resistance_str}
+  Tested: {test_timestamp_str}
+  Operator: {cable_operator if test_timestamp else 'N/A'}"""
 
-        # Check if cable is assigned to a customer
+        # Customer assignment
         customer_gid = cable_record.get("shopify_gid")
-
         if customer_gid:
-            # Cable is assigned - fetch customer details
             from greenlight import shopify_client
             customer_numeric_id = customer_gid.split('/')[-1]
             customer = shopify_client.get_customer_by_id(customer_numeric_id)
@@ -1080,26 +1097,30 @@ class ScanCableLookupScreen(Screen):
                     customer_phone = address.get("phone")
                 customer_phone = customer_phone or "N/A"
 
-                cable_info += f"""
+                right += f"""
 
-[bold magenta]✅ Assigned To Customer:[/bold magenta]
-  Name: {customer_name}
-  Email: {customer_email}
-  Phone: {customer_phone}"""
+[bold magenta]✅ Assigned To:[/bold magenta]
+  {customer_name}
+  {customer_email}
+  {customer_phone}"""
             else:
-                cable_info += f"""
+                right += f"""
 
 [bold magenta]Assigned To:[/bold magenta]
-  [yellow]Customer ID: {customer_gid}[/yellow]
-  [dim](Details not available)[/dim]"""
+  [yellow]ID: {customer_gid}[/yellow]"""
         else:
-            cable_info += """
+            right += """
 
 [bold magenta]Assignment:[/bold magenta]
-  [yellow]⏳ Not assigned to any customer[/yellow]"""
+  [yellow]⏳ Not assigned[/yellow]"""
 
-        # Return the cable info for display
-        return Panel(cable_info, title="📋 Cable Information", style="cyan")
+        # Two-column layout using Table
+        layout_table = Table(show_header=False, show_edge=False, box=None, padding=(0, 2), expand=True)
+        layout_table.add_column(ratio=1)
+        layout_table.add_column(ratio=1)
+        layout_table.add_row(left, right)
+
+        return Panel(layout_table, title="📋 Cable Information", style="cyan")
 
     def show_menu(self, operator):
         """Show menu for additional options (inventory, orders, etc.)
@@ -2005,140 +2026,12 @@ class ScanCableIntakeScreen(Screen):
             pass
 
     def show_cable_info_inline(self, operator, cable_record):
-        """Display detailed cable information during scanning workflow"""
-        self.ui.console.clear()
-
-        serial_number = cable_record.get("serial_number", "N/A")
-        sku = cable_record.get("sku", "N/A")
-        series = cable_record.get("series", "N/A")
-        length = cable_record.get("length", "N/A")
-        color_pattern = cable_record.get("color_pattern", "N/A")
-        connector_type = cable_record.get("connector_type", "N/A")
-        resistance_adc = cable_record.get("resistance_adc")
-        calibration_adc = cable_record.get("calibration_adc")
-        resistance_adc_p3 = cable_record.get("resistance_adc_p3")
-        calibration_adc_p3 = cable_record.get("calibration_adc_p3")
-        test_passed = cable_record.get("test_passed")
-        cable_operator = cable_record.get("operator", "N/A")
-        test_timestamp = cable_record.get("test_timestamp")
-        updated_timestamp = cable_record.get("updated_timestamp")
-        is_xlr = 'XLR' in connector_type.upper() or 'vocal' in series.lower()
-
-        # Format test results
-        if test_passed is True:
-            test_status = "✅ PASS"
-        elif test_passed is False:
-            test_status = "❌ FAIL"
-        else:
-            test_status = "⏳ Not tested"
-
-        # Format resistance display
-        if test_passed is not None and resistance_adc is not None:
-            pass_fail = "PASS" if test_passed else "FAIL"
-            if is_xlr and resistance_adc_p3 is not None:
-                # XLR: show both pins on one line
-                p2_detail = f"ADC:{resistance_adc}"
-                if calibration_adc is not None:
-                    p2_detail += f"/{_calc_milliohms(resistance_adc, calibration_adc)}mOhm"
-                p3_detail = f"ADC:{resistance_adc_p3}"
-                if calibration_adc_p3 is not None:
-                    p3_detail += f"/{_calc_milliohms(resistance_adc_p3, calibration_adc_p3)}mOhm"
-                resistance_str = f"{pass_fail} (P2: {p2_detail}, P3: {p3_detail})"
-            else:
-                # TS or legacy XLR without pin3 data
-                resistance_str = f"{pass_fail} (ADC: {resistance_adc}"
-                if calibration_adc is not None:
-                    milliohms = _calc_milliohms(resistance_adc, calibration_adc)
-                    resistance_str += f", {milliohms} mOhm"
-                resistance_str += ")"
-        else:
-            resistance_str = "Not tested"
-
-        # Format timestamps
-        if test_timestamp:
-            if hasattr(test_timestamp, 'strftime'):
-                test_timestamp_str = test_timestamp.strftime("%Y-%m-%d %H:%M:%S")
-            else:
-                test_timestamp_str = str(test_timestamp)
-        else:
-            test_timestamp_str = "Not tested"
-
-        if updated_timestamp:
-            if hasattr(updated_timestamp, 'strftime'):
-                updated_timestamp_str = updated_timestamp.strftime("%Y-%m-%d %H:%M:%S")
-            else:
-                updated_timestamp_str = str(updated_timestamp)
-        else:
-            updated_timestamp_str = "N/A"
-
-        # Build cable info display
-        cable_info = f"""[bold yellow]Serial Number:[/bold yellow] {serial_number}
-[bold yellow]SKU:[/bold yellow] {sku}
-[bold yellow]Registered:[/bold yellow] {updated_timestamp_str}
-
-[bold cyan]Cable Details:[/bold cyan]
-  Series: {series}
-  Length: {length} ft
-  Color: {color_pattern}
-  Connector: {connector_type}"""
-
-        # Add description for MISC cables
-        description = cable_record.get("description")
-        if sku.endswith("-MISC") and description:
-            cable_info += f"\n  Description: {description}"
-
-        cable_info += f"""
-
-[bold green]Test Status:[/bold green] {test_status}
-  Resistance: {resistance_str}
-  Tested: {test_timestamp_str}
-  Test Operator: {cable_operator if test_timestamp else 'N/A'}"""
-
-        # Registration code (wholesale)
-        registration_code = cable_record.get("registration_code")
-        if registration_code:
-            cable_info += f"""
-
-[bold blue]Registration Code:[/bold blue] {registration_code}"""
-
-        # Check if cable is assigned to a customer
-        customer_gid = cable_record.get("shopify_gid")
-
-        if customer_gid:
-            # Cable is assigned - fetch customer details
-            from greenlight import shopify_client
-            customer_numeric_id = customer_gid.split('/')[-1]
-            customer = shopify_client.get_customer_by_id(customer_numeric_id)
-
-            if customer:
-                customer_name = customer.get("displayName") or "N/A"
-                customer_email = customer.get("email") or "N/A"
-                customer_phone = customer.get("phone")
-                address = customer.get("defaultAddress")
-                if not customer_phone and address:
-                    customer_phone = address.get("phone")
-                customer_phone = customer_phone or "N/A"
-
-                cable_info += f"""
-
-[bold magenta]✅ Assigned To Customer:[/bold magenta]
-  Name: {customer_name}
-  Email: {customer_email}
-  Phone: {customer_phone}"""
-            else:
-                cable_info += f"""
-
-[bold magenta]Assigned To:[/bold magenta]
-  [yellow]Customer ID: {customer_gid}[/yellow]
-  [dim](Details not available)[/dim]"""
-        else:
-            cable_info += """
-
-[bold magenta]Assignment:[/bold magenta]
-  [yellow]⏳ Not assigned to any customer[/yellow]"""
+        """Display detailed cable information during scanning workflow.
+        Delegates to ScanCableLookupScreen.build_cable_info_panel for consistent display."""
+        lookup_screen = ScanCableLookupScreen(self.ui, self.context)
 
         self.ui.header(operator)
-        self.ui.layout["body"].update(Panel(cable_info, title="📋 Cable Information (Already Registered)", style="cyan"))
+        self.ui.layout["body"].update(lookup_screen.build_cable_info_panel(cable_record))
         self.ui.layout["footer"].update(Panel(
             "Press enter to scan another cable",
             title=""

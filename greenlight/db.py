@@ -221,7 +221,7 @@ def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_ex
 
 def update_cable_test_results(serial_number, test_passed, resistance_adc=None, calibration_adc=None,
                               resistance_adc_p3=None, calibration_adc_p3=None,
-                              operator=None, arduino_unit_id=None):
+                              operator=None, arduino_unit_id=None, notes=None):
     """Update an existing cable record with test results
 
     Args:
@@ -233,6 +233,7 @@ def update_cable_test_results(serial_number, test_passed, resistance_adc=None, c
         calibration_adc_p3: Pin 3 calibration baseline ADC (XLR only)
         operator: Operator ID who ran the test
         arduino_unit_id: Arduino tester unit ID
+        notes: Test failure reason or other notes
     """
     conn = pg_pool.getconn()
     try:
@@ -247,13 +248,14 @@ def update_cable_test_results(serial_number, test_passed, resistance_adc=None, c
                         calibration_adc_p3 = %s,
                         operator = %s,
                         arduino_unit_id = %s,
+                        notes = %s,
                         test_timestamp = CURRENT_TIMESTAMP
                     WHERE serial_number = %s
                     RETURNING test_timestamp
                 """, (
                     test_passed, resistance_adc, calibration_adc,
                     resistance_adc_p3, calibration_adc_p3,
-                    operator, arduino_unit_id, serial_number
+                    operator, arduino_unit_id, notes, serial_number
                 ))
                 result = cur.fetchone()
                 conn.commit()
