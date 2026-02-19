@@ -270,18 +270,22 @@ class TSCLabelPrinter(LabelPrinterInterface):
         if description:
             # Strip redundant connector suffix from SKU descriptions
             description = description.replace(' and right angle plug', '')
-            # Append tagline if it fits: lines 1-2 at 35 chars, line 3 full-width at 55
+            # Append tagline if it fits
             separator = '' if description[-1] in '.!?' else '.'
-            tagline = f'{separator} Made with <3 in Florence, MA'
-            with_tagline = description + tagline
-            parts = self._split_text(with_tagline, max_length=35)
-            if len(parts) <= 2:
-                description = with_tagline
-            elif len(parts) >= 3:
-                # Check if lines 3+ would fit on one wide line
-                overflow = ' '.join(parts[2:])
-                if len(overflow) <= 55:
+            tagline = f'Made with <3 in Florence, MA'
+            if len(description) <= 35:
+                # Description fits on line 1, put tagline on line 2
+                description = description + separator + '\n' + tagline
+            else:
+                # Long description - try appending inline
+                with_tagline = description + separator + ' ' + tagline
+                parts = self._split_text(with_tagline, max_length=35)
+                if len(parts) <= 2:
                     description = with_tagline
+                elif len(parts) >= 3:
+                    overflow = ' '.join(parts[2:])
+                    if len(overflow) <= 55:
+                        description = with_tagline
 
         # Extract test results if present
         test_results = data.get('test_results', {})
@@ -382,12 +386,17 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         # Line 4+: Description (up to 3 lines, 3rd line full-width under QC column)
         if description:
-            desc_parts = self._split_text(description, max_length=35)
-            # Lines 1-2 at narrow width, line 3 merges any remaining text (full-width)
-            final_parts = desc_parts[:2]
-            if len(desc_parts) > 2:
-                final_parts.append(' '.join(desc_parts[2:]))
-            for i, part in enumerate(final_parts):
+            # Split on explicit newlines first, then word-wrap each segment
+            if '\n' in description:
+                desc_parts = description.split('\n')
+            else:
+                desc_parts = self._split_text(description, max_length=35)
+                # Lines 1-2 at narrow width, line 3 merges any remaining text (full-width)
+                final_parts = desc_parts[:2]
+                if len(desc_parts) > 2:
+                    final_parts.append(' '.join(desc_parts[2:]))
+                desc_parts = final_parts
+            for i, part in enumerate(desc_parts):
                 y_desc = y_connector + (i * 24)
                 tspl_commands.append(f'TEXT {x_left},{y_desc},"1",0,1,1,"{part}"')
         else:

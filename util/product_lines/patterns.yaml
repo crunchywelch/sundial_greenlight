@@ -17,6 +17,11 @@ patterns:
     fabric_type: rayon
     description: Black rayon braid with gold tracer
 
+  - code: SL
+    name: Silverline
+    fabric_type: rayon
+    description: Black rayon braid with silver tracer
+
   - code: PW
     name: Pearl White
     fabric_type: rayon
@@ -50,13 +55,3 @@ patterns:
     name: Electric Houndstooth
     fabric_type: cotton
     description: Neon green cotton braid with neon purple houndstooth pattern
-
-# ========================================
-# FABRIC TYPE REFERENCE
-# ========================================
-#
-# Product lines should specify their fabric type (braid_material)
-# and will automatically get access to patterns matching that fabric type.
-#
-# Rayon patterns: BG, W
-# Cotton patterns: RS, BU, HP, HB, EH

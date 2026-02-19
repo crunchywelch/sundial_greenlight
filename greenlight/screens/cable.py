@@ -19,6 +19,24 @@ from rich.table import Table
 import time
 
 
+def _calc_milliohms(adc_value, cal_adc):
+    """Derive cable resistance in milliohms from ADC values.
+
+    Uses the same formula as the Arduino firmware:
+    sense voltage and cal voltage from 10-bit ADC, current through
+    20Ohm high-side sense resistor, resistance = delta_V / current.
+    """
+    sense_v = (adc_value / 1023.0) * 5.0
+    cal_v = (cal_adc / 1023.0) * 5.0
+    cal_current = (5.0 - cal_v) / 20.0
+    if cal_current <= 0.001:
+        return 0
+    resistance = (sense_v - cal_v) / cal_current
+    if resistance < 0:
+        resistance = 0
+    return int(resistance * 1000)
+
+
 class ScanCableLookupScreen(Screen):
     """Main cable interface - scan to lookup, test, assign, or register cables"""
 
@@ -58,15 +76,23 @@ class ScanCableLookupScreen(Screen):
                 serial_number = self._pending_serial
                 self._pending_serial = None
             else:
+                # Check if cable tester is available for calibrate option
+                from greenlight.hardware.interfaces import hardware_manager
+                cable_tester = hardware_manager.get_cable_tester()
+                tester_available = cable_tester and cable_tester.is_ready() if cable_tester else False
+
                 # Update display
                 self.ui.header(operator)
                 self.ui.layout["body"].update(body_panel)
+                footer_parts = ["🔍 [bold green]Scan barcode[/bold green]"]
+                footer_parts.append("[cyan]'r'[/cyan] = Register cables")
+                if tester_available:
+                    footer_parts.append("[cyan]'c'[/cyan] = Calibrate tester")
+                footer_parts.append("[cyan]'w'[/cyan] = Wholesale codes")
+                footer_parts.append("[cyan]'p'[/cyan] = Wire labels")
+                footer_parts.append("[cyan]'q'[/cyan] = Logout")
                 self.ui.layout["footer"].update(Panel(
-                    "🔍 [bold green]Scan barcode[/bold green] | "
-                    "[cyan]'r'[/cyan] = Register cables | "
-                    "[cyan]'w'[/cyan] = Wholesale codes | "
-                    "[cyan]'p'[/cyan] = Wire labels | "
-                    "[cyan]'q'[/cyan] = Logout",
+                    " | ".join(footer_parts),
                     title="Options", border_style="green"
                 ))
                 self.ui.render()
@@ -96,6 +122,10 @@ class ScanCableLookupScreen(Screen):
                 # Go to wire label printing
                 from greenlight.screens.wire import WireLabelScreen
                 return ScreenResult(NavigationAction.PUSH, WireLabelScreen, self.context.copy())
+            elif input_lower == 'c':
+                # Run manual calibration
+                self.run_manual_calibration(operator)
+                continue
 
             # Otherwise treat as serial number lookup
             from greenlight.db import format_serial_number, get_audio_cable
@@ -234,9 +264,12 @@ class ScanCableLookupScreen(Screen):
             if choice_lower == 't' and tester_available:
                 # Run cable tests
                 self.run_cable_test(operator, cable_record)
-                # Refresh cable record and show details again
+                # Refresh cable record and check if test passed
                 from greenlight.db import get_audio_cable
                 updated_record = get_audio_cable(cable_record['serial_number'])
+                if updated_record and updated_record.get('test_passed') is True and printer_available:
+                    # Auto-print label on pass
+                    self.print_label_for_cable(operator, updated_record)
                 if updated_record:
                     return self.show_cable_info_with_actions(operator, updated_record)
                 return None
@@ -456,33 +489,45 @@ class ScanCableLookupScreen(Screen):
         calibration_adc = None
 
         # Run continuity test
+        cont_reason = None
         try:
             cont_result = cable_tester.run_continuity_test()
             if cont_result.passed:
                 cont_status = "[green]PASS[/green]"
             else:
-                cont_status = "[red]FAIL[/red]"
+                cont_reason = cont_result.reason
+                reason_display = {
+                    'REVERSED': 'Reversed polarity',
+                    'CROSSED': 'Tip/sleeve shorted',
+                    'NO_CABLE': 'No cable detected',
+                    'TIP_OPEN': 'Tip open',
+                    'SLEEVE_OPEN': 'Sleeve open',
+                }.get(cont_reason, cont_reason or 'Unknown')
+                cont_status = f"[red]FAIL ({reason_display})[/red]"
                 all_passed = False
         except Exception as e:
             cont_status = "[yellow]ERROR[/yellow]"
             all_passed = False
 
-        # Update footer and run resistance test
-        self.ui.layout["footer"].update(Panel(f"🔬 Testing... CON: {cont_status} | Running resistance test", title="Testing"))
-        self.ui.render()
+        # Only run resistance test if continuity passed
+        if all_passed:
+            self.ui.layout["footer"].update(Panel(f"🔬 Testing... CON: {cont_status} | Running resistance test", title="Testing"))
+            self.ui.render()
 
-        try:
-            res_result = cable_tester.run_resistance_test()
-            resistance_adc = res_result.adc_value
-            calibration_adc = res_result.calibration_adc
-            if res_result.passed:
-                res_status = "[green]PASS[/green]"
-            else:
-                res_status = "[red]FAIL[/red]"
+            try:
+                res_result = cable_tester.run_resistance_test()
+                resistance_adc = res_result.adc_value
+                calibration_adc = res_result.calibration_adc
+                if res_result.passed:
+                    res_status = "[green]PASS[/green]"
+                else:
+                    res_status = "[red]FAIL[/red]"
+                    all_passed = False
+            except Exception as e:
+                res_status = "[yellow]ERROR[/yellow]"
                 all_passed = False
-        except Exception as e:
-            res_status = "[yellow]ERROR[/yellow]"
-            all_passed = False
+        else:
+            res_status = "[dim]SKIP[/dim]"
 
         # Always save test results to database
         saved_status = ""
@@ -553,20 +598,37 @@ class ScanCableLookupScreen(Screen):
         res_status = "?"
         resistance_adc = None
         calibration_adc = None
+        resistance_adc_p3 = None
+        calibration_adc_p3 = None
 
         try:
             cont_result = cable_tester.run_xlr_continuity_test()
             if cont_result.passed:
                 cont_status = "[green]PASS[/green]"
             else:
-                cont_status = "[red]FAIL[/red]"
+                cont_reason = cont_result.reason or 'Unknown'
+                # Parse XLR reasons: P1_OPEN, P2_P3_SHORT, NO_CABLE, etc.
+                reason_parts = cont_reason.split(',')
+                friendly = []
+                for part in reason_parts:
+                    part = part.strip()
+                    if part == 'NO_CABLE':
+                        friendly.append('No cable')
+                    elif part.endswith('_OPEN'):
+                        pin = part.replace('_OPEN', '')
+                        friendly.append(f'{pin} open')
+                    elif '_SHORT' in part:
+                        friendly.append(part.replace('_', '/').replace('/SHORT', ' short'))
+                    else:
+                        friendly.append(part)
+                cont_status = f"[red]FAIL ({', '.join(friendly)})[/red]"
                 all_passed = False
         except Exception as e:
             cont_status = "[yellow]ERROR[/yellow]"
             all_passed = False
 
-        # Run shell bond test (touring series only)
-        if is_touring:
+        # Run shell bond test (touring series only, skip if continuity failed)
+        if is_touring and all_passed:
             progress = f"🔬 Testing... CON: {cont_status} | Running shell bond test"
             self.ui.layout["footer"].update(Panel(progress, title="Testing"))
             self.ui.render()
@@ -576,37 +638,58 @@ class ScanCableLookupScreen(Screen):
                 if shell_result.passed:
                     shell_status = "[green]PASS[/green]"
                 else:
-                    shell_status = "[red]FAIL[/red]"
+                    shell_reason = shell_result.reason or 'Unknown'
+                    reason_parts = shell_reason.split(',')
+                    friendly = []
+                    for part in reason_parts:
+                        part = part.strip()
+                        if part == 'NEAR_SHELL_OPEN':
+                            friendly.append('Near shell open')
+                        elif part == 'FAR_SHELL_OPEN':
+                            friendly.append('Far shell open')
+                        elif 'SHORT' in part:
+                            friendly.append(part.replace('_', '/').replace('/SHORT', ' short'))
+                        else:
+                            friendly.append(part)
+                    shell_status = f"[red]FAIL ({', '.join(friendly)})[/red]"
                     all_passed = False
             except Exception as e:
                 shell_status = "[yellow]ERROR[/yellow]"
                 all_passed = False
+        elif is_touring:
+            shell_status = "[dim]SKIP[/dim]"
 
-        # Run XLR resistance test
-        if is_touring:
-            progress = f"🔬 Testing... CON: {cont_status} | SHELL: {shell_status} | Running resistance test"
-        else:
-            progress = f"🔬 Testing... CON: {cont_status} | Running resistance test"
-        self.ui.layout["footer"].update(Panel(progress, title="Testing"))
-        self.ui.render()
-
-        try:
-            res_result = cable_tester.run_xlr_resistance_test()
-            resistance_adc = res_result.pin2_adc  # Store pin2 ADC as primary
-            calibration_adc = res_result.pin2_cal_adc
-            if res_result.passed:
-                res_status = "[green]PASS[/green]"
+        # Only run resistance test if continuity passed
+        if all_passed:
+            if is_touring:
+                progress = f"🔬 Testing... CON: {cont_status} | SHELL: {shell_status} | Running resistance test"
             else:
-                res_status = "[red]FAIL[/red]"
+                progress = f"🔬 Testing... CON: {cont_status} | Running resistance test"
+            self.ui.layout["footer"].update(Panel(progress, title="Testing"))
+            self.ui.render()
+
+            try:
+                res_result = cable_tester.run_xlr_resistance_test()
+                resistance_adc = res_result.pin2_adc
+                calibration_adc = res_result.pin2_cal_adc
+                resistance_adc_p3 = res_result.pin3_adc
+                calibration_adc_p3 = res_result.pin3_cal_adc
+                if res_result.passed:
+                    res_status = "[green]PASS[/green]"
+                else:
+                    res_status = "[red]FAIL[/red]"
+                    all_passed = False
+            except Exception as e:
+                res_status = "[yellow]ERROR[/yellow]"
                 all_passed = False
-        except Exception as e:
-            res_status = "[yellow]ERROR[/yellow]"
-            all_passed = False
+        else:
+            res_status = "[dim]SKIP[/dim]"
 
         # Save test results
         saved_status = ""
         try:
-            update_cable_test_results(serial_number, all_passed, resistance_adc=resistance_adc, calibration_adc=calibration_adc, operator=operator)
+            update_cable_test_results(serial_number, all_passed, resistance_adc=resistance_adc, calibration_adc=calibration_adc,
+                                     resistance_adc_p3=resistance_adc_p3, calibration_adc_p3=calibration_adc_p3, operator=operator)
             saved_status = " | [green]Saved[/green]"
         except Exception as e:
             logger.error(f"Failed to save test results: {e}")
@@ -768,23 +851,121 @@ class ScanCableLookupScreen(Screen):
                 pass
             return False
 
-    @staticmethod
-    def _calc_milliohms(adc_value, cal_adc):
-        """Derive cable resistance in milliohms from ADC values.
+    def run_manual_calibration(self, operator):
+        """Run manual TS and XLR calibration from the main scan screen"""
+        from greenlight.hardware.interfaces import hardware_manager
 
-        Uses the same formula as the Arduino firmware:
-        sense voltage and cal voltage from 10-bit ADC, current through
-        20Ω high-side sense resistor, resistance = delta_V / current.
-        """
-        sense_v = (adc_value / 1023.0) * 5.0
-        cal_v = (cal_adc / 1023.0) * 5.0
-        cal_current = (5.0 - cal_v) / 20.0
-        if cal_current <= 0.001:
-            return 0
-        resistance = (sense_v - cal_v) / cal_current
-        if resistance < 0:
-            resistance = 0
-        return int(resistance * 1000)
+        cable_tester = hardware_manager.get_cable_tester()
+        if not cable_tester or not cable_tester.is_ready():
+            return
+
+        self.ui.console.clear()
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(
+            "[bold cyan]Cable Tester Calibration[/bold cyan]\n\n"
+            "Insert the [bold]TS reference cable[/bold] (zero-ohm short)\n"
+            "into the test jacks and press [green]Enter[/green] to calibrate.\n\n"
+            "[dim]This calibrates the TS (1/4\") tester.[/dim]",
+            title="TS Calibration"
+        ))
+        self.ui.layout["footer"].update(Panel(
+            "[green]Enter[/green] = Calibrate TS | [cyan]'s'[/cyan] = Skip to XLR | [cyan]'q'[/cyan] = Cancel",
+            title=""
+        ))
+        self.ui.render()
+
+        try:
+            choice = self.ui.console.input("").strip().lower()
+        except KeyboardInterrupt:
+            return
+
+        if choice == 'q':
+            return
+
+        ts_result = None
+        if choice != 's':
+            # Run TS calibration
+            self.ui.layout["footer"].update(Panel("🔧 Calibrating TS...", title="Calibrating"))
+            self.ui.render()
+
+            try:
+                ts_result = cable_tester.calibrate()
+                if ts_result.success:
+                    ts_msg = f"✅ TS calibration OK (ADC: {ts_result.adc_value})"
+                else:
+                    ts_msg = f"❌ TS calibration failed: {ts_result.error}"
+            except Exception as e:
+                ts_msg = f"❌ TS calibration error: {e}"
+                logger.error(f"TS calibration error: {e}")
+
+            self.ui.layout["body"].update(Panel(
+                f"{ts_msg}\n\n"
+                "Now insert the [bold]XLR reference cable[/bold] (zero-ohm short)\n"
+                "and press [green]Enter[/green] to calibrate XLR.\n\n"
+                "[dim]Or press 'q' to finish.[/dim]",
+                title="XLR Calibration"
+            ))
+            self.ui.layout["footer"].update(Panel(
+                "[green]Enter[/green] = Calibrate XLR | [cyan]'q'[/cyan] = Done",
+                title=""
+            ))
+            self.ui.render()
+        else:
+            # Skipped TS, go straight to XLR
+            self.ui.layout["body"].update(Panel(
+                "Insert the [bold]XLR reference cable[/bold] (zero-ohm short)\n"
+                "into the test jacks and press [green]Enter[/green] to calibrate.\n\n"
+                "[dim]This calibrates the XLR tester.[/dim]",
+                title="XLR Calibration"
+            ))
+            self.ui.layout["footer"].update(Panel(
+                "[green]Enter[/green] = Calibrate XLR | [cyan]'q'[/cyan] = Done",
+                title=""
+            ))
+            self.ui.render()
+
+        try:
+            choice = self.ui.console.input("").strip().lower()
+        except KeyboardInterrupt:
+            return
+
+        if choice == 'q':
+            return
+
+        # Run XLR calibration
+        self.ui.layout["footer"].update(Panel("🔧 Calibrating XLR...", title="Calibrating"))
+        self.ui.render()
+
+        try:
+            xlr_result = cable_tester.xlr_calibrate()
+            if xlr_result.success:
+                xlr_msg = f"✅ XLR calibration OK (P2 ADC: {xlr_result.pin2_adc}, P3 ADC: {xlr_result.pin3_adc})"
+            else:
+                xlr_msg = f"❌ XLR calibration failed: {xlr_result.error}"
+        except Exception as e:
+            xlr_msg = f"❌ XLR calibration error: {e}"
+            logger.error(f"XLR calibration error: {e}")
+
+        # Show final results
+        results = []
+        if ts_result:
+            if ts_result.success:
+                results.append(f"✅ TS: ADC {ts_result.adc_value}")
+            else:
+                results.append(f"❌ TS: {ts_result.error}")
+        results.append(xlr_msg)
+
+        self.ui.layout["body"].update(Panel(
+            "\n".join(results),
+            title="Calibration Complete", border_style="green"
+        ))
+        self.ui.layout["footer"].update(Panel("Press [green]Enter[/green] to continue", title=""))
+        self.ui.render()
+
+        try:
+            self.ui.console.input("")
+        except KeyboardInterrupt:
+            pass
 
     def build_cable_info_panel(self, cable_record):
         """Build the cable information panel (extracted for reuse)"""
@@ -796,29 +977,43 @@ class ScanCableLookupScreen(Screen):
         connector_type = cable_record.get("connector_type", "N/A")
         resistance_adc = cable_record.get("resistance_adc")
         calibration_adc = cable_record.get("calibration_adc")
+        resistance_adc_p3 = cable_record.get("resistance_adc_p3")
+        calibration_adc_p3 = cable_record.get("calibration_adc_p3")
         test_passed = cable_record.get("test_passed")
         cable_operator = cable_record.get("operator", "N/A")
         test_timestamp = cable_record.get("test_timestamp")
         updated_timestamp = cable_record.get("updated_timestamp")
+        is_xlr = 'XLR' in connector_type.upper() or 'vocal' in series.lower()
 
         # Format test results
         if test_passed is True:
-            resistance_str = f"PASS (ADC: {resistance_adc}"
-            if calibration_adc is not None and resistance_adc is not None:
-                milliohms = self._calc_milliohms(resistance_adc, calibration_adc)
-                resistance_str += f", {milliohms} mOhm"
-            resistance_str += ")"
             test_status = "✅ PASS"
         elif test_passed is False:
-            resistance_str = f"FAIL (ADC: {resistance_adc}"
-            if calibration_adc is not None and resistance_adc is not None:
-                milliohms = self._calc_milliohms(resistance_adc, calibration_adc)
-                resistance_str += f", {milliohms} mOhm"
-            resistance_str += ")"
             test_status = "❌ FAIL"
         else:
-            resistance_str = "Not tested"
             test_status = "⏳ Not tested"
+
+        # Format resistance display
+        if test_passed is not None and resistance_adc is not None:
+            pass_fail = "PASS" if test_passed else "FAIL"
+            if is_xlr and resistance_adc_p3 is not None:
+                # XLR: show both pins on one line
+                p2_detail = f"ADC:{resistance_adc}"
+                if calibration_adc is not None:
+                    p2_detail += f"/{_calc_milliohms(resistance_adc, calibration_adc)}mOhm"
+                p3_detail = f"ADC:{resistance_adc_p3}"
+                if calibration_adc_p3 is not None:
+                    p3_detail += f"/{_calc_milliohms(resistance_adc_p3, calibration_adc_p3)}mOhm"
+                resistance_str = f"{pass_fail} (P2: {p2_detail}, P3: {p3_detail})"
+            else:
+                # TS or legacy XLR without pin3 data
+                resistance_str = f"{pass_fail} (ADC: {resistance_adc}"
+                if calibration_adc is not None:
+                    milliohms = _calc_milliohms(resistance_adc, calibration_adc)
+                    resistance_str += f", {milliohms} mOhm"
+                resistance_str += ")"
+        else:
+            resistance_str = "Not tested"
 
         # Format timestamps
         if test_timestamp:
@@ -1048,7 +1243,9 @@ class ColorPatternSelectionScreen(Screen):
         operator = self.context.get("operator", "")
         selected_series = self.context.get("selected_series")
         color_options = get_distinct_color_patterns(selected_series)
-        
+        # Sort Miscellaneous to end of list (before Back)
+        color_options.sort(key=lambda c: (c.lower() == 'miscellaneous', c))
+
         if not color_options:
             self.ui.header(operator)
             self.ui.layout["body"].update(Panel(f"No color patterns found for {selected_series}", title="Error", style="red"))
@@ -1278,7 +1475,9 @@ class ConnectorTypeSelectionScreen(Screen):
         selected_color = self.context.get("selected_color_pattern")
         selected_length = self.context.get("selected_length")
         connector_options = get_distinct_connector_types(selected_series, selected_color, selected_length)
-        
+        # Put straight connectors (TS-TS, XLR-XLR) before right-angle (RA-)
+        connector_options.sort(key=lambda c: (c.upper().startswith('RA'), c))
+
         if not connector_options:
             self.ui.header(operator)
             self.ui.layout["body"].update(Panel(f"No connector types found for the selected attributes", title="Error", style="red"))
@@ -1469,7 +1668,8 @@ class ScanCableIntakeScreen(Screen):
 
         scanned_count = 0
         scanned_serials = []
-        self._pending_serial = None
+        # Use prefilled serial from "not found → register" flow if available
+        self._pending_serial = self.context.get("prefill_serial")
 
         while True:
             # Check if we have a pending serial from offer_print_label
@@ -1531,45 +1731,6 @@ class ScanCableIntakeScreen(Screen):
             # Format the serial number (pad to 6 digits)
             from greenlight.db import format_serial_number
             formatted_serial = format_serial_number(serial_number)
-
-            # Clear and show confirmation screen with scanned serial number
-            self.ui.console.clear()
-            serial_display = f"[bold yellow]{formatted_serial}[/bold yellow]"
-
-            self.ui.header(operator)
-            self.ui.layout["body"].update(Panel(
-                f"[bold cyan]Scanned Serial Number:[/bold cyan]\n\n"
-                f"{serial_display}\n\n"
-                f"Cable Type: {cable_type.name()}\n"
-                f"SKU: {cable_type.sku}",
-                title="📋 Confirm Serial Number",
-                border_style="cyan"
-            ))
-            self.ui.layout["footer"].update(Panel(
-                "Press [green]Enter[/green] to save | 'n' to skip | 'q' to quit",
-                title="Confirm"
-            ))
-            self.ui.render()
-
-            # Wait for confirmation
-            try:
-                confirmation = self.ui.console.input("").strip().lower()
-            except KeyboardInterrupt:
-                break
-
-            # Handle confirmation response
-            if confirmation == 'q':
-                break
-            elif confirmation == 'n':
-                # Skip this serial number
-                self.ui.layout["footer"].update(Panel(
-                    f"⏭️  Skipped: {serial_number}",
-                    title="Skipped", style="yellow"
-                ))
-                self.ui.render()
-                time.sleep(0.8)
-                continue
-            # Empty string (Enter pressed) or anything else means confirm
 
             # For MISC cables, always try to update if exists (to add/update description)
             is_misc_cable = cable_type.sku.endswith("-MISC")
@@ -1736,6 +1897,10 @@ class ScanCableIntakeScreen(Screen):
                     cable_record = get_audio_cable(serial_number)
                     if cable_record:
                         lookup_screen.run_cable_test(operator, cable_record)
+                        # Auto-print label if test passed
+                        updated_record = get_audio_cable(serial_number)
+                        if updated_record and updated_record.get('test_passed') is True and printer_available:
+                            lookup_screen.print_label_for_cable(operator, updated_record)
                     # Loop back to show updated cable info
                     continue
                 elif choice_lower == 'p' and printer_available and cable_tested:
@@ -1851,29 +2016,43 @@ class ScanCableIntakeScreen(Screen):
         connector_type = cable_record.get("connector_type", "N/A")
         resistance_adc = cable_record.get("resistance_adc")
         calibration_adc = cable_record.get("calibration_adc")
+        resistance_adc_p3 = cable_record.get("resistance_adc_p3")
+        calibration_adc_p3 = cable_record.get("calibration_adc_p3")
         test_passed = cable_record.get("test_passed")
         cable_operator = cable_record.get("operator", "N/A")
         test_timestamp = cable_record.get("test_timestamp")
         updated_timestamp = cable_record.get("updated_timestamp")
+        is_xlr = 'XLR' in connector_type.upper() or 'vocal' in series.lower()
 
         # Format test results
         if test_passed is True:
-            resistance_str = f"PASS (ADC: {resistance_adc}"
-            if calibration_adc is not None and resistance_adc is not None:
-                milliohms = self._calc_milliohms(resistance_adc, calibration_adc)
-                resistance_str += f", {milliohms} mOhm"
-            resistance_str += ")"
             test_status = "✅ PASS"
         elif test_passed is False:
-            resistance_str = f"FAIL (ADC: {resistance_adc}"
-            if calibration_adc is not None and resistance_adc is not None:
-                milliohms = self._calc_milliohms(resistance_adc, calibration_adc)
-                resistance_str += f", {milliohms} mOhm"
-            resistance_str += ")"
             test_status = "❌ FAIL"
         else:
-            resistance_str = "Not tested"
             test_status = "⏳ Not tested"
+
+        # Format resistance display
+        if test_passed is not None and resistance_adc is not None:
+            pass_fail = "PASS" if test_passed else "FAIL"
+            if is_xlr and resistance_adc_p3 is not None:
+                # XLR: show both pins on one line
+                p2_detail = f"ADC:{resistance_adc}"
+                if calibration_adc is not None:
+                    p2_detail += f"/{_calc_milliohms(resistance_adc, calibration_adc)}mOhm"
+                p3_detail = f"ADC:{resistance_adc_p3}"
+                if calibration_adc_p3 is not None:
+                    p3_detail += f"/{_calc_milliohms(resistance_adc_p3, calibration_adc_p3)}mOhm"
+                resistance_str = f"{pass_fail} (P2: {p2_detail}, P3: {p3_detail})"
+            else:
+                # TS or legacy XLR without pin3 data
+                resistance_str = f"{pass_fail} (ADC: {resistance_adc}"
+                if calibration_adc is not None:
+                    milliohms = _calc_milliohms(resistance_adc, calibration_adc)
+                    resistance_str += f", {milliohms} mOhm"
+                resistance_str += ")"
+        else:
+            resistance_str = "Not tested"
 
         # Format timestamps
         if test_timestamp:

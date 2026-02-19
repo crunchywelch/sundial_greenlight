@@ -87,7 +87,8 @@ def get_audio_cable(serial_number):
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT ac.serial_number, ac.sku, ac.resistance_adc, ac.calibration_adc, ac.test_passed,
+                SELECT ac.serial_number, ac.sku, ac.resistance_adc, ac.calibration_adc,
+                       ac.resistance_adc_p3, ac.calibration_adc_p3, ac.test_passed,
                        ac.operator, ac.arduino_unit_id, ac.notes, ac.test_timestamp,
                        ac.shopify_gid, ac.updated_timestamp, ac.description,
                        ac.registration_code,
@@ -218,14 +219,18 @@ def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_ex
     finally:
         pg_pool.putconn(conn)
 
-def update_cable_test_results(serial_number, test_passed, resistance_adc=None, calibration_adc=None, operator=None, arduino_unit_id=None):
+def update_cable_test_results(serial_number, test_passed, resistance_adc=None, calibration_adc=None,
+                              resistance_adc_p3=None, calibration_adc_p3=None,
+                              operator=None, arduino_unit_id=None):
     """Update an existing cable record with test results
 
     Args:
         serial_number: Cable serial number
         test_passed: Whether the cable passed all tests
-        resistance_adc: Raw ADC value from resistance test
-        calibration_adc: Calibration baseline ADC at time of test
+        resistance_adc: Raw ADC value from resistance test (pin2 for XLR)
+        calibration_adc: Calibration baseline ADC at time of test (pin2 for XLR)
+        resistance_adc_p3: Pin 3 raw ADC value (XLR only)
+        calibration_adc_p3: Pin 3 calibration baseline ADC (XLR only)
         operator: Operator ID who ran the test
         arduino_unit_id: Arduino tester unit ID
     """
@@ -238,13 +243,17 @@ def update_cable_test_results(serial_number, test_passed, resistance_adc=None, c
                     SET test_passed = %s,
                         resistance_adc = %s,
                         calibration_adc = %s,
+                        resistance_adc_p3 = %s,
+                        calibration_adc_p3 = %s,
                         operator = %s,
                         arduino_unit_id = %s,
                         test_timestamp = CURRENT_TIMESTAMP
                     WHERE serial_number = %s
                     RETURNING test_timestamp
                 """, (
-                    test_passed, resistance_adc, calibration_adc, operator, arduino_unit_id, serial_number
+                    test_passed, resistance_adc, calibration_adc,
+                    resistance_adc_p3, calibration_adc_p3,
+                    operator, arduino_unit_id, serial_number
                 ))
                 result = cur.fetchone()
                 conn.commit()
