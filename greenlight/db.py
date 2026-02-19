@@ -87,13 +87,14 @@ def get_audio_cable(serial_number):
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT ac.serial_number, ac.sku, ac.resistance_adc, ac.test_passed,
+                SELECT ac.serial_number, ac.sku, ac.resistance_adc, ac.calibration_adc, ac.test_passed,
                        ac.operator, ac.arduino_unit_id, ac.notes, ac.test_timestamp,
                        ac.shopify_gid, ac.updated_timestamp, ac.description,
                        ac.registration_code,
                        cs.series, COALESCE(ac.length, CAST(cs.length AS REAL)) as length,
                        cs.color_pattern, cs.connector_type,
-                       cs.core_cable, cs.braid_material
+                       cs.core_cable, cs.braid_material,
+                       cs.description as sku_description
                 FROM audio_cables ac
                 JOIN cable_skus cs ON ac.sku = cs.sku
                 WHERE ac.serial_number = %s
@@ -217,13 +218,14 @@ def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_ex
     finally:
         pg_pool.putconn(conn)
 
-def update_cable_test_results(serial_number, test_passed, resistance_adc=None, operator=None, arduino_unit_id=None):
+def update_cable_test_results(serial_number, test_passed, resistance_adc=None, calibration_adc=None, operator=None, arduino_unit_id=None):
     """Update an existing cable record with test results
 
     Args:
         serial_number: Cable serial number
         test_passed: Whether the cable passed all tests
         resistance_adc: Raw ADC value from resistance test
+        calibration_adc: Calibration baseline ADC at time of test
         operator: Operator ID who ran the test
         arduino_unit_id: Arduino tester unit ID
     """
@@ -235,13 +237,14 @@ def update_cable_test_results(serial_number, test_passed, resistance_adc=None, o
                     UPDATE audio_cables
                     SET test_passed = %s,
                         resistance_adc = %s,
+                        calibration_adc = %s,
                         operator = %s,
                         arduino_unit_id = %s,
                         test_timestamp = CURRENT_TIMESTAMP
                     WHERE serial_number = %s
                     RETURNING test_timestamp
                 """, (
-                    test_passed, resistance_adc, operator, arduino_unit_id, serial_number
+                    test_passed, resistance_adc, calibration_adc, operator, arduino_unit_id, serial_number
                 ))
                 result = cur.fetchone()
                 conn.commit()
@@ -250,6 +253,38 @@ def update_cable_test_results(serial_number, test_passed, resistance_adc=None, o
         print(f"❌ Error updating cable test results: {e}")
         conn.rollback()
         return None
+    finally:
+        pg_pool.putconn(conn)
+
+
+def update_cable_description(serial_number, description):
+    """Update the description for a cable (used for MISC cables)
+
+    Args:
+        serial_number: Cable serial number
+        description: New description text
+
+    Returns:
+        True if updated, False on error or not found
+    """
+    conn = pg_pool.getconn()
+    try:
+        formatted_serial = format_serial_number(serial_number)
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE audio_cables
+                    SET description = %s
+                    WHERE serial_number = %s
+                    RETURNING serial_number
+                """, (description, formatted_serial))
+                result = cur.fetchone()
+                conn.commit()
+                return result is not None
+    except Exception as e:
+        print(f"❌ Error updating cable description: {e}")
+        conn.rollback()
+        return False
     finally:
         pg_pool.putconn(conn)
 

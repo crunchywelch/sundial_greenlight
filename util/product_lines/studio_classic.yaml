@@ -12,6 +12,7 @@ lengths:
   - 3
   - 6
   - 12
+  - 20
 
 # Connector configurations
 connectors:

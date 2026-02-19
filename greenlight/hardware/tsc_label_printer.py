@@ -267,6 +267,21 @@ class TSCLabelPrinter(LabelPrinterInterface):
         connector_type = data.get('connector_type', 'Unknown')
         sku = data.get('sku', 'UNKNOWN')
         description = data.get('description')
+        if description:
+            # Strip redundant connector suffix from SKU descriptions
+            description = description.replace(' and right angle plug', '')
+            # Append tagline if it fits: lines 1-2 at 35 chars, line 3 full-width at 55
+            separator = '' if description[-1] in '.!?' else '.'
+            tagline = f'{separator} Made with <3 in Florence, MA'
+            with_tagline = description + tagline
+            parts = self._split_text(with_tagline, max_length=35)
+            if len(parts) <= 2:
+                description = with_tagline
+            elif len(parts) >= 3:
+                # Check if lines 3+ would fit on one wide line
+                overflow = ' '.join(parts[2:])
+                if len(overflow) <= 55:
+                    description = with_tagline
 
         # Extract test results if present
         test_results = data.get('test_results', {})
@@ -322,7 +337,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
         # QC results column - tighter spacing
         y_qc_con = 70     # CON result
         y_qc_res = 90     # RES result
-        y_qc_cap = 110    # CAP result
+        y_qc_date = 110   # Test date
         y_qc_op = 130     # QC operator
 
         # X positions (from left, in dots)
@@ -358,34 +373,37 @@ class TSCLabelPrinter(LabelPrinterInterface):
             cont_status = "PASS" if continuity_pass else "X"
             tspl_commands.append(f'TEXT {x_qc},{y_qc_con},"1",0,1,1,"CON: {cont_status}"')
 
-        # Line 3: Length and Color/Pattern + Resistance result
+        # Line 3: Length and Color/Pattern
         if is_misc:
-            # For MISC cables, show "Special Baby" instead of color pattern
             length_text = f"{length}' Special Baby"
-            tspl_commands.append(f'TEXT {x_left},{y_length},"2",0,1,1,"{length_text}"')
-
-            # Line 4: Connector type (or custom description if provided)
-            if description:
-                desc_parts = self._split_text(description, max_length=35)
-                tspl_commands.append(f'TEXT {x_left},{y_connector},"1",0,1,1,"{desc_parts[0]}"')
-                # Line 5: Second line of description if present
-                if len(desc_parts) > 1:
-                    y_desc_line2 = y_connector + 24  # 24 dots below first description line
-                    tspl_commands.append(f'TEXT {x_left},{y_desc_line2},"1",0,1,1,"{desc_parts[1]}"')
-            else:
-                tspl_commands.append(f'TEXT {x_left},{y_connector},"1",0,1,1,"{connector_display}"')
         else:
-            # Normal cable: show length and color pattern
             length_text = f"{length}' {color_pattern}"
-            tspl_commands.append(f'TEXT {x_left},{y_length},"2",0,1,1,"{length_text}"')
+        tspl_commands.append(f'TEXT {x_left},{y_length},"2",0,1,1,"{length_text}"')
 
-            # Line 4: Connector type
+        # Line 4+: Description (up to 3 lines, 3rd line full-width under QC column)
+        if description:
+            desc_parts = self._split_text(description, max_length=35)
+            # Lines 1-2 at narrow width, line 3 merges any remaining text (full-width)
+            final_parts = desc_parts[:2]
+            if len(desc_parts) > 2:
+                final_parts.append(' '.join(desc_parts[2:]))
+            for i, part in enumerate(final_parts):
+                y_desc = y_connector + (i * 24)
+                tspl_commands.append(f'TEXT {x_left},{y_desc},"1",0,1,1,"{part}"')
+        else:
             tspl_commands.append(f'TEXT {x_left},{y_connector},"1",0,1,1,"{connector_display}"')
 
         # Add resistance result
         if has_test_results:
             res_status = "PASS" if resistance_pass else "X"
             tspl_commands.append(f'TEXT {x_qc},{y_qc_res},"1",0,1,1,"RES: {res_status}"')
+
+        # Test date
+        if has_test_results:
+            test_timestamp = test_results.get('test_timestamp')
+            if test_timestamp:
+                date_str = test_timestamp.strftime("%-m/%-d/%y %-I:%M%p").lower()
+                tspl_commands.append(f'TEXT {x_qc},{y_qc_date},"1",0,1,1,"{date_str}"')
 
         # Operator at bottom of QC column
         if has_test_results and operator:
@@ -669,6 +687,9 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
     def _format_connector_type(self, connector_type: str) -> str:
         """Format connector type for display on label"""
+        # Normalize en-dashes/em-dashes to ASCII hyphens (DB uses en-dashes)
+        normalized = connector_type.replace('\u2013', '-').replace('\u2014', '-')
+
         # Map connector types to display text
         connector_map = {
             'TS-TS': 'Straight TS',
@@ -676,10 +697,12 @@ class TSCLabelPrinter(LabelPrinterInterface):
             'TS-TRS': 'TS to TRS',
             'XLR-XLR': 'XLR to XLR',
             'XLR-TRS': 'XLR to TRS',
+            'RA-TS': 'Right Angle TS',
+            'TS-RA': 'Right Angle TS',
             'Straight': 'Straight Connectors',
             'Right Angle': 'Right Angle',
         }
-        return connector_map.get(connector_type, connector_type)
+        return connector_map.get(normalized, normalized)
 
     def _split_text(self, text: str, max_length: int) -> list:
         """Split text into multiple lines if too long"""

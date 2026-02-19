@@ -49,6 +49,48 @@ class CalibrationResult:
     error: Optional[str] = None
 
 
+@dataclass
+class XlrContinuityResult:
+    """Result from XLR continuity test (3x3 pin matrix)"""
+    passed: bool
+    matrix: Dict[str, bool]  # P11..P33 → bool
+    reason: Optional[str] = None
+
+
+@dataclass
+class XlrShellResult:
+    """Result from XLR shell bond test"""
+    passed: bool
+    near_shell_bond: bool
+    far_shell_bond: bool
+    shell_to_shell: bool
+    reason: Optional[str] = None
+
+
+@dataclass
+class XlrResistanceResult:
+    """Result from XLR resistance test (per-pin)"""
+    passed: bool
+    pin2_adc: int
+    pin3_adc: int
+    calibrated: bool
+    pin2_cal_adc: Optional[int] = None
+    pin3_cal_adc: Optional[int] = None
+    pin2_milliohms: Optional[int] = None
+    pin2_ohms: Optional[float] = None
+    pin3_milliohms: Optional[int] = None
+    pin3_ohms: Optional[float] = None
+
+
+@dataclass
+class XlrCalibrationResult:
+    """Result from XLR calibration"""
+    success: bool
+    pin2_adc: Optional[int] = None
+    pin3_adc: Optional[int] = None
+    error: Optional[str] = None
+
+
 class CableTesterInterface(ABC):
     """Abstract interface for cable testers"""
 
@@ -341,6 +383,211 @@ class ArduinoCableTester(CableTesterInterface):
 
         return CalibrationResult(success=True, adc_value=adc_value)
 
+    def run_xlr_continuity_test(self) -> XlrContinuityResult:
+        """
+        Run XLR continuity test (3x3 pin matrix)
+
+        Response format: XCONT:PASS/FAIL:P11:x:P12:x:...:P33:x[:REASON:xxx]
+        """
+        if not self.connected:
+            raise RuntimeError("Cable tester not connected")
+
+        self._send_command("XCONT")
+        response = self._read_until_response("XCONT:", timeout=10.0)
+
+        if not response:
+            raise RuntimeError("No response from XLR continuity test")
+
+        if response.startswith("ERROR:"):
+            raise RuntimeError(f"Tester error: {response}")
+
+        parts = response.split(":")
+        passed = parts[1] == "PASS"
+
+        # Parse 3x3 matrix: P11:x:P12:x:...:P33:x
+        matrix = {}
+        for d in range(1, 4):
+            for s in range(1, 4):
+                key = f"P{d}{s}"
+                idx = parts.index(key)
+                matrix[key] = int(parts[idx + 1]) == 1
+
+        # Parse failure reason if present
+        reason = None
+        if "REASON" in parts:
+            reason_idx = parts.index("REASON")
+            reason = parts[reason_idx + 1]
+
+        return XlrContinuityResult(passed=passed, matrix=matrix, reason=reason)
+
+    def run_xlr_shell_test(self) -> XlrShellResult:
+        """
+        Run XLR shell bond test
+
+        Response format: XSHELL:PASS/FAIL:NEAR:x:FAR:x:SS:x[:REASON:xxx]
+        """
+        if not self.connected:
+            raise RuntimeError("Cable tester not connected")
+
+        self._send_command("XSHELL")
+        response = self._read_until_response("XSHELL:", timeout=10.0)
+
+        if not response:
+            raise RuntimeError("No response from XLR shell test")
+
+        if response.startswith("ERROR:"):
+            raise RuntimeError(f"Tester error: {response}")
+
+        parts = response.split(":")
+        passed = parts[1] == "PASS"
+
+        near_idx = parts.index("NEAR")
+        near = int(parts[near_idx + 1]) == 1
+
+        far_idx = parts.index("FAR")
+        far = int(parts[far_idx + 1]) == 1
+
+        ss_idx = parts.index("SS")
+        ss = int(parts[ss_idx + 1]) == 1
+
+        reason = None
+        if "REASON" in parts:
+            reason_idx = parts.index("REASON")
+            reason = parts[reason_idx + 1]
+
+        return XlrShellResult(
+            passed=passed,
+            near_shell_bond=near,
+            far_shell_bond=far,
+            shell_to_shell=ss,
+            reason=reason
+        )
+
+    def run_xlr_resistance_test(self) -> XlrResistanceResult:
+        """
+        Run XLR resistance test (per-pin)
+
+        Response format (calibrated): XRES:PASS/FAIL:P2ADC:x:P3ADC:x:P2CAL:x:P3CAL:x:P2MOHM:x:P2OHM:x:P3MOHM:x:P3OHM:x
+        Response format (uncalibrated): XRES:PASS/FAIL:P2ADC:x:P3ADC:x:OHM:UNCAL
+        """
+        if not self.connected:
+            raise RuntimeError("Cable tester not connected")
+
+        self._send_command("XRES")
+        response = self._read_until_response("XRES:", timeout=10.0)
+
+        if not response:
+            raise RuntimeError("No response from XLR resistance test")
+
+        if response.startswith("ERROR:"):
+            raise RuntimeError(f"Tester error: {response}")
+
+        parts = response.split(":")
+        passed = parts[1] == "PASS"
+
+        p2adc_idx = parts.index("P2ADC")
+        pin2_adc = int(parts[p2adc_idx + 1])
+
+        p3adc_idx = parts.index("P3ADC")
+        pin3_adc = int(parts[p3adc_idx + 1])
+
+        # Check for calibration data
+        calibrated = "P2CAL" in parts
+        pin2_cal = None
+        pin3_cal = None
+        pin2_mohm = None
+        pin2_ohm = None
+        pin3_mohm = None
+        pin3_ohm = None
+
+        if calibrated:
+            p2cal_idx = parts.index("P2CAL")
+            pin2_cal = int(parts[p2cal_idx + 1])
+
+            p3cal_idx = parts.index("P3CAL")
+            pin3_cal = int(parts[p3cal_idx + 1])
+
+            if "P2MOHM" in parts:
+                p2mohm_idx = parts.index("P2MOHM")
+                pin2_mohm = int(parts[p2mohm_idx + 1])
+
+            if "P2OHM" in parts:
+                p2ohm_idx = parts.index("P2OHM")
+                pin2_ohm = float(parts[p2ohm_idx + 1])
+
+            if "P3MOHM" in parts:
+                p3mohm_idx = parts.index("P3MOHM")
+                pin3_mohm = int(parts[p3mohm_idx + 1])
+
+            if "P3OHM" in parts:
+                p3ohm_idx = parts.index("P3OHM")
+                pin3_ohm = float(parts[p3ohm_idx + 1])
+
+        return XlrResistanceResult(
+            passed=passed,
+            pin2_adc=pin2_adc,
+            pin3_adc=pin3_adc,
+            calibrated=calibrated,
+            pin2_cal_adc=pin2_cal,
+            pin3_cal_adc=pin3_cal,
+            pin2_milliohms=pin2_mohm,
+            pin2_ohms=pin2_ohm,
+            pin3_milliohms=pin3_mohm,
+            pin3_ohms=pin3_ohm
+        )
+
+    def xlr_calibrate(self) -> XlrCalibrationResult:
+        """
+        Calibrate XLR resistance measurement with zero-ohm reference cable
+
+        Response format: XCAL:OK:P2ADC:x:P3ADC:x (skips XCAL:MEASURING...)
+        May also return: XCAL:FAIL:P2ADC:x:P3ADC:x:NO_CABLE
+        """
+        if not self.connected:
+            raise RuntimeError("Cable tester not connected")
+
+        self._send_command("XCAL")
+
+        # Read until we get XCAL:OK or XCAL:FAIL (skip XCAL:MEASURING...)
+        start_time = time.time()
+        response = None
+        while time.time() - start_time < 15.0:
+            line = self._read_response(timeout=0.5)
+            if line:
+                if line.startswith("XCAL:OK") or line.startswith("XCAL:FAIL"):
+                    response = line
+                    break
+                elif line.startswith("ERROR:"):
+                    return XlrCalibrationResult(success=False, error=line)
+                else:
+                    logger.debug(f"Skipping: {line}")
+
+        if not response:
+            return XlrCalibrationResult(success=False, error="No response from XLR calibration")
+
+        parts = response.split(":")
+
+        if response.startswith("XCAL:FAIL"):
+            error_msg = "Calibration failed"
+            if "NO_CABLE" in parts:
+                error_msg = "No cable detected"
+            p2adc = None
+            p3adc = None
+            if "P2ADC" in parts:
+                p2adc = int(parts[parts.index("P2ADC") + 1])
+            if "P3ADC" in parts:
+                p3adc = int(parts[parts.index("P3ADC") + 1])
+            return XlrCalibrationResult(success=False, pin2_adc=p2adc, pin3_adc=p3adc, error=error_msg)
+
+        # Parse: XCAL:OK:P2ADC:xxx:P3ADC:xxx
+        p2adc_idx = parts.index("P2ADC")
+        pin2_adc = int(parts[p2adc_idx + 1])
+
+        p3adc_idx = parts.index("P3ADC")
+        pin3_adc = int(parts[p3adc_idx + 1])
+
+        return XlrCalibrationResult(success=True, pin2_adc=pin2_adc, pin3_adc=pin3_adc)
+
     def reset(self) -> bool:
         """Reset the test circuit"""
         if not self.connected:
@@ -399,7 +646,10 @@ class MockCableTester(CableTesterInterface):
     def __init__(self):
         self.connected = False
         self.calibrated = False
+        self.xlr_calibrated = False
         self.calibration_adc = 60  # Low ADC baseline (high-side sense topology)
+        self.xlr_calibration_p2 = 58
+        self.xlr_calibration_p3 = 62
         logger.info("Mock cable tester initialized")
 
     def initialize(self) -> bool:
@@ -433,6 +683,49 @@ class MockCableTester(CableTesterInterface):
         logger.info("Mock cable tester: Simulating calibration")
         self.calibrated = True
         return CalibrationResult(success=True, adc_value=self.calibration_adc)
+
+    def run_xlr_continuity_test(self) -> XlrContinuityResult:
+        logger.info("Mock cable tester: Simulating XLR continuity test - PASS")
+        matrix = {
+            'P11': True, 'P12': False, 'P13': False,
+            'P21': False, 'P22': True, 'P23': False,
+            'P31': False, 'P32': False, 'P33': True,
+        }
+        return XlrContinuityResult(passed=True, matrix=matrix, reason=None)
+
+    def run_xlr_shell_test(self) -> XlrShellResult:
+        logger.info("Mock cable tester: Simulating XLR shell test - PASS")
+        return XlrShellResult(
+            passed=True,
+            near_shell_bond=True,
+            far_shell_bond=True,
+            shell_to_shell=True,
+            reason=None
+        )
+
+    def run_xlr_resistance_test(self) -> XlrResistanceResult:
+        logger.info("Mock cable tester: Simulating XLR resistance test - PASS")
+        return XlrResistanceResult(
+            passed=True,
+            pin2_adc=65,
+            pin3_adc=68,
+            calibrated=self.xlr_calibrated,
+            pin2_cal_adc=self.xlr_calibration_p2 if self.xlr_calibrated else None,
+            pin3_cal_adc=self.xlr_calibration_p3 if self.xlr_calibrated else None,
+            pin2_milliohms=50 if self.xlr_calibrated else None,
+            pin2_ohms=0.050 if self.xlr_calibrated else None,
+            pin3_milliohms=60 if self.xlr_calibrated else None,
+            pin3_ohms=0.060 if self.xlr_calibrated else None
+        )
+
+    def xlr_calibrate(self) -> XlrCalibrationResult:
+        logger.info("Mock cable tester: Simulating XLR calibration")
+        self.xlr_calibrated = True
+        return XlrCalibrationResult(
+            success=True,
+            pin2_adc=self.xlr_calibration_p2,
+            pin3_adc=self.xlr_calibration_p3
+        )
 
     def get_status(self) -> Dict[str, Any]:
         return {

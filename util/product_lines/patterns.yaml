@@ -46,6 +46,11 @@ patterns:
     fabric_type: cotton
     description: Brown cotton braid with black houndstooth tracer
 
+  - code: EH
+    name: Electric Houndstooth
+    fabric_type: cotton
+    description: Neon green cotton braid with neon purple houndstooth pattern
+
 # ========================================
 # FABRIC TYPE REFERENCE
 # ========================================
