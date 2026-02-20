@@ -43,6 +43,8 @@ class ScanCableLookupScreen(Screen):
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
 
+        self._pending_serial = None
+
         # Check if we're returning from assignment and should show cable details
         return_to_cable = self.context.get("return_to_cable_serial")
         if return_to_cable:
@@ -67,8 +69,6 @@ class ScanCableLookupScreen(Screen):
             "[dim]Waiting for scan...[/dim]",
             title="Greenlight Cable Station"
         )
-
-        self._pending_serial = None
 
         while True:
             # Check if we have a pending serial from the cable info screen
@@ -255,6 +255,7 @@ class ScanCableLookupScreen(Screen):
         if is_misc:
             footer_options.append("[cyan]'d'[/cyan] = Edit description")
         footer_options.append("[cyan]'e'[/cyan] = Re-register")
+        footer_options.append("[cyan]'q'[/cyan] = Back")
         footer_options.append("[bold green]Scan[/bold green] next cable")
 
         footer_text = " | ".join(footer_options)
@@ -308,6 +309,10 @@ class ScanCableLookupScreen(Screen):
                 new_context["prefill_serial"] = cable_record['serial_number']
                 new_context["re_register"] = True
                 return ScreenResult(NavigationAction.PUSH, SeriesSelectionScreen, new_context)
+
+            elif choice_lower == 'q':
+                # Back to main scan screen
+                return None
 
             else:
                 # Only treat as serial number if it contains at least one digit

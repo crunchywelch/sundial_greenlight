@@ -188,13 +188,14 @@ def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_ex
                             }
                         }
                     else:
-                        # Update existing record (include description and length if provided)
+                        # Update existing record (description and length are set directly,
+                        # so re-registering a MISC cable as a normal cable clears description)
                         cur.execute("""
                             UPDATE audio_cables
                             SET sku = %s,
                                 operator = %s,
                                 updated_timestamp = CURRENT_TIMESTAMP,
-                                description = COALESCE(%s, description),
+                                description = %s,
                                 length = COALESCE(%s, length)
                             WHERE serial_number = %s
                             RETURNING serial_number, updated_timestamp
