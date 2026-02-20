@@ -803,7 +803,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
 class MockTSCLabelPrinter(LabelPrinterInterface):
     """Mock TSC label printer for testing without hardware"""
 
-    def __init__(self, ip_address: str = "192.168.0.52", port: int = 9100):
+    def __init__(self, ip_address: str = "tsc", port: int = 9100):
         self.ip_address = ip_address
         self.port = port
         self.connected = False
