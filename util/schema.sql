@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS cable_skus (
     length TEXT NOT NULL,
     connector_type TEXT NOT NULL,
     description TEXT,
+    price NUMERIC(8,2),
+    cost NUMERIC(8,2),
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );

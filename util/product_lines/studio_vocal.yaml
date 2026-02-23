@@ -20,6 +20,15 @@ connectors:
   - code: ""        # Standard XLR connectors
     display: XLR–XLR
 
+# Cost by length
+cost:
+  3: 10.13
+  6: 11.76
+  10: 13.94
+  15: 16.66
+  20: 19.38
+  25: 22.11
+
 # Pricing by length
 pricing:
   3: 59.00
@@ -28,7 +37,3 @@ pricing:
   15: 89.00
   20: 99.00
   25: 109.00
-
-# SKU format: {prefix}-{length}{color_code}
-# Example: SV-3GL, SV-6PW, SV-10GL
-include_color_in_sku: true

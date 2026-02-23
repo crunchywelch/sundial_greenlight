@@ -105,6 +105,8 @@ def generate_skus(product_lines, patterns):
         core_cable = product_line['core_cable']
         braid_material = product_line['braid_material']
         include_color = product_line.get('include_color_in_sku', True)
+        pricing = product_line.get('pricing', {})
+        costing = product_line.get('cost', {})
 
         # Get patterns that match this product line's fabric type
         matching_patterns = get_patterns_for_fabric_type(patterns, braid_material)
@@ -141,6 +143,19 @@ def generate_skus(product_lines, patterns):
                     if connector_code and '-R' in str(connector_code):
                         description += " and right angle plug"
 
+                    # Look up price by length
+                    price = pricing.get(length) or pricing.get(int(length)) if pricing else None
+
+                    # Look up cost by length, with "R" suffix for right-angle connectors
+                    # e.g. cost key "10R" for a 10ft right-angle cable
+                    cost = None
+                    if costing:
+                        if connector_code and 'R' in connector_code.upper():
+                            cost_key = f"{int(length)}R"
+                            cost = costing.get(cost_key) or costing.get(length) or costing.get(int(length))
+                        else:
+                            cost = costing.get(length) or costing.get(int(length))
+
                     skus.append({
                         'sku': sku,
                         'series': product_line_name,
@@ -149,7 +164,9 @@ def generate_skus(product_lines, patterns):
                         'color_pattern': pattern_name,
                         'length': str(length),  # Store as string for database
                         'connector_type': connector_display,
-                        'description': description
+                        'description': description,
+                        'price': price,
+                        'cost': cost
                     })
 
         print(f"   ✅ Generated {len([s for s in skus if s['series'] == product_line_name])} SKUs for {product_line_name}")
@@ -164,11 +181,11 @@ def get_existing_skus():
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT sku, description, series, core_cable, braid_material,
-                       color_pattern, length, connector_type
-                FROM cable_skus 
+                       color_pattern, length, connector_type, price, cost
+                FROM cable_skus
                 ORDER BY sku
             """)
-            
+
             existing = {}
             for row in cur.fetchall():
                 existing[row[0]] = {
@@ -179,7 +196,9 @@ def get_existing_skus():
                     'braid_material': row[4],
                     'color_pattern': row[5],
                     'length': row[6],
-                    'connector_type': row[7]
+                    'connector_type': row[7],
+                    'price': float(row[8]) if row[8] is not None else None,
+                    'cost': float(row[9]) if row[9] is not None else None
                 }
             
             return existing
@@ -198,12 +217,14 @@ def insert_sku(sku_data):
             cur.execute("""
                 INSERT INTO cable_skus
                     (sku, series, core_cable, braid_material,
-                     color_pattern, length, connector_type, description)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                     color_pattern, length, connector_type, description,
+                     price, cost)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (sku_data['sku'], sku_data['series'],
                   sku_data['core_cable'], sku_data['braid_material'],
                   sku_data['color_pattern'], sku_data['length'],
-                  sku_data['connector_type'], sku_data['description']))
+                  sku_data['connector_type'], sku_data['description'],
+                  sku_data.get('price'), sku_data.get('cost')))
             conn.commit()
             return True
     except Exception as e:
@@ -227,12 +248,16 @@ def update_sku(sku_data):
                     braid_material = %s,
                     color_pattern = %s,
                     length = %s,
-                    connector_type = %s
+                    connector_type = %s,
+                    price = %s,
+                    cost = %s
                 WHERE sku = %s
             """, (sku_data['description'], sku_data['series'],
                   sku_data['core_cable'], sku_data['braid_material'],
                   sku_data['color_pattern'], sku_data['length'],
-                  sku_data['connector_type'], sku_data['sku']))
+                  sku_data['connector_type'],
+                  sku_data.get('price'), sku_data.get('cost'),
+                  sku_data['sku']))
             conn.commit()
             return True
     except Exception as e:
@@ -320,7 +345,9 @@ def main():
                 existing['braid_material'] != sku['braid_material'] or
                 existing['color_pattern'] != sku['color_pattern'] or
                 existing['length'] != sku['length'] or
-                existing['connector_type'] != sku['connector_type']):
+                existing['connector_type'] != sku['connector_type'] or
+                existing['price'] != sku.get('price') or
+                existing['cost'] != sku.get('cost')):
                 skus_to_update.append({
                     'sku': sku,
                     'old': existing
