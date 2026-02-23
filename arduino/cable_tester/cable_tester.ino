@@ -93,8 +93,8 @@ const int SIGNAL_SETTLE_MS = 50;
 // Resistance test config
 // High-side sense topology: 5V → R_sense(20Ω) → cable → relay → collector, emitter → GND
 // A0 reads junction of R_sense and cable. Lower ADC = more current = lower cable resistance.
-const int RES_PASS_THRESHOLD = 500;  // Absolute ADC threshold (uncalibrated fallback)
-const float MAX_CABLE_RESISTANCE = 10.0;  // Max cable resistance in ohms to pass
+const int RES_PASS_THRESHOLD = 120;  // Absolute ADC threshold (uncalibrated fallback, ~1Ω)
+const float MAX_CABLE_RESISTANCE = 1.0;   // Max cable resistance in ohms to pass
 const float RES_SENSE_OHM = 20.0;   // High-side sense resistor (20Ω)
 const float SUPPLY_VOLTAGE = 5.0;    // Arduino USB supply voltage
 const float VCE_SAT = 0.3;           // PN2222A saturation voltage estimate
