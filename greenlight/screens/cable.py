@@ -1928,10 +1928,10 @@ class ScanCableIntakeScreen(Screen):
                     cable_record = get_audio_cable(formatted_serial)
 
                     if cable_record:
-                        # For non-MISC cables, show the detailed cable info
-                        # For MISC cables, this shouldn't happen since we set update_if_exists=True
-                        self.show_cable_info_inline(operator, cable_record)
-                        # Continue to next scan
+                        # Show cable info with full action menu (test, print, etc.)
+                        next_action = self.show_cable_info_inline(operator, cable_record)
+                        if next_action == 'quit':
+                            break
                         continue
                     else:
                         # Fallback to duplicate prompt if we can't get the record
@@ -2157,17 +2157,9 @@ class ScanCableIntakeScreen(Screen):
 
     def show_cable_info_inline(self, operator, cable_record):
         """Display detailed cable information during scanning workflow.
-        Delegates to ScanCableLookupScreen.build_cable_info_panel for consistent display."""
-        lookup_screen = ScanCableLookupScreen(self.ui, self.context)
-
-        self.ui.header(operator)
-        self.ui.layout["body"].update(lookup_screen.build_cable_info_panel(cable_record))
-        self.ui.layout["footer"].update(Panel(
-            "Press enter to scan another cable",
-            title=""
-        ))
-        self.ui.render()
-        self.ui.console.input()
+        Shows the same action menu (test, print, etc.) as a newly registered cable."""
+        cable_type = CableType(cable_record.get('sku'))
+        return self.offer_print_label(operator, cable_type, cable_record['serial_number'])
 
     def show_duplicate_prompt(self, operator, cable_type, existing_record):
         """Show duplicate record prompt and ask if user wants to update it
