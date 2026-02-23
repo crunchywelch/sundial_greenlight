@@ -63,7 +63,9 @@ def get_access_token_from_client_credentials() -> Optional[str]:
         access_token = data.get("access_token")
 
         if access_token:
-            # Cache the token in .env file for future use
+            # Update in-process env so get_shopify_session() picks it up immediately
+            os.environ["SHOPIFY_ACCESS_TOKEN"] = access_token
+            # Also persist to .env file for next app restart
             env_file = find_dotenv()
             if env_file:
                 set_key(env_file, "SHOPIFY_ACCESS_TOKEN", access_token)
@@ -124,8 +126,8 @@ def get_shopify_session():
     if not SHOPIFY_SHOP_URL:
         raise ValueError("SHOPIFY_SHOP_URL not configured in .env file")
 
-    # Try to get access token from environment first
-    token = SHOPIFY_ACCESS_TOKEN or SHOPIFY_PRIVATE_APP_PASSWORD
+    # Read token from os.environ (not module-level var) so refreshed tokens are picked up
+    token = os.getenv("SHOPIFY_ACCESS_TOKEN") or os.getenv("SHOPIFY_PRIVATE_APP_PASSWORD")
 
     # Validate existing token
     if token and not validate_token(token):
@@ -134,8 +136,6 @@ def get_shopify_session():
             new_token = get_access_token_from_client_credentials()
             if new_token:
                 token = new_token
-                # Reload environment to get the updated token
-                load_dotenv(override=True)
             else:
                 token = None  # Clear invalid token
         else:
@@ -144,9 +144,6 @@ def get_shopify_session():
     # If still no token available, try client credentials grant
     if not token and SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET:
         token = get_access_token_from_client_credentials()
-        if token:
-            # Reload environment to get the updated token
-            load_dotenv(override=True)
 
     if not token:
         raise ValueError("Could not obtain access token. Set either SHOPIFY_ACCESS_TOKEN, SHOPIFY_PRIVATE_APP_PASSWORD, or SHOPIFY_CLIENT_ID/SHOPIFY_CLIENT_SECRET in .env")
