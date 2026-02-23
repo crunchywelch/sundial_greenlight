@@ -27,10 +27,7 @@ async function fetchCustomerCables(customerId) {
     `SELECT
       ac.serial_number,
       ac.sku,
-      ac.description,
-      ac.length,
-      ac.resistance_ohms,
-      ac.capacitance_pf,
+      ac.test_passed,
       ac.test_timestamp,
       ac.operator,
       ac.shopify_gid,
@@ -48,16 +45,13 @@ async function fetchCustomerCables(customerId) {
   return result.rows.map((row) => ({
     serial_number: row.serial_number,
     sku: row.sku,
-    description: row.description,
-    length: row.length,
     series: row.series,
     color: row.color_pattern,
     connector_type: row.connector_type,
     core_cable: row.core_cable,
     test_date: row.test_timestamp,
-    resistance_ohms: row.resistance_ohms,
-    capacitance_pf: row.capacitance_pf,
-    test_status: row.resistance_ohms !== null && row.capacitance_pf !== null ? "tested" : "not tested",
+    test_passed: row.test_passed,
+    test_status: row.test_passed !== null ? "tested" : "not tested",
     operator: row.operator,
   }));
 }

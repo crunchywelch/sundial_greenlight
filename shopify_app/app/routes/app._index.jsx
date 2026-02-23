@@ -118,7 +118,7 @@ export async function action({ request }) {
     const searchTerm = formData.get("searchTerm");
     try {
       const result = await query(
-        `SELECT ac.serial_number, ac.sku, ac.description, ac.shopify_gid, ac.length as cable_length, cs.series, cs.length as sku_length
+        `SELECT ac.serial_number, ac.sku, ac.shopify_gid, cs.series, cs.length as sku_length
          FROM audio_cables ac
          LEFT JOIN cable_skus cs ON ac.sku = cs.sku
          WHERE ac.serial_number ILIKE $1

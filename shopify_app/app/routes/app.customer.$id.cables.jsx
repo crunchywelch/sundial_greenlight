@@ -37,10 +37,7 @@ export async function loader({ request, params }) {
     `SELECT
       ac.serial_number,
       ac.sku,
-      ac.description,
-      ac.length,
-      ac.resistance_ohms,
-      ac.capacitance_pf,
+      ac.test_passed,
       ac.test_timestamp,
       ac.operator,
       cs.series,
@@ -57,16 +54,13 @@ export async function loader({ request, params }) {
   const cables = result.rows.map((row) => ({
     serial_number: row.serial_number,
     sku: row.sku,
-    description: row.description,
-    length: row.length,
     series: row.series,
     color: row.color_pattern,
     connector_type: row.connector_type,
     core_cable: row.core_cable,
     test_date: row.test_timestamp,
-    resistance_ohms: row.resistance_ohms,
-    capacitance_pf: row.capacitance_pf,
-    test_status: row.resistance_ohms !== null && row.capacitance_pf !== null ? "tested" : "not tested",
+    test_passed: row.test_passed,
+    test_status: row.test_passed !== null ? "tested" : "not tested",
     operator: row.operator,
   }));
 
@@ -175,11 +169,8 @@ export default function CustomerCables() {
 
                 {cable.test_status === 'tested' && (
                   <div style={{ fontSize: '13px', color: '#666', display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-                    {cable.resistance_ohms !== null && (
-                      <span>Resistance: {cable.resistance_ohms}Ω</span>
-                    )}
-                    {cable.capacitance_pf !== null && (
-                      <span>Capacitance: {cable.capacitance_pf}pF</span>
+                    {cable.test_passed !== null && (
+                      <span>{cable.test_passed ? 'Passed' : 'Failed'}</span>
                     )}
                     {cable.test_date && (
                       <span>Tested: {new Date(cable.test_date).toLocaleDateString()}</span>

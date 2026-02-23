@@ -24,12 +24,9 @@ export async function loader({ request, params }) {
     `SELECT
       ac.serial_number,
       ac.sku,
-      ac.description,
-      ac.length,
       ac.shopify_gid,
       ac.test_timestamp,
-      ac.resistance_ohms,
-      ac.capacitance_pf,
+      ac.test_passed,
       cs.series,
       cs.color_pattern
     FROM audio_cables ac
@@ -136,7 +133,7 @@ export default function CablesBySku() {
             </thead>
             <tbody>
               {cables.map((cable) => {
-                const isTested = cable.resistance_ohms !== null && cable.capacitance_pf !== null;
+                const isTested = cable.test_passed !== null;
 
                 return (
                   <tr key={cable.serial_number} style={{ backgroundColor: '#fff' }}>

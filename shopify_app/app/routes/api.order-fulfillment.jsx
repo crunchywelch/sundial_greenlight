@@ -36,8 +36,6 @@ export async function loader({ request }) {
       `SELECT
         ac.serial_number,
         ac.sku,
-        ac.description,
-        ac.length,
         ac.test_passed,
         ac.test_timestamp,
         ac.shopify_gid,
@@ -55,8 +53,6 @@ export async function loader({ request }) {
     const cables = result.rows.map((row) => ({
       serial_number: row.serial_number,
       sku: row.sku,
-      description: row.description,
-      length: row.length,
       series: row.series,
       color: row.color_pattern,
       connector_type: row.connector_type,
@@ -109,8 +105,6 @@ async function handleLookupCable({ serialNumber }) {
     `SELECT
       ac.serial_number,
       ac.sku,
-      ac.description,
-      ac.length,
       ac.shopify_gid,
       ac.shopify_order_gid,
       ac.test_passed,
@@ -132,8 +126,6 @@ async function handleLookupCable({ serialNumber }) {
     cable: {
       serial_number: row.serial_number,
       sku: row.sku,
-      description: row.description,
-      length: row.length,
       series: row.series,
       color: row.color_pattern,
       connector_type: row.connector_type,
@@ -226,7 +218,7 @@ async function handleUnassignCable({ serialNumber, orderId }) {
   // Only unassign if it belongs to this order
   const result = await query(
     `UPDATE audio_cables
-     SET shopify_order_gid = NULL, updated_timestamp = NOW()
+     SET shopify_gid = NULL, shopify_order_gid = NULL, updated_timestamp = NOW()
      WHERE serial_number = $1 AND shopify_order_gid = $2`,
     [serialNumber, orderId]
   );
