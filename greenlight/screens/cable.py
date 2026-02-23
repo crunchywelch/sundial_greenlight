@@ -1881,7 +1881,6 @@ class ScanCableIntakeScreen(Screen):
             # Register the cable in database (note: formatted_serial is already formatted in register_scanned_cable)
             result = register_scanned_cable(serial_number, cable_type.sku, operator,
                                           update_if_exists=allow_update,
-                                          description=cable_description,
                                           special_baby_type_id=special_baby_type_id)
 
             if result.get('success'):
@@ -1940,7 +1939,6 @@ class ScanCableIntakeScreen(Screen):
                             # User chose to update - retry with update flag
                             update_result = register_scanned_cable(serial_number, cable_type.sku, operator,
                                                                   update_if_exists=True,
-                                                                  description=cable_description,
                                                                   special_baby_type_id=special_baby_type_id)
                             if update_result.get('success'):
                                 scanned_count += 1

@@ -91,7 +91,7 @@ def get_audio_cable(serial_number):
                        ac.resistance_adc_p3, ac.calibration_adc_p3, ac.test_passed,
                        ac.operator, ac.arduino_unit_id, ac.notes, ac.test_timestamp,
                        ac.shopify_gid, ac.updated_timestamp,
-                       COALESCE(sbt.description, ac.description) as description,
+                       sbt.description,
                        ac.registration_code,
                        cs.series,
                        COALESCE(sbt.length, CAST(cs.length AS REAL)) as length,
@@ -152,7 +152,7 @@ def format_serial_number(serial_number):
     # If doesn't match expected pattern, return as-is
     return serial_number
 
-def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_exists=False, description=None, special_baby_type_id=None):
+def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_exists=False, special_baby_type_id=None):
     """Register a cable with a scanned serial number into the database (intake workflow)
 
     Args:
@@ -160,7 +160,6 @@ def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_ex
         cable_sku: The SKU code for the cable
         operator: Operator ID who registered the cable
         update_if_exists: If True, update existing cable records
-        description: Optional custom description (required for MISC SKUs)
         special_baby_type_id: Optional FK to special_baby_types for MISC cables
     """
     conn = pg_pool.getconn()
@@ -193,18 +192,15 @@ def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_ex
                             }
                         }
                     else:
-                        # Update existing record (description is set directly,
-                        # so re-registering a MISC cable as a normal cable clears description)
                         cur.execute("""
                             UPDATE audio_cables
                             SET sku = %s,
                                 operator = %s,
                                 updated_timestamp = CURRENT_TIMESTAMP,
-                                description = %s,
                                 special_baby_type_id = %s
                             WHERE serial_number = %s
                             RETURNING serial_number, updated_timestamp
-                        """, (cable_sku, operator, description, special_baby_type_id, formatted_serial))
+                        """, (cable_sku, operator, special_baby_type_id, formatted_serial))
                         result = cur.fetchone()
                         conn.commit()
                         return {
@@ -219,10 +215,10 @@ def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_ex
                 cur.execute("""
                     INSERT INTO audio_cables
                         (serial_number, sku, resistance_adc,
-                         operator, arduino_unit_id, description, notes, special_baby_type_id)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                         operator, arduino_unit_id, notes, special_baby_type_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     RETURNING serial_number, updated_timestamp
-                """, (formatted_serial, cable_sku, None, operator, None, description, 'Scanned intake', special_baby_type_id))
+                """, (formatted_serial, cable_sku, None, operator, None, 'Scanned intake', special_baby_type_id))
                 result = cur.fetchone()
                 conn.commit()
                 return {
@@ -288,50 +284,36 @@ def update_cable_test_results(serial_number, test_passed, resistance_adc=None, c
 
 
 def update_cable_description(serial_number, description):
-    """Update the description for a cable (used for MISC cables)
+    """Update the description for a MISC cable via its special_baby_types row.
 
-    If the cable has a special_baby_type_id, updates the type row instead
-    (so ALL cables of that type see the change). Otherwise falls back to
-    updating audio_cables.description directly.
+    This changes the description for ALL cables of this type.
 
     Args:
         serial_number: Cable serial number
         description: New description text
 
     Returns:
-        True if updated, False on error or not found
+        True if updated, False on error or if cable has no type
     """
     conn = pg_pool.getconn()
     try:
         formatted_serial = format_serial_number(serial_number)
         with conn:
             with conn.cursor() as cur:
-                # Check if cable has a special_baby_type_id
                 cur.execute("""
                     SELECT special_baby_type_id FROM audio_cables
                     WHERE serial_number = %s
                 """, (formatted_serial,))
                 row = cur.fetchone()
-                if not row:
+                if not row or not row[0]:
                     return False
 
-                type_id = row[0]
-                if type_id:
-                    # Update the type row (affects all cables of this type)
-                    cur.execute("""
-                        UPDATE special_baby_types
-                        SET description = %s
-                        WHERE id = %s
-                        RETURNING id
-                    """, (description, type_id))
-                else:
-                    # Legacy: update directly on audio_cables
-                    cur.execute("""
-                        UPDATE audio_cables
-                        SET description = %s
-                        WHERE serial_number = %s
-                        RETURNING serial_number
-                    """, (description, formatted_serial))
+                cur.execute("""
+                    UPDATE special_baby_types
+                    SET description = %s
+                    WHERE id = %s
+                    RETURNING id
+                """, (description, row[0]))
 
                 result = cur.fetchone()
                 conn.commit()
@@ -492,7 +474,7 @@ def get_cables_for_customer(customer_shopify_gid):
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT ac.serial_number, ac.sku, ac.updated_timestamp,
-                       COALESCE(sbt.description, ac.description) as description,
+                       sbt.description,
                        cs.series,
                        COALESCE(sbt.length, CAST(cs.length AS REAL)) as length,
                        cs.color_pattern, cs.connector_type
@@ -531,7 +513,7 @@ def get_all_cables(limit=100, offset=0):
             cur.execute("""
                 SELECT ac.serial_number, ac.sku, ac.updated_timestamp, ac.test_timestamp,
                        ac.resistance_adc, ac.test_passed, ac.operator, ac.shopify_gid,
-                       COALESCE(sbt.description, ac.description) as description,
+                       sbt.description,
                        cs.series,
                        COALESCE(sbt.length, CAST(cs.length AS REAL)) as length,
                        cs.color_pattern, cs.connector_type
@@ -601,7 +583,7 @@ def get_available_inventory(series=None):
                         COALESCE(sbt.length, CAST(cs.length AS REAL)) as length,
                         cs.color_pattern,
                         cs.connector_type,
-                        COALESCE(sbt.description, ac.description) as description,
+                        sbt.description,
                         1 as available_count
                     FROM audio_cables ac
                     JOIN cable_skus cs ON ac.sku = cs.sku
