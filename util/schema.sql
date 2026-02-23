@@ -30,5 +30,6 @@ CREATE TABLE IF NOT EXISTS audio_cables (
     notes TEXT,
     test_timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     shopify_gid TEXT,
+    shopify_synced BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (sku) REFERENCES cable_skus(sku)
 );

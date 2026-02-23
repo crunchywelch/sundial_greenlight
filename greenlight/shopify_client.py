@@ -1,12 +1,14 @@
 """
-Shopify API integration for customer lookup and order information
+Shopify API integration for customer lookup, order information, and inventory management
 """
 
 import os
+import json
+import hashlib
 import logging
 import shopify
 import requests
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 from dotenv import load_dotenv, set_key, find_dotenv
 
 logger = logging.getLogger(__name__)
@@ -26,6 +28,10 @@ SHOPIFY_WIRE_SHOP_URL = os.getenv("SHOPIFY_WIRE_SHOP_URL")
 SHOPIFY_WIRE_ACCESS_TOKEN = os.getenv("SHOPIFY_WIRE_ACCESS_TOKEN")
 SHOPIFY_WIRE_CLIENT_ID = os.getenv("SHOPIFY_WIRE_CLIENT_ID")
 SHOPIFY_WIRE_CLIENT_SECRET = os.getenv("SHOPIFY_WIRE_CLIENT_SECRET")
+
+# Module-level caches for inventory operations (stable within a session)
+_cached_location_id: Optional[str] = None
+_inventory_item_cache: Dict[str, str] = {}
 
 
 def get_access_token_from_client_credentials() -> Optional[str]:
@@ -725,6 +731,159 @@ def get_all_products(limit: int = 250) -> list[Dict[str, Any]]:
         close_shopify_session()
 
 
+def _get_location_id() -> Optional[str]:
+    """Get the primary location ID for the main Shopify store.
+
+    Cached after first call since location never changes during a session.
+    """
+    global _cached_location_id
+    if _cached_location_id:
+        return _cached_location_id
+
+    try:
+        session = get_shopify_session()
+        query = "{ locations(first: 1) { edges { node { id } } } }"
+        result = shopify.GraphQL().execute(query)
+        data = json.loads(result)
+
+        if "errors" in data:
+            logger.error(f"GraphQL errors fetching location: {data['errors']}")
+            return None
+
+        edges = data.get("data", {}).get("locations", {}).get("edges", [])
+        if edges:
+            _cached_location_id = edges[0]["node"]["id"]
+            return _cached_location_id
+        return None
+    except Exception as e:
+        logger.error(f"Error fetching location ID: {e}")
+        return None
+    finally:
+        close_shopify_session()
+
+
+def _get_inventory_item_id(sku: str) -> Optional[str]:
+    """Look up the Shopify InventoryItem GID for a SKU.
+
+    Results are cached per-SKU so repeated calls are free.
+    """
+    if sku in _inventory_item_cache:
+        return _inventory_item_cache[sku]
+
+    try:
+        session = get_shopify_session()
+        query = """
+        query getInventoryItem($query: String!) {
+            productVariants(first: 1, query: $query) {
+                edges {
+                    node {
+                        sku
+                        inventoryItem {
+                            id
+                        }
+                    }
+                }
+            }
+        }
+        """
+        variables = {"query": f"sku:{sku}"}
+        result = shopify.GraphQL().execute(query, variables=variables)
+        data = json.loads(result)
+
+        if "errors" in data:
+            logger.error(f"GraphQL errors looking up inventory item for {sku}: {data['errors']}")
+            return None
+
+        edges = data.get("data", {}).get("productVariants", {}).get("edges", [])
+        if edges:
+            inv_item_id = edges[0]["node"]["inventoryItem"]["id"]
+            _inventory_item_cache[sku] = inv_item_id
+            return inv_item_id
+        logger.warning(f"No product variant found for SKU: {sku}")
+        return None
+    except Exception as e:
+        logger.error(f"Error looking up inventory item for SKU {sku}: {e}")
+        return None
+    finally:
+        close_shopify_session()
+
+
+def increment_inventory_for_sku(sku: str, delta: int = 1) -> Tuple[bool, Optional[str]]:
+    """Increment Shopify available inventory for a SKU.
+
+    Args:
+        sku: Product variant SKU
+        delta: Quantity to add (default 1)
+
+    Returns:
+        (success, error_message) tuple. Never raises.
+    """
+    try:
+        inventory_item_id = _get_inventory_item_id(sku)
+        if not inventory_item_id:
+            return False, f"No inventory item found for SKU: {sku}"
+
+        location_id = _get_location_id()
+        if not location_id:
+            return False, "Could not determine Shopify location"
+
+        session = get_shopify_session()
+        mutation = """
+        mutation inventoryAdjustQuantities($input: InventoryAdjustQuantitiesInput!) {
+            inventoryAdjustQuantities(input: $input) {
+                userErrors {
+                    field
+                    message
+                }
+                inventoryAdjustmentGroup {
+                    changes {
+                        name
+                        delta
+                    }
+                }
+            }
+        }
+        """
+        variables = {
+            "input": {
+                "reason": "correction",
+                "name": "available",
+                "changes": [
+                    {
+                        "inventoryItemId": inventory_item_id,
+                        "locationId": location_id,
+                        "delta": delta,
+                    }
+                ],
+            }
+        }
+        result = shopify.GraphQL().execute(mutation, variables=variables)
+        data = json.loads(result)
+
+        if "errors" in data:
+            err = str(data["errors"])
+            logger.error(f"GraphQL errors adjusting inventory for {sku}: {err}")
+            return False, err
+
+        user_errors = data.get("data", {}).get("inventoryAdjustQuantities", {}).get("userErrors", [])
+        if user_errors:
+            err = "; ".join(e["message"] for e in user_errors)
+            logger.error(f"Shopify user errors adjusting inventory for {sku}: {err}")
+            return False, err
+
+        logger.info(f"Shopify inventory incremented by {delta} for SKU {sku}")
+        return True, None
+    except Exception as e:
+        err = str(e)
+        logger.error(f"Error adjusting Shopify inventory for {sku}: {err}")
+        return False, err
+    finally:
+        try:
+            close_shopify_session()
+        except Exception:
+            pass
+
+
 def get_all_product_skus() -> Dict[str, Dict[str, Any]]:
     """
     Get all product SKUs from Shopify indexed by SKU.
@@ -756,6 +915,7 @@ def get_all_product_skus() -> Dict[str, Dict[str, Any]]:
                 sku = variant.get("sku", "").strip()
 
                 if sku:
+                    inv_item = variant.get("inventoryItem") or {}
                     sku_map[sku] = {
                         "product_id": product_id,
                         "product_title": product_title,
@@ -765,6 +925,7 @@ def get_all_product_skus() -> Dict[str, Dict[str, Any]]:
                         "variant_title": variant.get("title"),
                         "price": variant.get("price"),
                         "inventory_quantity": variant.get("inventoryQuantity", 0),
+                        "inventory_item_id": inv_item.get("id"),
                         "status": product.get("status")
                     }
 
@@ -773,6 +934,246 @@ def get_all_product_skus() -> Dict[str, Dict[str, Any]]:
     except Exception as e:
         print(f"❌ Error fetching product SKUs: {e}")
         return {}
+
+
+# --- Special Baby (MISC cable) support ---
+
+SPECIAL_BABY_PRICE = "24.99"
+SPECIAL_BABY_PRODUCT_TYPE = "Special Baby"
+
+# Map series slug to a human-readable name for product titles
+_SERIES_DISPLAY = {
+    "standard": "Standard",
+    "signature": "Signature",
+    "tour_classic": "Tour Classic",
+    "tour_select": "Tour Select",
+}
+
+
+def _generate_special_baby_shopify_sku(misc_sku: str, description: str, length) -> str:
+    """Generate a deterministic Shopify SKU for a MISC cable.
+
+    Same description + length + MISC SKU always produces the same hash,
+    so duplicate cables increment inventory instead of creating new products.
+    """
+    key = f"{misc_sku}|{description.strip().lower()}|{length}"
+    digest = hashlib.md5(key.encode()).hexdigest()[:6]
+    return f"{misc_sku}-{digest}"
+
+
+def _find_variant_by_sku(shopify_sku: str) -> Optional[Dict[str, str]]:
+    """Look up an existing product variant by SKU.
+
+    Returns dict with variant_id, inventory_item_id, product_id or None.
+    """
+    try:
+        session = get_shopify_session()
+        query = """
+        query findVariant($query: String!) {
+            productVariants(first: 1, query: $query) {
+                edges {
+                    node {
+                        id
+                        inventoryItem { id }
+                        product { id }
+                    }
+                }
+            }
+        }
+        """
+        variables = {"query": f"sku:{shopify_sku}"}
+        result = shopify.GraphQL().execute(query, variables=variables)
+        data = json.loads(result)
+
+        if "errors" in data:
+            logger.error(f"GraphQL errors finding variant for {shopify_sku}: {data['errors']}")
+            return None
+
+        edges = data.get("data", {}).get("productVariants", {}).get("edges", [])
+        if not edges:
+            return None
+
+        node = edges[0]["node"]
+        return {
+            "variant_id": node["id"],
+            "inventory_item_id": node["inventoryItem"]["id"],
+            "product_id": node["product"]["id"],
+        }
+    except Exception as e:
+        logger.error(f"Error finding variant for SKU {shopify_sku}: {e}")
+        return None
+    finally:
+        close_shopify_session()
+
+
+def _create_special_baby_product(title: str, shopify_sku: str, series: str, description: str = "") -> Tuple[bool, Optional[str]]:
+    """Create a new Shopify product for a special baby cable.
+
+    Two-step process:
+      1. productSet to create product + variant (SKU, price, inventory tracking)
+      2. inventoryAdjustQuantities to set available = 1
+
+    Returns (success, error_msg).
+    """
+    series_tag = series.lower().replace(" ", "-") if series else "misc"
+
+    try:
+        session = get_shopify_session()
+
+        # Step 1: Create product with variant via productSet
+        create_mutation = """
+        mutation productSet($synchronous: Boolean!, $input: ProductSetInput!) {
+            productSet(synchronous: $synchronous, input: $input) {
+                product {
+                    id
+                    variants(first: 1) {
+                        edges {
+                            node {
+                                id
+                                inventoryItem { id }
+                            }
+                        }
+                    }
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        """
+        product_input = {
+            "title": title,
+            "descriptionHtml": f"<p>{description}</p>" if description else "",
+            "productType": SPECIAL_BABY_PRODUCT_TYPE,
+            "tags": ["special-baby", series_tag],
+            "status": "ACTIVE",
+            "productOptions": [{"name": "Title", "values": [{"name": "Default Title"}]}],
+            "variants": [
+                {
+                    "sku": shopify_sku,
+                    "price": SPECIAL_BABY_PRICE,
+                    "optionValues": [{"optionName": "Title", "name": "Default Title"}],
+                }
+            ],
+        }
+        variables = {"synchronous": True, "input": product_input}
+        result = shopify.GraphQL().execute(create_mutation, variables=variables)
+        data = json.loads(result)
+
+        if "errors" in data:
+            err = str(data["errors"])
+            logger.error(f"GraphQL errors creating special baby product: {err}")
+            return False, err
+
+        create_data = data.get("data", {}).get("productSet", {})
+        user_errors = create_data.get("userErrors", [])
+        if user_errors:
+            err = "; ".join(e["message"] for e in user_errors)
+            logger.error(f"Shopify user errors creating special baby: {err}")
+            return False, err
+
+        product = create_data.get("product", {})
+        variant_edges = product.get("variants", {}).get("edges", [])
+        if not variant_edges:
+            return False, "Product created but no variant returned"
+
+        variant_node = variant_edges[0]["node"]
+        inventory_item_id = variant_node["inventoryItem"]["id"]
+
+        # Cache the inventory item for later increment calls
+        _inventory_item_cache[shopify_sku] = inventory_item_id
+
+        close_shopify_session()
+
+        # Step 2: Set inventory to 1
+        location_id = _get_location_id()
+        if not location_id:
+            return False, "Product created but could not determine location for inventory"
+
+        session = get_shopify_session()
+        adjust_mutation = """
+        mutation inventoryAdjustQuantities($input: InventoryAdjustQuantitiesInput!) {
+            inventoryAdjustQuantities(input: $input) {
+                userErrors { field message }
+            }
+        }
+        """
+        adjust_variables = {
+            "input": {
+                "reason": "correction",
+                "name": "available",
+                "changes": [
+                    {
+                        "inventoryItemId": inventory_item_id,
+                        "locationId": location_id,
+                        "delta": 1,
+                    }
+                ],
+            }
+        }
+        result = shopify.GraphQL().execute(adjust_mutation, variables=adjust_variables)
+        data = json.loads(result)
+
+        if "errors" in data:
+            logger.warning(f"Product created but inventory adjust failed: {data['errors']}")
+            return True, None
+
+        inv_errors = data.get("data", {}).get("inventoryAdjustQuantities", {}).get("userErrors", [])
+        if inv_errors:
+            logger.warning(f"Product created but inventory user errors: {inv_errors}")
+
+        logger.info(f"Created special baby product: {title} (SKU: {shopify_sku})")
+        return True, None
+
+    except Exception as e:
+        err = str(e)
+        logger.error(f"Error creating special baby product: {err}")
+        return False, err
+    finally:
+        try:
+            close_shopify_session()
+        except Exception:
+            pass
+
+
+def ensure_special_baby_shopify_product(cable_record: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+    """Find-or-create a Shopify product for a MISC (special baby) cable.
+
+    If a product with the deterministic SKU already exists, increments inventory.
+    Otherwise creates a new product with inventory = 1.
+
+    Returns (success, error_msg) — same signature as increment_inventory_for_sku.
+    """
+    sku = cable_record.get("sku", "")
+    description = cable_record.get("description") or ""
+    length = cable_record.get("length", "")
+    series = cable_record.get("series", "")
+
+    if not description:
+        return False, "MISC cable has no description — cannot create Shopify product"
+
+    shopify_sku = _generate_special_baby_shopify_sku(sku, description, length)
+
+    # Check if product already exists
+    existing = _find_variant_by_sku(shopify_sku)
+    if existing:
+        # Product exists — just increment inventory
+        return increment_inventory_for_sku(shopify_sku)
+
+    # Build title: "Special Baby — 10ft Tour Classic"
+    length_str = ""
+    if length:
+        length_val = float(length)
+        length_str = f"{int(length_val)}ft " if length_val == int(length_val) else f"{length_val}ft "
+
+    series_display = _SERIES_DISPLAY.get(series.lower().replace(" ", "_"), series) if series else ""
+    title_parts = ["Special Baby"]
+    if length_str or series_display:
+        title_parts.append(f"{length_str}{series_display}".strip())
+    title = " — ".join(title_parts)
+
+    return _create_special_baby_product(title, shopify_sku, series, description)
 
 
 # Example usage / testing

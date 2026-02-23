@@ -570,6 +570,27 @@ class ScanCableLookupScreen(Screen):
             logger.error(f"Failed to save test results: {e}")
             saved_status = " | [red]Save failed[/red]"
 
+        # Increment Shopify inventory on pass
+        if all_passed:
+            try:
+                from greenlight.db import mark_cable_shopify_synced
+                is_misc = cable_record.get('sku', '').endswith('-MISC')
+                if is_misc:
+                    from greenlight.shopify_client import ensure_special_baby_shopify_product
+                    success, err = ensure_special_baby_shopify_product(cable_record)
+                else:
+                    from greenlight.shopify_client import increment_inventory_for_sku
+                    success, err = increment_inventory_for_sku(cable_record['sku'])
+                if success:
+                    mark_cable_shopify_synced(serial_number)
+                    saved_status += " | [green]Shopify +1[/green]"
+                else:
+                    logger.warning(f"Shopify inventory update failed for {serial_number}: {err}")
+                    saved_status += " | [yellow]Shopify failed[/yellow]"
+            except Exception as e:
+                logger.error(f"Shopify inventory error: {e}")
+                saved_status += " | [yellow]Shopify error[/yellow]"
+
         # Show final results - refresh body with updated record from DB
         result_icon = "✅" if all_passed else "❌"
         result_text = f"{result_icon} CON: {cont_status} | RES: {res_status}{saved_status}"
@@ -737,6 +758,26 @@ class ScanCableLookupScreen(Screen):
         except Exception as e:
             logger.error(f"Failed to save test results: {e}")
             saved_status = " | [red]Save failed[/red]"
+
+        # Increment Shopify inventory on pass
+        if all_passed:
+            try:
+                from greenlight.db import mark_cable_shopify_synced
+                if is_misc:
+                    from greenlight.shopify_client import ensure_special_baby_shopify_product
+                    success, err = ensure_special_baby_shopify_product(cable_record)
+                else:
+                    from greenlight.shopify_client import increment_inventory_for_sku
+                    success, err = increment_inventory_for_sku(cable_record['sku'])
+                if success:
+                    mark_cable_shopify_synced(serial_number)
+                    saved_status += " | [green]Shopify +1[/green]"
+                else:
+                    logger.warning(f"Shopify inventory update failed for {serial_number}: {err}")
+                    saved_status += " | [yellow]Shopify failed[/yellow]"
+            except Exception as e:
+                logger.error(f"Shopify inventory error: {e}")
+                saved_status += " | [yellow]Shopify error[/yellow]"
 
         # Show final results - refresh body with updated record from DB
         if is_touring:

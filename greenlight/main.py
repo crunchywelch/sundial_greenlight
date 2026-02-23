@@ -144,6 +144,10 @@ def main():
         # Initialize hardware (non-blocking)
         init_hardware()
 
+        # Run database migrations (idempotent)
+        from greenlight.db import ensure_shopify_synced_column
+        ensure_shopify_synced_column()
+
         # Check Shopify connection (non-blocking)
         check_shopify_connection()
 
