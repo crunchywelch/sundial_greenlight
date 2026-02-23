@@ -1001,8 +1001,6 @@ def _create_special_baby_product(title: str, shopify_sku: str, series: str, desc
 
     Returns (success, error_msg).
     """
-    series_tag = series.lower().replace(" ", "-") if series else "misc"
-
     try:
         session = get_shopify_session()
 
@@ -1032,7 +1030,7 @@ def _create_special_baby_product(title: str, shopify_sku: str, series: str, desc
             "title": title,
             "descriptionHtml": f"<p>{description}</p>" if description else "",
             "productType": SPECIAL_BABY_PRODUCT_TYPE,
-            "tags": ["special-baby", series_tag],
+            "tags": ["special-baby"],
             "status": "ACTIVE",
             "productOptions": [{"name": "Title", "values": [{"name": "Default Title"}]}],
             "variants": [
