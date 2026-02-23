@@ -5,6 +5,11 @@
 // In-memory store for the last scan event
 let lastScanEvent = null;
 
+// Export for use by other routes (e.g., order-fulfillment)
+export function getLastScanEvent() {
+  return lastScanEvent;
+}
+
 // POST endpoint - Greenlight sends scans here
 export async function action({ request }) {
   if (request.method !== "POST") {

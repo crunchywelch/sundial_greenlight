@@ -1,0 +1,11 @@
+api_version = "2025-04"
+
+[[extensions]]
+name = "Order Fulfillment"
+handle = "order-fulfillment"
+uid = "7c5c93e9-5b98-f872-4c6f-028a9c45d6a7f3003982"
+type = "ui_extension"
+
+[[extensions.targeting]]
+module = "./src/BlockExtension.jsx"
+target = "admin.order-details.block.render"
