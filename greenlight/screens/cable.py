@@ -245,16 +245,21 @@ class ScanCableLookupScreen(Screen):
         # Check if this is a MISC cable (editable description)
         is_misc = cable_record.get('sku', '').endswith('-MISC')
 
+        # Check if cable is assigned to a customer
+        is_assigned = bool(cable_record.get('shopify_gid'))
+
         # Build footer text based on options
         footer_options = []
         if tester_available:
             footer_options.append("[cyan]'t'[/cyan] = Test cable")
-        footer_options.append("[cyan]'a'[/cyan] = Assign cable")
+        if not is_assigned:
+            footer_options.append("[cyan]'a'[/cyan] = Assign cable")
         if printer_available and cable_tested:
             footer_options.append("[cyan]'p'[/cyan] = Print label")
         if is_misc:
             footer_options.append("[cyan]'d'[/cyan] = Edit description")
-        footer_options.append("[cyan]'e'[/cyan] = Re-register")
+        if not is_assigned:
+            footer_options.append("[cyan]'e'[/cyan] = Re-register")
         footer_options.append("[cyan]'q'[/cyan] = Back")
         footer_options.append("[bold green]Scan[/bold green] next cable")
 
@@ -302,7 +307,7 @@ class ScanCableLookupScreen(Screen):
                 updated_record = self.edit_cable_description(operator, cable_record)
                 return self.show_cable_info_with_actions(operator, updated_record)
 
-            elif choice_lower == 'e':
+            elif choice_lower == 'e' and not is_assigned:
                 # Re-register: drop into attribute selection to change SKU
                 new_context = self.context.copy()
                 new_context["selection_mode"] = "intake"
@@ -1928,6 +1933,24 @@ class ScanCableIntakeScreen(Screen):
                     cable_record = get_audio_cable(formatted_serial)
 
                     if cable_record:
+                        # Block re-registration if cable belongs to a customer
+                        if cable_record.get('shopify_gid'):
+                            self.ui.header(operator)
+                            lookup_screen = ScanCableLookupScreen(self.ui, self.context)
+                            self.ui.layout["body"].update(lookup_screen.build_cable_info_panel(cable_record))
+                            self.ui.layout["footer"].update(Panel(
+                                "[red]This cable is assigned to a customer and cannot be re-registered.[/red]\n"
+                                "[bold green]Scan[/bold green] next cable | [cyan]'q'[/cyan] = Go back",
+                                title="Assigned Cable"
+                            ))
+                            self.ui.render()
+                            choice = self.get_serial_number_scan_or_manual()
+                            if not choice or choice.strip().lower() == 'q':
+                                break
+                            # Treat any other input as a new serial scan
+                            self._pending_serial = choice.strip().upper()
+                            continue
+
                         # Show cable info with full action menu (test, print, etc.)
                         next_action = self.show_cable_info_inline(operator, cable_record)
                         if next_action == 'quit':
