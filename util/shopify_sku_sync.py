@@ -105,7 +105,8 @@ def main():
     db_sku_codes = set(db_skus.keys())
     shopify_sku_codes = set(shopify_skus.keys())
 
-    missing_in_shopify = db_sku_codes - shopify_sku_codes
+    missing_in_shopify = {s for s in db_sku_codes - shopify_sku_codes
+                          if not s.endswith('-MISC')}
     orphaned_in_shopify = shopify_sku_codes - db_sku_codes
     matched_skus = db_sku_codes & shopify_sku_codes
 

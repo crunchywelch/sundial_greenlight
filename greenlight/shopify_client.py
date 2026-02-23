@@ -847,6 +847,7 @@ def set_inventory_for_sku(sku: str, quantity: int) -> Tuple[bool, Optional[str]]
             "input": {
                 "reason": "correction",
                 "name": "available",
+                "ignoreCompareQuantity": True,
                 "quantities": [
                     {
                         "inventoryItemId": inventory_item_id,
@@ -1091,6 +1092,7 @@ def _create_special_baby_product(title: str, shopify_sku: str, series: str, desc
             "input": {
                 "reason": "correction",
                 "name": "available",
+                "ignoreCompareQuantity": True,
                 "quantities": [
                     {
                         "inventoryItemId": inventory_item_id,

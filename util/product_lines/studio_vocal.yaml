@@ -37,3 +37,12 @@ pricing:
   15: 89.00
   20: 99.00
   25: 109.00
+
+# Weight by length in ounces
+weight:
+  3: 4
+  6: 7
+  10: 8
+  15: 9.5
+  20: 13.5
+  25: 14 

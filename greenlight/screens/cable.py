@@ -592,10 +592,10 @@ class ScanCableLookupScreen(Screen):
                     saved_status += f" | [green]Shopify={count}[/green]"
                 else:
                     logger.warning(f"Shopify inventory update failed for {serial_number}: {err}")
-                    saved_status += " | [yellow]Shopify failed[/yellow]"
+                    saved_status += f" | [yellow]Shopify failed: {err}[/yellow]"
             except Exception as e:
                 logger.error(f"Shopify inventory error: {e}")
-                saved_status += " | [yellow]Shopify error[/yellow]"
+                saved_status += f" | [yellow]Shopify error: {e}[/yellow]"
 
         # Show final results - refresh body with updated record from DB
         result_icon = "✅" if all_passed else "❌"
@@ -783,10 +783,10 @@ class ScanCableLookupScreen(Screen):
                     saved_status += f" | [green]Shopify={count}[/green]"
                 else:
                     logger.warning(f"Shopify inventory update failed for {serial_number}: {err}")
-                    saved_status += " | [yellow]Shopify failed[/yellow]"
+                    saved_status += f" | [yellow]Shopify failed: {err}[/yellow]"
             except Exception as e:
                 logger.error(f"Shopify inventory error: {e}")
-                saved_status += " | [yellow]Shopify error[/yellow]"
+                saved_status += f" | [yellow]Shopify error: {e}[/yellow]"
 
         # Show final results - refresh body with updated record from DB
         if is_touring:
