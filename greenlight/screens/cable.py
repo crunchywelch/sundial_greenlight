@@ -394,6 +394,7 @@ class ScanCableLookupScreen(Screen):
         """
         serial_number = cable_record.get('serial_number')
         current_desc = cable_record.get('description', '')
+        has_type = cable_record.get('special_baby_type_id') is not None
 
         self.ui.console.clear()
         self.ui.header(operator)
@@ -411,6 +412,8 @@ class ScanCableLookupScreen(Screen):
                     prompt_text += f"Current description: {current_desc}\n\n"
                 else:
                     prompt_text += "No description set.\n\n"
+                if has_type:
+                    prompt_text += "[bold yellow]Warning: This will change the description for ALL cables of this type.[/bold yellow]\n\n"
                 if prefill_text:
                     prompt_text += f"[red]Too long ({len(prefill_text)}/{max_desc_len} chars) — please shorten:[/red]"
                 else:
@@ -1132,6 +1135,10 @@ class ScanCableLookupScreen(Screen):
         if sku.endswith("-MISC") and description:
             left += f"\n  Description: {description}"
 
+        special_baby_shopify_sku = cable_record.get("special_baby_shopify_sku")
+        if special_baby_shopify_sku:
+            left += f"\n  Shopify SKU: {special_baby_shopify_sku}"
+
         registration_code = cable_record.get("registration_code")
         if registration_code:
             left += f"\n\n[bold blue]Reg Code:[/bold blue] {registration_code}"
@@ -1654,21 +1661,37 @@ class ScanCableIntakeScreen(Screen):
 
         # Check if this is a MISC SKU that needs custom description
         cable_description = None
+        special_baby_type_id = None
         if cable_type.sku.endswith("-MISC"):
-            cable_description = self.get_misc_cable_description(operator, cable_type)
-            if cable_description is None:
+            result = self.get_misc_cable_description(operator, cable_type)
+            if result is None:
                 # User cancelled
                 return ScreenResult(NavigationAction.POP)
+            cable_description, special_baby_type_id = result
+
+            # If new description (no existing type selected), create the type now
+            if special_baby_type_id is None and cable_description:
+                from greenlight.db import get_or_create_special_baby_type
+                custom_length = self.context.get("custom_length")
+                type_result = get_or_create_special_baby_type(cable_type.sku, cable_description, custom_length)
+                if type_result:
+                    special_baby_type_id = type_result['id']
 
         # Show scanning interface
-        return self.scan_cables_loop(operator, cable_type, cable_description)
+        return self.scan_cables_loop(operator, cable_type, cable_description, special_baby_type_id)
 
     def get_misc_cable_description(self, operator, cable_type):
-        """Prompt for custom description for miscellaneous cable
+        """Prompt for custom description for miscellaneous cable.
+
+        Shows existing types for this base SKU so the operator can reuse one,
+        or enter a new description.
 
         Returns:
-            Description string, or None if user cancels
+            (description, special_baby_type_id) tuple, or None if user cancels.
+            type_id is set when reusing an existing type, None when entering new.
         """
+        from greenlight.db import search_special_baby_types
+
         self.ui.console.clear()
         self.ui.header(operator)
 
@@ -1683,21 +1706,38 @@ class ScanCableIntakeScreen(Screen):
                 length_str = f"{custom_length}ft"
             length_info = f"Length: [bold green]{length_str}[/bold green]\n"
 
+        # Check for existing types for this base SKU
+        existing_types = search_special_baby_types(cable_type.sku)
+
+        # Build body text
+        body_parts = [
+            f"[bold yellow]Miscellaneous Cable Registration[/bold yellow]\n",
+            f"SKU: {cable_type.sku}",
+            f"Series: {cable_type.series}",
+            length_info,
+        ]
+
+        if existing_types:
+            body_parts.append("[bold cyan]Existing types for this SKU:[/bold cyan]")
+            for i, t in enumerate(existing_types):
+                length_display = f" ({t['length']}ft)" if t.get('length') else ""
+                body_parts.append(f"  [green]{i + 1}.[/green] {t['description']}{length_display}")
+            body_parts.append("")
+            body_parts.append("[bold cyan]Enter a number to reuse, or type a new description:[/bold cyan]")
+        else:
+            body_parts.append(
+                "[bold cyan]Please enter a description for this cable:[/bold cyan]\n"
+                "[dim](Length is already stored separately - don't include it here)[/dim]\n\n"
+                "Include details like:\n"
+                "  • Color/pattern (e.g., 'custom blue/orange')\n"
+                "  • Connector types (e.g., 'Neutrik TS-TRS')\n"
+                "  • Cable construction (e.g., 'cotton braid')\n"
+                "  • Any special attributes\n\n"
+                "Example: 'dark putty houndstooth with gold connectors instead of nickel'"
+            )
+
         self.ui.layout["body"].update(Panel(
-            f"[bold yellow]Miscellaneous Cable Registration[/bold yellow]\n\n"
-            f"SKU: {cable_type.sku}\n"
-            f"Series: {cable_type.series}\n"
-            f"{length_info}\n"
-            f"This is a miscellaneous (MISC) SKU for one-off and oddball cables\n"
-            f"that don't fit standard definitions.\n\n"
-            f"[bold cyan]Please enter a description for this cable:[/bold cyan]\n"
-            f"[dim](Length is already stored separately - don't include it here)[/dim]\n\n"
-            f"Include details like:\n"
-            f"  • Color/pattern (e.g., 'custom blue/orange')\n"
-            f"  • Connector types (e.g., 'Neutrik TS-TRS')\n"
-            f"  • Cable construction (e.g., 'cotton braid')\n"
-            f"  • Any special attributes\n\n"
-            f"Example: 'dark putty houndstooth with gold connectors instead of nickel'",
+            "\n".join(body_parts),
             title="📝 Custom Cable Description",
             border_style="yellow"
         ))
@@ -1712,8 +1752,11 @@ class ScanCableIntakeScreen(Screen):
                         title="Description"
                     ))
                 else:
+                    prompt_hint = "Enter number or description"
+                    if existing_types:
+                        prompt_hint += f" (1-{len(existing_types)} to reuse)"
                     self.ui.layout["footer"].update(Panel(
-                        f"Enter description (max {max_desc_len} chars) or 'q' to cancel",
+                        f"{prompt_hint} (max {max_desc_len} chars) or 'q' to cancel",
                         title="Description"
                     ))
                 self.ui.render()
@@ -1732,25 +1775,30 @@ class ScanCableIntakeScreen(Screen):
                 if description.lower() == 'q' or not description:
                     return None
 
+                # Check if they entered a number to select an existing type
+                if existing_types and description.isdigit():
+                    idx = int(description) - 1
+                    if 0 <= idx < len(existing_types):
+                        selected = existing_types[idx]
+                        return (selected['description'], selected['id'])
+
                 if len(description) <= max_desc_len:
-                    return description
+                    return (description, None)
 
                 prefill_text = description
         except KeyboardInterrupt:
             return None
 
-    def scan_cables_loop(self, operator, cable_type, cable_description=None):
+    def scan_cables_loop(self, operator, cable_type, cable_description=None, special_baby_type_id=None):
         """Main scanning loop for registering multiple cables
 
         Args:
             operator: Operator ID
             cable_type: CableType object
             cable_description: Optional custom description for MISC SKUs
+            special_baby_type_id: Optional FK to special_baby_types for MISC cables
         """
         from greenlight.db import register_scanned_cable
-
-        # Get custom length from context if this is a MISC cable
-        custom_length = self.context.get("custom_length")
 
         scanned_count = 0
         scanned_serials = []
@@ -1834,7 +1882,7 @@ class ScanCableIntakeScreen(Screen):
             result = register_scanned_cable(serial_number, cable_type.sku, operator,
                                           update_if_exists=allow_update,
                                           description=cable_description,
-                                          length=custom_length)
+                                          special_baby_type_id=special_baby_type_id)
 
             if result.get('success'):
                 # Successfully registered or updated
@@ -1861,7 +1909,7 @@ class ScanCableIntakeScreen(Screen):
                     break
 
                 # Show success and ask what to do next
-                next_action = self.offer_print_label(operator, cable_type, saved_serial, custom_length, cable_description)
+                next_action = self.offer_print_label(operator, cable_type, saved_serial, cable_description=cable_description)
                 if next_action == 'quit':
                     break
             else:
@@ -1893,7 +1941,7 @@ class ScanCableIntakeScreen(Screen):
                             update_result = register_scanned_cable(serial_number, cable_type.sku, operator,
                                                                   update_if_exists=True,
                                                                   description=cable_description,
-                                                                  length=custom_length)
+                                                                  special_baby_type_id=special_baby_type_id)
                             if update_result.get('success'):
                                 scanned_count += 1
                                 saved_serial = update_result['serial_number']
@@ -1921,7 +1969,7 @@ class ScanCableIntakeScreen(Screen):
         # Go back to main scan screen
         return ScreenResult(NavigationAction.REPLACE, ScanCableLookupScreen, self.context)
 
-    def offer_print_label(self, operator, cable_type, serial_number, custom_length=None, cable_description=None):
+    def offer_print_label(self, operator, cable_type, serial_number, cable_description=None):
         """Show cable info after registration and prompt for actions.
 
         Displays the full cable info screen (same as scan-lookup) with all
@@ -1932,7 +1980,6 @@ class ScanCableIntakeScreen(Screen):
             operator: Operator ID
             cable_type: CableType object
             serial_number: Registered serial number
-            custom_length: Optional custom length for MISC cables
             cable_description: Optional description for MISC cables
 
         Returns:

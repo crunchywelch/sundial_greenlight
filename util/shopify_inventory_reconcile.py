@@ -26,6 +26,9 @@ from greenlight.shopify_client import get_all_product_skus, increment_inventory_
 def get_postgres_passed_counts():
     """Get count of QC-passed cables per SKU from Postgres.
 
+    For MISC cables with a special_baby_type, groups by the type's shopify_sku
+    (e.g. SC-MISC-42) instead of the generic base SKU (SC-MISC).
+
     Returns:
         dict mapping SKU -> count of passed cables
     """
@@ -33,11 +36,12 @@ def get_postgres_passed_counts():
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT sku, COUNT(*)
-                FROM audio_cables
-                WHERE test_passed = TRUE
-                GROUP BY sku
-                ORDER BY sku
+                SELECT COALESCE(sbt.shopify_sku, ac.sku) as effective_sku, COUNT(*)
+                FROM audio_cables ac
+                LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
+                WHERE ac.test_passed = TRUE
+                GROUP BY effective_sku
+                ORDER BY effective_sku
             """)
             return {row[0]: row[1] for row in cur.fetchall()}
     finally:

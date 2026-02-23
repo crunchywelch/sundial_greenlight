@@ -4,7 +4,6 @@ Shopify API integration for customer lookup, order information, and inventory ma
 
 import os
 import json
-import hashlib
 import logging
 import shopify
 import requests
@@ -950,17 +949,6 @@ _SERIES_DISPLAY = {
 }
 
 
-def _generate_special_baby_shopify_sku(misc_sku: str, description: str, length) -> str:
-    """Generate a deterministic Shopify SKU for a MISC cable.
-
-    Same description + length + MISC SKU always produces the same hash,
-    so duplicate cables increment inventory instead of creating new products.
-    """
-    key = f"{misc_sku}|{description.strip().lower()}|{length}"
-    digest = hashlib.md5(key.encode()).hexdigest()[:6]
-    return f"{misc_sku}-{digest}"
-
-
 def _find_variant_by_sku(shopify_sku: str) -> Optional[Dict[str, str]]:
     """Look up an existing product variant by SKU.
 
@@ -1140,12 +1128,12 @@ def _create_special_baby_product(title: str, shopify_sku: str, series: str, desc
 def ensure_special_baby_shopify_product(cable_record: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """Find-or-create a Shopify product for a MISC (special baby) cable.
 
-    If a product with the deterministic SKU already exists, increments inventory.
-    Otherwise creates a new product with inventory = 1.
+    Uses the stable DB-sourced shopify_sku (from special_baby_types table)
+    instead of computing a hash. If a product with that SKU already exists,
+    increments inventory. Otherwise creates a new product with inventory = 1.
 
     Returns (success, error_msg) — same signature as increment_inventory_for_sku.
     """
-    sku = cable_record.get("sku", "")
     description = cable_record.get("description") or ""
     length = cable_record.get("length", "")
     series = cable_record.get("series", "")
@@ -1153,7 +1141,10 @@ def ensure_special_baby_shopify_product(cable_record: Dict[str, Any]) -> Tuple[b
     if not description:
         return False, "MISC cable has no description — cannot create Shopify product"
 
-    shopify_sku = _generate_special_baby_shopify_sku(sku, description, length)
+    # Use DB-sourced SKU from the joined special_baby_types table
+    shopify_sku = cable_record.get("special_baby_shopify_sku")
+    if not shopify_sku:
+        return False, "MISC cable has no special_baby_shopify_sku — run migration or re-register"
 
     # Check if product already exists
     existing = _find_variant_by_sku(shopify_sku)

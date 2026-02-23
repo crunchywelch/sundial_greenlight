@@ -19,6 +19,16 @@ CREATE TABLE IF NOT EXISTS cable_skus (
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Special baby types table - Stable type definitions for MISC cables
+CREATE TABLE IF NOT EXISTS special_baby_types (
+    id SERIAL PRIMARY KEY,
+    base_sku TEXT NOT NULL REFERENCES cable_skus(sku),
+    description TEXT NOT NULL,
+    length REAL,
+    shopify_sku TEXT UNIQUE,  -- set to "{base_sku}-{id}" after insert
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Audio cables table - Production records
 CREATE TABLE IF NOT EXISTS audio_cables (
     serial_number TEXT PRIMARY KEY,
@@ -31,5 +41,6 @@ CREATE TABLE IF NOT EXISTS audio_cables (
     test_timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     shopify_gid TEXT,
     shopify_synced BOOLEAN DEFAULT FALSE,
+    special_baby_type_id INTEGER REFERENCES special_baby_types(id),
     FOREIGN KEY (sku) REFERENCES cable_skus(sku)
 );
