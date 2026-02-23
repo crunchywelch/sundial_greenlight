@@ -27,9 +27,18 @@ from sync_skus import (
     generate_sku_code,
 )
 import shopify
-from greenlight.shopify_client import get_shopify_session, close_shopify_session
+from greenlight.shopify_client import get_shopify_session, close_shopify_session, SPECIAL_BABY_PRICE
+from greenlight.db import pg_pool
 
 WEIGHT_UNIT = "OUNCES"
+
+# Map base_sku prefix to YAML sku_prefix
+_PREFIX_MAP = {
+    "SC": "SC",
+    "TC": "TC",
+    "SV": "SV",
+    "TV": "TV",
+}
 
 
 def build_yaml_sku_map(product_lines_dir):
@@ -68,6 +77,104 @@ def build_yaml_sku_map(product_lines_dir):
                         'cost': float(cost) if cost is not None else None,
                         'weight': float(weight) if weight is not None else None,
                     }
+
+    return sku_map
+
+
+def _interpolate(lengths_map, target_length):
+    """Interpolate a value from a length-keyed map for a non-standard length.
+
+    Finds the two nearest standard lengths and linearly interpolates.
+    Extrapolates if target is outside the range.
+    """
+    if not lengths_map:
+        return None
+
+    # Sort by numeric length key
+    points = sorted((float(k), float(v)) for k, v in lengths_map.items()
+                    if not isinstance(k, str) or not k.endswith('R'))
+
+    if not points:
+        return None
+
+    target = float(target_length)
+
+    # Exact match
+    for l, v in points:
+        if abs(l - target) < 0.01:
+            return v
+
+    # Find bracketing points
+    below = [(l, v) for l, v in points if l < target]
+    above = [(l, v) for l, v in points if l > target]
+
+    if below and above:
+        l1, v1 = below[-1]
+        l2, v2 = above[0]
+    elif below:
+        # Extrapolate above using last two points
+        if len(points) >= 2:
+            l1, v1 = points[-2]
+            l2, v2 = points[-1]
+        else:
+            return points[-1][1]
+    else:
+        # Extrapolate below using first two points
+        if len(points) >= 2:
+            l1, v1 = points[0]
+            l2, v2 = points[1]
+        else:
+            return points[0][1]
+
+    rate = (v2 - v1) / (l2 - l1)
+    return round(v1 + rate * (target - l1), 2)
+
+
+def build_special_baby_sku_map(product_lines_dir):
+    """Build shopify_sku -> {price, cost, weight} for special baby types.
+
+    Reads special_baby_types from DB and interpolates cost/weight
+    from the matching product line YAML based on length.
+    """
+    product_lines = load_product_lines(product_lines_dir)
+
+    # Index product lines by sku_prefix
+    pl_by_prefix = {}
+    for pl in product_lines:
+        pl_by_prefix[pl['sku_prefix']] = pl
+
+    # Get all special baby types from DB
+    conn = pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT shopify_sku, base_sku, length
+                FROM special_baby_types
+                WHERE shopify_sku IS NOT NULL
+            """)
+            rows = cur.fetchall()
+    finally:
+        pg_pool.putconn(conn)
+
+    sku_map = {}
+    for shopify_sku, base_sku, length in rows:
+        if not length:
+            continue
+
+        # Derive prefix from base_sku (e.g. "SC-MISC" -> "SC")
+        prefix = base_sku.split('-')[0]
+        pl = pl_by_prefix.get(prefix)
+        if not pl:
+            continue
+
+        cost = _interpolate(pl.get('cost', {}), length)
+        weight = _interpolate(pl.get('weight', {}), length)
+
+        sku_map[shopify_sku] = {
+            'price': float(SPECIAL_BABY_PRICE),
+            'cost': cost,
+            'weight': weight,
+        }
 
     return sku_map
 
@@ -318,7 +425,13 @@ def main():
     # Build YAML SKU map
     print("Loading YAML product definitions...")
     yaml_map = build_yaml_sku_map(product_lines_dir)
-    print(f"   {len(yaml_map)} SKUs from YAML")
+    print(f"   {len(yaml_map)} standard SKUs from YAML")
+
+    # Add special baby types (cost/weight interpolated from YAML)
+    special_map = build_special_baby_sku_map(product_lines_dir)
+    yaml_map.update(special_map)
+    print(f"   {len(special_map)} special baby SKUs from DB")
+    print(f"   {len(yaml_map)} total SKUs")
     print()
 
     # Fetch Shopify data
