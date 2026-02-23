@@ -807,12 +807,12 @@ def _get_inventory_item_id(sku: str) -> Optional[str]:
         close_shopify_session()
 
 
-def increment_inventory_for_sku(sku: str, delta: int = 1) -> Tuple[bool, Optional[str]]:
-    """Increment Shopify available inventory for a SKU.
+def set_inventory_for_sku(sku: str, quantity: int) -> Tuple[bool, Optional[str]]:
+    """Set Shopify available inventory for a SKU to an absolute quantity.
 
     Args:
         sku: Product variant SKU
-        delta: Quantity to add (default 1)
+        quantity: Desired available quantity
 
     Returns:
         (success, error_message) tuple. Never raises.
@@ -828,8 +828,8 @@ def increment_inventory_for_sku(sku: str, delta: int = 1) -> Tuple[bool, Optiona
 
         session = get_shopify_session()
         mutation = """
-        mutation inventoryAdjustQuantities($input: InventoryAdjustQuantitiesInput!) {
-            inventoryAdjustQuantities(input: $input) {
+        mutation inventorySetQuantities($input: InventorySetQuantitiesInput!) {
+            inventorySetQuantities(input: $input) {
                 userErrors {
                     field
                     message
@@ -847,11 +847,11 @@ def increment_inventory_for_sku(sku: str, delta: int = 1) -> Tuple[bool, Optiona
             "input": {
                 "reason": "correction",
                 "name": "available",
-                "changes": [
+                "quantities": [
                     {
                         "inventoryItemId": inventory_item_id,
                         "locationId": location_id,
-                        "delta": delta,
+                        "quantity": quantity,
                     }
                 ],
             }
@@ -861,20 +861,20 @@ def increment_inventory_for_sku(sku: str, delta: int = 1) -> Tuple[bool, Optiona
 
         if "errors" in data:
             err = str(data["errors"])
-            logger.error(f"GraphQL errors adjusting inventory for {sku}: {err}")
+            logger.error(f"GraphQL errors setting inventory for {sku}: {err}")
             return False, err
 
-        user_errors = data.get("data", {}).get("inventoryAdjustQuantities", {}).get("userErrors", [])
+        user_errors = data.get("data", {}).get("inventorySetQuantities", {}).get("userErrors", [])
         if user_errors:
             err = "; ".join(e["message"] for e in user_errors)
-            logger.error(f"Shopify user errors adjusting inventory for {sku}: {err}")
+            logger.error(f"Shopify user errors setting inventory for {sku}: {err}")
             return False, err
 
-        logger.info(f"Shopify inventory incremented by {delta} for SKU {sku}")
+        logger.info(f"Shopify inventory set to {quantity} for SKU {sku}")
         return True, None
     except Exception as e:
         err = str(e)
-        logger.error(f"Error adjusting Shopify inventory for {sku}: {err}")
+        logger.error(f"Error setting Shopify inventory for {sku}: {err}")
         return False, err
     finally:
         try:
@@ -994,12 +994,12 @@ def _find_variant_by_sku(shopify_sku: str) -> Optional[Dict[str, str]]:
         close_shopify_session()
 
 
-def _create_special_baby_product(title: str, shopify_sku: str, series: str, description: str = "") -> Tuple[bool, Optional[str]]:
+def _create_special_baby_product(title: str, shopify_sku: str, series: str, description: str = "", quantity: int = 1) -> Tuple[bool, Optional[str]]:
     """Create a new Shopify product for a special baby cable.
 
     Two-step process:
       1. productSet to create product + variant (SKU, price, inventory tracking)
-      2. inventoryAdjustQuantities to set available = 1
+      2. inventorySetQuantities to set available quantity
 
     Returns (success, error_msg).
     """
@@ -1074,40 +1074,40 @@ def _create_special_baby_product(title: str, shopify_sku: str, series: str, desc
 
         close_shopify_session()
 
-        # Step 2: Set inventory to 1
+        # Step 2: Set inventory quantity
         location_id = _get_location_id()
         if not location_id:
             return False, "Product created but could not determine location for inventory"
 
         session = get_shopify_session()
-        adjust_mutation = """
-        mutation inventoryAdjustQuantities($input: InventoryAdjustQuantitiesInput!) {
-            inventoryAdjustQuantities(input: $input) {
+        set_mutation = """
+        mutation inventorySetQuantities($input: InventorySetQuantitiesInput!) {
+            inventorySetQuantities(input: $input) {
                 userErrors { field message }
             }
         }
         """
-        adjust_variables = {
+        set_variables = {
             "input": {
                 "reason": "correction",
                 "name": "available",
-                "changes": [
+                "quantities": [
                     {
                         "inventoryItemId": inventory_item_id,
                         "locationId": location_id,
-                        "delta": 1,
+                        "quantity": quantity,
                     }
                 ],
             }
         }
-        result = shopify.GraphQL().execute(adjust_mutation, variables=adjust_variables)
+        result = shopify.GraphQL().execute(set_mutation, variables=set_variables)
         data = json.loads(result)
 
         if "errors" in data:
-            logger.warning(f"Product created but inventory adjust failed: {data['errors']}")
+            logger.warning(f"Product created but inventory set failed: {data['errors']}")
             return True, None
 
-        inv_errors = data.get("data", {}).get("inventoryAdjustQuantities", {}).get("userErrors", [])
+        inv_errors = data.get("data", {}).get("inventorySetQuantities", {}).get("userErrors", [])
         if inv_errors:
             logger.warning(f"Product created but inventory user errors: {inv_errors}")
 
@@ -1125,14 +1125,14 @@ def _create_special_baby_product(title: str, shopify_sku: str, series: str, desc
             pass
 
 
-def ensure_special_baby_shopify_product(cable_record: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
-    """Find-or-create a Shopify product for a MISC (special baby) cable.
+def ensure_special_baby_shopify_product(cable_record: Dict[str, Any], quantity: int = 1) -> Tuple[bool, Optional[str]]:
+    """Find-or-create a Shopify product for a MISC (special baby) cable and set inventory.
 
-    Uses the stable DB-sourced shopify_sku (from special_baby_types table)
-    instead of computing a hash. If a product with that SKU already exists,
-    increments inventory. Otherwise creates a new product with inventory = 1.
+    Uses the stable DB-sourced shopify_sku (from special_baby_types table).
+    If a product with that SKU already exists, sets inventory to quantity.
+    Otherwise creates a new product with the given inventory quantity.
 
-    Returns (success, error_msg) — same signature as increment_inventory_for_sku.
+    Returns (success, error_msg).
     """
     description = cable_record.get("description") or ""
     length = cable_record.get("length", "")
@@ -1149,8 +1149,8 @@ def ensure_special_baby_shopify_product(cable_record: Dict[str, Any]) -> Tuple[b
     # Check if product already exists
     existing = _find_variant_by_sku(shopify_sku)
     if existing:
-        # Product exists — just increment inventory
-        return increment_inventory_for_sku(shopify_sku)
+        # Product exists — set inventory to match Postgres
+        return set_inventory_for_sku(shopify_sku, quantity)
 
     # Build title: "Special Baby — 10ft Tour Classic"
     length_str = ""
@@ -1164,7 +1164,7 @@ def ensure_special_baby_shopify_product(cable_record: Dict[str, Any]) -> Tuple[b
         title_parts.append(f"{length_str}{series_display}".strip())
     title = " — ".join(title_parts)
 
-    return _create_special_baby_product(title, shopify_sku, series, description)
+    return _create_special_baby_product(title, shopify_sku, series, description, quantity)
 
 
 # Example usage / testing

@@ -573,20 +573,23 @@ class ScanCableLookupScreen(Screen):
             logger.error(f"Failed to save test results: {e}")
             saved_status = " | [red]Save failed[/red]"
 
-        # Increment Shopify inventory on pass
+        # Set Shopify inventory to match Postgres available count (best-effort; reconcile tool catches drift)
         if all_passed:
             try:
-                from greenlight.db import mark_cable_shopify_synced
+                from greenlight.db import get_available_count_for_sku
                 is_misc = cable_record.get('sku', '').endswith('-MISC')
                 if is_misc:
                     from greenlight.shopify_client import ensure_special_baby_shopify_product
-                    success, err = ensure_special_baby_shopify_product(cable_record)
+                    effective_sku = cable_record.get('special_baby_shopify_sku')
+                    count = get_available_count_for_sku(effective_sku) if effective_sku else 0
+                    success, err = ensure_special_baby_shopify_product(cable_record, quantity=count)
                 else:
-                    from greenlight.shopify_client import increment_inventory_for_sku
-                    success, err = increment_inventory_for_sku(cable_record['sku'])
+                    from greenlight.shopify_client import set_inventory_for_sku
+                    effective_sku = cable_record['sku']
+                    count = get_available_count_for_sku(effective_sku)
+                    success, err = set_inventory_for_sku(effective_sku, count)
                 if success:
-                    mark_cable_shopify_synced(serial_number)
-                    saved_status += " | [green]Shopify +1[/green]"
+                    saved_status += f" | [green]Shopify={count}[/green]"
                 else:
                     logger.warning(f"Shopify inventory update failed for {serial_number}: {err}")
                     saved_status += " | [yellow]Shopify failed[/yellow]"
@@ -762,19 +765,22 @@ class ScanCableLookupScreen(Screen):
             logger.error(f"Failed to save test results: {e}")
             saved_status = " | [red]Save failed[/red]"
 
-        # Increment Shopify inventory on pass
+        # Set Shopify inventory to match Postgres available count (best-effort; reconcile tool catches drift)
         if all_passed:
             try:
-                from greenlight.db import mark_cable_shopify_synced
+                from greenlight.db import get_available_count_for_sku
                 if is_misc:
                     from greenlight.shopify_client import ensure_special_baby_shopify_product
-                    success, err = ensure_special_baby_shopify_product(cable_record)
+                    effective_sku = cable_record.get('special_baby_shopify_sku')
+                    count = get_available_count_for_sku(effective_sku) if effective_sku else 0
+                    success, err = ensure_special_baby_shopify_product(cable_record, quantity=count)
                 else:
-                    from greenlight.shopify_client import increment_inventory_for_sku
-                    success, err = increment_inventory_for_sku(cable_record['sku'])
+                    from greenlight.shopify_client import set_inventory_for_sku
+                    effective_sku = cable_record['sku']
+                    count = get_available_count_for_sku(effective_sku)
+                    success, err = set_inventory_for_sku(effective_sku, count)
                 if success:
-                    mark_cable_shopify_synced(serial_number)
-                    saved_status += " | [green]Shopify +1[/green]"
+                    saved_status += f" | [green]Shopify={count}[/green]"
                 else:
                     logger.warning(f"Shopify inventory update failed for {serial_number}: {err}")
                     saved_status += " | [yellow]Shopify failed[/yellow]"

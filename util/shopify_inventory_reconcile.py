@@ -2,14 +2,13 @@
 """
 Reconcile Shopify inventory levels against Postgres cable counts.
 
-Compares per-SKU counts of QC-passed cables in Postgres with Shopify's
-available inventory. Also reports unsynced cables (passed QC but Shopify
-wasn't incremented, e.g. due to network failure).
+Compares per-SKU counts of available cables (passed QC, not assigned to a
+customer) in Postgres with Shopify's available inventory.  The --fix flag
+sets Shopify to match Postgres for any mismatched SKUs.
 
 Usage:
     python util/shopify_inventory_reconcile.py            # Report only
-    python util/shopify_inventory_reconcile.py --fix       # Re-sync unsynced cables
-    python util/shopify_inventory_reconcile.py --unsynced  # Show only unsynced cables
+    python util/shopify_inventory_reconcile.py --fix       # Fix mismatches
 """
 
 import sys
@@ -19,18 +18,19 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from greenlight.db import pg_pool, get_unsynced_passed_cables, mark_cable_shopify_synced, get_audio_cable
-from greenlight.shopify_client import get_all_product_skus, increment_inventory_for_sku, ensure_special_baby_shopify_product
+from greenlight.db import pg_pool
+from greenlight.shopify_client import get_all_product_skus, set_inventory_for_sku, ensure_special_baby_shopify_product
+from greenlight.db import get_audio_cable
 
 
-def get_postgres_passed_counts():
-    """Get count of QC-passed cables per SKU from Postgres.
+def get_postgres_available_counts():
+    """Get count of available (passed + unassigned) cables per effective SKU.
 
     For MISC cables with a special_baby_type, groups by the type's shopify_sku
     (e.g. SC-MISC-42) instead of the generic base SKU (SC-MISC).
 
     Returns:
-        dict mapping SKU -> count of passed cables
+        dict mapping SKU -> count of available cables
     """
     conn = pg_pool.getconn()
     try:
@@ -40,6 +40,7 @@ def get_postgres_passed_counts():
                 FROM audio_cables ac
                 LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
                 WHERE ac.test_passed = TRUE
+                  AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
                 GROUP BY effective_sku
                 ORDER BY effective_sku
             """)
@@ -49,9 +50,9 @@ def get_postgres_passed_counts():
 
 
 def print_reconciliation_report():
-    """Print a comparison of Postgres passed counts vs Shopify inventory."""
-    print("Fetching Postgres cable counts...")
-    pg_counts = get_postgres_passed_counts()
+    """Print a comparison of Postgres available counts vs Shopify inventory."""
+    print("Fetching Postgres available cable counts...")
+    pg_counts = get_postgres_available_counts()
 
     print("Fetching Shopify inventory levels...")
     shopify_skus = get_all_product_skus()
@@ -103,10 +104,10 @@ def print_reconciliation_report():
     if pg_only:
         print(f"\nPostgres only ({len(pg_only)} SKUs) — not in Shopify:")
         for sku, count in pg_only:
-            print(f"  {sku:<20} {count:>5} passed")
+            print(f"  {sku:<20} {count:>5} available")
 
     if shopify_only:
-        print(f"\nShopify only ({len(shopify_only)} SKUs) — no passed cables in Postgres:")
+        print(f"\nShopify only ({len(shopify_only)} SKUs) — no available cables in Postgres:")
         for sku, qty in shopify_only:
             print(f"  {sku:<20} {qty:>5} in Shopify")
 
@@ -114,92 +115,100 @@ def print_reconciliation_report():
         print("\nAll SKUs are in sync!")
 
     print()
+    return mismatches, pg_only
 
 
-def print_unsynced_report():
-    """Print cables that passed QC but weren't synced to Shopify."""
-    unsynced = get_unsynced_passed_cables()
+def fix_mismatches():
+    """Set Shopify inventory to match Postgres for all mismatched SKUs."""
+    print("Fetching Postgres available cable counts...")
+    pg_counts = get_postgres_available_counts()
 
-    if not unsynced:
-        print("No unsynced cables found. All passed cables are synced to Shopify.")
+    print("Fetching Shopify inventory levels...")
+    shopify_skus = get_all_product_skus()
+
+    all_skus = sorted(set(pg_counts.keys()) | set(shopify_skus.keys()))
+
+    fixes_needed = []
+    for sku in all_skus:
+        pg_count = pg_counts.get(sku, 0)
+        shopify_info = shopify_skus.get(sku)
+        shopify_qty = shopify_info["inventory_quantity"] if shopify_info else None
+
+        if shopify_qty is not None and pg_count != shopify_qty:
+            fixes_needed.append((sku, pg_count, shopify_qty))
+        elif pg_count > 0 and shopify_qty is None:
+            fixes_needed.append((sku, pg_count, None))
+
+    if not fixes_needed:
+        print("No mismatches to fix.")
         return
 
-    print(f"\nUnsynced cables ({len(unsynced)} total):")
-    print(f"  {'Serial':<12} {'SKU':<20}")
-    print(f"  {'-'*32}")
-
-    # Group by SKU for summary
-    sku_counts = {}
-    for cable in unsynced:
-        print(f"  {cable['serial_number']:<12} {cable['sku']:<20}")
-        sku_counts[cable['sku']] = sku_counts.get(cable['sku'], 0) + 1
-
-    print(f"\n  Summary by SKU:")
-    for sku, count in sorted(sku_counts.items()):
-        print(f"    {sku:<20} {count:>5} unsynced")
-    print()
-
-
-def fix_unsynced():
-    """Re-sync unsynced cables by incrementing Shopify inventory."""
-    unsynced = get_unsynced_passed_cables()
-
-    if not unsynced:
-        print("No unsynced cables to fix.")
-        return
-
-    print(f"Found {len(unsynced)} unsynced cables. Syncing to Shopify...")
-
+    print(f"\nFixing {len(fixes_needed)} mismatched SKUs...")
     success_count = 0
     fail_count = 0
 
-    for cable in unsynced:
-        serial = cable['serial_number']
-        sku = cable['sku']
-        is_misc = sku.endswith('-MISC')
+    for sku, pg_count, shopify_qty in fixes_needed:
+        old_str = str(shopify_qty) if shopify_qty is not None else "N/A"
 
-        if is_misc:
-            cable_record = get_audio_cable(serial)
-            if not cable_record:
-                fail_count += 1
-                print(f"  {serial} ({sku}): FAILED - cable record not found")
-                continue
-            success, err = ensure_special_baby_shopify_product(cable_record)
-        else:
-            success, err = increment_inventory_for_sku(sku)
+        # For MISC SKUs not yet in Shopify, we need to create the product
+        if shopify_qty is None and '-MISC-' in sku:
+            # Find a cable with this special baby type to get the record
+            conn = pg_pool.getconn()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT ac.serial_number
+                        FROM audio_cables ac
+                        LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
+                        WHERE sbt.shopify_sku = %s AND ac.test_passed = TRUE
+                        LIMIT 1
+                    """, (sku,))
+                    row = cur.fetchone()
+            finally:
+                pg_pool.putconn(conn)
 
+            if row:
+                cable_record = get_audio_cable(row[0])
+                if cable_record:
+                    success, err = ensure_special_baby_shopify_product(cable_record, quantity=pg_count)
+                    if success:
+                        success_count += 1
+                        print(f"  {sku}: created product, set to {pg_count}")
+                    else:
+                        fail_count += 1
+                        print(f"  {sku}: FAILED to create - {err}")
+                    continue
+
+            fail_count += 1
+            print(f"  {sku}: FAILED - no cable record found for MISC SKU")
+            continue
+
+        # For existing Shopify products, just set the quantity
+        success, err = set_inventory_for_sku(sku, pg_count)
         if success:
-            mark_cable_shopify_synced(serial)
             success_count += 1
-            print(f"  {serial} ({sku}): synced")
+            print(f"  {sku}: {old_str} -> {pg_count}")
         else:
             fail_count += 1
-            print(f"  {serial} ({sku}): FAILED - {err}")
+            print(f"  {sku}: FAILED - {err}")
 
-    print(f"\nDone: {success_count} synced, {fail_count} failed")
+    print(f"\nDone: {success_count} fixed, {fail_count} failed")
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Reconcile Shopify inventory with Postgres cable counts"
+        description="Reconcile Shopify inventory with Postgres available cable counts"
     )
     parser.add_argument(
         "--fix", action="store_true",
-        help="Re-sync unsynced cables (increment Shopify for each)"
-    )
-    parser.add_argument(
-        "--unsynced", action="store_true",
-        help="Show only unsynced cables (passed QC, not synced to Shopify)"
+        help="Set Shopify inventory to match Postgres for mismatched SKUs"
     )
     args = parser.parse_args()
 
     if args.fix:
-        fix_unsynced()
-    elif args.unsynced:
-        print_unsynced_report()
+        fix_mismatches()
     else:
         print_reconciliation_report()
-        print_unsynced_report()
 
 
 if __name__ == "__main__":

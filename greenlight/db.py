@@ -412,6 +412,34 @@ def search_special_baby_types(base_sku):
         pg_pool.putconn(conn)
 
 
+def get_available_count_for_sku(sku):
+    """Get count of available (passed + unassigned) cables for a SKU.
+
+    For MISC cables, pass the special_baby_types shopify_sku (e.g. "SC-MISC-42").
+    For standard cables, pass the cable_skus SKU (e.g. "SC-STD-BK-10-TS").
+
+    Returns:
+        int count of available cables
+    """
+    conn = pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT COUNT(*)
+                FROM audio_cables ac
+                LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
+                WHERE ac.test_passed = TRUE
+                  AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
+                  AND COALESCE(sbt.shopify_sku, ac.sku) = %s
+            """, (sku,))
+            return cur.fetchone()[0]
+    except Exception as e:
+        print(f"Error getting available count for SKU {sku}: {e}")
+        return 0
+    finally:
+        pg_pool.putconn(conn)
+
+
 def assign_cable_to_customer(serial_number, customer_shopify_gid):
     """Assign a cable to a customer by updating the shopify_gid field"""
     conn = pg_pool.getconn()
@@ -776,72 +804,6 @@ def get_available_series():
             return [row[0] for row in rows if row[0]]
     except Exception as e:
         print(f"❌ Error fetching available series: {e}")
-        return []
-    finally:
-        pg_pool.putconn(conn)
-
-def ensure_shopify_synced_column():
-    """Add shopify_synced column to audio_cables if it doesn't exist."""
-    conn = pg_pool.getconn()
-    try:
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    ALTER TABLE audio_cables
-                    ADD COLUMN IF NOT EXISTS shopify_synced BOOLEAN DEFAULT FALSE
-                """)
-            conn.commit()
-    except Exception as e:
-        print(f"Warning: could not add shopify_synced column: {e}")
-        conn.rollback()
-    finally:
-        pg_pool.putconn(conn)
-
-
-def mark_cable_shopify_synced(serial_number):
-    """Mark a cable as having its inventory synced to Shopify.
-
-    Args:
-        serial_number: Cable serial number
-    """
-    conn = pg_pool.getconn()
-    try:
-        formatted_serial = format_serial_number(serial_number)
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    UPDATE audio_cables
-                    SET shopify_synced = TRUE
-                    WHERE serial_number = %s
-                """, (formatted_serial,))
-            conn.commit()
-    except Exception as e:
-        print(f"Error marking cable {serial_number} as shopify synced: {e}")
-        conn.rollback()
-    finally:
-        pg_pool.putconn(conn)
-
-
-def get_unsynced_passed_cables():
-    """Get cables that passed QC but haven't been synced to Shopify.
-
-    Returns:
-        List of dicts with serial_number and sku.
-    """
-    conn = pg_pool.getconn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT serial_number, sku
-                FROM audio_cables
-                WHERE test_passed = TRUE
-                  AND (shopify_synced IS NULL OR shopify_synced = FALSE)
-                ORDER BY serial_number
-            """)
-            rows = cur.fetchall()
-            return [{"serial_number": r[0], "sku": r[1]} for r in rows]
-    except Exception as e:
-        print(f"Error fetching unsynced cables: {e}")
         return []
     finally:
         pg_pool.putconn(conn)
