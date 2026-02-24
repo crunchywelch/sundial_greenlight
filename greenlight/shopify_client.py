@@ -1031,7 +1031,7 @@ def _create_special_baby_product(title: str, shopify_sku: str, series: str, desc
             "descriptionHtml": f"<p>{description}</p>" if description else "",
             "productType": SPECIAL_BABY_PRODUCT_TYPE,
             "tags": ["special-baby"],
-            "status": "ACTIVE",
+            "status": "DRAFT",
             "productOptions": [{"name": "Title", "values": [{"name": "Default Title"}]}],
             "variants": [
                 {
@@ -1122,6 +1122,60 @@ def _create_special_baby_product(title: str, shopify_sku: str, series: str, desc
             pass
 
 
+def update_special_baby_description(shopify_sku: str, description: str) -> Tuple[bool, Optional[str]]:
+    """Update the description of an existing special baby Shopify product.
+
+    Returns (success, error_msg).
+    """
+    try:
+        variant_info = _find_variant_by_sku(shopify_sku)
+        if not variant_info:
+            return False, f"No Shopify product found for SKU {shopify_sku}"
+
+        product_id = variant_info["product_id"]
+
+        session = get_shopify_session()
+        mutation = """
+        mutation productUpdate($input: ProductInput!) {
+            productUpdate(input: $input) {
+                product { id }
+                userErrors { field message }
+            }
+        }
+        """
+        variables = {
+            "input": {
+                "id": product_id,
+                "descriptionHtml": f"<p>{description}</p>" if description else "",
+            }
+        }
+        result = shopify.GraphQL().execute(mutation, variables=variables)
+        data = json.loads(result)
+
+        if "errors" in data:
+            err = str(data["errors"])
+            logger.error(f"GraphQL errors updating special baby description: {err}")
+            return False, err
+
+        user_errors = data.get("data", {}).get("productUpdate", {}).get("userErrors", [])
+        if user_errors:
+            err = "; ".join(e["message"] for e in user_errors)
+            logger.error(f"Shopify user errors updating description: {err}")
+            return False, err
+
+        logger.info(f"Updated Shopify description for SKU {shopify_sku}")
+        return True, None
+    except Exception as e:
+        err = str(e)
+        logger.error(f"Error updating special baby description: {err}")
+        return False, err
+    finally:
+        try:
+            close_shopify_session()
+        except Exception:
+            pass
+
+
 def ensure_special_baby_shopify_product(cable_record: Dict[str, Any], quantity: int = 1) -> Tuple[bool, Optional[str]]:
     """Find-or-create a Shopify product for a MISC (special baby) cable and set inventory.
 
@@ -1149,7 +1203,7 @@ def ensure_special_baby_shopify_product(cable_record: Dict[str, Any], quantity: 
         # Product exists — set inventory to match Postgres
         return set_inventory_for_sku(shopify_sku, quantity)
 
-    # Build title: "Special Baby — 10ft Tour Classic"
+    # Build title: "Special Baby | 10ft Tour Classic"
     length_str = ""
     if length:
         length_val = float(length)
@@ -1159,7 +1213,7 @@ def ensure_special_baby_shopify_product(cable_record: Dict[str, Any], quantity: 
     title_parts = ["Special Baby"]
     if length_str or series_display:
         title_parts.append(f"{length_str}{series_display}".strip())
-    title = " — ".join(title_parts)
+    title = " - ".join(title_parts)
 
     return _create_special_baby_product(title, shopify_sku, series, description, quantity)
 
