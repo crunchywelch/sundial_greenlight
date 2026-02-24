@@ -17,7 +17,6 @@ from greenlight.screens.main import (
 # Cable workflow screens
 from greenlight.screens.cable import (
     ScanCableLookupScreen,
-    CableSelectionForIntakeScreen,
     SeriesSelectionScreen,
     ColorPatternSelectionScreen,
     MiscCableEntryScreen,
@@ -59,7 +58,6 @@ __all__ = [
     'MainMenuScreen',
     # Cable
     'ScanCableLookupScreen',
-    'CableSelectionForIntakeScreen',
     'SeriesSelectionScreen',
     'ColorPatternSelectionScreen',
     'MiscCableEntryScreen',
