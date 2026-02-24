@@ -269,11 +269,19 @@ class CableScreenBase(Screen):
         cable_info_panel = self.build_cable_info_panel(cable_record)
         self.ui.layout["body"].update(cable_info_panel)
 
-        # Check calibration using Python-side flag (no serial round-trip)
-        if not CableScreenBase._ts_calibrated:
+        # Check calibration by doing a quick resistance read
+        self.ui.layout["footer"].update(Panel("🔬 Checking calibration...", title="Testing"))
+        self.ui.render()
+        try:
+            check_result = cable_tester.run_resistance_test()
+            if not check_result.calibrated:
+                cal_result = self.run_calibration_prompt(operator, cable_record, cable_tester)
+                if not cal_result:
+                    return  # User cancelled
+        except Exception:
             cal_result = self.run_calibration_prompt(operator, cable_record, cable_tester)
             if not cal_result:
-                return  # User cancelled
+                return
 
         # Now run the actual tests
         self.ui.layout["body"].update(cable_info_panel)
@@ -317,22 +325,6 @@ class CableScreenBase(Screen):
 
             try:
                 res_result = cable_tester.run_resistance_test()
-                # Detect Arduino reset: we thought calibrated but result says otherwise
-                if not res_result.calibrated and CableScreenBase._ts_calibrated:
-                    CableScreenBase._ts_calibrated = False
-                    logger.warning("Arduino lost calibration (reset?), re-prompting")
-                    cal_result = self.run_calibration_prompt(operator, cable_record, cable_tester)
-                    if not cal_result:
-                        return
-                    # Re-run continuity and resistance after re-calibration
-                    self.ui.layout["body"].update(cable_info_panel)
-                    self.ui.layout["footer"].update(Panel("🔬 Re-running tests after recalibration...", title="Testing"))
-                    self.ui.render()
-                    cont_result = cable_tester.run_continuity_test()
-                    if not cont_result.passed:
-                        cont_status = f"[red]FAIL[/red]"
-                        all_passed = False
-                    res_result = cable_tester.run_resistance_test()
                 resistance_adc = res_result.adc_value
                 calibration_adc = res_result.calibration_adc
                 if res_result.passed:
@@ -419,8 +411,16 @@ class CableScreenBase(Screen):
         cable_info_panel = self.build_cable_info_panel(cable_record)
         self.ui.layout["body"].update(cable_info_panel)
 
-        # Check XLR calibration using Python-side flag (no serial round-trip)
-        if not CableScreenBase._xlr_calibrated:
+        # Check XLR calibration by doing a quick resistance read
+        self.ui.layout["footer"].update(Panel("🔬 Checking XLR calibration...", title="Testing"))
+        self.ui.render()
+        try:
+            check_result = cable_tester.run_xlr_resistance_test()
+            if not check_result.calibrated:
+                cal_result = self.run_xlr_calibration_prompt(operator, cable_record, cable_tester)
+                if not cal_result:
+                    return
+        except Exception:
             cal_result = self.run_xlr_calibration_prompt(operator, cable_record, cable_tester)
             if not cal_result:
                 return
@@ -513,22 +513,6 @@ class CableScreenBase(Screen):
 
             try:
                 res_result = cable_tester.run_xlr_resistance_test()
-                # Detect Arduino reset: we thought calibrated but result says otherwise
-                if not res_result.calibrated and CableScreenBase._xlr_calibrated:
-                    CableScreenBase._xlr_calibrated = False
-                    logger.warning("Arduino lost XLR calibration (reset?), re-prompting")
-                    cal_result = self.run_xlr_calibration_prompt(operator, cable_record, cable_tester)
-                    if not cal_result:
-                        return
-                    # Re-run full test after re-calibration
-                    self.ui.layout["body"].update(cable_info_panel)
-                    self.ui.layout["footer"].update(Panel("🔬 Re-running tests after recalibration...", title="Testing"))
-                    self.ui.render()
-                    cont_result = cable_tester.run_xlr_continuity_test()
-                    if not cont_result.passed:
-                        cont_status = f"[red]FAIL[/red]"
-                        all_passed = False
-                    res_result = cable_tester.run_xlr_resistance_test()
                 resistance_adc = res_result.pin2_adc
                 calibration_adc = res_result.pin2_cal_adc
                 resistance_adc_p3 = res_result.pin3_adc
@@ -634,7 +618,6 @@ class CableScreenBase(Screen):
         try:
             cal_result = cable_tester.calibrate()
             if cal_result.success:
-                CableScreenBase._ts_calibrated = True
                 self.ui.layout["footer"].update(Panel(
                     f"✅ [green]Calibration complete[/green] (ADC: {cal_result.adc_value})\n\n"
                     "Now insert the [bold]cable to test[/bold] and press [green]Enter[/green]",
@@ -706,7 +689,6 @@ class CableScreenBase(Screen):
         try:
             cal_result = cable_tester.xlr_calibrate()
             if cal_result.success:
-                CableScreenBase._xlr_calibrated = True
                 self.ui.layout["footer"].update(Panel(
                     f"✅ [green]XLR calibration complete[/green]\n"
                     f"Pin 2 ADC: {cal_result.pin2_adc}  |  Pin 3 ADC: {cal_result.pin3_adc}\n\n"
@@ -783,7 +765,6 @@ class CableScreenBase(Screen):
             try:
                 ts_result = cable_tester.calibrate()
                 if ts_result.success:
-                    CableScreenBase._ts_calibrated = True
                     ts_msg = f"✅ TS calibration OK (ADC: {ts_result.adc_value})"
                 else:
                     ts_msg = f"❌ TS calibration failed: {ts_result.error}"
@@ -832,7 +813,6 @@ class CableScreenBase(Screen):
         try:
             xlr_result = cable_tester.xlr_calibrate()
             if xlr_result.success:
-                CableScreenBase._xlr_calibrated = True
                 xlr_msg = f"✅ XLR calibration OK (P2 ADC: {xlr_result.pin2_adc}, P3 ADC: {xlr_result.pin3_adc})"
             else:
                 xlr_msg = f"❌ XLR calibration failed: {xlr_result.error}"
