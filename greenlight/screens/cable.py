@@ -1140,6 +1140,7 @@ class ScanCableLookupScreen(CableScreenBase):
                 footer_parts.append("[cyan]'i'[/cyan] = Inventory")
                 footer_parts.append("[cyan]'w'[/cyan] = Wholesale codes")
                 footer_parts.append("[cyan]'p'[/cyan] = Wire labels")
+                footer_parts.append("[cyan]'s'[/cyan] = Shopify scan mode")
                 footer_parts.append("[cyan]'q'[/cyan] = Logout")
                 self.ui.layout["footer"].update(Panel(
                     " | ".join(footer_parts),
@@ -1176,6 +1177,10 @@ class ScanCableLookupScreen(CableScreenBase):
                 # Go to wire label printing
                 from greenlight.screens.wire import WireLabelScreen
                 return ScreenResult(NavigationAction.PUSH, WireLabelScreen, self.context.copy())
+            elif input_lower == 's':
+                # Enter Shopify scan mode (webhooks on, Greenlight paused)
+                from greenlight.screens.shopify_scan import ShopifyScanModeScreen
+                return ScreenResult(NavigationAction.PUSH, ShopifyScanModeScreen, self.context.copy())
             elif input_lower == 'c':
                 # Run manual calibration
                 self.run_manual_calibration(operator)

@@ -1,5 +1,6 @@
 import signal
 import sys
+import time
 import logging
 
 from greenlight.ui import UIBase
@@ -87,6 +88,9 @@ def init_hardware():
         scanner = MQTTScanner()
         if scanner.initialize():
             print("✅ MQTT scanner connected (subscribing to scanner/barcode)")
+            # Disable Shopify webhooks while Greenlight is running
+            scanner.set_webhooks_enabled(False)
+            print("🔇 Shopify webhooks paused (Greenlight active)")
         else:
             print("⚠️  MQTT scanner not connected")
             print("   Check that mosquitto and scanner daemon are running")
@@ -133,6 +137,20 @@ def check_shopify_connection():
         print("   Continuing startup...")
 
 
+def shutdown_hardware():
+    """Re-enable Shopify webhooks and shut down all hardware"""
+    try:
+        from greenlight.hardware.interfaces import hardware_manager
+        scanner = hardware_manager.scanner
+        if scanner and hasattr(scanner, 'set_webhooks_enabled'):
+            scanner.set_webhooks_enabled(True)
+            print("🔔 Shopify webhooks restored")
+            time.sleep(0.1)  # ensure message is sent before disconnect
+        hardware_manager.shutdown()
+    except Exception as e:
+        print(f"⚠️  Hardware shutdown issue: {e}")
+
+
 def main():
     # Set up graceful exit on Ctrl-C
     signal.signal(signal.SIGINT, signal_handler)
@@ -151,16 +169,15 @@ def main():
         screen_manager = ScreenManager(ui)
         screen_manager.push_screen(SplashScreen)
         screen_manager.run()
-        
-    except KeyboardInterrupt:
-        # Fallback handler in case signal handler doesn't catch it
+
+    except (KeyboardInterrupt, SystemExit):
         print(f"\n\n🛑 Exiting {APP_NAME}...")
         print(EXIT_MESSAGE)
-        sys.exit(0)
     except Exception as e:
         print(f"\n❌ An unexpected error occurred: {e}")
         print(f"Exiting {APP_NAME}...")
-        sys.exit(1)
+    finally:
+        shutdown_hardware()
 
 if __name__ == "__main__":
     main()

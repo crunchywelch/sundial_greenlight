@@ -57,6 +57,7 @@ from greenlight.hardware.barcode_scanner import get_evdev_scanner, EVDEV_AVAILAB
 MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
 MQTT_TOPIC = "scanner/barcode"
+MQTT_CONTROL_TOPIC = "scanner/webhook_control"
 MQTT_CLIENT_ID = "scanner-daemon"
 
 # HTTP Webhook Configuration (Shopify app SSE endpoints)
@@ -92,6 +93,7 @@ class ScannerDaemon:
             )
             self.mqtt_client.on_connect = self._on_mqtt_connect
             self.mqtt_client.on_disconnect = self._on_mqtt_disconnect
+            self.mqtt_client.on_message = self._on_mqtt_message
 
             logger.info(f"Connecting to MQTT broker at {MQTT_BROKER}:{MQTT_PORT}")
             self.mqtt_client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
@@ -106,6 +108,8 @@ class ScannerDaemon:
         """Callback when connected to MQTT broker"""
         if reason_code == 0:
             logger.info("Connected to MQTT broker")
+            client.subscribe(MQTT_CONTROL_TOPIC, qos=1)
+            logger.info(f"Subscribed to control topic: {MQTT_CONTROL_TOPIC}")
         else:
             logger.error(f"MQTT connection failed: {reason_code}")
 
@@ -113,6 +117,18 @@ class ScannerDaemon:
         """Callback when disconnected from MQTT broker"""
         if reason_code != 0:
             logger.warning(f"Unexpected MQTT disconnect: {reason_code}")
+
+    def _on_mqtt_message(self, client, userdata, msg):
+        """Handle incoming MQTT messages (webhook control)"""
+        global WEBHOOK_ENABLED
+        if msg.topic == MQTT_CONTROL_TOPIC:
+            payload = msg.payload.decode('utf-8').strip()
+            if payload == 'webhooks_off':
+                WEBHOOK_ENABLED = False
+                logger.info("Webhooks DISABLED via MQTT control")
+            elif payload == 'webhooks_on':
+                WEBHOOK_ENABLED = True
+                logger.info("Webhooks ENABLED via MQTT control")
 
     def setup_scanner(self) -> bool:
         """Initialize the barcode scanner"""

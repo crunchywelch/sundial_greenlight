@@ -41,6 +41,11 @@ from greenlight.screens.wholesale import (
     WholesaleBatchScreen
 )
 
+# Shopify scan mode
+from greenlight.screens.shopify_scan import (
+    ShopifyScanModeScreen
+)
+
 # Settings screens
 from greenlight.screens.settings import (
     SettingsScreen,
@@ -64,6 +69,8 @@ __all__ = [
     'WireLabelScreen',
     # Wholesale
     'WholesaleBatchScreen',
+    # Shopify
+    'ShopifyScanModeScreen',
     # Inventory
     'InventoryDashboardScreen',
     'SeriesHeatmapScreen',
