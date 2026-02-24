@@ -77,6 +77,7 @@ def update_inventory_item_weight(inventory_item_id, weight_oz):
         variables = {
             "id": inventory_item_id,
             "input": {
+                "tracked": True,
                 "measurement": {
                     "weight": {"value": weight_oz, "unit": "OUNCES"}
                 }
