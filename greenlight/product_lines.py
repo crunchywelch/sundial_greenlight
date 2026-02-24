@@ -35,7 +35,7 @@ def load_yaml_skus():
 
     lines = {}
     for yaml_file in sorted(PRODUCT_LINES_DIR.glob("*.yaml")):
-        if yaml_file.name == "patterns.yaml":
+        if yaml_file.name in ("patterns.yaml", "materials.yaml"):
             continue
         with open(yaml_file) as f:
             data = yaml.safe_load(f)
