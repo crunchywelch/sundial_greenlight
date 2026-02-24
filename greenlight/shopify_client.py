@@ -7,6 +7,8 @@ import json
 import logging
 import shopify
 import requests
+import yaml
+from pathlib import Path
 from typing import Optional, Dict, Any, Tuple
 from dotenv import load_dotenv, set_key, find_dotenv
 
@@ -30,6 +32,7 @@ SHOPIFY_WIRE_CLIENT_SECRET = os.getenv("SHOPIFY_WIRE_CLIENT_SECRET")
 
 # Module-level caches for inventory operations (stable within a session)
 _cached_location_id: Optional[str] = None
+_cached_publication_ids: Optional[list] = None
 _inventory_item_cache: Dict[str, str] = {}
 
 
@@ -758,6 +761,79 @@ def _get_location_id() -> Optional[str]:
         close_shopify_session()
 
 
+def _get_publication_ids() -> list:
+    """Get all publication (sales channel) IDs for the main Shopify store.
+
+    Cached after first call since channels rarely change during a session.
+    """
+    global _cached_publication_ids
+    if _cached_publication_ids is not None:
+        return _cached_publication_ids
+
+    try:
+        session = get_shopify_session()
+        query = "{ publications(first: 20) { edges { node { id } } } }"
+        result = shopify.GraphQL().execute(query)
+        data = json.loads(result)
+
+        if "errors" in data:
+            logger.error(f"GraphQL errors fetching publications: {data['errors']}")
+            return []
+
+        edges = data.get("data", {}).get("publications", {}).get("edges", [])
+        _cached_publication_ids = [edge["node"]["id"] for edge in edges]
+        return _cached_publication_ids
+    except Exception as e:
+        logger.error(f"Error fetching publication IDs: {e}")
+        return []
+    finally:
+        close_shopify_session()
+
+
+def _publish_product_to_all_channels(product_id: str) -> bool:
+    """Publish a product to all sales channels.
+
+    Returns True if successful, False otherwise. Logs but does not raise on failure.
+    """
+    pub_ids = _get_publication_ids()
+    if not pub_ids:
+        logger.warning("No publication IDs found; product not published to any channel")
+        return False
+
+    try:
+        session = get_shopify_session()
+        mutation = """
+        mutation publishablePublish($id: ID!, $input: [PublicationInput!]!) {
+            publishablePublish(id: $id, input: $input) {
+                userErrors { field message }
+            }
+        }
+        """
+        variables = {
+            "id": product_id,
+            "input": [{"publicationId": pid} for pid in pub_ids],
+        }
+        result = shopify.GraphQL().execute(mutation, variables=variables)
+        data = json.loads(result)
+
+        if "errors" in data:
+            logger.error(f"GraphQL errors publishing product: {data['errors']}")
+            return False
+
+        user_errors = data.get("data", {}).get("publishablePublish", {}).get("userErrors", [])
+        if user_errors:
+            logger.error(f"User errors publishing product: {user_errors}")
+            return False
+
+        logger.info(f"Published product {product_id} to {len(pub_ids)} channels")
+        return True
+    except Exception as e:
+        logger.error(f"Error publishing product to channels: {e}")
+        return False
+    finally:
+        close_shopify_session()
+
+
 def _get_inventory_item_id(sku: str) -> Optional[str]:
     """Look up the Shopify InventoryItem GID for a SKU.
 
@@ -937,6 +1013,7 @@ def get_all_product_skus() -> Dict[str, Dict[str, Any]]:
 
 SPECIAL_BABY_PRICE = "24.99"
 SPECIAL_BABY_PRODUCT_TYPE = "Special Baby"
+AUDIO_VIDEO_CABLES_CATEGORY_ID = "gid://shopify/TaxonomyCategory/el-7-7-1"
 
 # Map series slug to a human-readable name for product titles
 _SERIES_DISPLAY = {
@@ -945,6 +1022,179 @@ _SERIES_DISPLAY = {
     "tour_classic": "Tour Classic",
     "tour_select": "Tour Select",
 }
+
+# Load materials data for weight calculation
+_MATERIALS_PATH = Path(__file__).resolve().parent.parent / "util" / "product_lines" / "materials.yaml"
+_materials_data: Optional[Dict] = None
+
+
+def _load_materials() -> Dict:
+    """Load and cache materials.yaml for weight calculations."""
+    global _materials_data
+    if _materials_data is not None:
+        return _materials_data
+    try:
+        with open(_MATERIALS_PATH) as f:
+            _materials_data = yaml.safe_load(f) or {}
+    except Exception as e:
+        logger.error(f"Could not load materials.yaml: {e}")
+        _materials_data = {}
+    return _materials_data
+
+
+def _calculate_cable_weight_oz(length_ft: float, connector_type: str, core_cable: str) -> Optional[float]:
+    """Calculate cable weight in ounces from component weights.
+
+    Formula: cable_per_foot * length + connector_a_weight + connector_b_weight
+
+    Args:
+        length_ft: Cable length in feet
+        connector_type: e.g. "TS\u2013TS", "RA\u2013TS", "XLR\u2013XLR"
+        core_cable: e.g. "Canare GS-6", "Canare L-4E6S"
+
+    Returns:
+        Weight in ounces, or None if materials data is missing.
+    """
+    materials = _load_materials()
+    cable_rates = materials.get("cable_per_foot", {})
+    connectors = materials.get("connectors", {})
+
+    if not cable_rates or not connectors:
+        return None
+
+    # Extract cable model from full name (e.g. "Canare GS-6" -> "GS-6")
+    cable_key = core_cable.split()[-1] if core_cable else ""
+    rate = cable_rates.get(cable_key)
+    if rate is None:
+        logger.warning(f"No cable_per_foot entry for '{cable_key}'")
+        return None
+
+    # Map connector_type to two connector weight keys
+    # Normalize en-dash/em-dash to hyphen
+    normalized = (connector_type or "").replace("\u2013", "-").replace("\u2014", "-").upper()
+
+    connector_map = {
+        "TS-TS": ("TS_straight", "TS_straight"),
+        "RA-TS": ("TS_right_angle", "TS_straight"),
+        "TS-RA": ("TS_straight", "TS_right_angle"),
+        "XLR-XLR": ("XLR", "XLR"),
+    }
+    pair = connector_map.get(normalized)
+    if not pair:
+        logger.warning(f"Unknown connector_type for weight calc: '{connector_type}'")
+        return None
+
+    w_a = connectors.get(pair[0])
+    w_b = connectors.get(pair[1])
+    if w_a is None or w_b is None:
+        logger.warning(f"Missing connector weight for {pair}")
+        return None
+
+    return round(rate * length_ft + w_a + w_b, 1)
+
+
+# Default cable attributes by series (used when cable_skus has "Varies" for MISC SKUs)
+_SERIES_CABLE_DEFAULTS = {
+    "Studio Classic":      {"core_cable": "Canare GS-6",   "connector_type": "TS\u2013TS"},
+    "Tour Classic":        {"core_cable": "Canare GS-6",   "connector_type": "TS\u2013TS"},
+    "Studio Vocal Classic": {"core_cable": "Canare L-4E6S", "connector_type": "XLR\u2013XLR"},
+    "Tour Vocal Classic":  {"core_cable": "Canare L-4E6S", "connector_type": "XLR\u2013XLR"},
+}
+
+
+def _resolve_cable_attrs(connector_type: str, core_cable: str, series: str) -> Tuple[str, str]:
+    """Resolve connector_type and core_cable, falling back to series defaults for MISC SKUs."""
+    if connector_type and connector_type != "Varies" and core_cable and core_cable != "Varies":
+        return connector_type, core_cable
+    defaults = _SERIES_CABLE_DEFAULTS.get(series, {})
+    resolved_connector = defaults.get("connector_type", connector_type) if (not connector_type or connector_type == "Varies") else connector_type
+    resolved_cable = defaults.get("core_cable", core_cable) if (not core_cable or core_cable == "Varies") else core_cable
+    return resolved_connector, resolved_cable
+
+
+def _derive_cable_type(connector_type: str) -> str:
+    """Map connector_type to Shopify metafield value (must match definition choices)."""
+    normalized = (connector_type or "").replace("\u2013", "-").replace("\u2014", "-").upper()
+    if "XLR" in normalized:
+        return "Microphone Cable"
+    return "Instrument Cable"
+
+
+def _derive_series_metafield(series: str) -> str:
+    """Map DB series name to Shopify metafield value (must match definition choices)."""
+    s = (series or "").lower()
+    if "studio" in s:
+        return "Studio (Rayon)"
+    if "tour" in s:
+        return "Touring (Cotton)"
+    return series  # fallback
+
+
+def _set_product_metafields(product_id: str, length_ft: float, series: str, connector_type: str) -> bool:
+    """Set cable metafields on a Shopify product using metafieldsSet.
+
+    Sets custom.length (dimension), custom.series (text), custom.cable_type (text).
+    Returns True on success.
+    """
+    cable_type = _derive_cable_type(connector_type)
+    series_value = _derive_series_metafield(series)
+
+    length_int = int(length_ft) if length_ft == int(length_ft) else length_ft
+    length_value = f"{length_int} ft"
+
+    metafields = [
+        {
+            "ownerId": product_id,
+            "namespace": "custom",
+            "key": "cable_length",
+            "value": length_value,
+            "type": "single_line_text_field",
+        },
+        {
+            "ownerId": product_id,
+            "namespace": "custom",
+            "key": "series",
+            "value": series_value,
+            "type": "single_line_text_field",
+        },
+        {
+            "ownerId": product_id,
+            "namespace": "custom",
+            "key": "cable_type",
+            "value": cable_type,
+            "type": "single_line_text_field",
+        },
+    ]
+
+    try:
+        session = get_shopify_session()
+        mutation = """
+        mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+            metafieldsSet(metafields: $metafields) {
+                metafields { id namespace key value }
+                userErrors { field message }
+            }
+        }
+        """
+        result = shopify.GraphQL().execute(mutation, variables={"metafields": metafields})
+        data = json.loads(result)
+
+        if "errors" in data:
+            logger.error(f"GraphQL errors setting metafields: {data['errors']}")
+            return False
+
+        user_errors = data.get("data", {}).get("metafieldsSet", {}).get("userErrors", [])
+        if user_errors:
+            logger.error(f"User errors setting metafields: {user_errors}")
+            return False
+
+        logger.info(f"Set metafields on {product_id}: length={length_int}ft, series={series_value}, cable_type={cable_type}")
+        return True
+    except Exception as e:
+        logger.error(f"Error setting metafields on {product_id}: {e}")
+        return False
+    finally:
+        close_shopify_session()
 
 
 def _find_variant_by_sku(shopify_sku: str) -> Optional[Dict[str, str]]:
@@ -992,11 +1242,13 @@ def _find_variant_by_sku(shopify_sku: str) -> Optional[Dict[str, str]]:
         close_shopify_session()
 
 
-def _create_special_baby_product(title: str, shopify_sku: str, series: str, description: str = "", quantity: int = 1) -> Tuple[bool, Optional[str]]:
+def _create_special_baby_product(title: str, shopify_sku: str, series: str, description: str = "", quantity: int = 1, weight_oz: Optional[float] = None, length_ft: Optional[float] = None, connector_type: str = "") -> Tuple[bool, Optional[str]]:
     """Create a new Shopify product for a special baby cable.
 
-    Two-step process:
-      1. productSet to create product + variant (SKU, price, inventory tracking)
+    Multi-step process:
+      1. productSet to create product + variant (SKU, price, inventory tracking, weight)
+      1b. publishablePublish to publish to all sales channels
+      1c. metafieldsSet to set length/series/cable_type metafields
       2. inventorySetQuantities to set available quantity
 
     Returns (success, error_msg).
@@ -1026,10 +1278,18 @@ def _create_special_baby_product(title: str, shopify_sku: str, series: str, desc
             }
         }
         """
+        # Build inventoryItem dict (tracking + optional weight)
+        inventory_item = {"tracked": True}
+        if weight_oz is not None:
+            inventory_item["measurement"] = {
+                "weight": {"value": weight_oz, "unit": "OUNCES"}
+            }
+
         product_input = {
             "title": title,
             "descriptionHtml": f"<p>{description}</p>" if description else "",
             "productType": SPECIAL_BABY_PRODUCT_TYPE,
+            "category": AUDIO_VIDEO_CABLES_CATEGORY_ID,
             "tags": ["special-baby"],
             "status": "DRAFT",
             "productOptions": [{"name": "Title", "values": [{"name": "Default Title"}]}],
@@ -1038,6 +1298,7 @@ def _create_special_baby_product(title: str, shopify_sku: str, series: str, desc
                     "sku": shopify_sku,
                     "price": SPECIAL_BABY_PRICE,
                     "optionValues": [{"optionName": "Title", "name": "Default Title"}],
+                    "inventoryItem": inventory_item,
                 }
             ],
         }
@@ -1058,6 +1319,7 @@ def _create_special_baby_product(title: str, shopify_sku: str, series: str, desc
             return False, err
 
         product = create_data.get("product", {})
+        product_id = product.get("id")
         variant_edges = product.get("variants", {}).get("edges", [])
         if not variant_edges:
             return False, "Product created but no variant returned"
@@ -1069,6 +1331,14 @@ def _create_special_baby_product(title: str, shopify_sku: str, series: str, desc
         _inventory_item_cache[shopify_sku] = inventory_item_id
 
         close_shopify_session()
+
+        # Step 1b: Publish to all sales channels
+        if product_id:
+            _publish_product_to_all_channels(product_id)
+
+        # Step 1c: Set metafields (length, series, cable_type)
+        if product_id and length_ft and series and connector_type:
+            _set_product_metafields(product_id, length_ft, series, connector_type)
 
         # Step 2: Set inventory quantity
         location_id = _get_location_id()
@@ -1215,7 +1485,21 @@ def ensure_special_baby_shopify_product(cable_record: Dict[str, Any], quantity: 
         title_parts.append(f"{length_str}{series_display}".strip())
     title = " - ".join(title_parts)
 
-    return _create_special_baby_product(title, shopify_sku, series, description, quantity)
+    # Resolve cable attrs (MISC SKUs have "Varies" — fall back to series defaults)
+    raw_connector = cable_record.get("connector_type", "")
+    raw_cable = cable_record.get("core_cable", "")
+    connector_type, core_cable = _resolve_cable_attrs(raw_connector, raw_cable, series)
+
+    # Calculate weight from component data
+    weight_oz = None
+    if length and connector_type and core_cable:
+        weight_oz = _calculate_cable_weight_oz(float(length), connector_type, core_cable)
+
+    length_ft = float(length) if length else None
+    return _create_special_baby_product(
+        title, shopify_sku, series, description, quantity,
+        weight_oz=weight_oz, length_ft=length_ft, connector_type=connector_type,
+    )
 
 
 # Example usage / testing

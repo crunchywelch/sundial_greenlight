@@ -1,0 +1,16 @@
+# Component Weights for Cable Weight Calculation
+#
+# Weight formula: cable_weight_per_foot * length + connector_a + connector_b
+# All weights in ounces.
+#
+# Core cables are the inner wire before braiding/termination.
+# Connector weights include the connector body, solder, and heat shrink.
+
+cable_per_foot:
+  GS-6: 0.6      # Canare GS-6 (instrument)
+  L-4E6S: 0.6    # Canare L-4E6S (microphone/star-quad)
+
+connectors:
+  TS_straight: 0.8    # Neutrik NP2X or equivalent
+  TS_right_angle: 1.2 # Neutrik NP2RX or equivalent
+  XLR: 1.0            # Neutrik NC3MXX / NC3FXX average
