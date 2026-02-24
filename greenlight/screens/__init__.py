@@ -11,7 +11,6 @@ This package contains all UI screens organized by functionality:
 # Main application screens
 from greenlight.screens.main import (
     SplashScreen,
-    MainMenuScreen
 )
 
 # Cable workflow screens
@@ -27,11 +26,9 @@ from greenlight.screens.cable import (
 
 # Inventory screens
 from greenlight.screens.inventory import (
-    InventoryScreen,
-    ViewInventoryScreen,
-    AddItemsScreen,
-    UpdateStockScreen,
-    ReportsScreen
+    InventoryDashboardScreen,
+    SeriesHeatmapScreen,
+    ProductionSuggestionsScreen,
 )
 
 # Wire label screens
@@ -55,7 +52,6 @@ from greenlight.screens.settings import (
 __all__ = [
     # Main
     'SplashScreen',
-    'MainMenuScreen',
     # Cable
     'ScanCableLookupScreen',
     'SeriesSelectionScreen',
@@ -69,11 +65,9 @@ __all__ = [
     # Wholesale
     'WholesaleBatchScreen',
     # Inventory
-    'InventoryScreen',
-    'ViewInventoryScreen',
-    'AddItemsScreen',
-    'UpdateStockScreen',
-    'ReportsScreen',
+    'InventoryDashboardScreen',
+    'SeriesHeatmapScreen',
+    'ProductionSuggestionsScreen',
     # Settings
     'SettingsScreen',
     'DatabaseSettingsScreen',

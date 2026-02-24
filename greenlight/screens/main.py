@@ -1,4 +1,4 @@
-"""Main application screens: Splash and Main Menu"""
+"""Main application screens: Splash"""
 import os
 import sys
 from rich.panel import Panel
@@ -50,51 +50,3 @@ class SplashScreen(Screen):
             return ScreenResult(NavigationAction.REPLACE, SplashScreen)
 
 
-class MainMenuScreen(Screen):
-    def run(self) -> ScreenResult:
-        operator = self.context.get("operator", "")
-        menu_items = [
-            "Scan Cables",
-            "Assign Cables",
-            "View Inventory",
-            "Quit (q)"
-        ]
-
-        rows = [
-            f"[green]{i + 1}.[/green] {name}"
-            for i, name in enumerate(menu_items)
-        ]
-
-        self.ui.header(operator)
-        self.ui.layout["body"].update(Panel(
-            "• Scan Cables - Scan to lookup or register cables\n"
-            "• Assign Cables - Assign cables to customer orders\n"
-            "• View Inventory - See available cables by type",
-            title="Main Menu"
-        ))
-        self.ui.layout["footer"].update(Panel("\n".join(rows), title="Select Option"))
-        self.ui.render()
-
-        try:
-            choice = self.ui.console.input("Choose: ")
-        except KeyboardInterrupt:
-            print(f"\n\n🛑 Exiting {APP_NAME}...")
-            print(EXIT_MESSAGE)
-            sys.exit(0)
-
-        if choice == "1":
-            # Scan Cables - direct to unified scan/register screen
-            from greenlight.screens.cable import ScanCableLookupScreen
-            return ScreenResult(NavigationAction.PUSH, ScanCableLookupScreen, self.context)
-        elif choice == "2":
-            # Assign Cables - go to customer search
-            from greenlight.screens.orders import CustomerLookupScreen
-            return ScreenResult(NavigationAction.PUSH, CustomerLookupScreen, self.context)
-        elif choice == "3":
-            # View Inventory - select series first, then show available inventory by SKU
-            from greenlight.screens.inventory import SeriesSelectionScreen
-            return ScreenResult(NavigationAction.PUSH, SeriesSelectionScreen, self.context)
-        elif choice in ["4", "q"]:
-            return ScreenResult(NavigationAction.POP)
-        else:
-            return ScreenResult(NavigationAction.REPLACE, MainMenuScreen, self.context)

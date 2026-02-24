@@ -960,6 +960,13 @@ class CableScreenBase(Screen):
                 if update_cable_description(serial_number, new_desc):
                     updated = get_audio_cable(serial_number)
                     if updated:
+                        # Update Shopify description if this is a special baby with a product
+                        shopify_sku = updated.get('special_baby_shopify_sku')
+                        if shopify_sku:
+                            from greenlight.shopify_client import update_special_baby_description
+                            success, err = update_special_baby_description(shopify_sku, new_desc)
+                            if not success:
+                                logger.warning(f"Shopify description update failed: {err}")
                         return updated
                 return cable_record
         except KeyboardInterrupt:
@@ -1130,6 +1137,7 @@ class ScanCableLookupScreen(CableScreenBase):
                 footer_parts.append("[cyan]'r'[/cyan] = Register cables")
                 if tester_available:
                     footer_parts.append("[cyan]'c'[/cyan] = Calibrate tester")
+                footer_parts.append("[cyan]'i'[/cyan] = Inventory")
                 footer_parts.append("[cyan]'w'[/cyan] = Wholesale codes")
                 footer_parts.append("[cyan]'p'[/cyan] = Wire labels")
                 footer_parts.append("[cyan]'q'[/cyan] = Logout")
@@ -1160,6 +1168,10 @@ class ScanCableLookupScreen(CableScreenBase):
                 # Go to wholesale batch registration codes
                 from greenlight.screens.wholesale import WholesaleBatchScreen
                 return ScreenResult(NavigationAction.PUSH, WholesaleBatchScreen, self.context.copy())
+            elif input_lower == 'i':
+                # Go to inventory dashboard
+                from greenlight.screens.inventory import InventoryDashboardScreen
+                return ScreenResult(NavigationAction.PUSH, InventoryDashboardScreen, self.context.copy())
             elif input_lower == 'p':
                 # Go to wire label printing
                 from greenlight.screens.wire import WireLabelScreen

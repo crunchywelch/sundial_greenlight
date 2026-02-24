@@ -787,6 +787,111 @@ def batch_assign_registration_codes(serial_numbers):
         pg_pool.putconn(conn)
 
 
+def get_sku_stock_summary():
+    """Get per-SKU cable counts from Postgres.
+
+    Returns dict: sku -> {total, available, sold, failed, untested}
+    """
+    conn = pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT
+                    ac.sku,
+                    COUNT(*) as total,
+                    COUNT(*) FILTER (
+                        WHERE ac.test_passed = TRUE
+                        AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
+                    ) as available,
+                    COUNT(*) FILTER (
+                        WHERE ac.shopify_gid IS NOT NULL AND ac.shopify_gid != ''
+                    ) as sold,
+                    COUNT(*) FILTER (
+                        WHERE ac.test_passed = FALSE
+                    ) as failed,
+                    COUNT(*) FILTER (
+                        WHERE ac.test_passed IS NULL
+                    ) as untested
+                FROM audio_cables ac
+                WHERE ac.sku NOT LIKE '%%-MISC'
+                GROUP BY ac.sku
+                ORDER BY ac.sku
+            """)
+            counts = {}
+            for row in cur.fetchall():
+                counts[row[0]] = {
+                    "total": row[1],
+                    "available": row[2],
+                    "sold": row[3],
+                    "failed": row[4],
+                    "untested": row[5],
+                }
+            return counts
+    except Exception as e:
+        print(f"Error fetching SKU stock summary: {e}")
+        return {}
+    finally:
+        pg_pool.putconn(conn)
+
+
+def get_recent_sales(days=90):
+    """Get cables sold (assigned to customer) in the last N days, grouped by SKU.
+
+    Returns dict: sku -> count
+    """
+    conn = pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT ac.sku, COUNT(*)
+                FROM audio_cables ac
+                WHERE ac.shopify_gid IS NOT NULL AND ac.shopify_gid != ''
+                  AND ac.updated_timestamp >= NOW() - INTERVAL '%s days'
+                  AND ac.sku NOT LIKE '%%-MISC'
+                GROUP BY ac.sku
+                ORDER BY COUNT(*) DESC
+            """, (days,))
+            return {row[0]: row[1] for row in cur.fetchall()}
+    except Exception as e:
+        print(f"Error fetching recent sales: {e}")
+        return {}
+    finally:
+        pg_pool.putconn(conn)
+
+
+def get_special_baby_summary():
+    """Get summary of special baby (MISC) cables grouped by series.
+
+    Returns dict: series -> {total, available, sold}
+    """
+    conn = pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT
+                    cs.series,
+                    COUNT(*) as total,
+                    COUNT(*) FILTER (
+                        WHERE ac.test_passed = TRUE
+                        AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
+                    ) as available,
+                    COUNT(*) FILTER (
+                        WHERE ac.shopify_gid IS NOT NULL AND ac.shopify_gid != ''
+                    ) as sold
+                FROM audio_cables ac
+                JOIN cable_skus cs ON ac.sku = cs.sku
+                WHERE ac.sku LIKE '%%-MISC'
+                GROUP BY cs.series
+            """)
+            return {row[0]: {"total": row[1], "available": row[2], "sold": row[3]}
+                    for row in cur.fetchall()}
+    except Exception as e:
+        print(f"Error fetching special baby summary: {e}")
+        return {}
+    finally:
+        pg_pool.putconn(conn)
+
+
 def get_available_series():
     """Get list of product series that have available inventory"""
     conn = pg_pool.getconn()
