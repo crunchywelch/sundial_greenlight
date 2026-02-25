@@ -9,11 +9,12 @@ class NavigationAction(Enum):
     EXIT = "exit"
 
 class ScreenResult:
-    def __init__(self, action: NavigationAction, screen_class=None, context=None, pop_count=1):
+    def __init__(self, action: NavigationAction, screen_class=None, context=None, pop_count=1, pop_to=None):
         self.action = action
         self.screen_class = screen_class
         self.context = context
         self.pop_count = pop_count  # Number of screens to pop (for POP action)
+        self.pop_to = pop_to  # Screen class to pop back to (for POP action, overrides pop_count)
 
 class Screen(ABC):
     def __init__(self, ui_base, context=None):
@@ -63,13 +64,21 @@ class ScreenManager:
         if result.action == NavigationAction.PUSH:
             self.push_screen(result.screen_class, result.context)
         elif result.action == NavigationAction.POP:
-            # Support popping multiple screens
-            pop_count = getattr(result, 'pop_count', 1)
-            for _ in range(pop_count):
-                if len(self.screen_stack) > 1:
+            pop_to = getattr(result, 'pop_to', None)
+            if pop_to:
+                # Pop until the top screen is an instance of the target class
+                while len(self.screen_stack) > 1:
+                    if isinstance(self.screen_stack[-1], pop_to):
+                        break
                     self.pop_screen()
-                else:
-                    break
+            else:
+                # Support popping multiple screens
+                pop_count = getattr(result, 'pop_count', 1)
+                for _ in range(pop_count):
+                    if len(self.screen_stack) > 1:
+                        self.pop_screen()
+                    else:
+                        break
         elif result.action == NavigationAction.REPLACE:
             self.replace_screen(result.screen_class, result.context)
         elif result.action == NavigationAction.EXIT:

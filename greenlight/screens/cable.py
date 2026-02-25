@@ -1667,8 +1667,8 @@ class ScanCableIntakeScreen(CableScreenBase):
         if cable_type.sku.endswith("-MISC"):
             result = self.get_misc_cable_description(operator, cable_type)
             if result is None:
-                # User cancelled
-                return ScreenResult(NavigationAction.POP)
+                # User cancelled — return to main scan hub
+                return ScreenResult(NavigationAction.REPLACE, ScanCableLookupScreen, self.context)
             cable_description, special_baby_type_id = result
 
             # If new description (no existing type selected), create the type now
@@ -1918,6 +1918,8 @@ class ScanCableIntakeScreen(CableScreenBase):
                         break
                     elif action_result['action'] == 'scan':
                         self._pending_serial = action_result['serial']
+                    elif action_result['action'] == 'navigate':
+                        return action_result['screen_result']
             else:
                 # Error registering
                 error_type = result.get('error', 'unknown')
@@ -1934,7 +1936,7 @@ class ScanCableIntakeScreen(CableScreenBase):
                             self.ui.layout["body"].update(self.build_cable_info_panel(cable_record))
                             self.ui.layout["footer"].update(Panel(
                                 "[red]This cable is assigned to a customer and cannot be re-registered.[/red]\n"
-                                "[bold green]Scan[/bold green] next cable | [cyan]'q'[/cyan] = Go back",
+                                "Press [bold green]enter[/bold green] or [cyan]'q'[/cyan] to continue scanning",
                                 title="Assigned Cable"
                             ))
                             self.ui.render()
@@ -1951,6 +1953,8 @@ class ScanCableIntakeScreen(CableScreenBase):
                             break
                         elif action_result['action'] == 'scan':
                             self._pending_serial = action_result['serial']
+                        elif action_result['action'] == 'navigate':
+                            return action_result['screen_result']
                         continue
                     else:
                         # Fallback to duplicate prompt if we can't get the record

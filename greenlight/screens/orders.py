@@ -330,8 +330,9 @@ class CustomerDetailScreen(Screen):
             self.ui.render()
             self.ui.console.input()
 
-            # Pop back to cable scan screen (pop 3 screens: this, search results, customer lookup)
-            return ScreenResult(NavigationAction.POP, pop_count=3)
+            # Pop back to cable scan screen
+            from greenlight.screens.cable import ScanCableLookupScreen
+            return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
         else:
             # Error occurred
             error_type = result.get('error')
@@ -369,7 +370,8 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                 try:
                     choice = self.ui.console.input("").strip().lower()
                 except KeyboardInterrupt:
-                    return ScreenResult(NavigationAction.POP, pop_count=3)
+                    from greenlight.screens.cable import ScanCableLookupScreen
+                    return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
 
                 if choice == 'y' or choice == 'yes':
                     # Force reassignment
@@ -407,7 +409,8 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                                     self.ui.render()
                                     self.ui.console.input()
 
-                                    return ScreenResult(NavigationAction.POP, pop_count=3)
+                                    from greenlight.screens.cable import ScanCableLookupScreen
+                                    return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
 
                         pg_pool.putconn(conn)
                     except Exception as e:
@@ -422,11 +425,13 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                         if 'conn' in locals():
                             pg_pool.putconn(conn)
 
-                        return ScreenResult(NavigationAction.POP, pop_count=3)
+                        from greenlight.screens.cable import ScanCableLookupScreen
+                        return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
 
                 else:
                     # Cancel or go back to scanning
-                    return ScreenResult(NavigationAction.POP, pop_count=3)
+                    from greenlight.screens.cable import ScanCableLookupScreen
+                    return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
 
             else:
                 # Other error
@@ -438,7 +443,8 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                 self.ui.console.input()
 
                 # Pop back to cable scan screen
-                return ScreenResult(NavigationAction.POP, pop_count=3)
+                from greenlight.screens.cable import ScanCableLookupScreen
+                return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
 
 
 class CustomerOrdersScreen(Screen):
@@ -577,8 +583,8 @@ class AssignCablesScreen(Screen):
         serial_input = self.ui.get_serial_number_scan_or_manual()
 
         if not serial_input or serial_input.lower() == 'q':
-            # Go back to customer lookup screen (pop 2 levels: this screen + customer detail)
-            return ScreenResult(NavigationAction.POP, pop_count=2)
+            # Go back to customer lookup screen
+            return ScreenResult(NavigationAction.POP, pop_to=CustomerLookupScreen)
 
         # Assign the cable to the customer
         self.ui.layout["body"].update(Panel(
@@ -656,7 +662,7 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                 try:
                     choice = self.ui.console.input("").strip().lower()
                 except KeyboardInterrupt:
-                    return ScreenResult(NavigationAction.POP, pop_count=2)
+                    return ScreenResult(NavigationAction.POP, pop_to=CustomerLookupScreen)
 
                 if choice == 'y' or choice == 'yes':
                     # Force reassignment by updating the database directly
@@ -720,7 +726,7 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
 
                 elif choice == 'q':
                     # Quit assignment and go back
-                    return ScreenResult(NavigationAction.POP, pop_count=2)
+                    return ScreenResult(NavigationAction.POP, pop_to=CustomerLookupScreen)
                 else:
                     # Skip this cable, continue scanning
                     return ScreenResult(NavigationAction.REPLACE, AssignCablesScreen, self.context)
