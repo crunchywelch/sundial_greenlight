@@ -1133,17 +1133,25 @@ class ScanCableLookupScreen(CableScreenBase):
                 # Update display
                 self.ui.header(operator)
                 self.ui.layout["body"].update(body_panel)
-                footer_parts = ["🔍 [bold green]Scan barcode[/bold green]"]
-                footer_parts.append("[cyan]'r'[/cyan] = Register cables")
+                row1 = "🔍 [bold green]Scan barcode[/bold green]"
+                row2_parts = ["[cyan]'r'[/cyan] = Register cables"]
                 if tester_available:
-                    footer_parts.append("[cyan]'c'[/cyan] = Calibrate tester")
-                footer_parts.append("[cyan]'i'[/cyan] = Inventory")
-                footer_parts.append("[cyan]'w'[/cyan] = Wholesale codes")
-                footer_parts.append("[cyan]'p'[/cyan] = Wire labels")
-                footer_parts.append("[cyan]'s'[/cyan] = Shopify scan mode")
-                footer_parts.append("[cyan]'q'[/cyan] = Logout")
+                    row2_parts.append("[cyan]'c'[/cyan] = Calibrate tester")
+                row3_parts = [
+                    "[cyan]'i'[/cyan] = Inventory",
+                    "[cyan]'w'[/cyan] = Wholesale codes",
+                    "[cyan]'p'[/cyan] = Wire labels",
+                    "[cyan]'s'[/cyan] = Shopify scan mode",
+                ]
+                row4 = "[cyan]'q'[/cyan] = Logout"
+                footer_text = "\n".join([
+                    row1,
+                    " | ".join(row2_parts),
+                    " | ".join(row3_parts),
+                    row4,
+                ])
                 self.ui.layout["footer"].update(Panel(
-                    " | ".join(footer_parts),
+                    footer_text,
                     title="Options", border_style="green"
                 ))
                 self.ui.render()
@@ -1276,8 +1284,16 @@ class SeriesSelectionScreen(Screen):
             self.ui.console.input("Press enter to continue...")
             return ScreenResult(NavigationAction.POP)
 
+        # Display-friendly names for series
+        series_display = {
+            "Studio Classic": "Rayon Instrument (Studio Classic)",
+            "Studio Vocal Classic": "Rayon XLR (Studio Vocal Classic)",
+            "Tour Classic": "Cotton Instrument (Tour Classic)",
+            "Tour Vocal Classic": "Cotton XLR (Tour Vocal Classic)",
+        }
+
         # Create menu items
-        menu_items = [f"{series}" for series in series_options]
+        menu_items = [series_display.get(s, s) for s in series_options]
         menu_items.append("Back (q)")
 
         rows = [

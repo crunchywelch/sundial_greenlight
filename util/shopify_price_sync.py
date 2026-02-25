@@ -28,6 +28,7 @@ from sync_skus import (
 )
 import shopify
 from greenlight.shopify_client import get_shopify_session, close_shopify_session, SPECIAL_BABY_PRICE
+from greenlight.product_lines import interpolate_cost
 from greenlight.db import pg_pool
 
 WEIGHT_UNIT = "OUNCES"
@@ -81,55 +82,6 @@ def build_yaml_sku_map(product_lines_dir):
     return sku_map
 
 
-def _interpolate(lengths_map, target_length):
-    """Interpolate a value from a length-keyed map for a non-standard length.
-
-    Finds the two nearest standard lengths and linearly interpolates.
-    Extrapolates if target is outside the range.
-    """
-    if not lengths_map:
-        return None
-
-    # Sort by numeric length key
-    points = sorted((float(k), float(v)) for k, v in lengths_map.items()
-                    if not isinstance(k, str) or not k.endswith('R'))
-
-    if not points:
-        return None
-
-    target = float(target_length)
-
-    # Exact match
-    for l, v in points:
-        if abs(l - target) < 0.01:
-            return v
-
-    # Find bracketing points
-    below = [(l, v) for l, v in points if l < target]
-    above = [(l, v) for l, v in points if l > target]
-
-    if below and above:
-        l1, v1 = below[-1]
-        l2, v2 = above[0]
-    elif below:
-        # Extrapolate above using last two points
-        if len(points) >= 2:
-            l1, v1 = points[-2]
-            l2, v2 = points[-1]
-        else:
-            return points[-1][1]
-    else:
-        # Extrapolate below using first two points
-        if len(points) >= 2:
-            l1, v1 = points[0]
-            l2, v2 = points[1]
-        else:
-            return points[0][1]
-
-    rate = (v2 - v1) / (l2 - l1)
-    return round(v1 + rate * (target - l1), 2)
-
-
 def build_special_baby_sku_map(product_lines_dir):
     """Build shopify_sku -> {price, cost, weight} for special baby types.
 
@@ -167,8 +119,8 @@ def build_special_baby_sku_map(product_lines_dir):
         if not pl:
             continue
 
-        cost = _interpolate(pl.get('cost', {}), length)
-        weight = _interpolate(pl.get('weight', {}), length)
+        cost = interpolate_cost(pl.get('cost', {}), length)
+        weight = interpolate_cost(pl.get('weight', {}), length)
 
         sku_map[shopify_sku] = {
             'price': float(SPECIAL_BABY_PRICE),

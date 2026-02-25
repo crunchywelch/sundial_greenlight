@@ -1242,7 +1242,7 @@ def _find_variant_by_sku(shopify_sku: str) -> Optional[Dict[str, str]]:
         close_shopify_session()
 
 
-def _create_special_baby_product(title: str, shopify_sku: str, series: str, description: str = "", quantity: int = 1, weight_oz: Optional[float] = None, length_ft: Optional[float] = None, connector_type: str = "") -> Tuple[bool, Optional[str]]:
+def _create_special_baby_product(title: str, shopify_sku: str, series: str, description: str = "", quantity: int = 1, weight_oz: Optional[float] = None, length_ft: Optional[float] = None, connector_type: str = "", cost: Optional[float] = None) -> Tuple[bool, Optional[str]]:
     """Create a new Shopify product for a special baby cable.
 
     Multi-step process:
@@ -1278,8 +1278,10 @@ def _create_special_baby_product(title: str, shopify_sku: str, series: str, desc
             }
         }
         """
-        # Build inventoryItem dict (tracking + optional weight)
+        # Build inventoryItem dict (tracking + optional weight + optional cost)
         inventory_item = {"tracked": True}
+        if cost is not None:
+            inventory_item["cost"] = cost
         if weight_oz is not None:
             inventory_item["measurement"] = {
                 "weight": {"value": weight_oz, "unit": "OUNCES"}
@@ -1495,10 +1497,15 @@ def ensure_special_baby_shopify_product(cable_record: Dict[str, Any], quantity: 
     if length and connector_type and core_cable:
         weight_oz = _calculate_cable_weight_oz(float(length), connector_type, core_cable)
 
+    # Calculate cost from YAML data
+    from greenlight.product_lines import get_cost_for_special_baby
+    cost = get_cost_for_special_baby(series, length) if series and length else None
+
     length_ft = float(length) if length else None
     return _create_special_baby_product(
         title, shopify_sku, series, description, quantity,
         weight_oz=weight_oz, length_ft=length_ft, connector_type=connector_type,
+        cost=cost,
     )
 
 

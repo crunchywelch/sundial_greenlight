@@ -46,6 +46,7 @@ def fetch_inventory():
                             edges {
                                 node {
                                     sku
+                                    price
                                     inventoryQuantity
                                     inventoryItem {
                                         unitCost {
@@ -89,6 +90,7 @@ def fetch_inventory():
                     inv = v.get("inventoryItem") or {}
                     unit_cost = inv.get("unitCost") or {}
                     cost = float(unit_cost["amount"]) if unit_cost.get("amount") else None
+                    price = float(v["price"]) if v.get("price") else None
 
                     items.append({
                         "sku": sku,
@@ -96,6 +98,7 @@ def fetch_inventory():
                         "product_type": product.get("productType", ""),
                         "quantity": qty,
                         "unit_cost": cost,
+                        "price": price,
                     })
 
             has_next_page = page_info.get("hasNextPage", False)
@@ -110,14 +113,17 @@ def fetch_inventory():
         close_shopify_session()
 
 
-def _series_from_sku(sku):
-    """Derive series name from SKU prefix."""
+def _series_from_item(item):
+    """Derive series grouping from item data."""
+    if item.get("product_type") == "Special Baby":
+        return "Special Baby"
     prefixes = {
         "SC-": "Studio Classic",
         "SV-": "Studio Vocal",
         "TC-": "Tour Classic",
         "TV-": "Tour Vocal",
     }
+    sku = item.get("sku", "")
     for prefix, name in prefixes.items():
         if sku.startswith(prefix):
             return name
@@ -146,7 +152,7 @@ def main():
     # Group by series
     by_series = {}
     for item in stocked:
-        series = _series_from_sku(item["sku"])
+        series = _series_from_item(item)
         if series not in by_series:
             by_series[series] = []
         by_series[series].append(item)
@@ -156,39 +162,49 @@ def main():
         print()
         for series in sorted(by_series.keys()):
             print(f"{series}")
-            print(f"{'─' * 60}")
-            series_total = 0
+            print(f"{'─' * 80}")
+            series_cost_total = 0
+            series_value_total = 0
             for item in sorted(by_series[series], key=lambda x: x["sku"]):
                 qty = item["quantity"]
                 cost = item["unit_cost"]
-                if cost is not None:
-                    ext = qty * cost
-                    series_total += ext
-                    print(f"  {item['sku']:22} {qty:>4} x ${cost:>7.2f} = ${ext:>9.2f}")
-                else:
-                    print(f"  {item['sku']:22} {qty:>4} x   no cost")
-            print(f"  {'':22} {'':>4}   {'':>7}   ${series_total:>9.2f}")
+                price = item["price"]
+                cost_str = f"${cost:>7.2f}" if cost is not None else "  no cost"
+                cost_ext = qty * cost if cost is not None else 0
+                value_ext = qty * price if price is not None else 0
+                series_cost_total += cost_ext
+                series_value_total += value_ext
+                print(f"  {item['sku']:22} {qty:>4} x {cost_str}  cost ${cost_ext:>9.2f}  value ${value_ext:>9.2f}")
+            print(f"  {'':22} {'':>4}   {'':>7}        ${series_cost_total:>9.2f}        ${series_value_total:>9.2f}")
             print()
 
     # Summary
     print()
     print("Inventory Value Summary")
-    print("=" * 50)
+    print("=" * 72)
+    print(f"  {'':22} {'':>4}         {'Cost':>12}  {'Value':>12}  {'Margin':>8}")
+    print(f"  {'─' * 69}")
 
-    grand_total = 0
+    grand_cost = 0
+    grand_value = 0
     grand_units = 0
 
     for series in sorted(by_series.keys()):
         series_items = by_series[series]
         units = sum(i["quantity"] for i in series_items)
-        value = sum(i["quantity"] * i["unit_cost"]
-                    for i in series_items if i["unit_cost"] is not None)
-        grand_total += value
+        cost_total = sum(i["quantity"] * i["unit_cost"]
+                         for i in series_items if i["unit_cost"] is not None)
+        value_total = sum(i["quantity"] * i["price"]
+                          for i in series_items if i["price"] is not None)
+        margin_pct = ((value_total - cost_total) / value_total * 100) if value_total else 0
+        grand_cost += cost_total
+        grand_value += value_total
         grand_units += units
-        print(f"  {series:22} {units:>4} units   ${value:>10.2f}")
+        print(f"  {series:22} {units:>4} units   ${cost_total:>10.2f}  ${value_total:>10.2f}  {margin_pct:>6.1f}%")
 
-    print(f"  {'─' * 47}")
-    print(f"  {'Total':22} {grand_units:>4} units   ${grand_total:>10.2f}")
+    grand_margin_pct = ((grand_value - grand_cost) / grand_value * 100) if grand_value else 0
+    print(f"  {'─' * 69}")
+    print(f"  {'Total':22} {grand_units:>4} units   ${grand_cost:>10.2f}  ${grand_value:>10.2f}  {grand_margin_pct:>6.1f}%")
     print()
 
     if no_cost:
