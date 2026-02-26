@@ -1,0 +1,62 @@
+# Wire Store Cost Data
+# Source: lamp_cordPricing-skus.csv
+#
+# Gross cost formula:
+#   WIRECOST = sum of conductor costs per foot (wire type + wire 2 type if present)
+#   YARNCOST = (yarn_cost * yarn_per_100ft) / 100
+#   gross_cost = ROUND((sum(WIRECOST, YARNCOST) * QTY) + SPOOLCOST, 2)
+#   where SPOOLCOST is 0 when sold by the foot
+
+spool_costs:
+  '6.5" Black':    1.35
+  '6.5" White':    1.53
+  '10.5" Black':   2.75
+  '10.5" White':   2.93
+  'knob and tube': 4.75
+
+# Yarn costs (per unit)
+# Per-foot yarn cost = (yarn_cost * yarn_per_100ft) / 100
+# where yarn_per_100ft is the usage rate for the wire type
+yarn_costs:
+  'Cotton, Color':   15.78
+  'Cotton, Black':   15.43
+  'Cotton, Natural': 15.66
+  'Rayon, 5 ends':   29.49
+  'Rayon, 2 ends':   29.99
+
+# Yarn usage rates (lbs per 100 feet of braided cable)
+yarn_per_100ft:
+  W121: 0     # knob and tube, no braid
+  W141: 0.20
+  W143: 0.35
+  W162: 0.35
+  W163: 0.35
+  W181: 0.20
+  W182_twisted:  0.25
+  W182_parallel: 0.25
+  W182_pulley:   0.35
+  W183: 0.35
+  W202: 0.25
+  W222: 0.25
+
+# Raw wire conductor costs (per foot)
+# Wire/ft cost for a product = sum of its wire type + wire 2 type (if any)
+wire_costs:
+  '16awg 3 conductor twisted': 0.45154
+  '12/1 lacquered':            0.95286
+  '14/1 AWM 1015':             0.07995  # estimate, using 16awg pricing
+  '14/1 AWM 1015 Stripe':      0.07995  # estimate, using 16awg pricing
+  '14/3 SJT':                  0.31430  # from 2014 supplier quote
+  '16/3 SJT-B':                0.31430  # estimate, using 14/3 SJT (conservative)
+  '18/3 SJT':                  0.31430  # estimate, using 14/3 SJT (conservative)
+  '16/1 AWM 1015':             0.07995
+  '16/1 AWM 1015 Stripe':      0.07995
+  '18/1 AWM 1015':             0.05475
+  '18/1 AWM 1015 Stripe':      0.05475
+  '20/1 AWM 1015':             0.03357  # estimate, using 22awg pricing
+  '20/1 AWM 1015 Stripe':      0.03357  # estimate, using 22awg pricing
+  '22/1 AWM 1015':             0.03357
+  '22/1 AWM 1015 Stripe':      0.03357
+  '18/2 SPT-1':                0.13015
+  '18/2 SVT':                  0.10412
+  '18/3 SVT-3':                0.26197

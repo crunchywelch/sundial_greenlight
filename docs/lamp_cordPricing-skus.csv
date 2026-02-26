@@ -1,0 +1,77 @@
+,,,,,,,,,,,,,,
+,SKU Legend,,,,,,,,,,,,,
+,"W: wire,  nn: gauge,  n: number of conductors, C or R: cotton or rayon braid, 1 letter: style of wire, 2 letters: color #1, 2 letters: color #2 or XX if there isn't a second color, S or F or L: S is normal-sized  spool for the wire, F is by the foot, L is 50-foot spool",,,,,,,,,,,,,
+,So W182CTBKXXS is 18/2 cotton twisted black by the 250-foot spool,,,,,,,,,,,,,
+,W[nn][n][C|R][x][xx][xx][S|F|L],,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,wire type,wire 2 type,yarn type,yarn/100 ft,qty in feet,spool,wire/ft cost,yarn/ft cost,spool cost,gross cost,price,margin,spool discount
+W121,12/1 Knob and Tube,12/1 lacquered,,,,1,,$0.95286,,,$0.95,$2.50,62.00%,
+W121,12/1 Knob and Tube,12/1 lacquered,,,,100,knob and tube,$0.95286,,$4.75,$100.04,$225.00,55.54%,10.00%
+W121,12/1 Knob and Tube,12/1 lacquered,,,,250,knob and tube,$0.95286,,$4.75,$242.96,$525.00,53.72%,16.00%
+W121,12/1 Knob and Tube,12/1 lacquered,,,,500,knob and tube,$0.95286,,$4.75,$481.18,$950.00,49.35%,24.00%
+,,,,,,,,,,,,,,
+W141,14/1 Black Cotton,,,"Cotton, Black",,1,,,$0.00000,,,$1.00,,
+W141,14/1 Color Cotton,,,"Cotton, Color",,1,,,$0.00000,,,$1.00,,
+W141,14/1 Black Cotton,,,"Cotton, Black",,100,"6.5"" Black",,$0.00000,$1.35,,$65.00,,35.00%
+W141,14/1 Color Cotton,,,"Cotton, Color",,100,"6.5"" Black",,$0.00000,$1.35,,$65.00,,35.00%
+,,,,,,,,,,,,,,
+W143, 14/3 PULLEY - UL - SJT - Cotton ,,,,,,,,,,,$0.00,,
+W143, 14/3 PULLEY - UL - SJT - Rayon ,,,,,,,,,,,$0.00,,
+,,,,,,,,,,,,,,
+W163, 16/3 OVERBRAID - Black ,16awg 3 conductor twisted,,"Cotton, Black",0.35,1,,$0.45154,$0.05402,,$0.51,$2.25,77.33%,
+W163, 16/3 OVERBRAID - Bungalow ,16awg 3 conductor twisted,,"Cotton, Color",0.35,1,,$0.45154,$0.05524,,$0.51,$2.25,77.33%,
+W163, 16/3 OVERBRAID - Black ,16awg 3 conductor twisted,,"Cotton, Black",0.35,100,"6.5"" White",$0.45154,$0.05402,$1.53,$52.09,$125.00,58.33%,44.44%
+W163, 16/3 OVERBRAID - Bungalow ,16awg 3 conductor twisted,,"Cotton, Color",0.35,100,"6.5"" White",$0.45154,$0.05524,$1.53,$52.21,$125.00,58.23%,44.44%
+,,,,,,,,,,,,,,
+W162,16/2 TWISTED PAIR  - Black Cotton,16/1 AWM 1015,16/1 AWM 1015 Stripe,"Cotton, Black",0.35,1,,$0.15990,$0.05402,,$0.21,$1.70,87.65%,
+W162,16/2 TWISTED PAIR  - Color Cotton,16/1 AWM 1015,16/1 AWM 1015 Stripe,"Cotton, Color",0.35,1,,$0.15990,$0.05524,,$0.22,$1.70,87.06%,
+W162,16/2 TWISTED PAIR  - Black Cotton,16/1 AWM 1015,16/1 AWM 1015 Stripe,"Cotton, Black",0.35,50,"6.5"" Black",$0.15990,$0.05402,$1.35,$12.05,$75.00,83.93%,11.76%
+W162,16/2 TWISTED PAIR  - Color Cotton,16/1 AWM 1015,16/1 AWM 1015 Stripe,"Cotton, Color",0.35,50,"6.5"" Black",$0.15990,$0.05524,$1.35,$12.11,$75.00,83.85%,11.76%
+W162,16/2 TWISTED PAIR  - Black Cotton,16/1 AWM 1015,16/1 AWM 1015 Stripe,"Cotton, Black",0.35,250,"10.5"" Black",$0.15990,$0.05402,$2.75,$56.23,$280.00,79.92%,34.12%
+W162,16/2 TWISTED PAIR  - Color Cotton,16/1 AWM 1015,16/1 AWM 1015 Stripe,"Cotton, Color",0.35,250,"10.5"" Black",$0.15990,$0.05524,$2.75,$56.54,$280.00,79.81%,34.12%
+,,,,,,,,,,,,,,
+W163, 16/3 PULLEY - SJT - Cotton ,,,,0.35,,,,,,,$0.00,,
+W163, 16/3 PULLEY - SJT - Cotton ,,,,0.35,,,,,,,$0.00,,
+,,,,,,,,,,,,,,
+W181,18/1 Black Cotton,18/1 AWM 1015,,"Cotton, Black",0.2,1,,$0.05475,$0.03087,,$0.09,$0.75,88.00%,
+W181,18/1 Rayon,18/1 AWM 1015,,"Rayon, 2 ends",0.2,1,,$0.05475,$0.05998,,$0.11,$0.80,86.25%,
+W181,18/1 Black Cotton,18/1 AWM 1015,,"Cotton, Black",0.2,250,"6.5"" Black",$0.05475,$0.03087,$1.35,$22.75,$65.00,65.00%,65.33%
+W181,18/1 Rayon,18/1 AWM 1015,,"Rayon, 2 ends",0.2,100,"6.5"" White",$0.05475,$0.05998,$1.53,$13.00,$40.00,67.50%,50.00%
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+W182,18/2 TWISTED PAIR - Black Cotton,18/1 AWM 1015,18/1 AWM 1015 Stripe,"Cotton, Black",0.25,1,,$0.10950,$0.03858,,$0.15,$1.50,90.00%,
+W182,18/2 TWISTED PAIR - Color Cotton,18/1 AWM 1015,18/1 AWM 1015 Stripe,"Cotton, Color",0.25,1,,$0.10950,$0.03946,,$0.15,$1.50,90.00%,
+W182,18/2 TWISTED PAIR - Rayon,18/1 AWM 1015,18/1 AWM 1015 Stripe,"Rayon, 2 ends",0.25,1,,$0.10950,$0.07497,,$0.18,$1.50,88.00%,
+W182,18/2 TWISTED PAIR - Black Cotton,18/1 AWM 1015,18/1 AWM 1015 Stripe,"Cotton, Black",0.25,50,"6.5"" Black",$0.10950,$0.03858,$1.35,$8.75,$47.50,81.58%,36.67%
+W182,18/2 TWISTED PAIR - Color Cotton,18/1 AWM 1015,18/1 AWM 1015 Stripe,"Cotton, Color",0.25,50,"6.5"" Black",$0.10950,$0.03946,$1.35,$8.80,$47.50,81.47%,36.67%
+W182,18/2 TWISTED PAIR - Rayon,18/1 AWM 1015,18/1 AWM 1015 Stripe,"Rayon, 2 ends",0.25,50,"6.5"" Black",$0.10950,$0.07497,$1.35,$10.57,$47.50,77.75%,36.67%
+W182,18/2 TWISTED PAIR - Black Cotton,18/1 AWM 1015,18/1 AWM 1015 Stripe,"Cotton, Black",0.25,250,"10.5"" Black",$0.10950,$0.03858,$2.75,$39.77,$175.00,77.27%,53.33%
+W182,18/2 TWISTED PAIR - Color Cotton,18/1 AWM 1015,18/1 AWM 1015 Stripe,"Cotton, Color",0.25,250,"10.5"" Black",$0.10950,$0.03946,$2.75,$39.99,$175.00,77.15%,53.33%
+W182,18/2 TWISTED PAIR - Rayon,18/1 AWM 1015,18/1 AWM 1015 Stripe,"Rayon, 2 ends",0.25,250,"10.5"" Black",$0.10950,$0.07497,$2.75,$48.87,$175.00,72.07%,53.33%
+,,,,,,,,,,,,,,
+W182,18/2 PARALLEL CORD - UL - SPT-1 - Cotton,18/2 SPT-1,,"Cotton, Color",0.25,1,,$0.13015,$0.03946,,$0.17,$120.00,99.86%,
+W182,18/2 PARALLEL CORD - UL - SPT-1 - Cotton,18/2 SPT-1,,"Rayon, 2 ends",0.2,1,,$0.13015,$0.05998,,$0.19,$120.00,99.84%,
+W182,18/2 PARALLEL CORD - UL - SPT-1 - Cotton,18/2 SPT-1,,"Cotton, Color",0.25,250,"6.5"" Black",$0.13015,$0.03946,$1.35,$43.75,$120.00,63.54%,
+W182,18/2 PARALLEL CORD - UL - SPT-1 - Rayon,18/2 SPT-1,,"Rayon, 2 ends",0.2,250,"6.5"" Black",$0.13015,$0.05998,$1.35,$48.88,$120.00,59.27%,
+,,,,,,,,,,,,,,
+W182, 18/2 PULLEY - UL -SVT - Cotton ,,,"Cotton, Color",0.35,1,,,$0.05524,,,$70.00,,
+W182, 18/2 PULLEY - UL -SVT - Rayon ,,,"Rayon, 5 ends",0.35,1,,,$0.10321,,,$80.00,,
+,,,,,,,,,,,,,,
+W183, 18/3 PULLEY - UL - SVT - Cotton ,18/3 SVT-3,,"Cotton, Black",0.35,1,,$0.26197,$0.05402,,$0.32,$1.00,68.00%,
+W183, 18/3 PULLEY - UL - SVT - Rayon ,18/3 SVT-3,,"Rayon, 5 ends",0.35,1,,$0.26197,$0.10321,,$0.37,$1.00,63.00%,
+W183, 18/3 PULLEY - UL - SVT - Cotton ,18/3 SVT-3,,"Cotton, Black",0.35,100,"6.5"" White",$0.26197,$0.05402,$1.53,$33.13,$89.00,62.78%,11.00%
+W183, 18/3 PULLEY - UL - SVT - Rayon ,18/3 SVT-3,,"Rayon, 5 ends",0.35,100,"6.5"" White",$0.26197,$0.10321,$1.53,$38.05,$89.00,57.25%,11.00%
+,,,,,,,,,,,,,,
+W183, 18/3 PULLEY - UL - SJT - Cotton ,,,,,,,,,,,$0.00,,
+W183, 18/3 PULLEY - UL - SJT - Rayon ,,,,,,,,,,,$0.00,,
+,,,,,,,,,,,,,,
+W202,20/2  TWISTED PAIR Black Cotton,,,,,,,,,,,$0.00,,
+W202,20/2  TWISTED PAIR Rayon,,,,,,,,,,,$0.00,,
+,,,,,,,,,,,,,,
+W222,22/2 TWISTED PAIR - Black Cotton,22/1 AWM 1015,22/1 AWM 1015 Stripe,"Cotton, Black",0.25,1,,$0.06714,$0.03858,,$0.11,$1.00,89.00%,
+W222,22/2 TWISTED PAIR - Color Cotton,22/1 AWM 1015,22/1 AWM 1015 Stripe,"Cotton, Color",0.25,1,,$0.06714,$0.03946,,$0.11,$1.00,89.00%,
+W222,22/2 TWISTED PAIR - Rayon,22/1 AWM 1015,22/1 AWM 1015 Stripe,"Rayon, 2 ends",0.25,1,,$0.06714,$0.07497,,$0.14,$1.00,86.00%,
+W222,22/2 TWISTED PAIR - Black Cotton,22/1 AWM 1015,22/1 AWM 1015 Stripe,"Cotton, Black",0.25,100,"6.5"" Black",$0.06714,$0.03858,$1.35,$11.92,$40.00,70.20%,60.00%
+W222,22/2 TWISTED PAIR - Color Cotton,22/1 AWM 1015,22/1 AWM 1015 Stripe,"Cotton, Color",0.25,100,"6.5"" Black",$0.06714,$0.03946,$1.35,$12.01,$40.00,69.98%,60.00%
+W222,22/2 TWISTED PAIR - Rayon,22/1 AWM 1015,22/1 AWM 1015 Stripe,"Rayon, 2 ends",0.25,100,"6.5"" Black",$0.06714,$0.07497,$1.35,$15.56,$40.00,61.10%,60.00%

@@ -34,14 +34,15 @@ if [[ "${SKIP_BOOTSTRAP:-0}" != "1" ]]; then
   if [[ ! -d "$ENV_DIR" ]]; then
     echo "[+] Creating virtual environment in ./$ENV_DIR"
     python3 -m venv "$ENV_DIR"
-    # Activate and install deps once on first creation
-    source "$ENV_DIR/bin/activate"
-    echo "[+] Installing dependencies..."
-    python -m pip install --upgrade pip
-    if [[ -f requirements.txt ]]; then
-      python -m pip install -r requirements.txt
-    fi
-    echo "[+] Virtual environment created and activated."
+    echo "[+] Virtual environment created."
+  fi
+
+  # Activate and ensure deps are installed
+  source "$ENV_DIR/bin/activate"
+  if [[ -f requirements.txt ]]; then
+    echo "[+] Checking dependencies..."
+    python -m pip install --upgrade pip -q
+    python -m pip install -r requirements.txt -q
   fi
 fi
 

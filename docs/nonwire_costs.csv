@@ -1,0 +1,220 @@
+SKU,Cost,Vendor,Notes
+# Bulbs - Satco
+BA194L40,2.95,Satco,Est (PO price for 60W same product S2419)
+BA194L60,2.95,Satco,PO 1011 S2419
+BA19SIL60,1.75,Satco,PO 1011 S3955
+BA19SIL100,1.75,Satco,PO 1011 S3956
+BG25CG40,2.95,Satco,Est (vintage incandescent 66% of catalog $4.50)
+BG25SIL40,1.75,Satco,PO 1011 S3861
+BLEDG25SIL4.5,3.95,Satco,PO 1011 S12541
+BLEDA19AMB4.5,3.95,Satco,Est (LED 91% of catalog $4.35)
+BLEDG25AMB4.5,4.95,Satco,Est (LED 91% of catalog $5.45)
+BLEDST19AMBS4.5,5.99,Satco,Est (LED 91% of catalog $6.60)
+BLEDT6CL2.5,2.95,Satco,Est (LED similar to amber T6)
+BLEDT6AMB2.5,2.95,Satco,Est (LED 91% of catalog $3.25)
+BLEDT6AMB3.5,2.95,Satco,Est (LED 91% of catalog $3.25)
+BST19CG40,2.95,Satco,Est (vintage incandescent S2413)
+BST19CG60,2.95,Satco,Est (vintage incandescent S2423)
+BST19HP40,2.95,Satco,Est (vintage incandescent S2414)
+BT14CG40,2.95,Satco,PO 1011 S2417
+# Bulb Clips - Satco
+BCLIPMED,0.88,Satco,PO 1011 90-940
+# Cages - Satco (catalog x 0.336 ratio from CAGEBR)
+CAGEBK,3.14,Satco,Est (catalog $9.35 x 0.336)
+CAGEBR,2.25,Satco,Worksheet
+CAGEAB,3.14,Satco,Est (catalog $9.35 x 0.336)
+CAGENK,3.16,Satco,Est (catalog $9.40 x 0.336)
+CAGEST,2.25,Satco,Est (same catalog tier as brass $6.70)
+# Canopies - Satco (all ~$3.25 from PO/price sheet)
+CANCONKBK,3.25,Satco,PO 1011 90-893
+CANCONKBR,3.25,Satco,Est (same product different finish)
+CANCONKNK,3.25,Satco,Est (same product different finish)
+CANRIBKBK,3.25,Satco,Est (price sheet DAB $3.25)
+CANRIBKBR,3.25,Satco,Est (same product different finish)
+CANRIBKBZ,3.25,Satco,Price sheet 90-1887
+CANRIBKNK,3.25,Satco,Est (same product different finish)
+CANSMTHKBR,3.25,Satco,Est (same product different finish)
+CANSMTHKBZ,3.25,Satco,PO 1011 90-1891
+CANSMTHKNK,3.25,Satco,Est (same product different finish)
+# Finials - Satco
+FINIALTHAB,0.54,Satco,Catalog 80-1518
+FINIALTHBR,0.48,Satco,Catalog 80-1181
+FINIALTHBZ,0.32,Satco,PO 1013 80-1519
+FINIALTHNK,0.48,Satco,Catalog 80-1182
+# Harps - Satco (catalog x 0.536 ratio from HRPHDDAB10)
+HRPHDAB8,1.18,Satco,Est (catalog $2.20 x 0.536)
+HRPHDAB9,1.23,Satco,Est (catalog $2.30 x 0.536)
+HRPHDAB9.5,1.23,Satco,Est (catalog $2.30 x 0.536)
+HRPHDAB10,1.26,Satco,Est (catalog $2.35 x 0.536)
+HRPHDBR8,1.02,Satco,Est (catalog $1.90 x 0.536)
+HRPHDBR8.5,1.02,Satco,Est (catalog $1.90 x 0.536)
+HRPHDBR9,1.04,Satco,Est (catalog $1.95 x 0.536)
+HRPHDBR9.5,1.04,Satco,Est (catalog $1.95 x 0.536)
+HRPHDBR10,1.10,Satco,Est (catalog $2.05 x 0.536)
+HRPHDDAB8,1.18,Satco,Est (catalog $2.20 x 0.536)
+HRPHDDAB8.5,1.18,Satco,Est (catalog $2.20 x 0.536)
+HRPHDDAB9,1.23,Satco,Est (catalog $2.30 x 0.536)
+HRPHDDAB9.5,1.23,Satco,Est (catalog $2.30 x 0.536)
+HRPHDDAB10,1.26,Satco,Price sheet 80-2152
+HRPHDNK8,1.02,Satco,Est (catalog $1.90 x 0.536)
+HRPHDNK8.5,1.02,Satco,Est (catalog $1.90 x 0.536)
+HRPHDNK9,1.04,Satco,Est (catalog $1.95 x 0.536)
+HRPHDNK9.5,1.04,Satco,Est (catalog $1.95 x 0.536)
+HRPHDNK10,1.10,Satco,Est (catalog $2.05 x 0.536)
+# Lock Nuts and Reducer - Satco
+LKNTHX916x18,0.06,Satco,Catalog 90-1636
+LNKNRL18IP18,1.20,Satco,Catalog 90-1601
+RED18x14-27F,0.51,Satco,Catalog 90-762
+# Nipples - Satco (price sheet for short; est ~50% catalog for long)
+NIPZINC.5IN,0.03,Satco,Price sheet 90-5004
+NIPZINC1IN,0.05,Satco,Price sheet 90-5008
+NIPZINC2IN,0.09,Satco,Price sheet 90-5016
+NIPZINC3IN,0.12,Satco,Est (~50% of catalog $0.23)
+NIPZINC4IN,0.14,Satco,Est (~50% of catalog $0.27)
+NIPZINC5IN,0.17,Satco,Est (~50% of catalog $0.34)
+NIPZINC6IN,0.20,Satco,Est (~50% of catalog $0.40)
+NIPZINC7IN,0.25,Satco,Est (~50% of catalog $0.49)
+NIPZINC8IN,0.26,Satco,Est (~50% of catalog $0.52)
+# Plugs - Satco (3-prong)
+PN3HVRUBBK,3.54,Satco,PO 1011 80-1688
+PN3THERMOBK,2.10,Satco,PO 1011 80-2412
+PN3THERMOBN,2.10,Satco,PO 1011 80-2426
+PN3THERMOWH,2.10,Satco,PO 1011 80-2413
+# Plugs - B&P (2-prong and covers)
+PCOVERBK,0.40,B&P,B&P price 40319
+PN2ACNBK,3.64,B&P,B&P price 48545
+PN2ACNBN,3.64,B&P,B&P price 48543
+PN2ACNWH,3.64,B&P,Est (same as other acorn colors)
+PN2HVYSHBK,2.25,B&P,B&P price 48566
+PN2RECTBK,3.22,B&P,Est (same as brown 48516)
+PN2RECTBN,3.22,B&P,B&P price 48516
+PN2RECTWH,3.50,B&P,B&P price 48535
+PN2RIBBK,3.64,B&P,B&P price 48542
+PN2RIBBN,3.64,B&P,B&P price 48540
+PN2RIBNKBK,3.26,B&P,B&P price 48573
+PN2RIBWH,3.64,B&P,Est (same as other rib colors)
+PN2RNDNKBK,1.93,B&P,B&P price 48558
+PN2RNDNKBN,1.93,B&P,Est (same as BK)
+PN2RUBRECTBK,3.04,B&P,B&P price 48533BK
+PN2RUBRECTWH,3.04,B&P,Est (same as BK)
+# Shade Holders - B&P
+SHHDUNOLGBK,5.58,B&P,B&P price 10727BK
+SHHDUNOLGBR,5.58,B&P,B&P price 10727U
+SHHDUNOLGBZ,5.58,B&P,B&P price 10727B
+SHHDUNOLGNK,5.58,B&P,B&P price 10727N
+SHHOLDCLMPBR,3.20,B&P,B&P price 10787
+SHHOLDCLMPNK,4.86,B&P,B&P price 10785N
+SHHOLDUNOAB,4.08,B&P,B&P price 10786A
+SHHOLDUNOBK,4.08,B&P,B&P price 10786BK
+SHHOLDUNOBR,4.08,B&P,B&P price 10786U
+SHHOLDUNONK,4.08,B&P,B&P price 10786N
+# Socket Covers - B&P
+SKCOVAB,1.99,B&P,B&P price 11661TA
+SKCOVBK,1.52,B&P,B&P price 11661TBK
+SKCOVBR,1.48,B&P,B&P price 11661T
+SKCOVCP,1.52,B&P,B&P price 11661TC
+SKCOVNK,1.52,B&P,B&P price 11661TN
+SKCOVWH,1.56,B&P,B&P price 11661TW
+# Sockets - Satco Aluminum/Side Exit
+SKASEPTBR,1.50,Satco,Est (same as NK from price sheet)
+SKASEPTNK,1.50,Satco,Price sheet 80-1754
+SKASEPTPW,1.80,Satco,Price sheet 80-2438
+# Sockets - Satco Bakelite
+SKBKBK,0.96,Satco,PO 1011 80-1111
+SKBKRBK,0.85,Satco,Worksheet
+SKBKRWH,0.85,Satco,Est (same as BK)
+SKBPRBK,0.85,Satco,Est (similar bakelite socket)
+# Sockets - Satco Candelabra
+SKCANDBKBK,1.19,Satco,Price sheet 80-1311
+SKCANDBKRBK,1.26,Satco,Price sheet 80-1095
+# Sockets - Satco 4-Piece Dimmer
+SKCDBK,11.94,Satco,Price sheet 80-2479
+SKCDBR,11.94,Satco,Est (same type as BK/NK)
+SKCDBZ,13.14,Satco,PO 1011 80-2327
+SKCDNK,11.94,Satco,Price sheet 80-1065
+# Sockets - Satco 4-Piece Dimmer UNO
+SKCDUBK,12.60,Satco,Est (same type as BR/NK)
+SKCDUBR,12.60,Satco,Price sheet 80-1066
+SKCDUBZ,13.80,Satco,PO 1011 80-2422
+SKCDUNK,12.60,Satco,Price sheet 80-1067
+# Sockets - Satco 4-Piece Keyless
+SKCKBK,6.90,Satco,Est (same type as NK)
+SKCKBR,6.90,Satco,Est (same type as NK)
+SKCKBZ,7.50,Satco,PO 1011 80-2326
+SKCKNK,6.90,Satco,PO 1011/Price sheet 80-1055
+# Sockets - Satco 4-Piece Keyless UNO
+SKCKUBK,8.10,Satco,Price sheet 80-2478
+SKCKUBR,7.50,Satco,Est (same type as BZ)
+SKCKUBZ,7.50,Satco,PO 1011 80-2423
+SKCKUNK,7.50,Satco,Est (same type as BZ)
+# Sockets - Satco 4-Piece On/Off Turn Knob
+SKCOBK,8.34,Satco,Est (same type as NK)
+SKCOBR,8.34,Satco,Est (same type as NK)
+SKCOBZ,9.54,Satco,PO 1011 80-2253
+SKCONK,8.34,Satco,Price sheet 80-1059
+# Sockets - Satco 4-Piece On/Off UNO
+SKCOUBK,10.20,Satco,Price sheet 80-2482
+SKCOUBR,10.20,Satco,Est (same type as BK)
+SKCOUBZ,10.20,Satco,Est (same type as BK)
+SKCOUNK,10.20,Satco,Est (same type as BK)
+# Sockets - Satco 3-Piece Dimmer (no price sheet data - keep current)
+SKSDBK,5.50,Satco,Worksheet
+SKSDBR,5.50,Satco,Worksheet
+SKSDNK,5.50,Satco,Worksheet
+# Sockets - Satco 3-Piece Keyless
+SKSKBK,2.35,Satco,Worksheet
+SKSKBR,2.35,Satco,Worksheet
+SKSKNK,2.35,Satco,Worksheet
+# Sockets - Satco 3-Piece On/Off Turn Knob
+SKSOBK,4.20,Satco,Price sheet 80-2415
+SKSOBR,4.08,Satco,Est (same type as NK)
+SKSONK,4.08,Satco,PO 1011 80-1180
+# Sockets - Porcelain (Satco or B&P - use cheaper source)
+SKPFM,1.68,Satco,PO 1011/1013 90-1112
+SKPGNDK,2.34,Satco,Price sheet 90-1707
+SKP1-4IPSGNDK,3.29,B&P,B&P price 48304
+SKPDUPLEX,3.49,B&P,B&P price 47713
+SKPKBK,2.24,B&P,B&P price 48096
+SKPKBN,2.24,B&P,Est (same as BK)
+# Socket Rings
+SKRINGCBK,0.20,Satco,Worksheet
+SKRINGCBR,0.20,Satco,Worksheet
+SKRINGCBZ,0.20,Satco,Worksheet
+SKRINGCNK,0.20,Satco,Worksheet
+# Strain Reliefs - B&P
+STRCOLLBK,1.26,B&P,B&P price 26931BK
+STRCOLLBR,1.00,B&P,B&P price 26931
+STRCOLLBZ,0.71,B&P,B&P price 26931A
+STRCOLLNK,0.75,B&P,B&P price 26931N
+STRMETALBK,1.32,B&P,B&P price 26930BK
+STRMETALBR,1.39,B&P,B&P price 26930
+STRMETALBZ,1.66,B&P,B&P price 26930A
+STRMETALNK,1.22,B&P,B&P price 26930N
+# Switches - B&P
+SWFLRBK,3.83,B&P,B&P price 40122
+SWFLRWH,4.64,B&P,B&P price 40126
+SWFLRWBK,2.24,B&P,B&P price 40151
+SWFLRWCL,1.99,B&P,B&P price 40150
+SWFLRWWH,2.46,B&P,B&P price 40155
+SWFRDIMBK,10.36,B&P,B&P price 48473BK
+SWFRDIMBN,10.36,B&P,B&P price 48473BR
+SWFRDIMWH,10.36,B&P,B&P price 48473W
+SWLGBN,3.46,B&P,B&P price 48465B
+SWLGIV,4.16,B&P,B&P price 48465I
+SWROTBN,0.53,B&P,B&P price 48432
+SWROTCL,0.53,B&P,B&P price 48431
+SWROTCLGD,0.93,B&P,B&P price 48430
+SWROTDIMBK,1.89,B&P,B&P price 48462
+SWROTDIMBN,1.80,B&P,B&P price 48461
+SWROTDIMIV,2.52,B&P,B&P price 48463
+SWROTDIMWH,1.92,B&P,B&P price 48460
+SWROTWH,0.50,B&P,B&P price 48433
+SWSLIMBK,0.63,B&P,B&P price 48420 (SPT-2)
+SWSLIMBN,0.76,B&P,B&P price 48454
+SWSLIMCL,0.88,B&P,B&P price 48452
+SWSLIMCLGD,1.09,B&P,B&P price 48423
+SWSLIMWH,0.78,B&P,B&P price 48451
+SWVTGLGBN,6.21,B&P,B&P price 48405
+SWVTGLGIV,6.23,B&P,B&P price 48406
+SWVTGROTBN,1.44,B&P,B&P price 48400
+SWVTGROTWH,1.46,B&P,B&P price 48401

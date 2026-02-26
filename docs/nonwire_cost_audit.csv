@@ -1,0 +1,324 @@
+SKU,Handle,Title,Option,Status,Published,Type,Qty,Price,Cost,Inv Value,Vendor,Part Number,Cost Source
+BA194L40,bulb-victorian-style,BULB: VICTORIAN STYLE WITH QUAD LOOP FILAMENT,40 watts,active,TRUE,Bulbs,90,9.00,2.95,265.50,Satco,S2412,Est (PO price for 60W same product S2419)
+BA194L60,bulb-victorian-style,BULB: VICTORIAN STYLE WITH QUAD LOOP FILAMENT,60 watts,active,TRUE,Bulbs,17,10.00,2.95,50.15,Satco,S2419,PO 1011 S2419
+BA19SIL100,bulb-anti-glare-silvered,BULB: VICTORIAN STYLE WITH QUAD LOOP FILAMENT,100 watts,active,TRUE,Bulbs,25,3.50,1.75,43.75,Satco,S3956,PO 1011 S3956
+BA19SIL60,bulb-anti-glare-silvered,BULB: SILVERED ANTI-GLARE,60 watts,active,TRUE,Bulbs,21,3.50,1.75,36.75,Satco,S3955,PO 1011 S3955
+BCLIPMED,bulb-clip,Bulb Clip,Default Title,active,TRUE,Sockets,21,6.00,0.88,18.48,Satco,90/940,PO 1011 90-940
+BG25CG40,bulb-globe-style-40w,"BULB: GLOBE STYLE WITH CAGE FILAMENT, 40W",Default Title,active,TRUE,Bulbs,8,6.00,2.95,23.60,Satco,S2425,Est (vintage incandescent 66% of catalog $4.50)
+BG25SIL40,bulb-silvered-anti-glare-g25,"BULB: GLOBE STYLE WITH CAGE FILAMENT, 40W",40 watt incandescent,active,TRUE,Bulbs,20,12.00,1.75,35.00,Satco,S3861,PO 1011 S3861
+BLEDA19AMB4.5,bulb-led-victorian-style-amber-4-5w,"BULB: VICTORIAN STYLE WITH LED FILAMENT, 4.5W, AMBER",Default Title,active,TRUE,Bulbs,11,11.00,3.95,43.45,Satco,S9583,Est (LED 91% of catalog $4.35)
+BLEDG25AMB4.5,bulb-led-globe-style-amber-4-5w,"BULB: GLOBE STYLE WITH LED FILAMENT, 4.5W, AMBER",Default Title,active,TRUE,Bulbs,10,11.90,4.95,49.50,Satco,S9584,Est (LED 91% of catalog $5.45)
+BLEDG25SIL4.5,bulb-silvered-anti-glare-g25,"BULB: GLOBE STYLE WITH SILVERED ANTI-GLARE, LED AND INCANDESCENT",4.5 watt LED,active,TRUE,Bulbs,20,12.00,3.95,79.00,Satco,S12541,PO 1011 S12541
+BLEDST19AMB6.5,bulb-led-edison-style-amber,"BULB: GLOBE STYLE WITH SILVERED ANTI-GLARE, LED AND INCANDESCENT",6.5 watts,active,TRUE,Bulbs,5,13.90,,,,discontinued? maybe S9272?,
+BLEDST19AMBS4.5,bulb-led-edison-style-amber,BULB: EDISON STYLE WITH LED FILAMENT,4.5 watts,active,TRUE,Bulbs,12,11.90,5.99,71.88,Satco,S8612,Est (LED 91% of catalog $6.60)
+BLEDT104.5,bulb-led-tube-style,BULB: TUBE STYLE WITH LED FILAMENT,Default Title,active,TRUE,Bulbs,12,11.00,,,,probably S9580 but need to confirm color temp,
+BLEDT6AMB2.5,bulb-led-candelabra-tube-style,"BULB: TUBE STYLE WITH LED FILAMENT, CANDELABRA BASE",amber glaze,active,TRUE,Bulbs,12,7.00,2.95,35.40,Satco,S9873,Est (LED 91% of catalog $3.25)
+BLEDT6AMB3.5,bulb-led-candelabra-torpedo-style-amber-3-5w,"BULB: TORPEDO STYLE WITH LED FILAMENT, 3.5W, AMBER FINISH, CANDELABRA BASE",Default Title,active,TRUE,Bulbs,105,8.00,2.95,309.75,Satco,S9986,Est (LED 91% of catalog $3.25)
+BLEDT6CL2.5,bulb-led-candelabra-tube-style,"BULB: TORPEDO STYLE WITH LED FILAMENT, 3.5W, AMBER FINISH, CANDELABRA BASE",no glaze (clear),active,TRUE,Bulbs,9,5.50,2.95,26.55,Satco,S9872,Est (LED similar to amber T6)
+BST19CG40,bulb-edison-style-cage-filament,BULB: EDISON STYLE WITH CAGE FILAMENT,40 watts,active,TRUE,Bulbs,168,7.50,2.95,495.60,Satco,S2413,Est (vintage incandescent S2413)
+BST19CG60,bulb-edison-style-cage-filament,BULB: EDISON STYLE WITH CAGE FILAMENT,60 watts,active,TRUE,Bulbs,40,7.50,2.95,118.00,Satco,S2423,Est (vintage incandescent S2423)
+BST19HP40,bulb-edison-style-hairpin-filament-40w,"BULB: EDISON TEARDROP STYLE WITH HAIRPIN FILAMENT, 40W",Default Title,active,TRUE,Bulbs,353,7.50,2.95,1041.35,Satco,S2414,Est (vintage incandescent S2414)
+BST19MA60,bulb-edison-style-marconi-filament-60w,"BULB: EDISON STYLE WITH MARCONI FILAMENT, 60W",Default Title,active,TRUE,Bulbs,3,10.50,,,,"need to figure this one out, there is no S21 lamp type in satco",
+BT14CG40,bulb-radio-tube-style,"BULB: EDISON STYLE WITH MARCONI FILAMENT, 60W","40 watts, no glaze",active,TRUE,Bulbs,20,9.00,2.95,59.00,Satco,S2417,PO 1011 S2417
+BT14CGAMB30,bulb-radio-tube-style,BULB: RADIO TUBE STYLE,"30 watts, amber glaze",active,TRUE,Bulbs,31,9.00,,,,discontinued?,
+CAGEAB,light-bulb-cage,BULB: RADIO TUBE STYLE,antique brass,active,TRUE,Bulbs,13,8.00,3.14,40.82,Satco,90-1919,Est (catalog $9.35 x 0.336)
+CAGEBK,light-bulb-cage,Bulb Cage,black,active,TRUE,Bulb Cages,15,8.00,3.14,47.10,Satco,90-1916,Est (catalog $9.35 x 0.336)
+CAGEBR,light-bulb-cage,Bulb Cage,brass,active,TRUE,Bulb Cages,13,8.00,2.25,29.25,Satco,90-1310,Worksheet
+CAGENK,light-bulb-cage,Bulb Cage,nickel,active,TRUE,Bulb Cages,23,8.00,3.16,72.68,Satco,90-1912,Est (catalog $9.40 x 0.336)
+CAGEST,light-bulb-cage,Bulb Cage,steel,active,TRUE,Bulb Cages,151,8.00,2.25,339.75,Satco,90-1918,Est (same catalog tier as brass $6.70)
+CANCONKBK,ceiling-canopy-kit-contemporary,Bulb Cage,black,active,TRUE,Bulb Cages,21,6.00,3.25,68.25,Satco,90-893,PO 1011 90-893
+CANCONKBR,ceiling-canopy-kit-contemporary,"CEILING CANOPY KIT, CONTEMPORARY",brass,active,TRUE,Canopies,33,6.00,3.25,107.25,Satco,90-890,Est (same product different finish)
+CANCONKNK,ceiling-canopy-kit-contemporary,"CEILING CANOPY KIT, CONTEMPORARY",nickel,active,TRUE,Canopies,12,6.00,3.25,39.00,Satco,90-891,Est (same product different finish)
+CANRIBKBK,ceiling-canopy-kit-ribbed,"CEILING CANOPY KIT, CONTEMPORARY",black,active,TRUE,Canopies,18,6.00,3.25,58.50,Satco,90-055,Est (price sheet DAB $3.25)
+CANRIBKBR,ceiling-canopy-kit-ribbed,"CEILING CANOPY KIT, RIBBED",brass,active,TRUE,Canopies,19,6.00,3.25,61.75,Satco,90-052,Est (same product different finish)
+CANRIBKBZ,ceiling-canopy-kit-ribbed,"CEILING CANOPY KIT, RIBBED",antique brass,active,TRUE,Canopies,75,6.00,3.25,243.75,Satco,90-1887,Price sheet 90-1887
+CANRIBKNK,ceiling-canopy-kit-ribbed,"CEILING CANOPY KIT, RIBBED",nickel,active,TRUE,Canopies,15,6.00,3.25,48.75,Satco,90-1889,Est (same product different finish)
+CANSMTHKBR,ceiling-canopy-kit-smooth,"CEILING CANOPY KIT, SMOOTH",brass,active,TRUE,Canopies,10,6.00,3.25,32.50,Satco,90-1927,Est (same product different finish)
+CANSMTHKBZ,ceiling-canopy-kit-smooth,"CEILING CANOPY KIT, SMOOTH",antique brass,active,TRUE,Canopies,18,6.00,3.25,58.50,Satco,90-1891,PO 1011 90-1891
+CANSMTHKNK,ceiling-canopy-kit-smooth,"CEILING CANOPY KIT, SMOOTH",nickel,active,TRUE,Canopies,35,6.00,3.25,113.75,Satco,90-1893,Est (same product different finish)
+CCLEAT-GF,porcelain-cleat-pair,"CEILING CANOPY KIT, SMOOTH",glazed,active,TRUE,Canopies,0,6.00,,,,,
+CCLEAT-GG,porcelain-cleat-pair,"CEILING CANOPY KIT, SMOOTH",glazed,active,TRUE,Canopies,0,4.00,,,,,
+CCLEAT-GNOS,porcelain-cleat-pair,"CEILING CANOPY KIT, SMOOTH",glazed,active,TRUE,Canopies,0,9.00,,,,,
+CCLEAT-UF,porcelain-cleat-pair,"CEILING CANOPY KIT, SMOOTH",unglazed,active,TRUE,Canopies,0,6.00,,,,,
+CCLEAT-UG,porcelain-cleat-pair,PORCELAIN CLEAT PAIR,unglazed,active,TRUE,Knob & Tube,0,4.00,,,,,
+CCLEAT-UNOS,porcelain-cleat-pair,PORCELAIN CLEAT PAIR,unglazed,active,TRUE,Knob & Tube,0,9.00,,,,,
+CKNOB-G1F,porcelain-knob,PORCELAIN CLEAT PAIR,clamp 1-wire glazed,active,TRUE,Knob & Tube,0,2.00,,,,,
+CKNOB-G1G,porcelain-knob,PORCELAIN CLEAT PAIR,clamp 1-wire glazed,active,TRUE,Knob & Tube,0,3.00,,,,,
+CKNOB-G1NOS,porcelain-knob,PORCELAIN CLEAT PAIR,clamp 1-wire glazed,active,TRUE,Knob & Tube,0,8.00,,,,,
+CKNOB-GF,porcelain-knob,PORCELAIN CLEAT PAIR,clamp 2-wire glazed,active,TRUE,Knob & Tube,68,2.00,,,,,
+CKNOB-GG,porcelain-knob,PORCELAIN CLEAT PAIR,clamp 2-wire glazed,active,TRUE,Knob & Tube,208,3.00,,,,,
+CKNOB-GNOS,porcelain-knob,PORCELAIN CLEAT PAIR,clamp 2-wire glazed,active,TRUE,Knob & Tube,0,8.00,,,,,
+CKNOB-GWLF,porcelain-knob,PORCELAIN CLEAT PAIR,wrap large glazed,active,TRUE,Knob & Tube,0,2.00,,,,,
+CKNOB-GWLG,porcelain-knob,PORCELAIN CLEAT PAIR,wrap large glazed,active,TRUE,Knob & Tube,0,3.00,,,,,
+CKNOB-GWLNOS,porcelain-knob,PORCELAIN CLEAT PAIR,wrap large glazed,active,TRUE,Knob & Tube,0,8.00,,,,,
+CKNOB-GWMF,porcelain-knob,PORCELAIN CLEAT PAIR,wrap medium glazed,active,TRUE,Knob & Tube,7,2.00,,,,,
+CKNOB-GWMG,porcelain-knob,PORCELAIN CLEAT PAIR,wrap medium glazed,active,TRUE,Knob & Tube,30,3.00,,,,,
+CKNOB-GWMNOS,porcelain-knob,PORCELAIN CLEAT PAIR,wrap medium glazed,active,TRUE,Knob & Tube,0,8.00,,,,,
+CKNOB-GWSF,porcelain-knob,PORCELAIN CLEAT PAIR,wrap small glazed,active,TRUE,Knob & Tube,0,2.00,,,,,
+CKNOB-GWSF,porcelain-knob,PORCELAIN CLEAT PAIR,wrap small unglazed,active,TRUE,Knob & Tube,0,2.00,,,,,
+CKNOB-GWSG,porcelain-knob,PORCELAIN CLEAT PAIR,wrap small glazed,active,TRUE,Knob & Tube,0,3.00,,,,,
+CKNOB-GWSNOS,porcelain-knob,PORCELAIN CLEAT PAIR,wrap small glazed,active,TRUE,Knob & Tube,0,8.00,,,,,
+CKNOB-GWSNOS,porcelain-knob,PORCELAIN CLEAT PAIR,wrap small unglazed,active,TRUE,Knob & Tube,0,8.00,,,,,
+CKNOB-U1F,porcelain-knob,PORCELAIN CLEAT PAIR,clamp 1-wire unglazed,active,TRUE,Knob & Tube,0,2.00,,,,,
+CKNOB-U1G,porcelain-knob,PORCELAIN CLEAT PAIR,clamp 1-wire unglazed,active,TRUE,Knob & Tube,0,3.00,,,,,
+CKNOB-U1NOS,porcelain-knob,PORCELAIN CLEAT PAIR,clamp 1-wire unglazed,active,TRUE,Knob & Tube,0,8.00,,,,,
+CKNOB-UF,porcelain-knob,PORCELAIN CLEAT PAIR,clamp 2-wire unglazed,active,TRUE,Knob & Tube,0,2.00,,,,,
+CKNOB-UG,porcelain-knob,PORCELAIN KNOB,clamp 2-wire unglazed,active,TRUE,Knob & Tube,0,3.00,,,,,
+CKNOB-UNOS,porcelain-knob,PORCELAIN KNOB,clamp 2-wire unglazed,active,TRUE,Knob & Tube,0,8.00,,,,,
+CKNOB-UWLF,porcelain-knob,PORCELAIN KNOB,wrap large unglazed,active,TRUE,Knob & Tube,0,2.00,,,,,
+CKNOB-UWLG,porcelain-knob,PORCELAIN KNOB,wrap large unglazed,active,TRUE,Knob & Tube,0,3.00,,,,,
+CKNOB-UWLNOS,porcelain-knob,PORCELAIN KNOB,wrap large unglazed,active,TRUE,Knob & Tube,0,8.00,,,,,
+CKNOB-UWMF,porcelain-knob,PORCELAIN KNOB,wrap medium unglazed,active,TRUE,Knob & Tube,0,2.00,,,,,
+CKNOB-UWMG,porcelain-knob,PORCELAIN KNOB,wrap medium unglazed,active,TRUE,Knob & Tube,0,3.00,,,,,
+CKNOB-UWMNOS,porcelain-knob,PORCELAIN KNOB,wrap medium unglazed,active,TRUE,Knob & Tube,0,8.00,,,,,
+CKNOB-UWSG,porcelain-knob,PORCELAIN KNOB,wrap small unglazed,active,TRUE,Knob & Tube,0,3.00,,,,,
+CTUBE-3F,porcelain-tube,PORCELAIN KNOB,"3-3.75""",active,TRUE,Knob & Tube,110,2.00,,,,,
+CTUBE-3G,porcelain-tube,PORCELAIN TUBE,"3-3.75""",active,TRUE,Knob & Tube,763,3.00,,,,,
+CTUBE-3NOS,porcelain-tube,PORCELAIN TUBE,"3-3.75""",active,TRUE,Knob & Tube,0,8.00,,,,,
+CTUBE-4F,porcelain-tube,PORCELAIN TUBE,"4-4.75""",active,TRUE,Knob & Tube,1,2.00,,,,,
+CTUBE-4G,porcelain-tube,PORCELAIN TUBE,"4-4.75""",active,TRUE,Knob & Tube,0,3.00,,,,,
+CTUBE-4NOS,porcelain-tube,PORCELAIN TUBE,"4-4.75""",active,TRUE,Knob & Tube,0,8.00,,,,,
+CTUBE-5F,porcelain-tube,PORCELAIN TUBE,"5-5.75""",active,TRUE,Knob & Tube,2,2.00,,,,,
+CTUBE-5G,porcelain-tube,PORCELAIN TUBE,"5-5.75""",active,TRUE,Knob & Tube,43,3.00,,,,,
+CTUBE-5NOS,porcelain-tube,PORCELAIN TUBE,"5-5.75""",active,TRUE,Knob & Tube,0,8.00,,,,,
+CTUBE-6F,porcelain-tube,PORCELAIN TUBE,"6-6.75""",active,TRUE,Knob & Tube,1,2.00,,,,,
+CTUBE-6G,porcelain-tube,PORCELAIN TUBE,"6-6.75""",active,TRUE,Knob & Tube,7,3.00,,,,,
+CTUBE-6NOS,porcelain-tube,PORCELAIN TUBE,"6-6.75""",active,TRUE,Knob & Tube,0,8.00,,,,,
+FINIALPYRAB,finial-pyramid-style,"FINIAL: Large Pyramid Knob 1 1/4"" Height - 1/8 IP",antique brass,active,TRUE,Finials,14,3.00,,,,,
+FINIALPYRBR,finial-pyramid-style,"FINIAL: Large Pyramid Knob 1 1/4"" Height - 1/8 IP",brass,active,TRUE,Finials,0,3.00,,,,,
+FINIALPYRNK,finial-pyramid-style,"FINIAL: Large Pyramid Knob 1 1/4"" Height - 1/8 IP",nickel,active,TRUE,Finials,3,3.00,,,,,
+FINIALTHAB,finial-top-hat-style,FINIAL: TOP HAT STYLE - 1/4-27 IP,antique brass,active,TRUE,Finials,35,0.65,0.54,18.90,Satco,80-1518,Catalog 80-1518
+FINIALTHBR,finial-top-hat-style,FINIAL: TOP HAT STYLE - 1/4-27 IP,brass,active,TRUE,Finials,43,0.65,0.48,20.64,Satco,80-1181,Catalog 80-1181
+FINIALTHBZ,finial-top-hat-style,FINIAL: TOP HAT STYLE - 1/4-27 IP,dark antique brass,active,TRUE,Finials,41,0.65,0.32,13.12,Satco,80-1519,PO 1013 80-1519
+FINIALTHNK,finial-top-hat-style,FINIAL: TOP HAT STYLE - 1/4-27 IP,nickel,active,TRUE,Finials,64,0.65,0.48,30.72,Satco,80-1182,Catalog 80-1182
+GROMMET,grommet,"GROMMET: Black Rubber, 1/2"" diameter for wireway hole",Default Title,active,TRUE,Miscellaneous,338,0.50,,,,,
+HRPHDAB10,heavy-duty-harp,"GROMMET: Black Rubber, 1/2"" diameter for wireway hole",antique brass,active,TRUE,Miscellaneous,30,2.00,1.26,37.80,Satco,90-2268,Est (catalog $2.35 x 0.536)
+HRPHDAB8,heavy-duty-harp,"GROMMET: Black Rubber, 1/2"" diameter for wireway hole",antique brass,active,TRUE,Miscellaneous,47,2.00,1.18,55.46,Satco,90-2266,Est (catalog $2.20 x 0.536)
+HRPHDAB9,heavy-duty-harp,"GROMMET: Black Rubber, 1/2"" diameter for wireway hole",antique brass,active,TRUE,Miscellaneous,32,2.00,1.23,39.36,Satco,90-2267,Est (catalog $2.30 x 0.536)
+HRPHDAB9.5,heavy-duty-harp,"GROMMET: Black Rubber, 1/2"" diameter for wireway hole",antique brass,active,TRUE,Miscellaneous,107,2.00,1.23,131.61,Satco,80-2293,Est (catalog $2.30 x 0.536)
+HRPHDBR10,heavy-duty-harp,"GROMMET: Black Rubber, 1/2"" diameter for wireway hole",brass,active,TRUE,Miscellaneous,13,2.00,1.10,14.30,Satco,90-922,Est (catalog $2.05 x 0.536)
+HRPHDBR8,heavy-duty-harp,HEAVY DUTY HARP,brass,active,TRUE,Harps,9,2.00,1.02,9.18,Satco,90-920,Est (catalog $1.90 x 0.536)
+HRPHDBR8.5,heavy-duty-harp,HEAVY DUTY HARP,brass,active,TRUE,Harps,14,2.00,1.02,14.28,Satco,90-553,Est (catalog $1.90 x 0.536)
+HRPHDBR9,heavy-duty-harp,HEAVY DUTY HARP,brass,active,TRUE,Harps,13,2.00,1.04,13.52,Satco,90-921,Est (catalog $1.95 x 0.536)
+HRPHDBR9.5,heavy-duty-harp,HEAVY DUTY HARP,brass,active,TRUE,Harps,65,2.00,1.04,67.60,Satco,90-554,Est (catalog $1.95 x 0.536)
+HRPHDDAB10,heavy-duty-harp,HEAVY DUTY HARP,dark antique brass,active,TRUE,Harps,3,2.00,1.26,3.78,Satco,80-2152,Price sheet 80-2152
+HRPHDDAB8,heavy-duty-harp,HEAVY DUTY HARP,dark antique brass,active,TRUE,Harps,3,2.00,1.18,3.54,Satco,90-2089,Est (catalog $2.20 x 0.536)
+HRPHDDAB8.5,heavy-duty-harp,HEAVY DUTY HARP,dark antique brass,active,TRUE,Harps,37,2.00,1.18,43.66,Satco,90-2079,Est (catalog $2.20 x 0.536)
+HRPHDDAB9,heavy-duty-harp,HEAVY DUTY HARP,dark antique brass,active,TRUE,Harps,11,2.00,1.23,13.53,Satco,80-2177,Est (catalog $2.30 x 0.536)
+HRPHDDAB9.5,heavy-duty-harp,HEAVY DUTY HARP,dark antique brass,active,TRUE,Harps,17,2.00,1.23,20.91,Satco,90-2080,Est (catalog $2.30 x 0.536)
+HRPHDNK10,heavy-duty-harp,HEAVY DUTY HARP,nickel,active,TRUE,Harps,44,2.00,1.10,48.40,Satco,90-2003,Est (catalog $2.05 x 0.536)
+HRPHDNK8,heavy-duty-harp,HEAVY DUTY HARP,nickel,active,TRUE,Harps,45,2.00,1.02,45.90,Satco,90-2001,Est (catalog $1.90 x 0.536)
+HRPHDNK8.5,heavy-duty-harp,HEAVY DUTY HARP,nickel,active,TRUE,Harps,39,2.00,1.02,39.78,Satco,90-2008,Est (catalog $1.90 x 0.536)
+HRPHDNK9,heavy-duty-harp,HEAVY DUTY HARP,nickel,active,TRUE,Harps,41,2.00,1.04,42.64,Satco,90-2002,Est (catalog $1.95 x 0.536)
+HRPHDNK9.5,heavy-duty-harp,HEAVY DUTY HARP,nickel,active,TRUE,Harps,48,2.00,1.04,49.92,Satco,90-2009,Est (catalog $1.95 x 0.536)
+ISWFRDIMBK,installed-switch-full-range-dimmer-in-line,SWITCH: Full Range Dimmer In-Line - INSTALLED,Black,active,TRUE,Harps,2,24.00,,,,,
+ISWFRDIMBN,installed-switch-full-range-dimmer-in-line,SWITCH: Full Range Dimmer In-Line - INSTALLED,Brown,active,TRUE,Harps,5,24.00,,,,,
+ISWFRDIMWH,installed-switch-full-range-dimmer-in-line,SWITCH: Full Range Dimmer In-Line - INSTALLED,White,active,TRUE,Harps,5,24.00,,,,,
+ISWLGBN,switch-large-in-line-rocker-add-on-to-cord-set-or-pendant,SWITCH: Large In-Line Rocker - INSTALLED,brown,active,TRUE,Installed Switch,22,10.00,,,,,
+ISWLGIV,switch-large-in-line-rocker-add-on-to-cord-set-or-pendant,SWITCH: Large In-Line Rocker - INSTALLED,ivory,active,TRUE,Installed Switch,38,10.00,,,,,
+LGHTTTLGASR,through-the-looking-glass-scissor-arm-wall-light,SWITCH: Large In-Line Rocker - INSTALLED,yes - assemble the light for me,active,TRUE,Installed Switch,9999998,50.00,,,,,
+LGTTTLGASL,through-the-looking-glass-scissor-arm-wall-light,SWITCH: Large In-Line Rocker - INSTALLED,yes - assemble the light for me,active,TRUE,Installed Switch,9999999,50.00,,,,,
+LGTTTLGHWASL,through-the-looking-glass-scissor-arm-wall-light,SWITCH: Large In-Line Rocker - INSTALLED,yes - assemble the light for me,active,TRUE,Installed Switch,9999988,50.50,,,,,
+LGTTTLGHWASR,through-the-looking-glass-scissor-arm-wall-light,Through the Looking Glass Scissor-Arm Wall Light,yes - assemble the light for me,active,TRUE,TTLG Light,9999976,50.50,,,,,
+LGTTTLGHWNOL,through-the-looking-glass-scissor-arm-wall-light,Through the Looking Glass Scissor-Arm Wall Light,no - I will assemble the light,active,TRUE,TTLG Light,9999997,40.50,,,,,
+LGTTTLGHWNOR,through-the-looking-glass-scissor-arm-wall-light,Through the Looking Glass Scissor-Arm Wall Light,no - I will assemble the light,active,TRUE,TTLG Light,9999994,40.50,,,,,
+LGTTTLGNOL,through-the-looking-glass-scissor-arm-wall-light,Through the Looking Glass Scissor-Arm Wall Light,no - I will assemble the light,active,TRUE,TTLG Light,9999998,40.00,,,,,
+LGTTTLGNOR,through-the-looking-glass-scissor-arm-wall-light,Through the Looking Glass Scissor-Arm Wall Light,no - I will assemble the light,active,TRUE,TTLG Light,9999998,40.00,,,,,
+LKNTHX916x18,locknut-zinc-plated-9-16-hex-1-8-thick,"Locknut,  Zinc-Plated, 9/16"" Hex., 1/8"" thick",Default Title,active,TRUE,Miscellaneous,335,0.25,0.06,20.10,Satco,90-1636,Catalog 90-1636
+LNKNRL18IP18,locknut-brass-1-8-ips-knurled-1-8-thick,"Locknut,  Brass, 1/8 IPS, Knurled, 1/8"" thick",Default Title,active,TRUE,Miscellaneous,0,1.50,1.20,,Satco,90-1601,Catalog 90-1601
+LTBASKPAN16,bamboo-slatted-trapezoid-pendant,"Locknut,  Brass, 1/8 IPS, Knurled, 1/8"" thick",16 feet,active,TRUE,Miscellaneous,9999999,70.00,,,,,
+LTBASKPAN4,bamboo-slatted-trapezoid-pendant,Bamboo Slatted Trapezoid Pendant Light,4 feet,active,TRUE,Ceiling Lights - Trapezoid,9999999,58.00,,,,,
+LTBASKPAN8,bamboo-slatted-trapezoid-pendant,Bamboo Slatted Trapezoid Pendant Light,8 feet,active,TRUE,Ceiling Lights - Trapezoid,9999999,62.00,,,,,
+LTBASKPAP16,bamboo-slatted-trapezoid-pendant,Bamboo Slatted Trapezoid Pendant Light,16 feet,active,TRUE,Ceiling Lights - Trapezoid,9999999,72.00,,,,,
+LTBASKPAP4,bamboo-slatted-trapezoid-pendant,Bamboo Slatted Trapezoid Pendant Light,4 feet,active,TRUE,Ceiling Lights - Trapezoid,9999999,60.00,,,,,
+LTBASKPAP8,bamboo-slatted-trapezoid-pendant,Bamboo Slatted Trapezoid Pendant Light,8 feet,active,TRUE,Ceiling Lights - Trapezoid,9999998,64.00,,,,,
+LTBASKPNN16,bamboo-slatted-trapezoid-pendant,Bamboo Slatted Trapezoid Pendant Light,16 feet,active,TRUE,Ceiling Lights - Trapezoid,9999998,55.00,,,,,
+LTBASKPNN4,bamboo-slatted-trapezoid-pendant,Bamboo Slatted Trapezoid Pendant Light,4 feet,active,TRUE,Ceiling Lights - Trapezoid,9999999,43.00,,,,,
+LTBASKPNN8,bamboo-slatted-trapezoid-pendant,Bamboo Slatted Trapezoid Pendant Light,8 feet,active,TRUE,Ceiling Lights - Trapezoid,9999999,47.00,,,,,
+LTBASKPNP16,bamboo-slatted-trapezoid-pendant,Bamboo Slatted Trapezoid Pendant Light,16 feet,active,TRUE,Ceiling Lights - Trapezoid,9999999,57.00,,,,,
+LTBASKPNP4,bamboo-slatted-trapezoid-pendant,Bamboo Slatted Trapezoid Pendant Light,4 feet,active,TRUE,Ceiling Lights - Trapezoid,9999999,45.00,,,,,
+LTBASKPNP8,bamboo-slatted-trapezoid-pendant,Bamboo Slatted Trapezoid Pendant Light,8 feet,active,TRUE,Ceiling Lights - Trapezoid,9999999,49.00,,,,,
+LTBASKWAN,bamboo-slatted-trapezoid-light,Bamboo Slatted Trapezoid Pendant Light,yes - assemble the light for me,active,TRUE,Ceiling Lights - Trapezoid,9999999,80.00,,,,,
+LTBASKWNN,bamboo-slatted-trapezoid-light,Bamboo Slatted Trapezoid Wall-Mounted Light,no - I will assemble the light,active,TRUE,Wall-Mounted Lights - Trapezoid,9999999,60.00,,,,,
+NIPZINC.5IN,nipple-zinc-plated-threaded-1-8-ips-1-inch,"NIPPLE: Zinc-Plated, Threaded, 1/8 IPS",".5""",active,TRUE,Nipples,230,0.10,0.03,6.90,Satco,,Price sheet 90-5004
+NIPZINC1IN,nipple-zinc-plated-threaded-1-8-ips-1-inch,"NIPPLE: Zinc-Plated, Threaded, 1/8 IPS","1""",active,TRUE,Nipples,0,0.15,0.05,,Satco,,Price sheet 90-5008
+NIPZINC2IN,nipple-zinc-plated-threaded-1-8-ips-1-inch,"NIPPLE: Zinc-Plated, Threaded, 1/8 IPS","2""",active,TRUE,Nipples,0,0.20,0.09,,Satco,,Price sheet 90-5016
+NIPZINC3IN,nipple-zinc-plated-threaded-1-8-ips-1-inch,"NIPPLE: Zinc-Plated, Threaded, 1/8 IPS","3""",active,TRUE,Nipples,229,0.25,0.12,27.48,Satco,,Est (~50% of catalog $0.23)
+NIPZINC4IN,nipple-zinc-plated-threaded-1-8-ips-1-inch,"NIPPLE: Zinc-Plated, Threaded, 1/8 IPS","4""",active,TRUE,Nipples,126,0.30,0.14,17.64,Satco,,Est (~50% of catalog $0.27)
+NIPZINC5IN,nipple-zinc-plated-threaded-1-8-ips-1-inch,"NIPPLE: Zinc-Plated, Threaded, 1/8 IPS","5""",active,TRUE,Nipples,165,0.40,0.17,28.05,Satco,,Est (~50% of catalog $0.34)
+NIPZINC6IN,nipple-zinc-plated-threaded-1-8-ips-1-inch,"NIPPLE: Zinc-Plated, Threaded, 1/8 IPS","6""",active,TRUE,Nipples,154,0.50,0.20,30.80,Satco,,Est (~50% of catalog $0.40)
+NIPZINC7IN,nipple-zinc-plated-threaded-1-8-ips-1-inch,"NIPPLE: Zinc-Plated, Threaded, 1/8 IPS","7""",active,TRUE,Nipples,63,0.60,0.25,15.75,Satco,,Est (~50% of catalog $0.49)
+NIPZINC8IN,nipple-zinc-plated-threaded-1-8-ips-1-inch,"NIPPLE: Zinc-Plated, Threaded, 1/8 IPS","8""",active,TRUE,Nipples,19,0.70,0.26,4.94,Satco,,Est (~50% of catalog $0.52)
+PCOVERBK,plug-cover-black-cardboard,"PLUG COVER, cardboard",Default Title,active,TRUE,Plugs,81,0.75,0.40,32.40,B&P,40319,B&P price 40319
+PIPITHD1.5BR,pipe-inside-threading-1-5-inch-brass,"PIPE, Inside Threading, 1.5 Inch, Brass",Default Title,active,TRUE,Plugs,1,3.75,,,,,
+PN2ACNBK,acorn-button-plug,ACORN Button PLUG,black,active,TRUE,Plugs,290,6.00,3.64,1055.60,B&P,48545,B&P price 48545
+PN2ACNBN,acorn-button-plug,ACORN Button PLUG,brown,active,TRUE,Plugs,100,6.00,3.64,364.00,B&P,48543,B&P price 48543
+PN2ACNWH,acorn-button-plug,ACORN Button PLUG,white,active,TRUE,Plugs,48,6.00,3.64,174.72,B&P,,Est (same as other acorn colors)
+PN2ANFACBN,faceted-plug-with-neck,"FACETED PLUG, WITH NECK",Brown,active,TRUE,Plugs,55,4.00,,,,,
+PN2FEMRUBREC,female-rubber-rectangular-connector,"FEMALE RUBBER RECTANGULAR CONNECTOR, Black",Default Title,active,TRUE,Plugs,86,3.50,,,,,
+PN2HVYSHBK,heavy-duty-shallow-plug-with-neck,HEAVY DUTY SHALLOW PLUG WITH NECK,Default Title,active,TRUE,Plugs,33,5.50,2.25,74.25,B&P,48566,B&P price 48566
+PN2RECTBK,rectangular-plug,RECTANGULAR PLUG,black,active,TRUE,Plugs,71,2.50,3.22,228.62,B&P,,Est (same as brown 48516)
+PN2RECTBN,rectangular-plug,RECTANGULAR PLUG,brown,active,TRUE,Plugs,372,2.50,3.22,1197.84,B&P,48516,B&P price 48516
+PN2RECTWH,rectangular-plug,RECTANGULAR PLUG,white,active,TRUE,Plugs,38,2.50,3.50,133.00,B&P,48535,B&P price 48535
+PN2RIBBK,ribbed-button-plug,RIBBED Button PLUG,black,active,TRUE,Plugs,414,5.50,3.64,1506.96,B&P,48542,B&P price 48542
+PN2RIBBN,ribbed-button-plug,RIBBED Button PLUG,brown,active,TRUE,Plugs,0,5.50,3.64,,B&P,48540,B&P price 48540
+PN2RIBNKBK,ribbed-round-plug-with-neck,"RIBBED ROUND PLUG, WITH NECK, Black",Default Title,active,TRUE,Plugs,29,5.50,3.26,94.54,B&P,48573,B&P price 48573
+PN2RIBWH,ribbed-button-plug,"RIBBED ROUND PLUG, WITH NECK, Black",white,active,TRUE,Plugs,0,5.50,3.64,,B&P,,Est (same as other rib colors)
+PN2RNDNKBK,round-plug-with-neck,"ROUND PLUG, WITH NECK, Black or Brown",Black,active,TRUE,Plugs,97,2.50,1.93,187.21,B&P,48558,B&P price 48558
+PN2RNDNKBN,round-plug-with-neck,"ROUND PLUG, WITH NECK, Black or Brown",Brown,active,TRUE,Plugs,110,2.50,1.93,212.30,B&P,,Est (same as BK)
+PN2RUBRECTBK,rubber-rectangular-plug,RUBBER RECTANGULAR PLUG,Black,active,TRUE,Plugs,1930,3.00,3.04,5867.20,B&P,48533BK,B&P price 48533BK
+PN2RUBRECTWH,rubber-rectangular-plug,RUBBER RECTANGULAR PLUG,White,active,TRUE,Plugs,991,3.00,3.04,3012.64,B&P,,Est (same as BK)
+PN3FEMGNDBK,female-grounded-connector-for-3-prong-plug-black,"FEMALE GROUNDED CONNECTOR for 3-PRONG PLUG, Black",Default Title,active,TRUE,Plugs,21,7.50,,,,,
+PN3FEMHVYBK,female-heavy-duty-connector-for-3-prong-plug-black,"FEMALE HEAVY-DUTY CONNECTOR for 3-PRONG PLUG, Black",Default Title,active,TRUE,Plugs,0,7.50,,,,,
+PN3HVRUBBK,3-prong-heavy-rubber-plug,"3 PRONG, HEAVY RUBBER PLUG, Black",Default Title,active,TRUE,Plugs,80,6.50,3.54,283.20,Satco,80-1688,PO 1011 80-1688
+PN3THERMOBK,3-prong-thermoplastic-plug,"3 PRONG, THERMOPLASTIC PLUG",black,active,TRUE,Plugs,50,4.50,2.10,105.00,Satco,80-2412,PO 1011 80-2412
+PN3THERMOBN,3-prong-thermoplastic-plug,"3 PRONG, THERMOPLASTIC PLUG",brown,active,TRUE,Plugs,52,4.50,2.10,109.20,Satco,80-2426,PO 1011 80-2426
+PN3THERMOWH,3-prong-thermoplastic-plug,"3 PRONG, THERMOPLASTIC PLUG",white,active,TRUE,Plugs,51,4.50,2.10,107.10,Satco,80-2413,PO 1011 80-2413
+RED18x14-27F,brass-reducing-bushing-1-8-ips-to-1-4-27,BRASS REDUCING BUSHING 1/8 IPS to 1/4 27,Default Title,active,TRUE,Plugs,180,0.50,0.51,91.80,Satco,90-762,Catalog 90-762
+SHALBGLASS,shade-alabaster-glass,SHADE: Alabaster Glass,Default Title,active,TRUE,Plugs,0,11.00,,,,,
+SHHDUNOLGBK,copy-of-shade-holder-brass-uno-shade-holder-2-25,"SHADE HOLDER: Brass UNO Shade Holder, 3.25""",black,active,TRUE,Shade Holders,43,7.75,5.58,239.94,B&P,10727BK,B&P price 10727BK
+SHHDUNOLGBR,copy-of-shade-holder-brass-uno-shade-holder-2-25,"SHADE HOLDER: Brass UNO Shade Holder, 3.25""",brass,active,TRUE,Shade Holders,6,7.75,5.58,33.48,B&P,10727U,B&P price 10727U
+SHHDUNOLGBZ,copy-of-shade-holder-brass-uno-shade-holder-2-25,"SHADE HOLDER: Brass UNO Shade Holder, 3.25""",antique brass,active,TRUE,Shade Holders,7,7.75,5.58,39.06,B&P,10727B,B&P price 10727B
+SHHDUNOLGNK,copy-of-shade-holder-brass-uno-shade-holder-2-25,"SHADE HOLDER: Brass UNO Shade Holder, 3.25""",nickel,active,TRUE,Shade Holders,19,7.75,5.58,106.02,B&P,10727N,B&P price 10727N
+SHHOLDCLMPBR,shade-holder-brass-clamp-on-shade-holder,SHADE HOLDER: Brass Clamp-On Shade Holder,brass,active,TRUE,Shade Holders,0,7.00,3.20,,B&P,10787,B&P price 10787
+SHHOLDCLMPNK,shade-holder-brass-clamp-on-shade-holder,SHADE HOLDER: Brass Clamp-On Shade Holder,nickel,active,TRUE,Shade Holders,17,11.00,4.86,82.62,B&P,10785N,B&P price 10785N
+SHHOLDUNOAB,shade-holder-brass-uno-shade-holder,SHADE HOLDER: Brass Clamp-On Shade Holder,antique brass,active,TRUE,Shade Holders,8,8.00,4.08,32.64,B&P,10786A or B,B&P price 10786A
+SHHOLDUNOBK,shade-holder-brass-uno-shade-holder,"SHADE HOLDER: Brass UNO Shade Holder, 2.25""",black,active,TRUE,Shade Holders,18,8.00,4.08,73.44,B&P,10786BK,B&P price 10786BK
+SHHOLDUNOBR,shade-holder-brass-uno-shade-holder,"SHADE HOLDER: Brass UNO Shade Holder, 2.25""",brass,active,TRUE,Shade Holders,19,8.00,4.08,77.52,B&P,10786U,B&P price 10786U
+SHHOLDUNONK,shade-holder-brass-uno-shade-holder,"SHADE HOLDER: Brass UNO Shade Holder, 2.25""",nickel,active,TRUE,Shade Holders,24,8.00,4.08,97.92,B&P,10786N,B&P price 10786N
+SHMETFACAB,pendant-shade-metal-faceted,"Pendant Shade, Metal, Faceted",Antique Brass,active,TRUE,Shade Holders,4,11.00,,,,,
+SHMETFACBK,pendant-shade-metal-faceted,"Pendant Shade, Metal, Faceted",Black,active,TRUE,Shade Holders,0,11.00,,,,,
+SHMETFACBR,pendant-shade-metal-faceted,"Pendant Shade, Metal, Faceted",Brass,active,TRUE,Shade Holders,5,11.00,,,,,
+SHMETFACBZ,pendant-shade-metal-faceted,"Pendant Shade, Metal, Faceted",Bronze,active,TRUE,Shade Holders,4,11.00,,,,,
+SHMETFACNK,pendant-shade-metal-faceted,"Pendant Shade, Metal, Faceted",Nickel,active,TRUE,Shade Holders,0,11.00,,,,,
+SKASEPTBR,socket-aluminum-side-cord-exit-push-through,"SOCKET: ALUMINUM, SIDE CORD EXIT, PUSH-THROUGH",brass,active,TRUE,Sockets,62,3.00,1.50,93.00,Satco,80-2137,Est (same as NK from price sheet)
+SKASEPTNK,socket-aluminum-side-cord-exit-push-through,"SOCKET: ALUMINUM, SIDE CORD EXIT, PUSH-THROUGH",nickel,active,TRUE,Sockets,18,3.00,1.50,27.00,Satco,80-1754,Price sheet 80-1754
+SKASEPTPW,socket-aluminum-side-cord-exit-push-through,"SOCKET: ALUMINUM, SIDE CORD EXIT, PUSH-THROUGH",pewter,active,TRUE,Sockets,35,3.00,1.80,63.00,Satco,80-2438,Price sheet 80-2438
+SKBKBK,socket-black-bakelite-keyless,"SOCKET: BLACK BAKELITE, KEYLESS",Default Title,active,TRUE,Sockets,168,3.00,0.96,161.28,Satco,80-1111,PO 1011 80-1111
+SKBKRBK,socket-black-bakelite-keyless-with-shade-support-ring,"SOCKET: BAKELITE, KEYLESS WITH SHADE SUPPORT RING",Black,active,TRUE,Sockets,262,4.75,0.85,222.70,Satco,80-1072,Worksheet
+SKBKRLBK,copy-of-socket-bakelite-keyless-with-shade-support-ring,"SOCKET: BAKELITE, KEYLESS WITH SHADE SUPPORT RING, Long",Black,active,TRUE,Sockets,0,4.75,,,,,
+SKBKRLWH,copy-of-socket-bakelite-keyless-with-shade-support-ring,"SOCKET: BAKELITE, KEYLESS WITH SHADE SUPPORT RING, Long",White,active,TRUE,Sockets,35,4.75,,,,,
+SKBKRWH,socket-black-bakelite-keyless-with-shade-support-ring,"SOCKET: BAKELITE, KEYLESS WITH SHADE SUPPORT RING, Long",White,active,TRUE,Sockets,18,4.75,0.85,15.30,Satco,80-2530,Est (same as BK)
+SKBPRBK,socket-black-bakelite-push-through-with-shade-support-ring,"SOCKET: BLACK BAKELITE, PUSH-THROUGH WITH SHADE SUPPORT RING",Default Title,active,TRUE,Sockets,8,3.00,0.85,6.80,Satco,,Est (similar bakelite socket)
+SKCANDBKBK,socket-black-bakelite-keyless-candelabra-base,"SOCKET: BLACK BAKELITE, KEYLESS, CANDELABRA BASE",Default Title,active,TRUE,Sockets,8,2.50,1.19,9.52,Satco,80-1311,Price sheet 80-1311
+SKCANDBKRBK,socket-black-bakelite-keyless-candelabra-base-with-ring,"SOCKET: BLACK BAKELITE, KEYLESS, CANDELABRA BASE, with Ring",Default Title,active,TRUE,Sockets,0,2.50,1.26,,Satco,80-1095,Price sheet 80-1095
+SKCCBK,socket-4-piece-on-off-pull-chain,"SOCKET: BLACK BAKELITE, KEYLESS, CANDELABRA BASE, with Ring",black,active,TRUE,Sockets,103,11.50,,,,80-2509,
+SKCCBR,socket-4-piece-on-off-pull-chain,SOCKET: 4-PIECE with ON/OFF PULL CHAIN,brass,active,TRUE,Sockets,24,11.50,,,,80-1052,
+SKCCBZ,socket-4-piece-on-off-pull-chain,SOCKET: 4-PIECE with ON/OFF PULL CHAIN,dark antique brass,active,TRUE,Sockets,15,11.50,,,,80-2445,
+SKCCNK,socket-4-piece-on-off-pull-chain,SOCKET: 4-PIECE with ON/OFF PULL CHAIN,nickel,active,TRUE,Sockets,28,11.50,,,,80-1053,
+SKCDBK,socket-4-piece-dimmer-switch,SOCKET: 4-PIECE with ON/OFF PULL CHAIN,black,active,TRUE,Sockets,17,20.00,11.94,202.98,Satco,80-2479,Price sheet 80-2479
+SKCDBR,socket-4-piece-dimmer-switch,SOCKET: 4-PIECE with DIMMER SWITCH,brass,active,TRUE,Sockets,13,20.00,11.94,155.22,Satco,80-1064,Est (same type as BK/NK)
+SKCDBZ,socket-4-piece-dimmer-switch,SOCKET: 4-PIECE with DIMMER SWITCH,dark antique brass,active,TRUE,Sockets,27,20.00,13.14,354.78,Satco,80-2327,PO 1011 80-2327
+SKCDNK,socket-4-piece-dimmer-switch,SOCKET: 4-PIECE with DIMMER SWITCH,nickel,active,TRUE,Sockets,10,20.00,11.94,119.40,Satco,80-1065,Price sheet 80-1065
+SKCDUBK,socket-4-piece-dimmer-switch-and-uno-threads,SOCKET: 4-PIECE with DIMMER SWITCH,black,active,TRUE,Sockets,15,22.00,12.60,189.00,Satco,80-2480,Est (same type as BR/NK)
+SKCDUBR,socket-4-piece-dimmer-switch-and-uno-threads,SOCKET: 4-PIECE with DIMMER SWITCH and UNO THREADS,brass,active,TRUE,Sockets,12,22.00,12.60,151.20,Satco,80-1066,Price sheet 80-1066
+SKCDUBZ,socket-4-piece-dimmer-switch-and-uno-threads,SOCKET: 4-PIECE with DIMMER SWITCH and UNO THREADS,dark antique brass,active,TRUE,Sockets,27,22.00,13.80,372.60,Satco,80-2422,PO 1011 80-2422
+SKCDUNK,socket-4-piece-dimmer-switch-and-uno-threads,SOCKET: 4-PIECE with DIMMER SWITCH and UNO THREADS,nickel,active,TRUE,Sockets,13,22.00,12.60,163.80,Satco,80-1067,Price sheet 80-1067
+SKCKBK,socket-4-piece-keyless,SOCKET: 4-PIECE with DIMMER SWITCH and UNO THREADS,black,active,TRUE,Sockets,441,12.00,6.90,3042.90,Satco,80-2477,Est (same type as NK)
+SKCKBR,socket-4-piece-keyless,"SOCKET: 4-PIECE, KEYLESS",brass,active,TRUE,Sockets,44,12.00,6.90,303.60,Satco,80-1054,Est (same type as NK)
+SKCKBZ,socket-4-piece-keyless,"SOCKET: 4-PIECE, KEYLESS",dark antique brass,active,TRUE,Sockets,38,12.00,7.50,285.00,Satco,80-2326,PO 1011 80-2326
+SKCKNK,socket-4-piece-keyless,"SOCKET: 4-PIECE, KEYLESS",nickel,active,TRUE,Sockets,49,12.00,6.90,338.10,Satco,80-1055,PO 1011/Price sheet 80-1055
+SKCKUBK,socket-4-piece-keyless-with-uno-threads,"SOCKET: 4-PIECE, KEYLESS",black,active,TRUE,Sockets,17,14.00,8.10,137.70,Satco,80-2478,Price sheet 80-2478
+SKCKUBR,socket-4-piece-keyless-with-uno-threads,"SOCKET: 4-PIECE, KEYLESS WITH UNO THREADS",brass,active,TRUE,Sockets,14,14.00,7.50,105.00,Satco,80-1056,Est (same type as BZ)
+SKCKUBZ,socket-4-piece-keyless-with-uno-threads,"SOCKET: 4-PIECE, KEYLESS WITH UNO THREADS",dark antique brass,active,TRUE,Sockets,20,14.00,7.50,150.00,Satco,80-2423,PO 1011 80-2423
+SKCKUGNDBR,socket-4-piece-keyless-with-uno-threads-grounded,"SOCKET: 4-PIECE, KEYLESS with UNO THREADS, GROUNDED",brass,active,TRUE,Sockets,45,16.00,,,,80-2565,
+SKCKUGNDBZ,socket-4-piece-keyless-with-uno-threads-grounded,"SOCKET: 4-PIECE, KEYLESS with UNO THREADS, GROUNDED",dark antique brass,active,TRUE,Sockets,27,16.00,,,,80-2568,
+SKCKUGNDNK,socket-4-piece-keyless-with-uno-threads-grounded,"SOCKET: 4-PIECE, KEYLESS with UNO THREADS, GROUNDED",nickel,active,TRUE,Sockets,39,16.00,,,,80-2566,
+SKCKUNK,socket-4-piece-keyless-with-uno-threads,"SOCKET: 4-PIECE, KEYLESS with UNO THREADS, GROUNDED",nickel,active,TRUE,Sockets,31,14.00,7.50,232.50,Satco,80-1057,Est (same type as BZ)
+SKCOBK,socket-4-piece-on-off-switch,"SOCKET: 4-PIECE, KEYLESS with UNO THREADS, GROUNDED",black,active,TRUE,Sockets,24,16.00,8.34,200.16,Satco,80-2481,Est (same type as NK)
+SKCOBR,socket-4-piece-on-off-switch,SOCKET: 4-PIECE with ON/OFF TURN KNOB,brass,active,TRUE,Sockets,23,16.00,8.34,191.82,Satco,80-1058,Est (same type as NK)
+SKCOBZ,socket-4-piece-on-off-switch,SOCKET: 4-PIECE with ON/OFF TURN KNOB,dark antique brass,active,TRUE,Sockets,20,16.00,9.54,190.80,Satco,80-2253,PO 1011 80-2253
+SKCONK,socket-4-piece-on-off-switch,SOCKET: 4-PIECE with ON/OFF TURN KNOB,nickel,active,TRUE,Sockets,8,16.00,8.34,66.72,Satco,80-1059,Price sheet 80-1059
+SKCOUBK,socket-4-piece-with-on-off-switch-and-uno-threads,SOCKET: 4-PIECE with ON/OFF TURN KNOB and UNO THREADS,black,active,TRUE,Sockets,14,18.00,10.20,142.80,Satco,80-2482,Price sheet 80-2482
+SKCOUBR,socket-4-piece-with-on-off-switch-and-uno-threads,SOCKET: 4-PIECE with ON/OFF TURN KNOB and UNO THREADS,brass,active,TRUE,Sockets,3,18.00,10.20,30.60,Satco,80-1060,Est (same type as BK)
+SKCOUBZ,socket-4-piece-with-on-off-switch-and-uno-threads,SOCKET: 4-PIECE with ON/OFF TURN KNOB and UNO THREADS,dark antique brass,active,TRUE,Sockets,6,18.00,10.20,61.20,Satco,80-2153,Est (same type as BK)
+SKCOUGNDBR,socket-4-piece-on-off-switch-with-uno-threads-grounded,"SOCKET: 4-PIECE with ON/OFF TURN KNOB and UNO THREADS, GROUNDED",brass,active,TRUE,Sockets,19,18.00,,,,80-2569,
+SKCOUGNDBZ,socket-4-piece-on-off-switch-with-uno-threads-grounded,"SOCKET: 4-PIECE with ON/OFF TURN KNOB and UNO THREADS, GROUNDED",dark antique brass,active,TRUE,Sockets,37,18.00,,,,80-2568,
+SKCOUGNDNK,socket-4-piece-on-off-switch-with-uno-threads-grounded,"SOCKET: 4-PIECE with ON/OFF TURN KNOB and UNO THREADS, GROUNDED",nickel,active,TRUE,Sockets,22,18.00,,,,80-2570,
+SKCOUNK,socket-4-piece-with-on-off-switch-and-uno-threads,"SOCKET: 4-PIECE with ON/OFF TURN KNOB and UNO THREADS, GROUNDED",nickel,active,TRUE,Sockets,19,18.00,10.20,193.80,Satco,80-1061,Est (same type as BK)
+SKCOVAB,socket-cover,"SOCKET: 4-PIECE with ON/OFF TURN KNOB and UNO THREADS, GROUNDED",Antique Brass,active,TRUE,Sockets,20,2.50,1.99,39.80,B&P,11661TA,B&P price 11661TA
+SKCOVBK,socket-cover,"SOCKET: 4-PIECE with ON/OFF TURN KNOB and UNO THREADS, GROUNDED",Black,active,TRUE,Sockets,42,2.50,1.52,63.84,B&P,11661TBK,B&P price 11661TBK
+SKCOVBR,socket-cover,Socket Cover,Polished Brass,active,TRUE,Sockets,26,2.50,1.48,38.48,B&P,11661T,B&P price 11661T
+SKCOVCP,socket-cover,Socket Cover,Copper,active,TRUE,Sockets,6,2.50,1.52,9.12,B&P,11661TC,B&P price 11661TC
+SKCOVNK,socket-cover,Socket Cover,Polished Nickel,active,TRUE,Sockets,20,2.50,1.52,30.40,B&P,11661TN,B&P price 11661TN
+SKCOVWH,socket-cover,Socket Cover,White,active,TRUE,Sockets,21,2.50,1.56,32.76,B&P,11661TW,B&P price 11661TW
+SKP1-4IPSGNDK,socket-porcelain-keyless-grounded-1-4-ips,"SOCKET: PORCELAIN, KEYLESS, GROUNDED, 1/4 IPS",Default Title,active,TRUE,Sockets,9,4.00,3.29,29.61,B&P,,B&P price 48304
+SKPDUPLEX,socket-porcelain-duplex,SOCKET: PORCELAIN DUPLEX,Default Title,active,TRUE,Sockets,5,6.00,3.49,17.45,B&P,47713,B&P price 47713
+SKPFM,socket-flush-mount-porcelain-sign-receptacle-style,"SOCKET: FLUSH MOUNT PORCELAIN, SIGN RECEPTACLE STYLE",Default Title,active,TRUE,Sockets,28,4.00,1.68,47.04,Satco,90-1112,PO 1011/1013 90-1112
+SKPGNDK,socket-porcelain-keyless-grounded,"SOCKET: PORCELAIN, KEYLESS, GROUNDED",Default Title,active,TRUE,Sockets,151,4.00,2.34,353.34,Satco,80-1214,Price sheet 90-1707
+SKPKBK,socket-porcelain-keyless,"SOCKET: PORCELAIN, KEYLESS",black,active,TRUE,Sockets,31,5.00,2.24,69.44,B&P,48096,B&P price 48096
+SKPKBN,socket-porcelain-keyless,"SOCKET: PORCELAIN, KEYLESS",brown,active,TRUE,Sockets,0,5.00,2.24,,B&P,,Est (same as BK)
+SKPTINT,socket-interior-push-through,"SOCKET INTERIOR, PUSH-THROUGH",Default Title,active,TRUE,Sockets,183,1.25,,,,,
+SKRINGBKBK,socket-ring-black-bakelite-shade-support-ring,SOCKET RING: BLACK BAKELITE SHADE SUPPORT RING,Default Title,active,TRUE,Sockets,260,1.00,,,,80-1389,
+SKRINGCBK,shade-support-ring-for-4-piece-socket-with-uno-threads,SOCKET RING: SHADE SUPPORT RING for 4-PIECE SOCKET with UNO THREADS,black,active,TRUE,Sockets,98,3.00,0.20,19.60,Satco,,Worksheet
+SKRINGCBR,shade-support-ring-for-4-piece-socket-with-uno-threads,SOCKET RING: SHADE SUPPORT RING for 4-PIECE SOCKET with UNO THREADS,brass,active,TRUE,Sockets,40,3.00,0.20,8.00,Satco,,Worksheet
+SKRINGCBZ,shade-support-ring-for-4-piece-socket-with-uno-threads,SOCKET RING: SHADE SUPPORT RING for 4-PIECE SOCKET with UNO THREADS,dark antique brass,active,TRUE,Sockets,93,3.00,0.20,18.60,Satco,,Worksheet
+SKRINGCNK,shade-support-ring-for-4-piece-socket-with-uno-threads,SOCKET RING: SHADE SUPPORT RING for 4-PIECE SOCKET with UNO THREADS,nickel,active,TRUE,Sockets,99,3.00,0.20,19.80,Satco,,Worksheet
+SKSDBK,socket-3-piece-with-dimmer-switch,SOCKET RING: SHADE SUPPORT RING for 4-PIECE SOCKET with UNO THREADS,black,active,TRUE,Sockets,13,10.50,5.50,71.50,Satco,80-2416,Worksheet
+SKSDBR,socket-3-piece-with-dimmer-switch,SOCKET: 3-PIECE with DIMMER SWITCH,brass,active,TRUE,Sockets,27,10.50,5.50,148.50,Satco,80-1042,Worksheet
+SKSDNK,socket-3-piece-with-dimmer-switch,SOCKET: 3-PIECE with DIMMER SWITCH,nickel,active,TRUE,Sockets,31,10.50,5.50,170.50,Satco,80-1043,Worksheet
+SKSK1-4BR,socket-3-piece-keyless-1-4-ips,"SOCKET: 3-PIECE, KEYLESS, 1/4 IPS",brass,active,TRUE,Sockets,39,6.75,,,,,
+SKSK1-4NK,socket-3-piece-keyless-1-4-ips,"SOCKET: 3-PIECE, KEYLESS, 1/4 IPS",nickel,active,TRUE,Sockets,24,6.75,,,,,
+SKSKBK,socket-3-piece-keyless,"SOCKET: 3-PIECE, KEYLESS, 1/4 IPS",black,active,TRUE,Sockets,84,6.00,2.35,197.40,Satco,80-2396,Worksheet
+SKSKBR,socket-3-piece-keyless,"SOCKET: 3-PIECE, KEYLESS",brass,active,TRUE,Sockets,40,6.00,2.35,94.00,Satco,80-1177,Worksheet
+SKSKNK,socket-3-piece-keyless,"SOCKET: 3-PIECE, KEYLESS",nickel,active,TRUE,Sockets,30,6.00,2.35,70.50,Satco,80-1178,Worksheet
+SKSOBK,socket-3-piece-on-off-switch,"SOCKET: 3-PIECE, KEYLESS",black,active,TRUE,Sockets,3,8.00,4.20,12.60,Satco,80-2415,Price sheet 80-2415
+SKSOBR,socket-3-piece-on-off-switch,SOCKET: 3-PIECE with ON/OFF TURN KNOB,brass,active,TRUE,Sockets,0,8.00,4.08,,Satco,80-1179,Est (same type as NK)
+SKSONK,socket-3-piece-on-off-switch,SOCKET: 3-PIECE with ON/OFF TURN KNOB,nickel,active,TRUE,Sockets,11,8.00,4.08,44.88,Satco,80-1180,PO 1011 80-1180
+SMPCUST4,custom-cloth-covered-wire-samples-selection,Custom Cloth-Covered Wire Samples Selection,4-inch sample,active,TRUE,Wire,9999912,1.25,,,,,
+SMPCUSTF,custom-cloth-covered-wire-samples-selection,Custom Cloth-Covered Wire Samples Selection,foot-long sample,active,TRUE,Wire,9999924,2.00,,,,,
+STRCOLFEMBK,strain-relief-metal-collar-female,"STRAIN RELIEF: METAL COLLAR, FEMALE",black,active,FALSE,Strain Reliefs,37,2.50,,,,,
+STRCOLFEMBR,strain-relief-metal-collar-female,"STRAIN RELIEF: METAL COLLAR, FEMALE",brass,active,FALSE,Strain Reliefs,99,2.50,,,,,
+STRCOLFEMBZ,strain-relief-metal-collar-female,"STRAIN RELIEF: METAL COLLAR, FEMALE",antique brass,active,FALSE,Strain Reliefs,878,2.50,,,,,
+STRCOLFEMNK,strain-relief-metal-collar-female,"STRAIN RELIEF: METAL COLLAR, FEMALE",nickel,active,FALSE,Strain Reliefs,689,2.50,,,,,
+STRCOLLBK,strain-relief-metal-collar,STRAIN RELIEF: METAL COLLAR,black,active,TRUE,Strain Reliefs,215,2.50,1.26,270.90,B&P,26931BK,B&P price 26931BK
+STRCOLLBR,strain-relief-metal-collar,STRAIN RELIEF: METAL COLLAR,brass,active,TRUE,Strain Reliefs,142,2.50,1.00,142.00,B&P,26931,B&P price 26931
+STRCOLLBZ,strain-relief-metal-collar,STRAIN RELIEF: METAL COLLAR,antique brass,active,TRUE,Strain Reliefs,708,2.50,0.71,502.68,B&P,26931A,B&P price 26931A
+STRCOLLNK,strain-relief-metal-collar,STRAIN RELIEF: METAL COLLAR,nickel,active,TRUE,Strain Reliefs,151,2.50,0.75,113.25,B&P,26931N,B&P price 26931N
+STRMETALBK,strain-relief-metal-screw-top,STRAIN RELIEF: METAL SCREW TOP,black,active,TRUE,Strain Reliefs,207,2.50,1.32,273.24,B&P,26930BK,B&P price 26930BK
+STRMETALBR,strain-relief-metal-screw-top,STRAIN RELIEF: METAL SCREW TOP,brass,active,TRUE,Strain Reliefs,949,2.50,1.39,1319.11,B&P,26930,B&P price 26930
+STRMETALBZ,strain-relief-metal-screw-top,STRAIN RELIEF: METAL SCREW TOP,antique brass,active,TRUE,Strain Reliefs,195,2.50,1.66,323.70,B&P,26930A,B&P price 26930A
+STRMETALNK,strain-relief-metal-screw-top,STRAIN RELIEF: METAL SCREW TOP,nickel,active,TRUE,Strain Reliefs,138,2.50,1.22,168.36,B&P,26930N,B&P price 26930N
+STRPLASBK,strain-relief-plastic-screw-top,STRAIN RELIEF: PLASTIC SCREW TOP,black,active,TRUE,Strain Reliefs,242,2.00,,,,,
+STRPLASWH,strain-relief-plastic-screw-top,STRAIN RELIEF: PLASTIC SCREW TOP,white,active,TRUE,Strain Reliefs,295,2.00,,,,,
+SWFLRBK,switch-floor-switch,SWITCH: Push-Button Floor Switch,black,active,TRUE,Switches,21,8.25,3.83,80.43,B&P,40122,B&P price 40122
+SWFLRWBK,switch-wide-push-button-floor-switch,SWITCH: Wide Push-Button Floor Switch,black,active,TRUE,Switches,22,8.00,2.24,49.28,B&P,40151,B&P price 40151
+SWFLRWCL,switch-wide-push-button-floor-switch,SWITCH: Wide Push-Button Floor Switch,clear,active,TRUE,Switches,20,8.00,1.99,39.80,B&P,40150,B&P price 40150
+SWFLRWH,switch-floor-switch,SWITCH: Wide Push-Button Floor Switch,white,active,TRUE,Switches,30,8.25,4.64,139.20,B&P,40126,B&P price 40126
+SWFLRWWH,switch-wide-push-button-floor-switch,SWITCH: Wide Push-Button Floor Switch,white,active,TRUE,Switches,8,8.00,2.46,19.68,B&P,40155,B&P price 40155
+SWFRDIMBK,switch-full-range-dimmer-in-line,SWITCH: Full Range Dimmer In-Line,Black,active,TRUE,Switches,4,19.00,10.36,41.44,B&P,,B&P price 48473BK
+SWFRDIMBN,switch-full-range-dimmer-in-line,SWITCH: Full Range Dimmer In-Line,Brown,active,TRUE,Switches,1,19.00,10.36,10.36,B&P,,B&P price 48473BR
+SWFRDIMWH,switch-full-range-dimmer-in-line,SWITCH: Full Range Dimmer In-Line,White,active,TRUE,Switches,3,19.00,10.36,31.08,B&P,,B&P price 48473W
+SWLGBN,switch-large-in-line-rocker,SWITCH: Large In-Line Rocker,brown,active,TRUE,Switches,26,7.00,3.46,89.96,B&P,48465B,B&P price 48465B
+SWLGIV,switch-large-in-line-rocker,SWITCH: Large In-Line Rocker,ivory,active,TRUE,Switches,7,7.00,4.16,29.12,B&P,48465I,B&P price 48465I
+SWROTBN,switch-rotary-in-line,SWITCH: Rotary In-Line,brown,active,TRUE,Switches,30,1.75,0.53,15.90,B&P,48432,B&P price 48432
+SWROTCL,switch-rotary-in-line,SWITCH: Rotary In-Line,clear,active,TRUE,Switches,22,1.75,0.53,11.66,B&P,48431,B&P price 48431
+SWROTCLGD,switch-rotary-in-line,SWITCH: Rotary In-Line,clear gold,active,TRUE,Switches,13,1.75,0.93,12.09,B&P,48430,B&P price 48430
+SWROTDIMBK,switch-rotary-dimmer-in-line,SWITCH: Rotary Dimmer In-Line,black,active,TRUE,Switches,23,4.00,1.89,43.47,B&P,,B&P price 48462
+SWROTDIMBN,switch-rotary-dimmer-in-line,SWITCH: Rotary Dimmer In-Line,brown,active,TRUE,Switches,21,4.00,1.80,37.80,B&P,,B&P price 48461
+SWROTDIMIV,switch-rotary-dimmer-in-line,SWITCH: Rotary Dimmer In-Line,ivory,active,TRUE,Switches,17,4.00,2.52,42.84,B&P,,B&P price 48463
+SWROTDIMWH,switch-rotary-dimmer-in-line,SWITCH: Rotary Dimmer In-Line,white,active,TRUE,Switches,18,4.00,1.92,34.56,B&P,,B&P price 48460
+SWROTWH,switch-rotary-in-line,SWITCH: Rotary Dimmer In-Line,white,active,TRUE,Switches,13,1.75,0.50,6.50,B&P,48433,B&P price 48433
+SWSLIMBK,switch-slim-in-line,SWITCH: Slim In-Line,black,active,TRUE,Switches,72,1.75,0.63,45.36,B&P,,B&P price 48420 (SPT-2)
+SWSLIMBN,switch-slim-in-line,SWITCH: Slim In-Line,brown,active,TRUE,Switches,51,1.75,0.76,38.76,B&P,48454,B&P price 48454
+SWSLIMCL,switch-slim-in-line,SWITCH: Slim In-Line,clear,active,TRUE,Switches,26,1.75,0.88,22.88,B&P,48452,B&P price 48452
+SWSLIMCLGD,switch-slim-in-line,SWITCH: Slim In-Line,clear gold,active,TRUE,Switches,0,1.75,1.09,,B&P,48423,B&P price 48423
+SWSLIMWH,switch-slim-in-line,SWITCH: Slim In-Line,white,active,TRUE,Switches,47,1.75,0.78,36.66,B&P,48451,B&P price 48451
+SWVTGLGBN,switch-vintage-style-large-in-line-rocker,SWITCH: Vintage Style Large In-Line Rocker,brown with white rocker,active,TRUE,Switches,21,9.00,6.21,130.41,B&P,48405,B&P price 48405
+SWVTGLGIV,switch-vintage-style-large-in-line-rocker,SWITCH: Vintage Style Large In-Line Rocker,ivory with brown rocker,active,TRUE,Switches,29,9.00,6.23,180.67,B&P,48406,B&P price 48406
+SWVTGROTBN,switch-vintage-style-rotary-in-line,SWITCH: Vintage Style Rotary In-Line,brown,active,TRUE,Switches,0,2.50,1.44,,B&P,48400,B&P price 48400
+SWVTGROTWH,switch-vintage-style-rotary-in-line,SWITCH: Vintage Style Rotary In-Line,white,active,TRUE,Switches,9,2.50,1.46,13.14,B&P,48401,B&P price 48401
+SWVTGSLIMBK,switch-vintage-style-slim-in-line,SWITCH: Vintage Style Slim In-Line,black,active,TRUE,Switches,47,9.00,,,,,
+SWVTGSLIMGD,switch-vintage-style-slim-in-line,SWITCH: Vintage Style Slim In-Line,gold,active,TRUE,Switches,0,9.00,,,,,
+SWVTGSLIMWH,switch-vintage-style-slim-in-line,SWITCH: Vintage Style Slim In-Line,white,active,TRUE,Switches,50,9.00,,,,,
+TSIL12YDBK,tape-12-yard-roll-1-4-self-fusing-silicone-tape,SWITCH: Vintage Style Slim In-Line,black,active,TRUE,Switches,40,12.00,,,,,
+TSIL12YDCLR,tape-12-yard-roll-1-4-self-fusing-silicone-tape,"TAPE: 12-yard roll 1/4"" Self-Fusing Silicone Tape",clear,active,TRUE,Tape,19,12.00,,,,,
+TSIL4PCBK,tape-4-pieces-1-5-each-1-4-self-fusing-silicone-tape,"TAPE: 12-yard roll 1/4"" Self-Fusing Silicone Tape",black,active,TRUE,Tape,999968,1.00,,,,,
+TSIL4PCCLR,tape-4-pieces-1-5-each-1-4-self-fusing-silicone-tape,"TAPE: 4 pieces, 1.5"" each, 1/4"" Self-Fusing Silicone Tape",clear,active,TRUE,Tape,999831,1.00,,,,,
+VTGMIDCENTA4,mid-century-fiberglass-pendants,"TAPE: 4 pieces, 1.5"" each, 1/4"" Self-Fusing Silicone Tape",All 4 Shades,active,TRUE,Tape,1,600.00,,,,,
+VTGMIDCENTC1,mid-century-fiberglass-pendants,"TAPE: 4 pieces, 1.5"" each, 1/4"" Self-Fusing Silicone Tape",Cloud Swirl with Seeds,active,TRUE,Tape,1,200.00,,,,,
+VTGMIDCENTC2,mid-century-fiberglass-pendants,"TAPE: 4 pieces, 1.5"" each, 1/4"" Self-Fusing Silicone Tape",Cloud Swirls,active,TRUE,Tape,1,200.00,,,,,
+VTGMIDCENTGS,mid-century-fiberglass-pendants,"TAPE: 4 pieces, 1.5"" each, 1/4"" Self-Fusing Silicone Tape",Golden Strands,active,TRUE,Tape,1,200.00,,,,,
+VTGMIDCENTJP,mid-century-fiberglass-pendants,Mid-Century Fiberglass Pendants,Jackson Pollock,active,TRUE,Vintage Lighting,1,200.00,,,,,
+VTGPND3FCTRY,small-factory-pendants,Small Factory Pendants,Default Title,active,TRUE,Vintage Lighting,0,300.00,,,,,
+VTGPNDMEDALN,vintage-white-mid-century-chandelier-with-green-turquoise-medallions,Vintage White Mid-Century Chandelier with Green & Turquoise Medallions,Default Title,active,TRUE,Vintage Lightig,1,350.00,,,,,
