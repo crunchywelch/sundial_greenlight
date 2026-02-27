@@ -1,6 +1,29 @@
 # Wire Store Cost Data
 # Source: lamp_cordPricing-skus.csv
 #
+# Product SKU format:
+#   W[nn][n][C|R][s][cc][cc][P]
+#     W    = wire
+#     nn   = gauge (12, 14, 16, 18, 20, 22)
+#     n    = number of conductors (1, 2, 3)
+#     C|R  = braid material: C=cotton, R=rayon
+#     s    = style: T=twisted, F=flat/parallel, P=pulley, J=SJT heavy-duty, S=overbraid, R=round
+#     cc   = color #1 (BK=black, DB=dark brown, GN=green, etc.)
+#     cc   = color #2 (XX if single color, or ZZ=zig-zag variant)
+#     P    = packaging: F=by the foot, S=standard spool, L=50-foot spool
+#   Example: W182CTBKXXS = 18/2 cotton twisted, black, 250-foot spool
+#
+# Material SKU format (raw wire ordered from vendors):
+#   WN[nn][n][cc][cc][cc]
+#     WN   = wire, new/raw (vendor part)
+#     nn   = gauge
+#     n    = number of conductors
+#     cc+  = conductor colors (e.g., BKGNWH = black/green/white)
+#   Example: WN163BKGNWH = 16/3 raw wire with black, green, white conductors
+#
+#   Exception: W121 (knob and tube) is sold as-received from vendor — no
+#   braiding step — so the product SKU (W121CRBK) is also the material SKU.
+#
 # Gross cost formula:
 #   WIRECOST = sum of conductor costs per foot (wire type + wire 2 type if present)
 #   YARNCOST = (yarn_cost * yarn_per_100ft) / 100
@@ -60,3 +83,15 @@ wire_costs:
   '18/2 SPT-1':                0.13015
   '18/2 SVT':                  0.10412
   '18/3 SVT-3':                0.26197
+
+# Raw wire materials → finished product families
+# Maps vendor material SKUs (WN*) to the product family prefixes they produce.
+# Product family = SKU without the XX placeholder and packaging suffix (F/S/L).
+# Exception: W121 (knob and tube) has no material SKU — sold as-received.
+materials:
+  WN163BKGNWH:
+    description: "16/3 raw wire, black/green/white conductors"
+    wire_cost_key: '16awg 3 conductor twisted'
+    products:
+      - W163CSBK    # black cotton overbraid
+      - W163CSGNYL  # bungalow cotton overbraid

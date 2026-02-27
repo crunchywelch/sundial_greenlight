@@ -1,0 +1,170 @@
+#!/usr/bin/env python3
+"""
+Pull all inventory adjustment events from Shopify and cache locally.
+
+Queries ShopifyQL inventory_adjustment_history in weekly batches to stay
+under the 1000-row query limit, and saves everything to a local CSV.
+
+This data can be used to back-calculate inventory levels at Dec 31, 2025
+by subtracting net changes from current (corrected) inventory counts.
+
+Usage:
+    python util/pull_inventory_events.py
+"""
+
+import csv
+import json
+import os
+import sys
+import time
+from datetime import date, timedelta
+from pathlib import Path
+
+import requests
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent.parent / ".env")
+
+OUTPUT_CSV = Path(__file__).parent.parent / "docs" / "inventory_events_2026.csv"
+
+SHOP_URL = os.getenv("SHOPIFY_WIRE_SHOP_URL")
+TOKEN = os.getenv("SHOPIFY_WIRE_ACCESS_TOKEN")
+GRAPHQL_URL = f"https://{SHOP_URL}/admin/api/unstable/graphql.json"
+HEADERS = {
+    "X-Shopify-Access-Token": TOKEN,
+    "Content-Type": "application/json",
+}
+
+# ShopifyQL columns to pull
+COLUMNS = [
+    "day",
+    "product_variant_sku",
+    "inventory_adjustment_change",
+    "inventory_change_reason",
+    "inventory_state",
+    "staff_member_name",
+]
+
+SHOW_COLS = ", ".join(COLUMNS[2:3])  # the measure
+GROUP_COLS = ", ".join([COLUMNS[0]] + COLUMNS[1:2] + COLUMNS[3:])  # dimensions
+
+
+def query_batch(since_days, until_days):
+    """Query one batch of inventory events using relative day offsets."""
+    shopifyql = (
+        f"FROM inventory_adjustment_history "
+        f"SHOW {SHOW_COLS} "
+        f"GROUP BY {GROUP_COLS} "
+        f"SINCE -{since_days}d "
+    )
+    if until_days > 0:
+        shopifyql += f"UNTIL -{until_days}d "
+    shopifyql += "ORDER BY day LIMIT 1000"
+
+    graphql = (
+        '{ shopifyqlQuery(query: "'
+        + shopifyql
+        + '") { parseErrors tableData { columns { name dataType } rows } } }'
+    )
+
+    resp = requests.post(GRAPHQL_URL, headers=HEADERS, json={"query": graphql})
+    data = resp.json()
+
+    if "errors" in data:
+        errors = data["errors"]
+        # Check for rate limiting
+        if any("THROTTLED" in str(e) for e in errors):
+            return "throttled", []
+        print(f"  GraphQL errors: {errors}")
+        return "error", []
+
+    result = data["data"]["shopifyqlQuery"]
+    if result.get("parseErrors"):
+        print(f"  Parse errors: {result['parseErrors']}")
+        return "error", []
+
+    rows = result["tableData"]["rows"]
+    return "ok", rows
+
+
+def main():
+    print("Pulling inventory adjustment events from Shopify...")
+    print(f"Store: {SHOP_URL}")
+    print()
+
+    today = date.today()
+    start = date(2026, 1, 1)
+    all_rows = []
+
+    # Pull in weekly batches
+    batch_start = start
+    while batch_start < today:
+        batch_end = min(batch_start + timedelta(days=7), today)
+
+        since_days = (today - batch_start).days
+        until_days = (today - batch_end).days
+
+        label = f"{batch_start} to {batch_end}"
+        print(f"  {label}...", end=" ", flush=True)
+
+        retries = 0
+        while retries < 3:
+            status, rows = query_batch(since_days, until_days)
+            if status == "ok":
+                break
+            elif status == "throttled":
+                retries += 1
+                wait = 10 * retries
+                print(f"throttled, waiting {wait}s...", end=" ", flush=True)
+                time.sleep(wait)
+            else:
+                break
+
+        if status != "ok":
+            print(f"FAILED ({status})")
+            batch_start = batch_end
+            continue
+
+        all_rows.extend(rows)
+        hit_limit = " ** HIT LIMIT **" if len(rows) >= 1000 else ""
+        print(f"{len(rows)} events{hit_limit}")
+
+        if len(rows) >= 1000:
+            print(f"  WARNING: batch {label} hit 1000 row limit, data may be incomplete!")
+
+        batch_start = batch_end
+        # Small delay to avoid rate limits
+        time.sleep(2)
+
+    print()
+    print(f"Total events pulled: {len(all_rows)}")
+
+    # Write to CSV
+    fieldnames = [
+        "date", "sku", "change", "reason", "state", "staff",
+    ]
+
+    with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in all_rows:
+            writer.writerow({
+                "date": (row.get("day") or "")[:10],
+                "sku": row.get("product_variant_sku", ""),
+                "change": row.get("inventory_adjustment_change", ""),
+                "reason": row.get("inventory_change_reason", ""),
+                "state": row.get("inventory_state", ""),
+                "staff": row.get("staff_member_name", ""),
+            })
+
+    print(f"Saved to: {OUTPUT_CSV}")
+
+    # Quick summary
+    skus = set(r.get("product_variant_sku", "") for r in all_rows if r.get("product_variant_sku"))
+    print(f"Unique SKUs with events: {len(skus)}")
+    print()
+    print("Done!")
+
+
+if __name__ == "__main__":
+    sys.exit(main() or 0)
