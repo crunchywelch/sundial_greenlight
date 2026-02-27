@@ -5,10 +5,10 @@ import {
   AdminBlock,
   BlockStack,
   Text,
-  InlineStack,
   Box,
   Divider,
   Badge,
+  InlineStack,
   Link,
 } from "@shopify/ui-extensions-react/admin";
 
@@ -100,38 +100,36 @@ function CustomerCablesBlock() {
   return (
     <AdminBlock title={`Cables (${cables.length})`}>
       <BlockStack gap="base">
-        {displayCables.map((cable, index) => (
-          <Box key={cable.serial_number}>
-            {index > 0 && <Divider />}
-            <BlockStack gap="extraTight" paddingBlock="base">
-              <InlineStack gap="base" blockAlignment="center">
-                <Text fontWeight="bold">{cable.serial_number}</Text>
-                {cable.test_status === "tested" ? (
-                  <Badge tone="success">Tested</Badge>
-                ) : (
-                  <Badge tone="warning">Not Tested</Badge>
+        {displayCables.map((cable, index) => {
+          const length = getCableLength(cable);
+          const desc = [length, cable.color, cable.series].filter(Boolean).join(" ")
+            + (cable.sku?.endsWith("-R") ? ", right angle" : "");
+          const testedDate = cable.test_date
+            ? `Tested: ${new Date(cable.test_date).toLocaleDateString()}`
+            : "Not tested";
+
+          return (
+            <Box key={cable.serial_number}>
+              {index > 0 && <Divider />}
+              <BlockStack gap="extraTight" paddingBlock="base">
+                <InlineStack gap="base" blockAlignment="center">
+                  <Text>
+                    <Text fontWeight="bold">#{cable.serial_number}</Text>
+                    {cable.sku ? ` (${cable.sku})` : ""}
+                  </Text>
+                  {cable.test_date ? (
+                    <Badge tone="success">Tested {new Date(cable.test_date).toLocaleDateString()}</Badge>
+                  ) : (
+                    <Badge tone="warning">Not Tested</Badge>
+                  )}
+                </InlineStack>
+                {desc && (
+                  <Text tone="subdued" size="small">{desc}</Text>
                 )}
-              </InlineStack>
-
-              <Text tone="subdued" size="small">{cable.sku}</Text>
-
-              {cable.sku?.endsWith("MISC") && cable.description && (
-                <Text tone="subdued" size="small">{cable.description}</Text>
-              )}
-
-              <Text tone="subdued" size="small">
-                {[getCableLength(cable), cable.color, cable.series].filter(Boolean).join(" ")}
-                {cable.sku?.endsWith("-R") ? ", right angle" : ""}
-              </Text>
-
-              {cable.test_date && (
-                <Text tone="subdued" size="small">
-                  Tested: {new Date(cable.test_date).toLocaleDateString()}
-                </Text>
-              )}
-            </BlockStack>
-          </Box>
-        ))}
+              </BlockStack>
+            </Box>
+          );
+        })}
 
         {hasMore && (
           <>
