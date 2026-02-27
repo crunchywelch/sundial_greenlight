@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Audit wire SKU costs in the inventory worksheet against formula calculations.
+Audit wire SKU costs against formula calculations.
 
-Reads wire_cost_data.yaml for raw cost inputs, decodes each W-prefix SKU
-from the inventory CSV, calculates expected cost using the formula:
+Reads wire cost parameters from SQLite (loaded from wire_cost_data.yaml),
+decodes each W-prefix SKU, calculates expected cost using the formula:
 
     ROUND((sum(WIRECOST, YARNCOST) * QTY) + SPOOLCOST, 2)
 
@@ -15,17 +15,12 @@ Usage:
     python util/wire_cost_audit.py --pattern W182CT  # Filter to pattern
 """
 
-import csv
 import re
 import sys
 import argparse
 from decimal import Decimal, ROUND_HALF_UP
-from pathlib import Path
 
-import yaml
-
-YAML_PATH = Path(__file__).parent.parent / "docs" / "wire_cost_data.yaml"
-CSV_PATH = Path(__file__).parent.parent / "docs" / "wire_inventory_worksheet_2-4-2026.csv"
+from sundial_db import get_db
 
 # Wire conductor cost per foot for each SKU pattern (family + braid + style).
 # Values from wire_cost_data.yaml wire_costs and lamp_cordPricing-skus.csv.
@@ -97,45 +92,40 @@ SPOOL_COSTS = {
 }
 
 
-def load_yaml_costs():
-    """Load yarn costs from the YAML file."""
-    with open(YAML_PATH) as f:
-        return yaml.safe_load(f)
+def load_wire_skus(conn):
+    """Load W-prefix SKUs with costs from SQLite."""
+    rows = conn.execute("""
+        SELECT p.sku, s.cost, p.option
+        FROM products p
+        JOIN (
+            SELECT sku, cost FROM inventory_snapshots
+            WHERE (sku, snapshot_date) IN (
+                SELECT sku, MAX(snapshot_date) FROM inventory_snapshots GROUP BY sku
+            )
+        ) s ON p.sku = s.sku
+        WHERE p.is_wire = 1 AND s.cost IS NOT NULL
+    """).fetchall()
+    return {row["sku"]: {"cost": row["cost"], "option": row["option"] or ""} for row in rows}
 
 
-def load_inventory_skus():
-    """Load W-prefix SKUs with costs from inventory CSV."""
-    with open(CSV_PATH, newline="", encoding="utf-8") as f:
-        lines = f.readlines()
-
-    reader = csv.DictReader(lines[1:])  # skip grand-total row
-    skus = {}
-    for row in reader:
-        sku = (row.get("Variant SKU") or "").strip()
-        cost_str = (row.get("Cost per item") or "").strip()
-        option = (row.get("Option1 Value") or "").strip()
-        if not sku.startswith("W") or not cost_str:
-            continue
-        try:
-            skus[sku] = {"cost": float(cost_str), "option": option}
-        except ValueError:
-            continue
-    return skus
+def load_yarn_costs(conn):
+    """Load yarn costs from SQLite wire_cost_params."""
+    rows = conn.execute(
+        "SELECT key, value FROM wire_cost_params WHERE category = 'yarn_cost'"
+    ).fetchall()
+    return {row["key"]: row["value"] for row in rows}
 
 
 def decode_sku(sku):
-    """Decode a wire SKU into its components.
-
-    SKU format: W[nn][n][C|R][style][color1][color2][tier]
-    """
+    """Decode a wire SKU into its components."""
     if len(sku) < 8:
         return None
     return {
-        "family": sku[:4],        # W162, W182, etc.
-        "braid": sku[4],          # C=cotton, R=rayon
-        "style": sku[5],          # T=twisted, P=pulley, J=SJT, F=flat, S=overbraid
-        "color1": sku[6:8],       # BK=black, DB=dark brown, etc.
-        "pattern": sku[:6],       # W162CT, W182CP, etc.
+        "family": sku[:4],
+        "braid": sku[4],
+        "style": sku[5],
+        "color1": sku[6:8],
+        "pattern": sku[:6],
     }
 
 
@@ -153,7 +143,7 @@ def parse_option_qty(option):
 def get_yarn_type(decoded):
     """Determine yarn cost category from decoded SKU."""
     if decoded["family"] == "W121":
-        return None  # knob and tube, no yarn
+        return None
     if decoded["braid"] == "C":
         if decoded["color1"] == "BK":
             return "Cotton, Black"
@@ -169,12 +159,9 @@ def get_yarn_per_100ft(decoded):
     """Get yarn usage rate for this SKU's wire family."""
     family = decoded["family"]
     style = decoded["style"]
-
-    # W182 varies by style
     if family == "W182":
         key = f"W182{style}"
         return YARN_PER_100FT.get(key)
-
     return YARN_PER_100FT.get(family)
 
 
@@ -187,7 +174,6 @@ def get_spool_cost(decoded, qty):
     style = decoded["style"]
     braid = decoded["braid"]
 
-    # Try specific lookups in order of specificity
     lookups = []
     if family in ("W182",):
         lookups.append((f"W182{style}", qty))
@@ -214,9 +200,10 @@ def main():
     parser.add_argument("--pattern", help="Filter to a specific pattern (e.g. W182CT)")
     args = parser.parse_args()
 
-    data = load_yaml_costs()
-    yarn_costs = data["yarn_costs"]
-    skus = load_inventory_skus()
+    conn = get_db()
+    yarn_costs = load_yarn_costs(conn)
+    skus = load_wire_skus(conn)
+    conn.close()
 
     matches = []
     mismatches = []

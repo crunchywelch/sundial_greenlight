@@ -1,0 +1,480 @@
+SKU,Handle,Title,Option,Status,Published,Type,Qty,Price,Cost,Inv Value
+W121CRBK100S,single-conductor-12-gauge-black-knob-and-tube-wire,SINGLE CONDUCTOR 12-GAUGE BLACK KNOB & TUBE WIRE,By the 100-foot spool,active,,Wire,43,225.0,100.04,4301.72
+W121CRBK250S,single-conductor-12-gauge-black-knob-and-tube-wire,SINGLE CONDUCTOR 12-GAUGE BLACK KNOB & TUBE WIRE,By the 250-foot spool,active,,Wire,4,525.0,242.97,971.88
+W121CRBK500S,single-conductor-12-gauge-black-knob-and-tube-wire,SINGLE CONDUCTOR 12-GAUGE BLACK KNOB & TUBE WIRE,By the 500-foot spool,active,,Wire,3,950.0,481.18,1443.54
+W121CRBKXXF,single-conductor-12-gauge-black-knob-and-tube-wire,SINGLE CONDUCTOR 12-GAUGE BLACK KNOB & TUBE WIRE,By the foot,active,,Wire,4909,2.5,0.95,4663.55
+W141CRBKXXF,single-conductor-14-gauge-black-cotton-wire,SINGLE-CONDUCTOR 14-GAUGE BLACK COTTON WIRE,By the foot,active,,Wire,0,1.0,0.11,
+W141CRBKXXS,single-conductor-14-gauge-black-cotton-wire,SINGLE-CONDUCTOR 14-GAUGE BLACK COTTON WIRE,By the 100-foot spool,active,,Wire,0,65.0,12.43,
+W141CRDBXXF,single-conductor-14-gauge-dark-brown-cotton-wire,SINGLE-CONDUCTOR 14-GAUGE DARK BROWN COTTON WIRE,By the foot,active,,Wire,0,1.0,0.11,
+W141CRDBXXS,single-conductor-14-gauge-dark-brown-cotton-wire,SINGLE-CONDUCTOR 14-GAUGE DARK BROWN COTTON WIRE,By the 100-foot spool,active,,Wire,0,65.0,12.5,
+W143CPBKXXF,3-conductor-14-gauge-black-cotton-pulley-cord,3-CONDUCTOR 14-GAUGE BLACK COTTON PULLEY CORD,By the foot,active,,Wire,100,3.25,0.37,37.0
+W143CPBKXXS,3-conductor-14-gauge-black-cotton-pulley-cord,3-CONDUCTOR 14-GAUGE BLACK COTTON PULLEY CORD,By the 100-foot spool,active,,Wire,6,150.0,38.36,230.16
+W143CPDBXXF,3-conductor-14-gauge-dark-brown-cotton-pulley-cord,3-CONDUCTOR 14-GAUGE DARK BROWN COTTON PULLEY CORD,By the foot,active,,Wire,100,3.25,0.37,37.0
+W143CPDBXXS,3-conductor-14-gauge-dark-brown-cotton-pulley-cord,3-CONDUCTOR 14-GAUGE DARK BROWN COTTON PULLEY CORD,By the 100-foot spool,active,,Wire,5,150.0,38.48,192.4
+W143RPPWXXF,3-conductor-14-gauge-pewter-rayon-pulley-cord,3-CONDUCTOR 14-GAUGE PEWTER RAYON PULLEY CORD,By the foot,active,,Wire,4931,3.25,0.42,2071.02
+W143RPPWXXS,3-conductor-14-gauge-pewter-rayon-pulley-cord,3-CONDUCTOR 14-GAUGE PEWTER RAYON PULLEY CORD,By the 100-foot spool,active,,Wire,1,150.0,43.28,43.28
+W162CTBKXXF,2-conductor-16-gauge-black-cotton-twisted-wire,2-CONDUCTOR 16-GAUGE BLACK COTTON TWISTED WIRE,By the foot,active,,Wire,4955,1.7,0.21,1040.55
+W162CTBKXXL,2-conductor-16-gauge-black-cotton-twisted-wire,2-CONDUCTOR 16-GAUGE BLACK COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,8,85.0,12.05,96.4
+W162CTBKXXS,2-conductor-16-gauge-black-cotton-twisted-wire,2-CONDUCTOR 16-GAUGE BLACK COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,4,280.0,56.23,224.92
+W162CTDBXXF,2-conductor-16-gauge-dark-brown-cotton-twisted-wire,2-CONDUCTOR 16-GAUGE DARK BROWN COTTON TWISTED WIRE,By the foot,active,,Wire,4975,1.7,0.22,1094.5
+W162CTDBXXL,2-conductor-16-gauge-dark-brown-cotton-twisted-wire,2-CONDUCTOR 16-GAUGE DARK BROWN COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,8,85.0,12.11,96.88
+W162CTDBXXS,2-conductor-16-gauge-dark-brown-cotton-twisted-wire,2-CONDUCTOR 16-GAUGE DARK BROWN COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,5,280.0,56.53,282.65
+W162CTGGZZF,2-conductor-16-gauge-death-valley-green-gold-zig-zag-cotton-twisted-wire,2-CONDUCTOR 16-GAUGE DEATH VALLEY GREEN & GOLD ZIG-ZAG COTTON TWISTED WIRE,By the foot,active,,Wire,50,1.7,0.22,11.0
+W162CTGGZZL,2-conductor-16-gauge-death-valley-green-gold-zig-zag-cotton-twisted-wire,2-CONDUCTOR 16-GAUGE DEATH VALLEY GREEN & GOLD ZIG-ZAG COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,4,85.0,12.11,48.44
+W162CTGGZZS,2-conductor-16-gauge-death-valley-green-gold-zig-zag-cotton-twisted-wire,2-CONDUCTOR 16-GAUGE DEATH VALLEY GREEN & GOLD ZIG-ZAG COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,1,280.0,56.53,56.53
+W162CTPTGDF,2-conductor-16-gauge-putty-cotton-twisted-wire-with-gold-tracer,2-CONDUCTOR 16-GAUGE PUTTY COTTON TWISTED WIRE WITH GOLD TRACER,By the foot,active,,Wire,4732,1.7,0.22,1041.04
+W162CTPTGDL,2-conductor-16-gauge-putty-cotton-twisted-wire-with-gold-tracer,2-CONDUCTOR 16-GAUGE PUTTY COTTON TWISTED WIRE WITH GOLD TRACER,By the 50-foot spool,active,,Wire,9,85.0,12.11,108.99
+W162CTPTGDS,2-conductor-16-gauge-putty-cotton-twisted-wire-with-gold-tracer,2-CONDUCTOR 16-GAUGE PUTTY COTTON TWISTED WIRE WITH GOLD TRACER,By the 250-foot spool,active,,Wire,6,280.0,56.53,339.18
+W163CJBKXXF,3-conductor-16-gauge-black-cotton-heavy-duty-pulley-cord-ul-listed,3-CONDUCTOR 16-GAUGE BLACK COTTON HEAVY-DUTY PULLEY CORD - SJT-B UL-Listed,By the foot,active,,Wire,981,1.5,0.37,362.97
+W163CJBKXXS,3-conductor-16-gauge-black-cotton-heavy-duty-pulley-cord-ul-listed,3-CONDUCTOR 16-GAUGE BLACK COTTON HEAVY-DUTY PULLEY CORD - SJT-B UL-Listed,By the 100-foot spool,active,,Wire,10,120.0,38.36,383.6
+W163CJBW1CF,3-conductor-16-gauge-black-white-single-cross-tracer-cotton-heavy-duty-pulley-cord-ul-listed,3-CONDUCTOR 16-GAUGE BLACK & WHITE SINGLE CROSS TRACER COTTON HEAVY-DUTY PULLEY CORD - UL SJT-B,By the foot,active,,Wire,9995713,1.5,0.37,3698413.81
+W163CJBW1CS,3-conductor-16-gauge-black-white-single-cross-tracer-cotton-heavy-duty-pulley-cord-ul-listed,3-CONDUCTOR 16-GAUGE BLACK & WHITE SINGLE CROSS TRACER COTTON HEAVY-DUTY PULLEY CORD - UL SJT-B,By the 100-foot spool,active,,Wire,41,120.0,38.48,1577.68
+W163CJBW1TF,3-conductor-16-gauge-black-white-single-tracer-cotton-heavy-duty-pulley-cord-ul-listed,3-CONDUCTOR 16-GAUGE BLACK & WHITE SINGLE TRACER COTTON HEAVY-DUTY PULLEY CORD - SJT-B UL-Listed,By the foot,active,,Wire,9965120,1.5,0.37,3687094.4
+W163CJBW1TS,3-conductor-16-gauge-black-white-single-tracer-cotton-heavy-duty-pulley-cord-ul-listed,3-CONDUCTOR 16-GAUGE BLACK & WHITE SINGLE TRACER COTTON HEAVY-DUTY PULLEY CORD - SJT-B UL-Listed,By the 100-foot spool,active,,Wire,8,120.0,38.48,307.84
+W163CJDBXXF,copy-of-3-conductor-18-gauge-black-cotton-heavy-duty-pulley-cord-sjt-b-ul-listed,3-CONDUCTOR 16-GAUGE DARK BROWN COTTON HEAVY-DUTY PULLEY CORD - SJT-B UL-Listed,By the foot,active,,Wire,1024,1.5,0.37,378.88
+W163CJDBXXS,copy-of-3-conductor-18-gauge-black-cotton-heavy-duty-pulley-cord-sjt-b-ul-listed,3-CONDUCTOR 16-GAUGE DARK BROWN COTTON HEAVY-DUTY PULLEY CORD - SJT-B UL-Listed,By the 100-foot spool,active,,Wire,10,120.0,38.48,384.8
+W163CSBKXXF,3-conductor-16-gauge-black-cotton-overbraid-cord,3-CONDUCTOR 16-GAUGE BLACK COTTON OVERBRAID CORD,By the foot,active,,Wire,5000,2.25,0.51,2550.0
+W163CSBKXXS,3-conductor-16-gauge-black-cotton-overbraid-cord,3-CONDUCTOR 16-GAUGE BLACK COTTON OVERBRAID CORD,By the 100-foot spool,active,,Wire,24,125.0,52.08,1249.92
+W163CSGNYLF,3-conductor-16-gauge-cotton-bungalow-cord,3-CONDUCTOR 16-GAUGE COTTON BUNGALOW CORD OVERBRAID WIRE,By the foot,active,,Wire,4852,2.25,0.51,2474.52
+W163CSGNYLS,3-conductor-16-gauge-cotton-bungalow-cord,3-CONDUCTOR 16-GAUGE COTTON BUNGALOW CORD OVERBRAID WIRE,By the 100-foot spool,active,,Wire,8,125.0,52.21,417.68
+W181CRBKXXF,single-conductor-18-gauge-black-cotton-wire,SINGLE-CONDUCTOR 18-GAUGE BLACK COTTON WIRE,By the foot,active,,Wire,4972,0.75,0.09,447.48
+W181CRBKXXS,copy-of-single-conductor-18-gauge-black-cotton-wire,SINGLE-CONDUCTOR 18-GAUGE WIRE,Black cotton - 250 feet,archived,,Wire,0,65.0,22.75,
+W181CRBO60,copy-of-single-conductor-18-gauge-black-cotton-wire,SINGLE-CONDUCTOR 18-GAUGE WIRE,Orange cotton - 60 feet,archived,,Wire,1,45.0,,
+W181RRGD100,copy-of-single-conductor-18-gauge-black-cotton-wire,SINGLE-CONDUCTOR 18-GAUGE WIRE,Gold rayon - 100 feet,archived,,Wire,6,45.0,,
+W181RRGDXXF,single-conductor-18-gauge-gold-rayon-wire,SINGLE-CONDUCTOR 18-GAUGE GOLD RAYON WIRE,By the foot,active,,Wire,32,0.8,0.11,3.52
+W181RRGDXXS,single-conductor-18-gauge-gold-rayon-wire,SINGLE-CONDUCTOR 18-GAUGE GOLD RAYON WIRE,By the 100-foot spool,active,,Wire,0,40.0,13.0,
+W181RRST100,copy-of-single-conductor-18-gauge-black-cotton-wire,SINGLE-CONDUCTOR 18-GAUGE WIRE,Silver rayon - 100 feet,archived,,Wire,5,45.0,,
+W181RRSTXXF,single-conductor-18-gauge-silver-rayon-wire,SINGLE-CONDUCTOR 18-GAUGE SILVER RAYON WIRE,By the foot,active,,Wire,40,0.8,0.11,4.4
+W181RRSTXXS,single-conductor-18-gauge-silver-rayon-wire,SINGLE-CONDUCTOR 18-GAUGE SILVER RAYON WIRE,By the 100-foot spool,active,,Wire,0,40.0,13.0,
+W182CFBKXXF,2-conductor-18-gauge-black-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE BLACK COTTON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,0,1.0,0.17,
+W182CFBKXXS,2-conductor-18-gauge-black-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE BLACK COTTON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,43.53,
+W182CFBNXXF,2-conductor-18-gauge-light-brown-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE LIGHT BROWN COTTON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,0,1.0,0.17,
+W182CFBNXXS,2-conductor-18-gauge-light-brown-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE LIGHT BROWN COTTON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,43.75,
+W182CFBR2CF,2-conductor-18-gauge-red-black-double-cross-tracer-cotton-parallel-cord-ul-listed,2-CONDUCTOR 18-GAUGE BLACK & RED DOUBLE CROSS TRACER COTTON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,29,1.0,0.17,4.93
+W182CFBR2CS,2-conductor-18-gauge-red-black-double-cross-tracer-cotton-parallel-cord-ul-listed,2-CONDUCTOR 18-GAUGE BLACK & RED DOUBLE CROSS TRACER COTTON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,125.0,43.75,
+W182CFBR3TF,2-conductor-18-gauge-black-red-triple-tracer-cotton-parallel-cord-ul-listed,2-CONDUCTOR 18-GAUGE BLACK & RED TRIPLE TRACER COTTON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,120,1.0,0.17,20.4
+W182CFBR3TS,2-conductor-18-gauge-black-red-triple-tracer-cotton-parallel-cord-ul-listed,2-CONDUCTOR 18-GAUGE BLACK & RED TRIPLE TRACER COTTON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,43.75,
+W182CFBWSHF,2-conductor-18-gauge-black-and-white-small-hounds-tooth-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE SMALL HOUND'S-TOOTH COTTON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,763,1.0,0.17,129.71
+W182CFBWSHMNS,2-conductor-18-gauge-black-and-white-small-hounds-tooth-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE SMALL HOUND'S-TOOTH COTTON PARALLEL CORD - UL-Listed,NON UL by the 250-foot spool,active,,Wire,1,120.0,43.75,43.75
+W182CFBWSHS,2-conductor-18-gauge-black-and-white-small-hounds-tooth-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE SMALL HOUND'S-TOOTH COTTON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,43.75,
+W182CFBWZZF,2-conductor-18-gauge-black-and-white-zig-zag-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE ZIG-ZAG COTTON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,60,1.0,0.17,10.2
+W182CFBWZZMNS,2-conductor-18-gauge-black-and-white-zig-zag-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE ZIG-ZAG COTTON PARALLEL CORD - UL-Listed,NON UL by the 250-foot spool,active,,Wire,4,120.0,43.75,175.0
+W182CFBWZZS,2-conductor-18-gauge-black-and-white-zig-zag-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE ZIG-ZAG COTTON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,43.75,
+W182CFDBXXF,2-conductor-18-gauge-dark-brown-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE DARK BROWN COTTON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,0,1.0,0.17,
+W182CFDBXXS,2-conductor-18-gauge-dark-brown-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE DARK BROWN COTTON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,43.75,
+W182CFDWZZF,2-conductor-18-gauge-dark-brown-white-zig-zag-cotton-parallel-cord-ul-listed,2-CONDUCTOR 18-GAUGE DARK BROWN & WHITE ZIG-ZAG COTTON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,18,1.0,0.17,3.06
+W182CFDWZZS,2-conductor-18-gauge-dark-brown-white-zig-zag-cotton-parallel-cord-ul-listed,2-CONDUCTOR 18-GAUGE DARK BROWN & WHITE ZIG-ZAG COTTON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,43.75,
+W182CFGDXXF,2-conductor-18-gauge-gold-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE GOLD COTTON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,0,1.0,0.17,
+W182CFGDXXMNS,2-conductor-18-gauge-gold-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE GOLD COTTON PARALLEL CORD - UL-Listed,NON UL by the 250-foot spool,active,,Wire,9,120.0,43.75,393.75
+W182CFGDXXS,2-conductor-18-gauge-gold-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE GOLD COTTON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,43.75,
+W182CFGNXXF,2-conductor-18-gauge-green-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE GREEN COTTON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,0,1.0,0.17,
+W182CFGNXXS,2-conductor-18-gauge-green-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE GREEN COTTON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,43.75,
+W182CFGYXXF,2-conductor-18-gauge-gray-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE GRAY COTTON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,0,1.0,0.17,
+W182CFGYXXMNS,2-conductor-18-gauge-gray-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE GRAY COTTON PARALLEL CORD - UL-Listed,NON UL by the 250-foot spool,active,,Wire,8,120.0,43.75,350.0
+W182CFGYXXS,2-conductor-18-gauge-gray-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE GRAY COTTON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,43.75,
+W182CFPTXXF,2-conductor-18-gauge-putty-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE PUTTY COTTON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,-50,1.0,0.17,
+W182CFPTXXS,2-conductor-18-gauge-putty-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE PUTTY COTTON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,43.75,
+W182CFRDXXF,2-conductor-18-gauge-red-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE RED COTTON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,782,1.0,0.17,132.94
+W182CFRDXXMNS,2-conductor-18-gauge-red-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE RED COTTON PARALLEL CORD - UL-Listed,NON UL by the 250-foot spool,active,,Wire,1,120.0,43.75,43.75
+W182CFRDXXS,2-conductor-18-gauge-red-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE RED COTTON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,43.75,
+W182CFSBXXF,2-conductor-18-gauge-slate-blue-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE SLATE BLUE COTTON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,133,1.0,0.17,22.61
+W182CFSBXXMNS,2-conductor-18-gauge-slate-blue-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE SLATE BLUE COTTON PARALLEL CORD - UL-Listed,NON UL by the 250-foot spool,active,,Wire,1,120.0,43.75,43.75
+W182CFSBXXS,2-conductor-18-gauge-slate-blue-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE SLATE BLUE COTTON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,43.75,
+W182CFSWLHF,2-conductor-18-gauge-slate-blue-white-large-small-hounds-tooth-cotton-parallel-cord-ul-listed,2-CONDUCTOR 18-GAUGE SLATE BLUE & WHITE LARGE HOUND'S-TOOTH COTTON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,23,1.0,0.17,3.91
+W182CFSWLHS,2-conductor-18-gauge-slate-blue-white-large-small-hounds-tooth-cotton-parallel-cord-ul-listed,2-CONDUCTOR 18-GAUGE SLATE BLUE & WHITE LARGE HOUND'S-TOOTH COTTON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,43.75,
+W182CFWHXXF,2-conductor-18-gauge-white-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE WHITE COTTON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,141,1.0,0.17,23.97
+W182CFWHXXMNS,2-conductor-18-gauge-white-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE WHITE COTTON PARALLEL CORD - UL-Listed,NON UL by the 250-foot spool,active,,Wire,11,120.0,43.75,481.25
+W182CFWHXXS,2-conductor-18-gauge-white-cotton-parallel-cord,2-CONDUCTOR 18-GAUGE WHITE COTTON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,43.75,
+W182CPBDSHF,2-conductor-18-gauge-black-dark-brown-small-hounds-tooth-cotton-pulley-cord-ul-listed,2-CONDUCTOR 18-GAUGE BLACK & DARK BROWN SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,182,0.9,0.16,29.12
+W182CPBDSHS,2-conductor-18-gauge-black-dark-brown-small-hounds-tooth-cotton-pulley-cord-ul-listed,2-CONDUCTOR 18-GAUGE BLACK & DARK BROWN SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,6,80.0,17.46,104.76
+W182CPBDZZF,2-conductor-18-gauge-black-and-dark-brown-zig-zag-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & DARK BROWN ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,150,0.9,0.16,24.0
+W182CPBDZZS,2-conductor-18-gauge-black-and-dark-brown-zig-zag-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & DARK BROWN ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,5,80.0,17.46,87.3
+W182CPBKXXF,2-conductor-18-gauge-black-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,470,0.9,0.16,75.2
+W182CPBKXXS,2-conductor-18-gauge-black-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,24,80.0,17.34,416.16
+W182CPBNXXF,2-conductor-18-gauge-light-brown-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE LIGHT BROWN COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,430,0.9,0.16,68.8
+W182CPBNXXMNS,2-conductor-18-gauge-light-brown-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE LIGHT BROWN COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,19,40.0,17.46,331.74
+W182CPBNXXS,2-conductor-18-gauge-light-brown-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE LIGHT BROWN COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,3,80.0,17.46,52.38
+W182CPBOXXF,2-conductor-18-gauge-burnt-orange-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BURNT ORANGE COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,590,0.9,0.16,94.4
+W182CPBOXXMNS,2-conductor-18-gauge-burnt-orange-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BURNT ORANGE COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot pool,active,,Wire,25,40.0,17.46,436.5
+W182CPBOXXS,2-conductor-18-gauge-burnt-orange-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BURNT ORANGE COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,6,80.0,17.46,104.76
+W182CPBPSHF,2-conductor-18-gauge-black-and-putty-small-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & PUTTY SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,150,0.9,0.16,24.0
+W182CPBPSHS,2-conductor-18-gauge-black-and-putty-small-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & PUTTY SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,5,80.0,17.46,87.3
+W182CPBPZZF,2-conductor-18-gauge-black-and-putty-zig-zag-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & PUTTY ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,425,0.9,0.16,68.0
+W182CPBPZZS,2-conductor-18-gauge-black-and-putty-zig-zag-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & PUTTY ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,4,80.0,17.46,69.84
+W182CPBR1CF,2-conductor-18-gauge-black-and-red-single-cross-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & RED SINGLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,600,0.9,0.16,96.0
+W182CPBR1CMNS,2-conductor-18-gauge-black-and-red-single-cross-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & RED SINGLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,8,80.0,17.46,139.68
+W182CPBR1CS,2-conductor-18-gauge-black-and-red-single-cross-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & RED SINGLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,6,80.0,17.46,104.76
+W182CPBR1TF,2-conductor-18-gauge-black-and-red-single-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & RED SINGLE TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,24,0.9,0.16,3.84
+W182CPBR1TMNS,2-conductor-18-gauge-black-and-red-single-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & RED SINGLE TRACER COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,23,80.0,17.46,401.58
+W182CPBR1TS,2-conductor-18-gauge-black-and-red-single-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & RED SINGLE TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,0,80.0,17.46,
+W182CPBR2CF,2-conductor-18-gauge-black-and-red-double-cross-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & RED DOUBLE CROSS TRACER COTTON PULLEY CORD  - UL-Listed,By the foot,active,,Wire,388,0.9,0.16,62.08
+W182CPBR2CMNS,2-conductor-18-gauge-black-and-red-double-cross-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & RED DOUBLE CROSS TRACER COTTON PULLEY CORD  - UL-Listed,NON UL by the 100-foot spool,active,,Wire,8,80.0,17.46,139.68
+W182CPBR2CS,2-conductor-18-gauge-black-and-red-double-cross-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & RED DOUBLE CROSS TRACER COTTON PULLEY CORD  - UL-Listed,By the 100-foot spool,active,,Wire,4,80.0,17.46,69.84
+W182CPBR2TF,2-conductor-18-gauge-black-and-red-double-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & RED DOUBLE TRACER COTTON PULLEY CORD -UL Listed,By the foot,active,,Wire,588,0.9,0.16,94.08
+W182CPBR2TMNS,2-conductor-18-gauge-black-and-red-double-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & RED DOUBLE TRACER COTTON PULLEY CORD -UL Listed,NON UL by the 100-foot spool,active,,Wire,1,80.0,17.46,17.46
+W182CPBR2TS,2-conductor-18-gauge-black-and-red-double-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & RED DOUBLE TRACER COTTON PULLEY CORD -UL Listed,By the 100-foot spool,active,,Wire,5,80.0,17.46,87.3
+W182CPBR3TF,2-conductor-18-gauge-black-red-triple-tracer-cotton-pulley-cord-ul-listed,2-CONDUCTOR 18-GAUGE BLACK & RED TRIPLE TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,600,0.9,0.16,96.0
+W182CPBR3TMNS,2-conductor-18-gauge-black-red-triple-tracer-cotton-pulley-cord-ul-listed,2-CONDUCTOR 18-GAUGE BLACK & RED TRIPLE TRACER COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,25,80.0,17.46,436.5
+W182CPBR3TS,2-conductor-18-gauge-black-red-triple-tracer-cotton-pulley-cord-ul-listed,2-CONDUCTOR 18-GAUGE BLACK & RED TRIPLE TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,6,80.0,17.46,104.76
+W182CPBR4TF,2-conductor-18-gauge-black-and-red-quadruple-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & RED QUADRUPLE TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,489,0.9,0.16,78.24
+W182CPBR4TMNS,2-conductor-18-gauge-black-and-red-quadruple-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & RED QUADRUPLE TRACER COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,10,80.0,17.46,174.6
+W182CPBR4TS,2-conductor-18-gauge-black-and-red-quadruple-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & RED QUADRUPLE TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,5,80.0,17.46,87.3
+W182CPBW1CF,2-conductor-18-gauge-black-and-white-single-cross-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE SINGLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,800,0.9,0.16,128.0
+W182CPBW1CMNS,2-conductor-18-gauge-black-and-white-single-cross-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE SINGLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,18,80.0,17.46,314.28
+W182CPBW1CS,2-conductor-18-gauge-black-and-white-single-cross-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE SINGLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,8,80.0,17.46,139.68
+W182CPBW1TF,2-conductor-18-gauge-black-and-white-single-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE SINGLE TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,421,0.9,0.16,67.36
+W182CPBW1TMNS,2-conductor-18-gauge-black-and-white-single-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE SINGLE TRACER COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,12,80.0,17.46,209.52
+W182CPBW1TS,2-conductor-18-gauge-black-and-white-single-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE SINGLE TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,4,80.0,17.46,69.84
+W182CPBW2CF,2-conductor-18-gauge-black-and-white-double-cross-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE DOUBLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,600,0.9,0.16,96.0
+W182CPBW2CMNS,2-conductor-18-gauge-black-and-white-double-cross-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE DOUBLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,18,80.0,17.46,314.28
+W182CPBW2CS,2-conductor-18-gauge-black-and-white-double-cross-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE DOUBLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,6,80.0,17.46,104.76
+W182CPBW2TF,2-conductor-18-gauge-black-and-white-double-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE DOUBLE TRACER COTTON PULLEY CORD -UL-Listed,By the foot,active,,Wire,130,0.9,0.16,20.8
+W182CPBW2TMNS,2-conductor-18-gauge-black-and-white-double-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE DOUBLE TRACER COTTON PULLEY CORD -UL-Listed,NON UL by the 100-foot spool,active,,Wire,19,80.0,17.46,331.74
+W182CPBW2TS,2-conductor-18-gauge-black-and-white-double-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE DOUBLE TRACER COTTON PULLEY CORD -UL-Listed,By the 100-foot spool,active,,Wire,5,80.0,17.46,87.3
+W182CPBW3TF,2-conductor-18-gauge-black-and-white-triple-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE TRIPLE TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,400,0.9,0.16,64.0
+W182CPBW3TMNS,2-conductor-18-gauge-black-and-white-triple-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE TRIPLE TRACER COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,20,80.0,17.46,349.2
+W182CPBW3TS,2-conductor-18-gauge-black-and-white-triple-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE TRIPLE TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,4,80.0,17.46,69.84
+W182CPBW4TF,2-conductor-18-gauge-black-and-white-quadruple-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE QUADRUPLE TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,488,0.9,0.16,78.08
+W182CPBW4TMNS,2-conductor-18-gauge-black-and-white-quadruple-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE QUADRUPLE TRACER COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,20,80.0,17.46,349.2
+W182CPBW4TS,2-conductor-18-gauge-black-and-white-quadruple-tracer-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE QUADRUPLE TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,5,80.0,17.46,87.3
+W182CPBWLHF,2-conductor-18-gauge-black-and-white-large-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE LARGE HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,500,0.9,0.16,80.0
+W182CPBWLHMNS,2-conductor-18-gauge-black-and-white-large-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE LARGE HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,16,80.0,17.46,279.36
+W182CPBWLHS,2-conductor-18-gauge-black-and-white-large-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE LARGE HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,5,80.0,17.46,87.3
+W182CPBWSHF,2-conductor-18-gauge-black-and-white-small-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE SMALL HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,800,0.9,0.16,128.0
+W182CPBWSHMNS,2-conductor-18-gauge-black-and-white-small-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE SMALL HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,29,80.0,17.46,506.34
+W182CPBWSHS,2-conductor-18-gauge-black-and-white-small-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE SMALL HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,8,80.0,17.46,139.68
+W182CPBWZZF,2-conductor-18-gauge-black-and-white-zig-zag-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,1388,0.9,0.16,222.08
+W182CPBWZZS,2-conductor-18-gauge-black-and-white-zig-zag-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK & WHITE ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,14,80.0,17.46,244.44
+W182CPDBXXF,2-conductor-18-gauge-dark-brown-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE DARK BROWN COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,-1,0.9,0.16,
+W182CPDBXXS,2-conductor-18-gauge-dark-brown-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE DARK BROWN COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,-4,80.0,17.46,
+W182CPDPSHF,2-conductor-18-gauge-dark-brown-and-putty-small-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE DARK BROWN & PUTTY SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,90,0.9,0.16,14.4
+W182CPDPSHS,2-conductor-18-gauge-dark-brown-and-putty-small-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE DARK BROWN & PUTTY SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,4,80.0,17.46,69.84
+W182CPDPZZF,2-conductor-18-gauge-dark-brown-putty-zig-zag-cotton-pulley-cord-ul-listed,2-CONDUCTOR 18-GAUGE DARK BROWN & PUTTY ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,377,0.9,0.16,60.32
+W182CPDPZZS,2-conductor-18-gauge-dark-brown-putty-zig-zag-cotton-pulley-cord-ul-listed,2-CONDUCTOR 18-GAUGE DARK BROWN & PUTTY ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,3,80.0,17.46,52.38
+W182CPDWLHF,2-conductor-18-gauge-dark-brown-and-white-large-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE DARK BROWN & WHITE LARGE HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,1400,0.9,0.16,224.0
+W182CPDWLHMNS,2-conductor-18-gauge-dark-brown-and-white-large-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE DARK BROWN & WHITE LARGE HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,8,80.0,17.46,139.68
+W182CPDWLHS,2-conductor-18-gauge-dark-brown-and-white-large-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE DARK BROWN & WHITE LARGE HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,14,80.0,17.46,244.44
+W182CPDWSHF,2-conductor-18-gauge-dark-brown-and-white-small-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE DARK BROWN & WHITE SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,1130,0.9,0.16,180.8
+W182CPDWSHMNS,2-conductor-18-gauge-dark-brown-and-white-small-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE DARK BROWN & WHITE SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,8,80.0,17.46,139.68
+W182CPDWSHS,2-conductor-18-gauge-dark-brown-and-white-small-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE DARK BROWN & WHITE SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,11,80.0,17.46,192.06
+W182CPDWZZF,2-conductor-18-gauge-dark-brown-and-white-zig-zag-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE DARK BROWN & WHITE ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,1100,0.9,0.16,176.0
+W182CPDWZZMNS,2-conductor-18-gauge-dark-brown-and-white-zig-zag-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE DARK BROWN & WHITE ZIG-ZAG COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,27,80.0,17.46,471.42
+W182CPDWZZS,2-conductor-18-gauge-dark-brown-and-white-zig-zag-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE DARK BROWN & WHITE ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,11,80.0,17.46,192.06
+W182CPGDXXF,2-conductor-18-gauge-gold-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE GOLD COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,990,0.9,0.16,158.4
+W182CPGDXXMNS,2-conductor-18-gauge-gold-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE GOLD COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,17,40.0,17.46,296.82
+W182CPGDXXS,2-conductor-18-gauge-gold-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE GOLD COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,10,80.0,17.46,174.6
+W182CPGGZZF,2-conductor-18-gauge-gold-and-green-zig-zag-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE GOLD & GREEN ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,464,0.9,0.16,74.24
+W182CPGGZZS,2-conductor-18-gauge-gold-and-green-zig-zag-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE GOLD & GREEN ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,5,80.0,17.46,87.3
+W182CPGNXXF,2-conductor-18-gauge-green-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE GREEN COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,555,0.9,0.16,88.8
+W182CPGNXXS,2-conductor-18-gauge-green-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE GREEN COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,3,80.0,17.46,52.38
+W182CPGYXXF,2-conductor-18-gauge-gray-cotton-pulley-cord-ul-listed,2-CONDUCTOR 18-GAUGE GRAY COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,590,0.9,0.16,94.4
+W182CPGYXXS,2-conductor-18-gauge-gray-cotton-pulley-cord-ul-listed,2-CONDUCTOR 18-GAUGE GRAY COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,6,80.0,17.46,104.76
+W182CPLGXXF,2-conductor-18-gauge-lime-green-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE LIME GREEN COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,490,0.9,0.16,78.4
+W182CPLGXXMNS,2-conductor-18-gauge-lime-green-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE LIME GREEN COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,20,40.0,17.46,349.2
+W182CPLGXXS,2-conductor-18-gauge-lime-green-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE LIME GREEN COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,5,80.0,17.46,87.3
+W182CPPRLHF,2-conductor-18-gauge-red-and-putty-large-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE RED & PUTTY LARGE HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,376,0.9,0.16,60.16
+W182CPPRLHMNS,2-conductor-18-gauge-red-and-putty-large-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE RED & PUTTY LARGE HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,12,40.0,17.46,209.52
+W182CPPRLHS,2-conductor-18-gauge-red-and-putty-large-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE RED & PUTTY LARGE HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,4,80.0,17.46,69.84
+W182CPPRSHF,2-conductor-18-gauge-red-and-putty-small-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE RED & PUTTY SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,376,0.9,0.16,60.16
+W182CPPRSHMNS,2-conductor-18-gauge-red-and-putty-small-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE RED & PUTTY SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,3,40.0,17.46,52.38
+W182CPPRSHS,2-conductor-18-gauge-red-and-putty-small-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE RED & PUTTY SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,4,80.0,17.46,69.84
+W182CPPTXXF,2-conductor-18-gauge-putty-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE PUTTY COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,2475,0.9,0.16,396.0
+W182CPPTXXS,2-conductor-18-gauge-putty-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE PUTTY COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,20,80.0,17.46,349.2
+W182CPRBXXF,2-conductor-18-gauge-raspberry-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE RASPBERRY COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,580,0.9,0.16,92.8
+W182CPRBXXMNS,2-conductor-18-gauge-raspberry-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE RASPBERRY COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,17,40.0,17.46,296.82
+W182CPRBXXS,2-conductor-18-gauge-raspberry-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE RASPBERRY COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,6,80.0,17.46,104.76
+W182CPRDXXF,2-conductor-18-gauge-red-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE RED COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,1026,0.9,0.16,164.16
+W182CPRDXXS,2-conductor-18-gauge-red-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE RED COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,8,80.0,17.46,139.68
+W182CPRWZZF,2-conductor-18-gauge-red-and-white-zig-zag-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE RED & WHITE ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,400,0.9,0.16,64.0
+W182CPRWZZMNS,2-conductor-18-gauge-red-and-white-zig-zag-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE RED & WHITE ZIG-ZAG COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,35,40.0,17.46,611.1
+W182CPRWZZS,2-conductor-18-gauge-red-and-white-zig-zag-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE RED & WHITE ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,4,80.0,17.46,69.84
+W182CPSBXXF,2-conductor-18-gauge-slate-blue-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE SLATE BLUE COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,390,0.9,0.16,62.4
+W182CPSBXXMNS,2-conductor-18-gauge-slate-blue-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE SLATE BLUE COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,17,40.0,17.46,296.82
+W182CPSBXXS,2-conductor-18-gauge-slate-blue-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE SLATE BLUE COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,3,80.0,17.46,52.38
+W182CPSWLHF,2-conductor-18-gauge-slate-blue-and-white-large-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE SLATE BLUE & WHITE LARGE HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,400,0.9,0.16,64.0
+W182CPSWLHMNS,2-conductor-18-gauge-slate-blue-and-white-large-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE SLATE BLUE & WHITE LARGE HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,38,40.0,17.46,663.48
+W182CPSWLHS,2-conductor-18-gauge-slate-blue-and-white-large-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE SLATE BLUE & WHITE LARGE HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,4,80.0,17.46,69.84
+W182CPSWSHF,2-conductor-18-gauge-slate-blue-and-white-small-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE SLATE BLUE & WHITE SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,684,0.9,0.16,109.44
+W182CPSWSHMNS,2-conductor-18-gauge-slate-blue-and-white-small-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE SLATE BLUE & WHITE SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,18,40.0,17.46,314.28
+W182CPSWSHS,2-conductor-18-gauge-slate-blue-and-white-small-hounds-tooth-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE SLATE BLUE & WHITE SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,7,80.0,17.46,122.22
+W182CPTQXXF,2-conductor-18-gauge-turquoise-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE TURQUOISE COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,770,0.9,0.16,123.2
+W182CPTQXXMNS,2-conductor-18-gauge-turquoise-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE TURQUOISE COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,6,40.0,17.46,104.76
+W182CPTQXXS,2-conductor-18-gauge-turquoise-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE TURQUOISE COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,8,80.0,17.46,139.68
+W182CPWHXXF,2-conductor-18-gauge-white-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE WHITE COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,1050,0.9,0.16,168.0
+W182CPWHXXS,2-conductor-18-gauge-white-cotton-pulley-cord,2-CONDUCTOR 18-GAUGE WHITE COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,12,80.0,17.46,209.52
+W182CTBGZZF,2-conductor-18-gauge-black-and-gray-zig-zag-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK & GRAY ZIG-ZAG COTTON TWISTED WIRE,By the foot,active,,Wire,9,1.5,0.15,1.35
+W182CTBGZZL,2-conductor-18-gauge-black-and-gray-zig-zag-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK & GRAY ZIG-ZAG COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,0,45.0,8.8,
+W182CTBGZZS,2-conductor-18-gauge-black-and-gray-zig-zag-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK & GRAY ZIG-ZAG COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,0,175.0,39.99,
+W182CTBKXXF,2-conductor-18-gauge-black-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK COTTON TWISTED WIRE,By the foot,active,,Wire,1000,1.5,0.15,150.0
+W182CTBKXXL,2-conductor-18-gauge-black-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,10,45.0,8.75,87.5
+W182CTBKXXS,2-conductor-18-gauge-black-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,17,175.0,39.77,676.09
+W182CTBNXXF,2-conductor-18-gauge-light-brown-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE LIGHT BROWN COTTON TWISTED WIRE,By the foot,active,,Wire,9,1.5,0.15,1.35
+W182CTBNXXL,2-conductor-18-gauge-light-brown-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE LIGHT BROWN COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,0,45.0,8.8,
+W182CTBNXXS,2-conductor-18-gauge-light-brown-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE LIGHT BROWN COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,-1,175.0,39.99,
+W182CTBOXXF,2-conductor-18-gauge-burnt-orange-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BURNT ORANGE COTTON TWISTED WIRE,By the foot,active,,Wire,4965,1.5,0.15,744.75
+W182CTBOXXL,2-conductor-18-gauge-burnt-orange-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BURNT ORANGE COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,10,1.0,8.8,88.0
+W182CTBOXXS,2-conductor-18-gauge-burnt-orange-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BURNT ORANGE COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,9,175.0,39.99,359.91
+W182CTBPZZF,2-conductor-18-gauge-black-and-putty-zig-zag-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK & PUTTY ZIG-ZAG COTTON TWISTED WIRE,By the foot,active,,Wire,0,1.5,0.15,
+W182CTBPZZL,2-conductor-18-gauge-black-and-putty-zig-zag-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK & PUTTY ZIG-ZAG COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,0,45.0,8.8,
+W182CTBPZZS,2-conductor-18-gauge-black-and-putty-zig-zag-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK & PUTTY ZIG-ZAG COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,0,175.0,39.99,
+W182CTBR2TF,2-conductor-18-gauge-black-cotton-twisted-wire-with-double-red-tracer,2-CONDUCTOR 18-GAUGE BLACK COTTON TWISTED WIRE WITH DOUBLE RED TRACER,By the foot,active,,Wire,8,1.5,0.15,1.2
+W182CTBR2TL,2-conductor-18-gauge-black-cotton-twisted-wire-with-double-red-tracer,2-CONDUCTOR 18-GAUGE BLACK COTTON TWISTED WIRE WITH DOUBLE RED TRACER,By the 50-foot spool,active,,Wire,0,45.0,8.8,
+W182CTBR2TS,2-conductor-18-gauge-black-cotton-twisted-wire-with-double-red-tracer,2-CONDUCTOR 18-GAUGE BLACK COTTON TWISTED WIRE WITH DOUBLE RED TRACER,By the 250-foot spool,active,,Wire,0,175.0,39.99,
+W182CTBW2TF,2-conductor-18-gauge-black-cotton-twisted-wire-with-double-white-tracer,2-CONDUCTOR 18-GAUGE BLACK COTTON TWISTED WIRE WITH DOUBLE WHITE TRACER,By the foot,active,,Wire,0,1.5,0.15,
+W182CTBW2TL,2-conductor-18-gauge-black-cotton-twisted-wire-with-double-white-tracer,2-CONDUCTOR 18-GAUGE BLACK COTTON TWISTED WIRE WITH DOUBLE WHITE TRACER,By the 50-foot spool,active,,Wire,0,45.0,8.8,
+W182CTBW2TS,2-conductor-18-gauge-black-cotton-twisted-wire-with-double-white-tracer,2-CONDUCTOR 18-GAUGE BLACK COTTON TWISTED WIRE WITH DOUBLE WHITE TRACER,By the 250-foot spool,active,,Wire,0,175.0,39.99,
+W182CTBWXXF,2-conductor-18-gauge-black-white-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK & WHITE COTTON TWISTED WIRE,By the foot,active,,Wire,1630,1.5,0.15,244.5
+W182CTBWXXL,2-conductor-18-gauge-black-white-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK & WHITE COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,10,45.0,8.8,88.0
+W182CTBWXXS,2-conductor-18-gauge-black-white-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK & WHITE COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,6,175.0,39.99,239.94
+W182CTBWZZF,2-conductor-18-gauge-black-and-white-zig-zag-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK & WHITE ZIG-ZAG COTTON TWISTED WIRE,By the foot,active,,Wire,40,1.5,0.15,6.0
+W182CTBWZZL,2-conductor-18-gauge-black-and-white-zig-zag-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK & WHITE ZIG-ZAG COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,0,45.0,8.8,
+W182CTBWZZS,2-conductor-18-gauge-black-and-white-zig-zag-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK & WHITE ZIG-ZAG COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,0,175.0,39.99,
+W182CTDBXXF,2-conductor-18-gauge-dark-brown-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE DARK BROWN COTTON TWISTED WIRE,By the foot,active,,Wire,1000,1.5,0.15,150.0
+W182CTDBXXL,2-conductor-18-gauge-dark-brown-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE DARK BROWN COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,9,45.0,8.8,79.2
+W182CTDBXXS,2-conductor-18-gauge-dark-brown-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE DARK BROWN COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,17,175.0,39.99,679.83
+W182CTGDGYF,2-conductor-18-gauge-gold-cotton-twisted-wire-with-gray-tracer,2-CONDUCTOR 18-GAUGE GOLD COTTON TWISTED WIRE WITH GRAY TRACER,By the foot,active,,Wire,0,1.5,0.15,
+W182CTGDGYL,2-conductor-18-gauge-gold-cotton-twisted-wire-with-gray-tracer,2-CONDUCTOR 18-GAUGE GOLD COTTON TWISTED WIRE WITH GRAY TRACER,By the 50-foot spool,active,,Wire,0,45.0,8.8,
+W182CTGDGYS,2-conductor-18-gauge-gold-cotton-twisted-wire-with-gray-tracer,2-CONDUCTOR 18-GAUGE GOLD COTTON TWISTED WIRE WITH GRAY TRACER,By the 250-foot spool,active,,Wire,0,175.0,39.99,
+W182CTGGZZF,2-conductor-18-gauge-death-valley-green-and-gold-zig-zag-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE DEATH VALLEY GREEN & GOLD ZIG-ZAG COTTON TWISTED WIRE,By the foot,active,,Wire,0,1.5,0.15,
+W182CTGGZZL,2-conductor-18-gauge-death-valley-green-and-gold-zig-zag-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE DEATH VALLEY GREEN & GOLD ZIG-ZAG COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,0,45.0,8.8,
+W182CTGGZZS,2-conductor-18-gauge-death-valley-green-and-gold-zig-zag-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE DEATH VALLEY GREEN & GOLD ZIG-ZAG COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,0,175.0,39.99,
+W182CTGNXXF,2-conductor-18-gauge-green-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE GREEN COTTON TWISTED WIRE,By the foot,active,,Wire,0,1.5,0.15,
+W182CTGNXXL,2-conductor-18-gauge-green-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE GREEN COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,0,45.0,8.8,
+W182CTGNXXS,2-conductor-18-gauge-green-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE GREEN COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,0,175.0,39.99,
+W182CTGYXXF,2-conductor-18-gauge-gray-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE GRAY COTTON TWISTED WIRE,By the foot,active,,Wire,62,1.5,0.15,9.3
+W182CTGYXXL,2-conductor-18-gauge-gray-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE GRAY COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,0,45.0,8.8,
+W182CTGYXXS,2-conductor-18-gauge-gray-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE GRAY COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,0,175.0,39.99,
+W182CTLGXXF,2-conductor-18-gauge-lime-green-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE LIME GREEN COTTON TWISTED WIRE,By the foot,active,,Wire,4965,1.5,0.15,744.75
+W182CTLGXXL,2-conductor-18-gauge-lime-green-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE LIME GREEN COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,10,45.0,8.8,88.0
+W182CTLGXXS,2-conductor-18-gauge-lime-green-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE LIME GREEN COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,15,175.0,39.99,599.85
+W182CTPTGDF,2-conductor-18-gauge-putty-cotton-twisted-wire-with-gold-tracer,2-CONDUCTOR 18-GAUGE PUTTY COTTON TWISTED WIRE WITH GOLD TRACER,By the foot,active,,Wire,0,1.5,0.15,
+W182CTPTGDL,2-conductor-18-gauge-putty-cotton-twisted-wire-with-gold-tracer,2-CONDUCTOR 18-GAUGE PUTTY COTTON TWISTED WIRE WITH GOLD TRACER,By the 50-foot spool,active,,Wire,0,45.0,8.8,
+W182CTPTGDS,2-conductor-18-gauge-putty-cotton-twisted-wire-with-gold-tracer,2-CONDUCTOR 18-GAUGE PUTTY COTTON TWISTED WIRE WITH GOLD TRACER,By the 250-foot spool,active,,Wire,3,175.0,39.99,119.97
+W182CTRBXXF,2-conductor-18-gauge-raspberry-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE RASPBERRY COTTON TWISTED WIRE,By the foot,active,,Wire,4990,1.5,0.15,748.5
+W182CTRBXXL,2-conductor-18-gauge-raspberry-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE RASPBERRY COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,10,45.0,8.8,88.0
+W182CTRBXXS,2-conductor-18-gauge-raspberry-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE RASPBERRY COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,12,175.0,39.99,479.88
+W182CTRDXXF,2-conductor-18-gauge-red-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE RED COTTON TWISTED WIRE,By the foot,active,,Wire,2000,1.5,0.15,300.0
+W182CTRDXXL,2-conductor-18-gauge-red-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE RED COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,7,45.0,8.8,61.6
+W182CTRDXXS,2-conductor-18-gauge-red-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE RED COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,1,175.0,39.99,39.99
+W182CTRGXXF,2-conductor-18-gauge-red-and-green-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE RED & GREEN COTTON TWISTED WIRE,By the foot,active,,Wire,29,1.5,0.15,4.35
+W182CTRGXXL,2-conductor-18-gauge-red-and-green-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE RED & GREEN COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,0,45.0,8.8,
+W182CTRGXXS,2-conductor-18-gauge-red-and-green-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE RED & GREEN COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,0,175.0,39.99,
+W182CTRWZZF,2-conductor-18-gauge-red-and-white-zig-zag-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE RED & WHITE ZIG-ZAG COTTON TWISTED WIRE,By the foot,active,,Wire,4974,1.5,0.15,746.1
+W182CTRWZZL,2-conductor-18-gauge-red-and-white-zig-zag-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE RED & WHITE ZIG-ZAG COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,9,45.0,8.8,79.2
+W182CTRWZZS,2-conductor-18-gauge-red-and-white-zig-zag-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE RED & WHITE ZIG-ZAG COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,12,175.0,39.99,479.88
+W182CTSBXXF,2-conductor-18-gauge-slate-blue-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE SLATE BLUE COTTON TWISTED WIRE,By the foot,active,,Wire,29,1.5,0.15,4.35
+W182CTSBXXL,2-conductor-18-gauge-slate-blue-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE SLATE BLUE COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,-1,45.0,8.8,
+W182CTSBXXS,2-conductor-18-gauge-slate-blue-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE SLATE BLUE COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,0,175.0,39.99,
+W182CTTQXXF,2-conductor-18-gauge-turquoise-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE TURQUOISE COTTON TWISTED WIRE,By the foot,active,,Wire,0,1.5,0.15,
+W182CTTQXXL,2-conductor-18-gauge-turquoise-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE TURQUOISE COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,0,45.0,8.8,
+W182CTTQXXS,2-conductor-18-gauge-turquoise-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE TURQUOISE COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,0,175.0,39.99,
+W182CTWHXXF,2-conductor-18-gauge-white-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE WHITE COTTON TWISTED WIRE,By the foot,active,,Wire,4,1.5,0.15,0.6
+W182CTWHXXL,2-conductor-18-gauge-white-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE WHITE COTTON TWISTED WIRE,By the 50-foot spool,active,,Wire,0,45.0,8.8,
+W182CTWHXXS,2-conductor-18-gauge-white-cotton-twisted-wire,2-CONDUCTOR 18-GAUGE WHITE COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,1,175.0,39.99,39.99
+W182RFBKXXF,2-conductor-18-gauge-black-rayon-parallel-cord,2-CONDUCTOR 18-GAUGE BLACK RAYON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,4,1.0,0.21,0.84
+W182RFBKXXS,2-conductor-18-gauge-black-rayon-parallel-cord,2-CONDUCTOR 18-GAUGE BLACK RAYON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,52.63,
+W182RFBNXXF,2-conductor-18-gauge-brown-rayon-parallel-cord,2-CONDUCTOR 18-GAUGE BROWN RAYON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,7,1.0,0.21,1.47
+W182RFBNXXS,2-conductor-18-gauge-brown-rayon-parallel-cord,2-CONDUCTOR 18-GAUGE BROWN RAYON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,52.63,
+W182RFGDXXF,2-conductor-18-gauge-gold-rayon-parallel-cord,2-CONDUCTOR 18-GAUGE GOLD RAYON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,0,1.0,0.21,
+W182RFGDXXS,2-conductor-18-gauge-gold-rayon-parallel-cord,2-CONDUCTOR 18-GAUGE GOLD RAYON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,52.63,
+W182RFMBXXF,2-conductor-18-gauge-mahogany-brown-rayon-parallel-cord,2-CONDUCTOR 18-GAUGE MAHOGANY BROWN RAYON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,0,1.0,0.21,
+W182RFMBXXS,2-conductor-18-gauge-mahogany-brown-rayon-parallel-cord,2-CONDUCTOR 18-GAUGE MAHOGANY BROWN RAYON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,52.63,
+W182RFPWXXF,2-conductor-18-gauge-pewter-rayon-parallel-cord-ul-listed,2-CONDUCTOR 18-GAUGE PEWTER RAYON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,13,1.0,0.21,2.73
+W182RFPWXXMNS,2-conductor-18-gauge-pewter-rayon-parallel-cord-ul-listed,2-CONDUCTOR 18-GAUGE PEWTER RAYON PARALLEL CORD - UL-Listed,NON UL by the 250-foot spool,active,,Wire,0,120.0,52.63,
+W182RFPWXXS,2-conductor-18-gauge-pewter-rayon-parallel-cord-ul-listed,2-CONDUCTOR 18-GAUGE PEWTER RAYON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,52.63,
+W182RFSTXXF,2-conductor-18-gauge-silver-rayon-parallel-cord,2-CONDUCTOR 18-GAUGE SILVER RAYON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,79,1.0,0.21,16.59
+W182RFSTXXMNS,2-conductor-18-gauge-silver-rayon-parallel-cord,2-CONDUCTOR 18-GAUGE SILVER RAYON PARALLEL CORD - UL-Listed,NON UL by the 250-foot spool,active,,Wire,3,120.0,52.63,157.89
+W182RFSTXXS,2-conductor-18-gauge-silver-rayon-parallel-cord,2-CONDUCTOR 18-GAUGE SILVER RAYON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,0,120.0,52.63,
+W182RFWHXXF,2-conductor-18-gauge-white-rayon-parallel-cord,2-CONDUCTOR 18-GAUGE WHITE RAYON PARALLEL CORD - UL-Listed,By the foot,active,,Wire,1594,1.0,0.21,334.74
+W182RFWHXXMNS,2-conductor-18-gauge-white-rayon-parallel-cord,2-CONDUCTOR 18-GAUGE WHITE RAYON PARALLEL CORD - UL-Listed,NON UL by the 250-foot spool,active,,Wire,11,120.0,52.63,578.93
+W182RFWHXXS,2-conductor-18-gauge-white-rayon-parallel-cord,2-CONDUCTOR 18-GAUGE WHITE RAYON PARALLEL CORD - UL-Listed,By the 250-foot spool,active,,Wire,6,120.0,52.63,315.78
+W182RPBKXXF,2-conductor-18-gauge-black-rayon-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK RAYON PULLEY CORD - UL-Listed,By the foot,active,,Wire,9998044,0.95,0.21,2099589.24
+W182RPBKXXS,2-conductor-18-gauge-black-rayon-pulley-cord,2-CONDUCTOR 18-GAUGE BLACK RAYON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,12,80.0,22.26,267.12
+W182RPGDXXF,2-conductor-18-gauge-gold-rayon-pulley-cord,2-CONDUCTOR 18-GAUGE GOLD RAYON PULLEY CORD - UL-Listed,By the foot,active,,Wire,9998953,0.95,0.21,2099780.13
+W182RPGDXXS,2-conductor-18-gauge-gold-rayon-pulley-cord,2-CONDUCTOR 18-GAUGE GOLD RAYON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,3,80.0,22.26,66.78
+W182RPPWXXF,2-conductor-18-gauge-pewter-rayon-pulley-cord,2-CONDUCTOR 18-GAUGE PEWTER RAYON PULLEY CORD - UL-Listed,By the foot,active,,Wire,500,0.95,0.21,105.0
+W182RPPWXXMNS,2-conductor-18-gauge-pewter-rayon-pulley-cord,2-CONDUCTOR 18-GAUGE PEWTER RAYON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,3,40.0,22.26,66.78
+W182RPPWXXS,2-conductor-18-gauge-pewter-rayon-pulley-cord,2-CONDUCTOR 18-GAUGE PEWTER RAYON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,5,80.0,22.26,111.3
+W182RPSTXXF,2-conductor-18-gauge-silver-rayon-pulley-cord,2-CONDUCTOR 18-GAUGE SILVER RAYON PULLEY CORD - UL-Listed,By the foot,active,,Wire,1500,0.95,0.21,315.0
+W182RPSTXXMNS,2-conductor-18-gauge-silver-rayon-pulley-cord,2-CONDUCTOR 18-GAUGE SILVER RAYON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,12,40.0,22.26,267.12
+W182RPSTXXS,2-conductor-18-gauge-silver-rayon-pulley-cord,2-CONDUCTOR 18-GAUGE SILVER RAYON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,15,80.0,22.26,333.9
+W182RPWBXXF,2-conductor-18-gauge-walnut-brown-rayon-pulley-cord,2-CONDUCTOR 18-GAUGE WALNUT BROWN RAYON PULLEY CORD - UL-Listed,By the foot,active,,Wire,200,0.95,0.21,42.0
+W182RPWBXXS,2-conductor-18-gauge-walnut-brown-rayon-pulley-cord,2-CONDUCTOR 18-GAUGE WALNUT BROWN RAYON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,9,80.0,22.26,200.34
+W182RPWHXXF,2-conductor-18-gauge-white-rayon-pulley-cord,2-CONDUCTOR 18-GAUGE WHITE RAYON PULLEY CORD - UL-Listed,By the foot,active,,Wire,9999564,0.95,0.21,2099908.44
+W182RPWHXXS,2-conductor-18-gauge-white-rayon-pulley-cord,2-CONDUCTOR 18-GAUGE WHITE RAYON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,16,80.0,22.26,356.16
+W182RTBKXXF,2-conductor-18-gauge-black-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK RAYON TWISTED WIRE,By the foot,active,,Wire,20,1.5,0.18,3.6
+W182RTBKXXL,2-conductor-18-gauge-black-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK RAYON TWISTED WIRE,By the 50-foot spool,active,,Wire,0,47.5,10.57,
+W182RTBKXXS,2-conductor-18-gauge-black-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE BLACK RAYON TWISTED WIRE,By the 250-foot spool,active,,Wire,0,175.0,48.87,
+W182RTGDXXF,2-conductor-18-gauge-gold-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE GOLD RAYON TWISTED WIRE,By the foot,active,,Wire,0,1.5,0.18,
+W182RTGDXXL,2-conductor-18-gauge-gold-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE GOLD RAYON TWISTED WIRE,By the 50-foot spool,active,,Wire,0,47.5,10.57,
+W182RTGDXXS,2-conductor-18-gauge-gold-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE GOLD RAYON TWISTED WIRE,By the 250-foot spool,active,,Wire,0,175.0,48.87,
+W182RTMBXXF,2-conductor-18-gauge-mahogany-brown-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE MAHOGANY BROWN RAYON TWISTED WIRE,By the foot,active,,Wire,0,1.5,0.18,
+W182RTMBXXL,2-conductor-18-gauge-mahogany-brown-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE MAHOGANY BROWN RAYON TWISTED WIRE,By the 50-foot spool,active,,Wire,0,47.5,10.57,
+W182RTMBXXS,2-conductor-18-gauge-mahogany-brown-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE MAHOGANY BROWN RAYON TWISTED WIRE,By the 250-foot spool,active,,Wire,0,175.0,48.87,
+W182RTPWXXF,2-conductor-18-gauge-pewter-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE PEWTER RAYON TWISTED WIRE,By the foot,active,,Wire,45,1.5,0.18,8.1
+W182RTPWXXL,2-conductor-18-gauge-pewter-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE PEWTER RAYON TWISTED WIRE,By the 50-foot spool,active,,Wire,0,47.5,10.57,
+W182RTPWXXS,2-conductor-18-gauge-pewter-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE PEWTER RAYON TWISTED WIRE,By the 250-foot spool,active,,Wire,0,175.0,48.87,
+W182RTSTXXF,2-conductor-18-gauge-silver-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE SILVER RAYON TWISTED WIRE,By the foot,active,,Wire,36,1.5,0.18,6.48
+W182RTSTXXL,2-conductor-18-gauge-silver-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE SILVER RAYON TWISTED WIRE,By the 50-foot spool,active,,Wire,0,47.5,10.57,
+W182RTSTXXS,2-conductor-18-gauge-silver-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE SILVER RAYON TWISTED WIRE,By the 250-foot spool,active,,Wire,0,175.0,48.87,
+W182RTWBXXF,2-conductor-18-gauge-walnut-brown-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE WALNUT BROWN RAYON TWISTED WIRE,By the foot,active,,Wire,0,1.5,0.18,
+W182RTWBXXL,2-conductor-18-gauge-walnut-brown-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE WALNUT BROWN RAYON TWISTED WIRE,By the 50-foot spool,active,,Wire,0,47.5,10.57,
+W182RTWBXXS,2-conductor-18-gauge-walnut-brown-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE WALNUT BROWN RAYON TWISTED WIRE,By the 250-foot spool,active,,Wire,0,175.0,48.87,
+W182RTWHXXF,2-conductor-18-gauge-white-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE WHITE RAYON TWISTED WIRE,By the foot,active,,Wire,0,1.5,0.18,
+W182RTWHXXL,2-conductor-18-gauge-white-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE WHITE RAYON TWISTED WIRE,By the 50-foot spool,active,,Wire,0,47.5,10.57,
+W182RTWHXXS,2-conductor-18-gauge-white-rayon-twisted-wire,2-CONDUCTOR 18-GAUGE WHITE RAYON TWISTED WIRE,By the 250-foot spool,active,,Wire,0,175.0,48.87,
+W183CJBKXXF,3-conductor-18-gauge-black-cotton-heavy-duty-pulley-cord-ul-listed,3-CONDUCTOR 18-GAUGE BLACK COTTON HEAVY-DUTY PULLEY CORD - SJT-B UL-Listed,By the foot,active,,Wire,-86,1.35,0.37,
+W183CJBKXXS,3-conductor-18-gauge-black-cotton-heavy-duty-pulley-cord-ul-listed,3-CONDUCTOR 18-GAUGE BLACK COTTON HEAVY-DUTY PULLEY CORD - SJT-B UL-Listed,By the 100-foot spool,active,,Wire,0,115.0,38.36,
+W183CPBDSHF,3-conductor-18-gauge-black-dark-brown-small-hounds-tooth-cotton-pulley-cord-ul-listed,3-CONDUCTOR 18-GAUGE BLACK & DARK BROWN SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,0,1.0,0.32,
+W183CPBDSHS,3-conductor-18-gauge-black-dark-brown-small-hounds-tooth-cotton-pulley-cord-ul-listed,3-CONDUCTOR 18-GAUGE BLACK & DARK BROWN SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,0,89.0,33.25,
+W183CPBDZZF,3-conductor-18-gauge-black-and-dark-brown-zig-zag-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & DARK BROWN ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,639,1.0,0.32,204.48
+W183CPBDZZS,3-conductor-18-gauge-black-and-dark-brown-zig-zag-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & DARK BROWN ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,6,89.0,33.25,199.5
+W183CPBKXXF,3-conductor-18-gauge-black-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,0,1.0,0.32,
+W183CPBKXXS,3-conductor-18-gauge-black-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,0,89.0,33.13,
+W183CPBNXXF,3-conductor-18-gauge-light-brown-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE LIGHT BROWN COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,174,1.0,0.32,55.68
+W183CPBNXXMNS,3-conductor-18-gauge-light-brown-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE LIGHT BROWN COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,14,89.0,33.25,465.5
+W183CPBNXXS,3-conductor-18-gauge-light-brown-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE LIGHT BROWN COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,2,89.0,33.25,66.5
+W183CPBOXXF,3-conductor-18-gauge-burnt-orange-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BURNT ORANGE COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,240,1.0,0.32,76.8
+W183CPBOXXS,3-conductor-18-gauge-burnt-orange-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BURNT ORANGE COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,1,89.0,33.25,33.25
+W183CPBPSHF,3-conductor-18-gauge-black-and-putty-small-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & PUTTY SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,70,1.0,0.32,22.4
+W183CPBPSHS,3-conductor-18-gauge-black-and-putty-small-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & PUTTY SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,0,89.0,33.25,
+W183CPBPZZF,3-conductor-18-gauge-black-and-putty-zig-zag-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & PUTTY ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,415,1.0,0.32,132.8
+W183CPBPZZS,3-conductor-18-gauge-black-and-putty-zig-zag-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & PUTTY ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,4,89.0,33.25,133.0
+W183CPBR1CF,3-conductor-18-gauge-black-and-red-single-cross-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & RED SINGLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,275,1.0,0.32,88.0
+W183CPBR1CMNS,3-conductor-18-gauge-black-and-red-single-cross-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & RED SINGLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,7,89.0,33.25,232.75
+W183CPBR1CS,3-conductor-18-gauge-black-and-red-single-cross-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & RED SINGLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,2,89.0,33.25,66.5
+W183CPBR1TF,3-conductor-18-gauge-black-and-red-single-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & RED SINGLE TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,5,1.0,0.32,1.6
+W183CPBR1TS,3-conductor-18-gauge-black-and-red-single-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & RED SINGLE TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,0,89.0,33.25,
+W183CPBR2CF,3-conductor-18-gauge-black-and-red-double-cross-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & RED DOUBLE CROSS TRACER COTTON PULLEY CORD  - UL-Listed,By the foot,active,,Wire,500,1.0,0.32,160.0
+W183CPBR2CMNS,3-conductor-18-gauge-black-and-red-double-cross-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & RED DOUBLE CROSS TRACER COTTON PULLEY CORD  - UL-Listed,NON UL by the 100-foot spool,active,,Wire,11,89.0,33.25,365.75
+W183CPBR2CS,3-conductor-18-gauge-black-and-red-double-cross-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & RED DOUBLE CROSS TRACER COTTON PULLEY CORD  - UL-Listed,By the 100-foot spool,active,,Wire,5,89.0,33.25,166.25
+W183CPBR2TF,3-conductor-18-gauge-black-and-red-double-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & RED DOUBLE TRACER COTTON PULLEY CORD -UL Listed,By the foot,active,,Wire,350,1.0,0.32,112.0
+W183CPBR2TMNS,3-conductor-18-gauge-black-and-red-double-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & RED DOUBLE TRACER COTTON PULLEY CORD -UL Listed,NON UL by the 100-foot spool,active,,Wire,7,89.0,33.25,232.75
+W183CPBR2TS,3-conductor-18-gauge-black-and-red-double-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & RED DOUBLE TRACER COTTON PULLEY CORD -UL Listed,By the 100-foot spool,active,,Wire,3,89.0,33.25,99.75
+W183CPBR3TF,3-conductor-18-gauge-black-and-red-triple-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & RED TRIPLE TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,700,1.0,0.32,224.0
+W183CPBR3TMNS,3-conductor-18-gauge-black-and-red-triple-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & RED TRIPLE TRACER COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,13,89.0,33.25,432.25
+W183CPBR3TS,3-conductor-18-gauge-black-and-red-triple-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & RED TRIPLE TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,7,89.0,33.25,232.75
+W183CPBR4TF,3-conductor-18-gauge-black-and-red-quadruple-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & RED QUADRUPLE TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,700,1.0,0.32,224.0
+W183CPBR4TMNS,3-conductor-18-gauge-black-and-red-quadruple-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & RED QUADRUPLE TRACER COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,6,89.0,33.25,199.5
+W183CPBR4TS,3-conductor-18-gauge-black-and-red-quadruple-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & RED QUADRUPLE TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,7,89.0,33.25,232.75
+W183CPBW1CF,3-conductor-18-gauge-black-and-white-single-cross-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE SINGLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,500,1.0,0.32,160.0
+W183CPBW1CMNS,3-conductor-18-gauge-black-and-white-single-cross-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE SINGLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,14,89.0,33.25,465.5
+W183CPBW1CS,3-conductor-18-gauge-black-and-white-single-cross-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE SINGLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,5,89.0,33.25,166.25
+W183CPBW1TF,3-conductor-18-gauge-black-and-white-single-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE SINGLE TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,9,1.0,0.32,2.88
+W183CPBW1TS,3-conductor-18-gauge-black-and-white-single-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE SINGLE TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,0,89.0,33.25,
+W183CPBW2CF,3-conductor-18-gauge-black-and-white-double-cross-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE DOUBLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,350,1.0,0.32,112.0
+W183CPBW2CMNS,3-conductor-18-gauge-black-and-white-double-cross-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE DOUBLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,19,89.0,33.25,631.75
+W183CPBW2CS,3-conductor-18-gauge-black-and-white-double-cross-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE DOUBLE CROSS TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,2,89.0,33.25,66.5
+W183CPBW2TF,3-conductor-18-gauge-black-and-white-double-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE DOUBLE TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,75,1.0,0.32,24.0
+W183CPBW2TMNS,3-conductor-18-gauge-black-and-white-double-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE DOUBLE TRACER COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,9,89.0,33.25,299.25
+W183CPBW2TS,3-conductor-18-gauge-black-and-white-double-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE DOUBLE TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,0,89.0,33.25,
+W183CPBW3TF,3-conductor-18-gauge-black-and-white-triple-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE TRIPLE TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,940,1.0,0.32,300.8
+W183CPBW3TMNS,3-conductor-18-gauge-black-and-white-triple-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE TRIPLE TRACER COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,31,89.0,33.25,1030.75
+W183CPBW3TS,3-conductor-18-gauge-black-and-white-triple-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE TRIPLE TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,9,89.0,33.25,299.25
+W183CPBW4TF,3-conductor-18-gauge-black-and-white-quadruple-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE QUADRUPLE TRACER COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,750,1.0,0.32,240.0
+W183CPBW4TMNS,3-conductor-18-gauge-black-and-white-quadruple-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE QUADRUPLE TRACER COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,18,89.0,33.25,598.5
+W183CPBW4TS,3-conductor-18-gauge-black-and-white-quadruple-tracer-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE QUADRUPLE TRACER COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,7,89.0,33.25,232.75
+W183CPBWLHF,3-conductor-18-gauge-black-and-white-large-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE LARGE HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,16,1.0,0.32,5.12
+W183CPBWLHMNS,3-conductor-18-gauge-black-and-white-large-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE LARGE HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,31,89.0,33.25,1030.75
+W183CPBWLHS,3-conductor-18-gauge-black-and-white-large-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE LARGE HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,-1,89.0,33.25,
+W183CPBWSHF,3-conductor-18-gauge-black-and-white-small-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE SMALL HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,800,1.0,0.32,256.0
+W183CPBWSHMNS,3-conductor-18-gauge-black-and-white-small-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE SMALL HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,12,89.0,33.25,399.0
+W183CPBWSHS,3-conductor-18-gauge-black-and-white-small-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE SMALL HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,8,89.0,33.25,266.0
+W183CPBWZZF,3-conductor-18-gauge-black-and-white-zig-zag-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,100,1.0,0.32,32.0
+W183CPBWZZMNS,3-conductor-18-gauge-black-and-white-zig-zag-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE ZIG-ZAG COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,9,89.0,33.25,299.25
+W183CPBWZZS,3-conductor-18-gauge-black-and-white-zig-zag-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK & WHITE ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,0,89.0,33.25,
+W183CPDBXXF,3-conductor-18-gauge-dark-brown-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE DARK BROWN COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,-1,1.0,0.32,
+W183CPDBXXS,3-conductor-18-gauge-dark-brown-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE DARK BROWN COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,0,89.0,33.25,
+W183CPDPSHF,3-conductor-18-gauge-dark-brown-and-putty-small-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE DARK BROWN & PUTTY SMALL HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,499,1.0,0.32,159.68
+W183CPDPSHS,3-conductor-18-gauge-dark-brown-and-putty-small-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE DARK BROWN & PUTTY SMALL HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,4,89.0,33.25,133.0
+W183CPDPZZF,3-conductor-18-gauge-dark-brown-putty-cotton-pulley-cord-ul-listed,3-CONDUCTOR 18-GAUGE DARK BROWN & PUTTY ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,281,1.0,0.32,89.92
+W183CPDPZZS,3-conductor-18-gauge-dark-brown-putty-cotton-pulley-cord-ul-listed,3-CONDUCTOR 18-GAUGE DARK BROWN & PUTTY ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,3,89.0,33.25,99.75
+W183CPDWLHF,3-conductor-18-gauge-dark-brown-and-white-large-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE DARK BROWN & WHITE LARGE HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,400,1.0,0.32,128.0
+W183CPDWLHMNS,3-conductor-18-gauge-dark-brown-and-white-large-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE DARK BROWN & WHITE LARGE HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,13,89.0,33.25,432.25
+W183CPDWLHS,3-conductor-18-gauge-dark-brown-and-white-large-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE DARK BROWN & WHITE LARGE HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,4,89.0,33.25,133.0
+W183CPDWSHF,3-conductor-18-gauge-dark-brown-and-white-small-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE DARK BROWN & WHITE SMALL HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,550,1.0,0.32,176.0
+W183CPDWSHMNS,3-conductor-18-gauge-dark-brown-and-white-small-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE DARK BROWN & WHITE SMALL HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,9,89.0,33.25,299.25
+W183CPDWSHS,3-conductor-18-gauge-dark-brown-and-white-small-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE DARK BROWN & WHITE SMALL HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,5,89.0,33.25,166.25
+W183CPDWZZF,3-conductor-18-gauge-dark-brown-and-white-zig-zag-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE DARK BROWN & WHITE ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,1100,1.0,0.32,352.0
+W183CPDWZZMNS,3-conductor-18-gauge-dark-brown-and-white-zig-zag-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE DARK BROWN & WHITE ZIG-ZAG COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,13,89.0,33.25,432.25
+W183CPDWZZS,3-conductor-18-gauge-dark-brown-and-white-zig-zag-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE DARK BROWN & WHITE ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,11,89.0,33.25,365.75
+W183CPGDXXF,3-conductor-18-gauge-gold-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE GOLD COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,200,1.0,0.32,64.0
+W183CPGDXXMNS,3-conductor-18-gauge-gold-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE GOLD COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,4,89.0,33.25,133.0
+W183CPGDXXS,3-conductor-18-gauge-gold-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE GOLD COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,2,89.0,33.25,66.5
+W183CPGGZZF,3-conductor-18-gauge-gold-and-green-zig-zag-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE GOLD & GREEN ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,0,1.0,0.32,
+W183CPGGZZS,3-conductor-18-gauge-gold-and-green-zig-zag-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE GOLD & GREEN ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,0,89.0,33.25,
+W183CPGNXXF,3-conductor-18-gauge-green-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE GREEN COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,75,1.0,0.32,24.0
+W183CPGNXXS,3-conductor-18-gauge-green-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE GREEN COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,0,89.0,33.25,
+W183CPGYXXF,3-conductor-18-gauge-gray-cotton-pulley-cord-ul-listed,3-CONDUCTOR 18-GAUGE GRAY COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,125,1.0,0.32,40.0
+W183CPGYXXS,3-conductor-18-gauge-gray-cotton-pulley-cord-ul-listed,3-CONDUCTOR 18-GAUGE GRAY COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,1,89.0,33.25,33.25
+W183CPLGXXF,3-conductor-18-gauge-lime-green-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE LIME GREEN COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,350,1.0,0.32,112.0
+W183CPLGXXMNS,3-conductor-18-gauge-lime-green-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE LIME GREEN COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,7,89.0,33.25,232.75
+W183CPLGXXS,3-conductor-18-gauge-lime-green-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE LIME GREEN COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,3,89.0,33.25,99.75
+W183CPPRLHF,3-conductor-18-gauge-red-and-putty-large-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE RED & PUTTY LARGE HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,552,1.0,0.32,176.64
+W183CPPRLHMNS,3-conductor-18-gauge-red-and-putty-large-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE RED & PUTTY LARGE HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,11,89.0,33.25,365.75
+W183CPPRLHS,3-conductor-18-gauge-red-and-putty-large-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE RED & PUTTY LARGE HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,6,89.0,33.25,199.5
+W183CPPRSHF,3-conductor-18-gauge-red-and-putty-small-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE RED & PUTTY SMALL HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,52,1.0,0.32,16.64
+W183CPPRSHS,3-conductor-18-gauge-red-and-putty-small-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE RED & PUTTY SMALL HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,0,89.0,33.25,
+W183CPPTXXF,3-conductor-18-gauge-putty-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE PUTTY COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,0,1.0,0.32,
+W183CPPTXXS,3-conductor-18-gauge-putty-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE PUTTY COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,0,89.0,33.25,
+W183CPRBXXF,3-conductor-18-gauge-raspberry-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE RASPBERRY COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,985,1.0,0.32,315.2
+W183CPRBXXMNS,3-conductor-18-gauge-raspberry-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE RASPBERRY COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,19,89.0,33.25,631.75
+W183CPRBXXS,3-conductor-18-gauge-raspberry-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE RASPBERRY COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,10,89.0,33.25,332.5
+W183CPRDXXF,3-conductor-18-gauge-red-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE RED COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,274,1.0,0.32,87.68
+W183CPRDXXMNS,3-conductor-18-gauge-red-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE RED COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,13,89.0,33.25,432.25
+W183CPRDXXS,3-conductor-18-gauge-red-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE RED COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,3,89.0,33.25,99.75
+W183CPRWZZF,3-conductor-18-gauge-red-and-white-zig-zag-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE RED & WHITE ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,85,1.0,0.32,27.2
+W183CPRWZZMNS,3-conductor-18-gauge-red-and-white-zig-zag-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE RED & WHITE ZIG-ZAG COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,2,89.0,33.25,66.5
+W183CPRWZZS,3-conductor-18-gauge-red-and-white-zig-zag-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE RED & WHITE ZIG-ZAG COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,0,89.0,33.25,
+W183CPSBXXF,3-conductor-18-gauge-slate-blue-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE SLATE BLUE COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,420,1.0,0.32,134.4
+W183CPSBXXS,3-conductor-18-gauge-slate-blue-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE SLATE BLUE COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,3,89.0,33.25,99.75
+W183CPSWLHF,3-conductor-18-gauge-slate-blue-and-white-large-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE SLATE BLUE & WHITE LARGE HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,200,1.0,0.32,64.0
+W183CPSWLHMNS,3-conductor-18-gauge-slate-blue-and-white-large-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE SLATE BLUE & WHITE LARGE HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,14,89.0,33.25,465.5
+W183CPSWLHS,3-conductor-18-gauge-slate-blue-and-white-large-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE SLATE BLUE & WHITE LARGE HOUND'S-TOOTH  COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,1,89.0,33.25,33.25
+W183CPSWSHF,3-conductor-18-gauge-slate-blue-and-white-small-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE SLATE BLUE & WHITE SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,200,1.0,0.32,64.0
+W183CPSWSHMNS,3-conductor-18-gauge-slate-blue-and-white-small-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE SLATE BLUE & WHITE SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,32,89.0,33.25,1064.0
+W183CPSWSHS,3-conductor-18-gauge-slate-blue-and-white-small-hounds-tooth-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE SLATE BLUE & WHITE SMALL HOUND'S-TOOTH COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,2,89.0,33.25,66.5
+W183CPTQXXF,3-conductor-18-gauge-turquoise-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE TURQUOISE COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,850,1.0,0.32,272.0
+W183CPTQXXMNS,3-conductor-18-gauge-turquoise-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE TURQUOISE COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,7,89.0,33.25,232.75
+W183CPTQXXS,3-conductor-18-gauge-turquoise-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE TURQUOISE COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,8,89.0,33.25,266.0
+W183CPWHXXF,3-conductor-18-gauge-white-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE WHITE COTTON PULLEY CORD - UL-Listed,By the foot,active,,Wire,419,1.0,0.32,134.08
+W183CPWHXXMNS,3-conductor-18-gauge-white-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE WHITE COTTON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,13,89.0,33.25,432.25
+W183CPWHXXS,3-conductor-18-gauge-white-cotton-pulley-cord,3-CONDUCTOR 18-GAUGE WHITE COTTON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,3,89.0,33.25,99.75
+W183RPBKXXF,3-conductor-18-gauge-black-rayon-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK RAYON PULLEY CORD - UL-Listed,By the foot,active,,Wire,0,1.05,0.37,
+W183RPBKXXS,3-conductor-18-gauge-black-rayon-pulley-cord,3-CONDUCTOR 18-GAUGE BLACK RAYON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,-69,89.0,38.05,
+W183RPGDXXF,3-conductor-18-gauge-gold-rayon-pulley-cord,3-CONDUCTOR 18-GAUGE GOLD RAYON PULLEY CORD - UL-Listed,By the foot,active,,Wire,175,1.05,0.37,64.75
+W183RPGDXXMNS,3-conductor-18-gauge-gold-rayon-pulley-cord,3-CONDUCTOR 18-GAUGE GOLD RAYON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,8,89.0,38.05,304.4
+W183RPGDXXS,3-conductor-18-gauge-gold-rayon-pulley-cord,3-CONDUCTOR 18-GAUGE GOLD RAYON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,0,89.0,38.05,
+W183RPPWXXF,3-conductor-18-gauge-pewter-rayon-pulley-cord,3-CONDUCTOR 18-GAUGE PEWTER RAYON PULLEY CORD - UL-Listed,By the foot,active,,Wire,335,1.05,0.37,123.95
+W183RPPWXXMNS,3-conductor-18-gauge-pewter-rayon-pulley-cord,3-CONDUCTOR 18-GAUGE PEWTER RAYON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,9,89.0,38.05,342.45
+W183RPPWXXS,3-conductor-18-gauge-pewter-rayon-pulley-cord,3-CONDUCTOR 18-GAUGE PEWTER RAYON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,3,89.0,38.05,114.15
+W183RPSTXXF,3-conductor-18-gauge-silver-rayon-pulley-cord,3-CONDUCTOR 18-GAUGE SILVER RAYON PULLEY CORD - UL-Listed,By the foot,active,,Wire,300,1.05,0.37,111.0
+W183RPSTXXMNS,3-conductor-18-gauge-silver-rayon-pulley-cord,3-CONDUCTOR 18-GAUGE SILVER RAYON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,13,89.0,38.05,494.65
+W183RPSTXXS,3-conductor-18-gauge-silver-rayon-pulley-cord,3-CONDUCTOR 18-GAUGE SILVER RAYON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,1,89.0,38.05,38.05
+W183RPWBXXF,3-conductor-18-gauge-walnut-brown-rayon-pulley-cord,3-CONDUCTOR 18-GAUGE WALNUT BROWN RAYON PULLEY CORD - UL-Listed,By the foot,active,,Wire,9999528,1.05,0.37,3699825.36
+W183RPWBXXS,3-conductor-18-gauge-walnut-brown-rayon-pulley-cord,3-CONDUCTOR 18-GAUGE WALNUT BROWN RAYON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,-2,89.0,38.05,
+W183RPWHXXF,3-conductor-18-gauge-white-rayon-pulley-cord,3-CONDUCTOR 18-GAUGE WHITE RAYON PULLEY CORD - UL-Listed,By the foot,active,,Wire,7,1.05,0.37,2.59
+W183RPWHXXMNS,3-conductor-18-gauge-white-rayon-pulley-cord,3-CONDUCTOR 18-GAUGE WHITE RAYON PULLEY CORD - UL-Listed,NON UL by the 100-foot spool,active,,Wire,13,89.0,38.05,494.65
+W183RPWHXXS,3-conductor-18-gauge-white-rayon-pulley-cord,3-CONDUCTOR 18-GAUGE WHITE RAYON PULLEY CORD - UL-Listed,By the 100-foot spool,active,,Wire,0,89.0,38.05,
+W202CTBKXXF,2-conductor-20-gauge-black-cotton-twisted-wire,2-CONDUCTOR 20-GAUGE BLACK COTTON TWISTED WIRE,By the foot,active,,Wire,110,1.2,0.11,12.1
+W202CTBKXXS,2-conductor-20-gauge-black-cotton-twisted-wire,2-CONDUCTOR 20-GAUGE BLACK COTTON TWISTED WIRE,By the 100-foot spool,active,,Wire,9,55.0,11.92,107.28
+W202RTBKXXF,2-conductor-20-gauge-black-rayon-twisted-wire,2-CONDUCTOR 20-GAUGE BLACK RAYON TWISTED WIRE,By the foot,active,,Wire,4840,1.2,0.14,677.6
+W202RTBKXXS,2-conductor-20-gauge-black-rayon-twisted-wire,2-CONDUCTOR 20-GAUGE BLACK RAYON TWISTED WIRE,By the 100-foot spool,active,,Wire,8,55.0,15.56,124.48
+W202RTGDXXF,2-conductor-20-gauge-gold-rayon-twisted-wire,2-CONDUCTOR 20-GAUGE GOLD RAYON TWISTED WIRE,By the foot,active,,Wire,380,1.2,0.14,53.2
+W202RTGDXXS,2-conductor-20-gauge-gold-rayon-twisted-wire,2-CONDUCTOR 20-GAUGE GOLD RAYON TWISTED WIRE,By the 100-foot spool,active,,Wire,0,55.0,15.56,
+W202RTSTXXF,2-conductor-20-gauge-silver-rayon-twisted-wire,2-CONDUCTOR 20-GAUGE SILVER RAYON TWISTED WIRE,By the foot,active,,Wire,411,1.2,0.14,57.54
+W202RTSTXXS,2-conductor-20-gauge-silver-rayon-twisted-wire,2-CONDUCTOR 20-GAUGE SILVER RAYON TWISTED WIRE,By the 100-foot spool,active,,Wire,4,55.0,15.56,62.24
+W222CTBK250S,2-conductor-22-gauge-black-cotton-twisted-wire,2-CONDUCTOR 22-GAUGE BLACK COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,-2,80.0,29.18,
+W222CTBKXXF,2-conductor-22-gauge-black-cotton-twisted-wire,2-CONDUCTOR 22-GAUGE BLACK COTTON TWISTED WIRE,By the foot,active,,Wire,0,1.0,0.11,
+W222CTBKXXS,2-conductor-22-gauge-black-cotton-twisted-wire,2-CONDUCTOR 22-GAUGE BLACK COTTON TWISTED WIRE,By the 100-foot spool,active,,Wire,0,40.0,11.92,
+W222CTDB250S,2-conductor-22-gauge-dark-brown-cotton-twisted-wire,2-CONDUCTOR 22-GAUGE DARK BROWN COTTON TWISTED WIRE,By the 250-foot spool,active,,Wire,3,80.0,29.4,88.2
+W222CTDBXXF,2-conductor-22-gauge-dark-brown-cotton-twisted-wire,2-CONDUCTOR 22-GAUGE DARK BROWN COTTON TWISTED WIRE,By the foot,active,,Wire,-50,1.0,0.11,
+W222CTDBXXS,2-conductor-22-gauge-dark-brown-cotton-twisted-wire,2-CONDUCTOR 22-GAUGE DARK BROWN COTTON TWISTED WIRE,By the 100-foot spool,active,,Wire,0,40.0,12.01,
+W222RTBKXXF,2-conductor-22-gauge-black-rayon-twisted-wire,2-CONDUCTOR 22-GAUGE BLACK RAYON TWISTED WIRE,By the foot,active,,Wire,0,1.0,0.14,
+W222RTBKXXS,2-conductor-22-gauge-black-rayon-twisted-wire,2-CONDUCTOR 22-GAUGE BLACK RAYON TWISTED WIRE,By the 100-foot spool,active,,Wire,0,40.0,15.56,
+W222RTGDXXF,2-conductor-22-gauge-gold-rayon-twisted-wire,2-CONDUCTOR 22-GAUGE GOLD RAYON TWISTED WIRE,By the foot,active,,Wire,0,1.0,0.14,
+W222RTGDXXS,2-conductor-22-gauge-gold-rayon-twisted-wire,2-CONDUCTOR 22-GAUGE GOLD RAYON TWISTED WIRE,By the 100-foot spool,active,,Wire,0,40.0,15.56,
+W222RTWHXXF,2-conductor-22-gauge-white-rayon-twisted-wire,2-CONDUCTOR 22-GAUGE WHITE RAYON TWISTED WIRE,By the foot,active,,Wire,285,1.0,0.14,39.9
+W222RTWHXXS,2-conductor-22-gauge-white-rayon-twisted-wire,2-CONDUCTOR 22-GAUGE WHITE RAYON TWISTED WIRE,By the 100-foot spool,active,,Wire,3,40.0,15.56,46.68
+WCUTMX18MX10,wire-cutting,Wire Cutting,Default Title,active,,Wire Cutting,150,0.3,,
+WIRECHNG,wire-change,Wire Change,Default Title,active,,,-1,10.0,,

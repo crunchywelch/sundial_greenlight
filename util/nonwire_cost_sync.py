@@ -2,23 +2,16 @@
 """
 Compare and sync non-wire product costs to the Sundial Wire Shopify store.
 
-Reads the consolidated cost CSV (docs/nonwire_costs.csv) and compares against
-current Shopify variant costs. Reports differences and optionally updates
-Shopify to match.
-
-The cost CSV is the source of truth, built from:
-  - Satco PO costs (PO 1011, PO 1013)
-  - Satco negotiated price sheet (customer SUNNMA0)
-  - B&P Lamp Supply pricing
-  - Catalog-based estimates with vendor discount ratios
+Reads the consolidated cost data from SQLite (sku_costs table) and compares
+against current Shopify variant costs. Reports differences and optionally
+updates Shopify to match.
 
 Usage:
     python util/nonwire_cost_sync.py           # Preview differences
-    python util/nonwire_cost_sync.py --fix     # Update Shopify to match CSV
+    python util/nonwire_cost_sync.py --fix     # Update Shopify to match DB
 """
 
 import sys
-import csv
 import json
 import argparse
 from pathlib import Path
@@ -28,34 +21,19 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import shopify
 from greenlight.shopify_client import get_wire_shopify_session, close_shopify_session
+from util.sundial_db import get_db
 
-CSV_PATH = Path(__file__).parent.parent / "docs" / "nonwire_costs.csv"
 
+def load_db_costs(conn):
+    """Load non-wire SKU costs from SQLite.
 
-def load_csv_costs(csv_path):
-    """Parse the non-wire cost CSV into a dict of SKU -> {cost, vendor, notes}.
-
-    Skips comment lines (starting with #) and blank rows.
+    Returns dict of SKU -> {cost, vendor, notes}.
     """
-    sku_costs = {}
-    with open(csv_path, newline="", encoding="utf-8") as f:
-        lines = [line for line in f if not line.startswith("#")]
-
-    reader = csv.DictReader(lines)
-    for row in reader:
-        sku = (row.get("SKU") or "").strip()
-        cost_str = (row.get("Cost") or "").strip()
-        if not sku or not cost_str:
-            continue
-        try:
-            sku_costs[sku] = {
-                "cost": float(cost_str),
-                "vendor": (row.get("Vendor") or "").strip(),
-                "notes": (row.get("Notes") or "").strip(),
-            }
-        except ValueError:
-            continue
-    return sku_costs
+    rows = conn.execute(
+        "SELECT sku, cost, vendor, notes FROM sku_costs"
+    ).fetchall()
+    return {row["sku"]: {"cost": row["cost"], "vendor": row["vendor"] or "",
+                         "notes": row["notes"] or ""} for row in rows}
 
 
 def fetch_nonwire_variants():
@@ -142,28 +120,28 @@ def fetch_nonwire_variants():
         close_shopify_session()
 
 
-def compare_costs(csv_costs, shopify_variants):
-    """Compare CSV costs against Shopify and categorize results."""
-    csv_skus = set(csv_costs.keys())
+def compare_costs(db_costs, shopify_variants):
+    """Compare DB costs against Shopify and categorize results."""
+    db_skus = set(db_costs.keys())
     shopify_skus = set(shopify_variants.keys())
 
     matches = []
     mismatches = []
 
-    for sku in sorted(csv_skus & shopify_skus):
-        csv_cost = csv_costs[sku]["cost"]
-        vendor = csv_costs[sku]["vendor"]
-        notes = csv_costs[sku]["notes"]
+    for sku in sorted(db_skus & shopify_skus):
+        db_cost = db_costs[sku]["cost"]
+        vendor = db_costs[sku]["vendor"]
+        notes = db_costs[sku]["notes"]
         shopify_cost = shopify_variants[sku]["cost"]
 
-        if shopify_cost is not None and abs(csv_cost - shopify_cost) <= 0.01:
+        if shopify_cost is not None and abs(db_cost - shopify_cost) <= 0.01:
             matches.append(sku)
         else:
             mismatches.append({
                 "sku": sku,
                 "vendor": vendor,
                 "notes": notes,
-                "csv_cost": csv_cost,
+                "db_cost": db_cost,
                 "shopify_cost": shopify_cost,
                 "variant_id": shopify_variants[sku]["variant_id"],
                 "product_id": shopify_variants[sku]["product_id"],
@@ -172,8 +150,8 @@ def compare_costs(csv_costs, shopify_variants):
     return {
         "matches": matches,
         "mismatches": mismatches,
-        "csv_only": sorted(csv_skus - shopify_skus),
-        "shopify_only": sorted(shopify_skus - csv_skus),
+        "db_only": sorted(db_skus - shopify_skus),
+        "shopify_only": sorted(shopify_skus - db_skus),
     }
 
 
@@ -222,7 +200,7 @@ def main():
         description="Compare and sync non-wire product costs to Shopify"
     )
     parser.add_argument(
-        "--fix", action="store_true", help="Update Shopify costs to match CSV"
+        "--fix", action="store_true", help="Update Shopify costs to match DB"
     )
     args = parser.parse_args()
 
@@ -230,10 +208,12 @@ def main():
     print("=" * 80)
     print()
 
-    # Load CSV costs
-    print(f"Loading costs from {CSV_PATH.name}...")
-    csv_costs = load_csv_costs(CSV_PATH)
-    print(f"   {len(csv_costs)} SKUs with cost data")
+    # Load DB costs
+    conn = get_db()
+    print("Loading costs from SQLite...")
+    db_costs = load_db_costs(conn)
+    conn.close()
+    print(f"   {len(db_costs)} SKUs with cost data")
     print()
 
     # Fetch Shopify data
@@ -243,11 +223,11 @@ def main():
     print()
 
     # Compare
-    results = compare_costs(csv_costs, shopify_variants)
+    results = compare_costs(db_costs, shopify_variants)
 
     matches = results["matches"]
     mismatches = results["mismatches"]
-    csv_only = results["csv_only"]
+    db_only = results["db_only"]
     shopify_only = results["shopify_only"]
 
     # Detail: mismatches
@@ -260,26 +240,26 @@ def main():
         print(f"Cost differences ({len(mismatches)}):")
         for m in mismatches:
             print(
-                f"   {m['sku']:25}  CSV {_fmt_cost(m['csv_cost']):>10}"
+                f"   {m['sku']:25}  DB {_fmt_cost(m['db_cost']):>10}"
                 f"   Shopify {_fmt_cost(m['shopify_cost']):>10}"
                 f"   [{m['vendor']}]"
             )
         print()
 
-    # Detail: CSV only
-    if csv_only:
-        print(f"In CSV but not in Shopify ({len(csv_only)}):")
-        for sku in csv_only:
+    # Detail: DB only
+    if db_only:
+        print(f"In DB but not in Shopify ({len(db_only)}):")
+        for sku in db_only:
             print(f"   {sku}")
         print()
 
     # Summary
     print("=" * 80)
-    print(f"CSV SKUs:           {len(csv_costs)}")
+    print(f"DB SKUs:            {len(db_costs)}")
     print(f"Shopify non-wire:   {len(shopify_variants)}")
     print(f"Cost matches:       {len(matches)}")
     print(f"Cost differences:   {len(mismatches)}")
-    print(f"In CSV only:        {len(csv_only)}")
+    print(f"In DB only:         {len(db_only)}")
     print(f"In Shopify only:    {len(shopify_only)}")
     print("=" * 80)
     print()
@@ -300,11 +280,11 @@ def main():
     failed = 0
 
     for m in mismatches:
-        ok, err = update_variant_cost(m["product_id"], m["variant_id"], m["csv_cost"])
+        ok, err = update_variant_cost(m["product_id"], m["variant_id"], m["db_cost"])
 
         if ok:
             prev = _fmt_cost(m["shopify_cost"])
-            print(f"   OK   {m['sku']:25}  {prev:>10} -> ${m['csv_cost']:.2f}")
+            print(f"   OK   {m['sku']:25}  {prev:>10} -> ${m['db_cost']:.2f}")
             fixed += 1
         else:
             print(f"   FAIL {m['sku']}: {err}")

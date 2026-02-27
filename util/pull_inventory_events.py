@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """
-Pull all inventory adjustment events from Shopify and cache locally.
+Pull all inventory adjustment events from Shopify and store in SQLite.
 
 Queries ShopifyQL inventory_adjustment_history in weekly batches to stay
-under the 1000-row query limit, and saves everything to a local CSV.
+under the 1000-row query limit, and saves to the SQLite database.
 
 This data can be used to back-calculate inventory levels at Dec 31, 2025
 by subtracting net changes from current (corrected) inventory counts.
 
 Usage:
-    python util/pull_inventory_events.py
+    python util/pull_inventory_events.py            # Pull and store in DB
+    python util/pull_inventory_events.py --export   # Also export CSV
 """
 
-import csv
+import argparse
 import json
 import os
 import sys
@@ -23,9 +24,11 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv
 
+from sundial_db import DATA_DIR, get_db, init_db, insert_inventory_events, export_csv
+
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-OUTPUT_CSV = Path(__file__).parent.parent / "docs" / "inventory_events_2026.csv"
+EXPORT_CSV = DATA_DIR / "exports" / "inventory_events_2026.csv"
 
 SHOP_URL = os.getenv("SHOPIFY_WIRE_SHOP_URL")
 TOKEN = os.getenv("SHOPIFY_WIRE_ACCESS_TOKEN")
@@ -88,6 +91,15 @@ def query_batch(since_days, until_days):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Pull inventory events from Shopify into SQLite"
+    )
+    parser.add_argument(
+        "--export", action="store_true",
+        help="Also export CSV to data/exports/"
+    )
+    args = parser.parse_args()
+
     print("Pulling inventory adjustment events from Shopify...")
     print(f"Store: {SHOP_URL}")
     print()
@@ -139,29 +151,48 @@ def main():
     print()
     print(f"Total events pulled: {len(all_rows)}")
 
-    # Write to CSV
-    fieldnames = [
-        "date", "sku", "change", "reason", "state", "staff",
-    ]
+    # Write to SQLite
+    conn = get_db()
+    init_db(conn)
 
-    with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        for row in all_rows:
-            writer.writerow({
-                "date": (row.get("day") or "")[:10],
-                "sku": row.get("product_variant_sku", ""),
-                "change": row.get("inventory_adjustment_change", ""),
-                "reason": row.get("inventory_change_reason", ""),
-                "state": row.get("inventory_state", ""),
-                "staff": row.get("staff_member_name", ""),
-            })
+    db_rows = []
+    for row in all_rows:
+        change_str = row.get("inventory_adjustment_change", "")
+        try:
+            change = int(float(change_str)) if change_str else 0
+        except (ValueError, TypeError):
+            change = 0
+        db_rows.append({
+            "event_date": (row.get("day") or "")[:10],
+            "sku": row.get("product_variant_sku", ""),
+            "change": change,
+            "reason": row.get("inventory_change_reason", ""),
+            "state": row.get("inventory_state", ""),
+            "staff": row.get("staff_member_name", ""),
+        })
 
-    print(f"Saved to: {OUTPUT_CSV}")
+    insert_inventory_events(conn, db_rows)
+
+    total = conn.execute("SELECT COUNT(*) FROM inventory_events").fetchone()[0]
+    print(f"Total events in database: {total}")
+
+    # Export CSV if requested
+    if args.export:
+        n = export_csv(
+            conn,
+            "SELECT event_date AS date, sku, change, reason, state, staff "
+            "FROM inventory_events ORDER BY event_date, sku",
+            EXPORT_CSV,
+        )
+        print(f"Exported {n} events to {EXPORT_CSV}")
 
     # Quick summary
-    skus = set(r.get("product_variant_sku", "") for r in all_rows if r.get("product_variant_sku"))
-    print(f"Unique SKUs with events: {len(skus)}")
+    skus = conn.execute(
+        "SELECT COUNT(DISTINCT sku) FROM inventory_events WHERE sku != ''"
+    ).fetchone()[0]
+    print(f"Unique SKUs with events: {skus}")
+
+    conn.close()
     print()
     print("Done!")
 

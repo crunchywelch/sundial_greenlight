@@ -9,4 +9,6 @@ shopify_app/public/build
 shopify_app/node_modules
 shopify_app/extensions/*/node_modules/
 shopify_app/extensions/*/dist
+data/imports/
+data/sundial.db
 
