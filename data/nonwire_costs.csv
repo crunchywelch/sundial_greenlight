@@ -1,4 +1,51 @@
 SKU,Cost,Vendor,Notes
+# Knobs Tubes Cleats - purchased from sellers by grade
+CCLEAT-GF,0.25,,Fair grade
+CCLEAT-GG,0.50,,Good grade
+CCLEAT-GNOS,0.75,,New Old Stock grade
+CCLEAT-UF,0.25,,Fair grade
+CCLEAT-UG,0.50,,Good grade
+CCLEAT-UNOS,0.75,,New Old Stock grade
+CKNOB-G1F,0.25,,Fair grade
+CKNOB-G1G,0.50,,Good grade
+CKNOB-G1NOS,0.75,,New Old Stock grade
+CKNOB-GF,0.25,,Fair grade
+CKNOB-GG,0.50,,Good grade
+CKNOB-GNOS,0.75,,New Old Stock grade
+CKNOB-GWLF,0.25,,Fair grade
+CKNOB-GWLG,0.50,,Good grade
+CKNOB-GWLNOS,0.75,,New Old Stock grade
+CKNOB-GWMF,0.25,,Fair grade
+CKNOB-GWMG,0.50,,Good grade
+CKNOB-GWMNOS,0.75,,New Old Stock grade
+CKNOB-GWSF,0.25,,Fair grade
+CKNOB-GWSG,0.50,,Good grade
+CKNOB-GWSNOS,0.75,,New Old Stock grade
+CKNOB-U1F,0.25,,Fair grade
+CKNOB-U1G,0.50,,Good grade
+CKNOB-U1NOS,0.75,,New Old Stock grade
+CKNOB-UF,0.25,,Fair grade
+CKNOB-UG,0.50,,Good grade
+CKNOB-UNOS,0.75,,New Old Stock grade
+CKNOB-UWLF,0.25,,Fair grade
+CKNOB-UWLG,0.50,,Good grade
+CKNOB-UWLNOS,0.75,,New Old Stock grade
+CKNOB-UWMF,0.25,,Fair grade
+CKNOB-UWMG,0.50,,Good grade
+CKNOB-UWMNOS,0.75,,New Old Stock grade
+CKNOB-UWSG,0.50,,Good grade
+CTUBE-3F,0.25,,Fair grade
+CTUBE-3G,0.50,,Good grade
+CTUBE-3NOS,0.75,,New Old Stock grade
+CTUBE-4F,0.25,,Fair grade
+CTUBE-4G,0.50,,Good grade
+CTUBE-4NOS,0.75,,New Old Stock grade
+CTUBE-5F,0.25,,Fair grade
+CTUBE-5G,0.50,,Good grade
+CTUBE-5NOS,0.75,,New Old Stock grade
+CTUBE-6F,0.25,,Fair grade
+CTUBE-6G,0.50,,Good grade
+CTUBE-6NOS,0.75,,New Old Stock grade
 # Bulbs - Satco
 BA194L40,2.95,Satco,Est (PO price for 60W same product S2419)
 BA194L60,2.95,Satco,PO 1011 S2419
