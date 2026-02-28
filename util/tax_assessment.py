@@ -16,11 +16,15 @@ Usage:
 
 import argparse
 import csv
+import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from util.wire.sundial_wire_db import DATA_DIR, get_db
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from util.wire.sundial_wire_db import DATA_DIR, get_db, init_db, update_last_received
+
+import shopify
+from greenlight.shopify_client import get_shopify_session, close_shopify_session
 
 OUTPUT_DIR = DATA_DIR / "exports"
 
@@ -43,6 +47,8 @@ CATEGORY_MAP = {
     "Installed Switch": ("Switches", "Finished Goods or Products"),
     "Tape": ("Tape", "Finished Goods or Products"),
     "Miscellaneous": ("Miscellaneous", "Finished Goods or Products"),
+    # Audio cables (synthetic product_type set by fetch_audio_inventory)
+    "Audio Cable": ("Audio Cables", "Finished Goods or Products"),
     "Knob & Tube": ("Knobs, Tubes, Cleats", "Finished Goods or Products"),
     # Wire
     "Wire": ("Wire", "Finished Goods or Products"),
@@ -91,6 +97,7 @@ GROUP_ORDER = [
     "Pendants",
     "Lighting",
     "Wire",
+    "Audio Cables",
     "Miscellaneous",
 ]
 
@@ -105,12 +112,117 @@ FIELDNAMES = [
 ]
 
 
+def fetch_audio_inventory():
+    """Fetch audio cable inventory from the audio Shopify store.
+
+    Returns list of dicts matching the wire inventory schema:
+    sku, product_type, title, option, qty, unit_cost, price.
+    """
+    try:
+        session = get_shopify_session()
+
+        items = []
+        has_next_page = True
+        cursor = None
+
+        query = """
+        query getProducts($limit: Int!, $cursor: String) {
+            products(first: $limit, after: $cursor) {
+                pageInfo { hasNextPage endCursor }
+                edges {
+                    node {
+                        title
+                        productType
+                        status
+                        variants(first: 100) {
+                            edges {
+                                node {
+                                    sku
+                                    title
+                                    price
+                                    inventoryQuantity
+                                    inventoryItem {
+                                        unitCost {
+                                            amount
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        while has_next_page:
+            variables = {"limit": 250, "cursor": cursor}
+            result = shopify.GraphQL().execute(query, variables=variables)
+            data = json.loads(result)
+
+            if "errors" in data:
+                print(f"GraphQL errors: {data['errors']}")
+                break
+
+            products_data = data.get("data", {}).get("products", {})
+            edges = products_data.get("edges", [])
+            page_info = products_data.get("pageInfo", {})
+
+            for edge in edges:
+                product = edge["node"]
+                if product.get("status") != "ACTIVE":
+                    continue
+
+                for v_edge in product.get("variants", {}).get("edges", []):
+                    v = v_edge["node"]
+                    sku = (v.get("sku") or "").strip()
+                    if not sku:
+                        continue
+
+                    qty = v.get("inventoryQuantity", 0)
+                    if qty <= 0:
+                        continue
+
+                    inv = v.get("inventoryItem") or {}
+                    unit_cost_data = inv.get("unitCost") or {}
+                    unit_cost = float(unit_cost_data["amount"]) if unit_cost_data.get("amount") else None
+                    price = float(v["price"]) if v.get("price") else None
+
+                    variant_title = v.get("title", "")
+                    if variant_title == "Default Title":
+                        variant_title = ""
+
+                    items.append({
+                        "sku": sku,
+                        "product_type": "Audio Cable",
+                        "title": product["title"],
+                        "option": variant_title,
+                        "qty": qty,
+                        "unit_cost": unit_cost,
+                        "price": price,
+                        "year_manufactured": "2025",
+                        "year_purchased": "",
+                    })
+
+            has_next_page = page_info.get("hasNextPage", False)
+            cursor = page_info.get("endCursor")
+
+        return items
+
+    except Exception as e:
+        print(f"Error fetching audio inventory: {e}")
+        return []
+    finally:
+        close_shopify_session()
+
+
 def load_inventory(conn):
     """Load all in-stock products with costs from SQLite."""
     rows = conn.execute("""
         SELECT
             p.sku, p.title, p.option, p.product_type, p.qty, p.price,
-            COALESCE(s.cost, sc.cost) AS unit_cost
+            COALESCE(s.cost, sc.cost) AS unit_cost,
+            p.last_received
         FROM products p
         LEFT JOIN (
             SELECT sku, cost FROM inventory_snapshots
@@ -145,6 +257,27 @@ def build_description(item):
 def generate_report(conn, tax_year):
     """Generate the assessment report."""
     items = load_inventory(conn)
+
+    # Derive manufacture/purchase year from last_received date
+    cutoff_year = 2024
+    kt_prefixes = ("CCLEAT", "CKNOB", "CTUBE")
+    for item in items:
+        lr = item.get("last_received") or ""
+        sku = item["sku"]
+        if any(sku.startswith(p) for p in kt_prefixes):
+            # Knob & tube: antique items we purchased
+            item["year_manufactured"] = "1880-1920"
+            item["year_purchased"] = lr[:4] if lr else f"before {cutoff_year}"
+        elif lr:
+            item["year_manufactured"] = lr[:4]
+            item["year_purchased"] = ""
+        else:
+            item["year_manufactured"] = f"before {cutoff_year}"
+            item["year_purchased"] = ""
+
+    # Fetch audio cable inventory from Shopify and merge
+    audio_items = fetch_audio_inventory()
+    items.extend(audio_items)
 
     # Group items by assessment category
     groups = {}
@@ -210,8 +343,8 @@ def generate_report(conn, tax_year):
                 "Own/Other": "own",
                 "Type": assess_type,
                 "Description": build_description(item),
-                "Year of Manufacture": "",
-                "Year of purchase": f"~last 3 years",
+                "Year of Manufacture": item.get("year_manufactured", ""),
+                "Year of purchase": item.get("year_purchased", ""),
                 "Purchase price": f"{purchase_price:.2f}" if purchase_price else "",
                 "Estimated market value": f"{market_value:.2f}" if market_value else "",
             })
@@ -287,6 +420,8 @@ def main():
     print()
 
     conn = get_db()
+    init_db(conn)
+    update_last_received(conn)
     rows, grand_cost, grand_value = generate_report(conn, args.year)
     conn.close()
 

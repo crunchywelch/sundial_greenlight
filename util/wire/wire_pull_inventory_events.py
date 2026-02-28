@@ -24,7 +24,7 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv
 
-from sundial_wire_db import DATA_DIR, get_db, init_db, insert_inventory_events, export_csv
+from sundial_wire_db import DATA_DIR, get_db, init_db, insert_inventory_events, update_last_received, export_csv
 
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
@@ -52,10 +52,17 @@ SHOW_COLS = ", ".join(COLUMNS[2:3])  # the measure
 GROUP_COLS = ", ".join([COLUMNS[0]] + COLUMNS[1:2] + COLUMNS[3:])  # dimensions
 
 
+EARLIEST_START = date(2025, 8, 16)
+
+
 def query_batch(since_days, until_days):
     """Query one batch of inventory events using relative day offsets."""
     shopifyql = (
         f"FROM inventory_adjustment_history "
+        f"WHERE inventory_change_reason != 'purchase' "
+        f"AND inventory_change_reason != 'order_fulfilled' "
+        f"AND inventory_change_reason != 'order_edited' "
+        f"AND inventory_change_reason != 'order_cancellation' "
         f"SHOW {SHOW_COLS} "
         f"GROUP BY {GROUP_COLS} "
         f"SINCE -{since_days}d "
@@ -100,18 +107,27 @@ def main():
     )
     args = parser.parse_args()
 
-    print("Pulling inventory adjustment events from Shopify...")
-    print(f"Store: {SHOP_URL}")
-    print()
+    conn = get_db()
+    init_db(conn)
+
+    # Resume from the latest event in the DB
+    latest_event = conn.execute(
+        "SELECT MAX(event_date) FROM inventory_events"
+    ).fetchone()[0]
+    start = date.fromisoformat(latest_event) if latest_event else EARLIEST_START
 
     today = date.today()
-    start = date(2026, 1, 1)
-    all_rows = []
+    total_pulled = 0
 
-    # Pull in weekly batches
+    print("Pulling inventory adjustment events from Shopify...")
+    print(f"Store: {SHOP_URL}")
+    print(f"From:  {start}")
+    print()
+
+    # Pull in monthly batches, writing to DB after each
     batch_start = start
     while batch_start < today:
-        batch_end = min(batch_start + timedelta(days=7), today)
+        batch_end = min(batch_start + timedelta(days=30), today)
 
         since_days = (today - batch_start).days
         until_days = (today - batch_end).days
@@ -137,41 +153,48 @@ def main():
             batch_start = batch_end
             continue
 
-        all_rows.extend(rows)
         hit_limit = " ** HIT LIMIT **" if len(rows) >= 1000 else ""
         print(f"{len(rows)} events{hit_limit}")
 
         if len(rows) >= 1000:
             print(f"  WARNING: batch {label} hit 1000 row limit, data may be incomplete!")
 
+        # Write batch to DB immediately so progress is saved
+        if rows:
+            keep_reasons = {"received", "correction", "initial_adjustment",
+                            "manual_adjustment", "restock"}
+            db_rows = []
+            for row in rows:
+                reason = row.get("inventory_change_reason", "")
+                if reason not in keep_reasons:
+                    continue
+                change_str = row.get("inventory_adjustment_change", "")
+                try:
+                    change = int(float(change_str)) if change_str else 0
+                except (ValueError, TypeError):
+                    change = 0
+                if change <= 0:
+                    continue
+                db_rows.append({
+                    "event_date": (row.get("day") or "")[:10],
+                    "sku": row.get("product_variant_sku", ""),
+                    "change": change,
+                    "reason": reason,
+                    "state": row.get("inventory_state", ""),
+                    "staff": row.get("staff_member_name", ""),
+                })
+            if db_rows:
+                insert_inventory_events(conn, db_rows)
+            total_pulled += len(db_rows)
+
         batch_start = batch_end
-        # Small delay to avoid rate limits
-        time.sleep(2)
+        # Delay to avoid rate limits
+        time.sleep(4)
 
     print()
-    print(f"Total events pulled: {len(all_rows)}")
+    print(f"Total events pulled: {total_pulled}")
 
-    # Write to SQLite
-    conn = get_db()
-    init_db(conn)
-
-    db_rows = []
-    for row in all_rows:
-        change_str = row.get("inventory_adjustment_change", "")
-        try:
-            change = int(float(change_str)) if change_str else 0
-        except (ValueError, TypeError):
-            change = 0
-        db_rows.append({
-            "event_date": (row.get("day") or "")[:10],
-            "sku": row.get("product_variant_sku", ""),
-            "change": change,
-            "reason": row.get("inventory_change_reason", ""),
-            "state": row.get("inventory_state", ""),
-            "staff": row.get("staff_member_name", ""),
-        })
-
-    insert_inventory_events(conn, db_rows)
+    update_last_received(conn)
 
     total = conn.execute("SELECT COUNT(*) FROM inventory_events").fetchone()[0]
     print(f"Total events in database: {total}")

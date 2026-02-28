@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS products (
     qty INTEGER DEFAULT 0,
     price REAL,
     is_wire INTEGER DEFAULT 0,
+    last_received TEXT,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -137,6 +138,10 @@ def init_db(conn=None):
         conn = get_db()
         close = True
     conn.executescript(SCHEMA_SQL)
+    # Migrate: add last_received column if missing (existing databases)
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(products)").fetchall()]
+    if "last_received" not in cols:
+        conn.execute("ALTER TABLE products ADD COLUMN last_received TEXT")
     conn.commit()
     if close:
         conn.close()
@@ -206,6 +211,25 @@ def insert_inventory_events(conn, rows):
            VALUES (:event_date, :sku, :change, :reason, :state, :staff)""",
         rows,
     )
+    conn.commit()
+
+
+def update_last_received(conn):
+    """Update products.last_received from inventory events.
+
+    Sets last_received to the most recent event date where inventory was
+    added (change > 0) for each SKU.
+    """
+    conn.execute("""
+        UPDATE products SET last_received = (
+            SELECT MAX(event_date) FROM inventory_events
+            WHERE inventory_events.sku = products.sku
+              AND change > 0
+        )
+        WHERE sku IN (
+            SELECT DISTINCT sku FROM inventory_events WHERE change > 0
+        )
+    """)
     conn.commit()
 
 
