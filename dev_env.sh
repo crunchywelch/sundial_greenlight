@@ -59,8 +59,14 @@ fi
 # Add arduino-cli to PATH
 export PATH="$HOME/.local/bin:$PATH"
 
+# Install arduino-cli if not found
+if ! command -v arduino-cli >/dev/null 2>&1; then
+  echo "[+] Installing arduino-cli..."
+  curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR="$HOME/.local/bin" sh
+fi
+
 echo ""
 echo "To deactivate: deactivate"
 echo "Run the app with: python -m greenlight.main"
-echo "Arduino CLI available: $(which arduino-cli 2>/dev/null || echo 'not found')"
+echo "Arduino CLI: $(arduino-cli version 2>/dev/null || echo 'not found')"
 
