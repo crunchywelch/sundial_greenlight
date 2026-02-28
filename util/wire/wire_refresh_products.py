@@ -130,28 +130,19 @@ def fetch_all_products():
         close_shopify_session()
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Refresh product data from Shopify Wire store into SQLite"
-    )
-    parser.add_argument("--sku", help="Show data for a specific SKU after refresh")
-    args = parser.parse_args()
+def refresh_from_shopify(conn):
+    """Fetch latest product data from Shopify and update SQLite.
 
-    print("Refreshing products from Shopify Wire store...")
-    print()
-
+    Returns (product_count, snapshot_count).
+    """
     items = fetch_all_products()
     print(f"  Fetched {len(items)} variants from Shopify")
 
-    conn = get_db()
     init_db(conn)
-
     today = date.today().isoformat()
 
-    # Update products table
     upsert_products(conn, items)
 
-    # Update inventory snapshots with current costs
     snapshot_count = 0
     for item in items:
         if item["cost"] is not None:
@@ -163,6 +154,22 @@ def main():
     print(f"  Updated {len(items)} products")
     print(f"  Updated {snapshot_count} inventory snapshots (date: {today})")
     print()
+
+    return len(items), snapshot_count
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Refresh product data from Shopify Wire store into SQLite"
+    )
+    parser.add_argument("--sku", help="Show data for a specific SKU after refresh")
+    args = parser.parse_args()
+
+    print("Refreshing products from Shopify Wire store...")
+    print()
+
+    conn = get_db()
+    refresh_from_shopify(conn)
 
     # Summary
     wire = conn.execute("SELECT COUNT(*) FROM products WHERE is_wire = 1").fetchone()[0]

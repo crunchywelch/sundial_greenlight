@@ -18,6 +18,7 @@ Usage:
 import re
 import sys
 import argparse
+from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
 from sundial_wire_db import get_db
@@ -201,6 +202,23 @@ def main():
     args = parser.parse_args()
 
     conn = get_db()
+
+    # Check data freshness
+    row = conn.execute("SELECT MAX(DATE(updated_at)) as last_date FROM products").fetchone()
+    last_updated = row["last_date"] if row else None
+    today = date.today().isoformat()
+
+    if last_updated and last_updated < today:
+        print(f"Product data last refreshed: {last_updated}")
+        answer = input("Refresh from Shopify before proceeding? [y/N] ").strip().lower()
+        if answer == "y":
+            from wire_refresh_products import refresh_from_shopify
+            refresh_from_shopify(conn)
+        print()
+    elif last_updated:
+        print(f"Product data last refreshed: {last_updated} (current)")
+        print()
+
     yarn_costs = load_yarn_costs(conn)
     skus = load_wire_skus(conn)
     conn.close()

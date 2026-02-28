@@ -14,6 +14,7 @@ Usage:
 import sys
 import json
 import argparse
+from datetime import date
 from pathlib import Path
 
 # Add project root to path
@@ -212,8 +213,23 @@ def main():
     print("=" * 70)
     print()
 
-    # Load DB costs
+    # Check data freshness
     conn = get_db()
+    row = conn.execute("SELECT MAX(DATE(updated_at)) as last_date FROM products").fetchone()
+    last_updated = row["last_date"] if row else None
+    today = date.today().isoformat()
+
+    if last_updated and last_updated < today:
+        print(f"   Product data last refreshed: {last_updated}")
+        answer = input("   Refresh from Shopify before proceeding? [y/N] ").strip().lower()
+        if answer == "y":
+            from util.wire.wire_refresh_products import refresh_from_shopify
+            refresh_from_shopify(conn)
+    elif last_updated:
+        print(f"   Product data last refreshed: {last_updated} (current)")
+    print()
+
+    # Load DB costs
     print("Loading costs from SQLite...")
     db_costs = load_db_costs(conn)
     conn.close()
