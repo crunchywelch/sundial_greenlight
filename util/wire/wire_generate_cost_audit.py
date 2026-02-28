@@ -16,7 +16,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from sundial_db import DATA_DIR, get_db, export_csv
+from sundial_wire_db import DATA_DIR, get_db, export_csv
 
 NONWIRE_OUTPUT = DATA_DIR / "exports" / "nonwire_cost_audit.csv"
 WIRE_OUTPUT = DATA_DIR / "exports" / "wire_cost_audit.csv"

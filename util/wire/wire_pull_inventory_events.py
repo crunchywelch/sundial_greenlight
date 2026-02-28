@@ -24,7 +24,7 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv
 
-from sundial_db import DATA_DIR, get_db, init_db, insert_inventory_events, export_csv
+from sundial_wire_db import DATA_DIR, get_db, init_db, insert_inventory_events, export_csv
 
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 

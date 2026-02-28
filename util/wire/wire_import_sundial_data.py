@@ -16,7 +16,7 @@ from pathlib import Path
 
 import yaml
 
-from sundial_db import (
+from sundial_wire_db import (
     DATA_DIR,
     get_db,
     init_db,

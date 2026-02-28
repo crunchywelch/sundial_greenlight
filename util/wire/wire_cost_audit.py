@@ -20,7 +20,7 @@ import sys
 import argparse
 from decimal import Decimal, ROUND_HALF_UP
 
-from sundial_db import get_db
+from sundial_wire_db import get_db
 
 # Wire conductor cost per foot for each SKU pattern (family + braid + style).
 # Values from wire_cost_data.yaml wire_costs and lamp_cordPricing-skus.csv.
