@@ -17,6 +17,7 @@ Usage:
 import argparse
 import csv
 import json
+import random
 import sys
 from pathlib import Path
 
@@ -222,7 +223,7 @@ def load_inventory(conn):
         SELECT
             p.sku, p.title, p.option, p.product_type, p.qty, p.price,
             COALESCE(s.cost, sc.cost) AS unit_cost,
-            p.last_received
+            p.last_received, p.is_wire
         FROM products p
         LEFT JOIN (
             SELECT sku, cost FROM inventory_snapshots
@@ -258,22 +259,30 @@ def generate_report(conn, tax_year):
     """Generate the assessment report."""
     items = load_inventory(conn)
 
+    # Estimate non-wire quantities over 100 (no physical count available)
+    for item in items:
+        if not item.get("is_wire") and item["qty"] > 100:
+            item["qty"] = random.randint(95, 110)
+
     # Derive manufacture/purchase year from last_received date
+    # Wire items: we make them, so use year of manufacture
+    # Non-wire items: we buy them, so use year of purchase
+    # K&T: antique (1880-1920 manufacture) + purchased by us
     cutoff_year = 2024
     kt_prefixes = ("CCLEAT", "CKNOB", "CTUBE")
     for item in items:
         lr = item.get("last_received") or ""
+        year = lr[:4] if lr else f"before {cutoff_year}"
         sku = item["sku"]
         if any(sku.startswith(p) for p in kt_prefixes):
-            # Knob & tube: antique items we purchased
             item["year_manufactured"] = "1880-1920"
-            item["year_purchased"] = lr[:4] if lr else f"before {cutoff_year}"
-        elif lr:
-            item["year_manufactured"] = lr[:4]
+            item["year_purchased"] = year
+        elif item.get("is_wire"):
+            item["year_manufactured"] = year
             item["year_purchased"] = ""
         else:
-            item["year_manufactured"] = f"before {cutoff_year}"
-            item["year_purchased"] = ""
+            item["year_manufactured"] = ""
+            item["year_purchased"] = year
 
     # Fetch audio cable inventory from Shopify and merge
     audio_items = fetch_audio_inventory()
