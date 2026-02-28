@@ -7,7 +7,7 @@ reconciliation workflow. The SQLite database consolidates data from Shopify
 exports, vendor worksheets, and cost CSVs into a single queryable store.
 
 Usage:
-    from util.sundial_db import get_db, init_db, upsert_products
+    from util.wire.sundial_db import get_db, init_db, upsert_products
 
     db = get_db()
     init_db(db)
@@ -18,7 +18,7 @@ import csv
 import sqlite3
 from pathlib import Path
 
-DATA_DIR = Path(__file__).parent.parent / "data"
+DATA_DIR = Path(__file__).parent.parent.parent / "data"
 DEFAULT_DB = DATA_DIR / "sundial.db"
 
 SCHEMA_SQL = """

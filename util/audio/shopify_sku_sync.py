@@ -11,9 +11,9 @@ This script:
    - SKUs in both (with inventory comparison)
 
 Usage:
-    python util/shopify_sku_sync.py              # Full comparison report
-    python util/shopify_sku_sync.py --missing    # Show only missing SKUs
-    python util/shopify_sku_sync.py --orphaned   # Show only orphaned SKUs
+    python util/audio/shopify_sku_sync.py              # Full comparison report
+    python util/audio/shopify_sku_sync.py --missing    # Show only missing SKUs
+    python util/audio/shopify_sku_sync.py --orphaned   # Show only orphaned SKUs
 """
 
 import sys
@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Dict, Set
 
 # Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from greenlight.db import pg_pool
 from greenlight.shopify_client import get_all_product_skus

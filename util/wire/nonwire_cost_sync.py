@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Compare and sync product costs from SQLite to the Wire Shopify store.
+Compare and sync non-wire product costs to the Sundial Wire Shopify store.
 
-Reads wire product costs from the SQLite database (inventory_snapshots) and
-compares against Shopify variant costs. Reports differences and optionally
+Reads the consolidated cost data from SQLite (sku_costs table) and compares
+against current Shopify variant costs. Reports differences and optionally
 updates Shopify to match.
 
 Usage:
-    python util/wire_cost_sync.py           # Preview differences
-    python util/wire_cost_sync.py --fix     # Update Shopify to match DB
+    python util/nonwire_cost_sync.py           # Preview differences
+    python util/nonwire_cost_sync.py --fix     # Update Shopify to match DB
 """
 
 import sys
@@ -21,32 +21,26 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import shopify
 from greenlight.shopify_client import get_wire_shopify_session, close_shopify_session
-from util.sundial_db import get_db
+from util.wire.sundial_db import get_db
 
 
 def load_db_costs(conn):
-    """Load wire SKU costs from SQLite.
+    """Load non-wire SKU costs from SQLite.
 
-    Returns dict of SKU -> {cost, option}.
+    Returns dict of SKU -> {cost, vendor, notes}.
     """
-    rows = conn.execute("""
-        SELECT p.sku, s.cost, p.option
-        FROM products p
-        JOIN (
-            SELECT sku, cost FROM inventory_snapshots
-            WHERE (sku, snapshot_date) IN (
-                SELECT sku, MAX(snapshot_date) FROM inventory_snapshots GROUP BY sku
-            )
-        ) s ON p.sku = s.sku
-        WHERE p.is_wire = 1 AND s.cost IS NOT NULL
-    """).fetchall()
-    return {row["sku"]: {"cost": row["cost"], "option": row["option"] or ""} for row in rows}
+    rows = conn.execute(
+        "SELECT sku, cost, vendor, notes FROM sku_costs"
+    ).fetchall()
+    return {row["sku"]: {"cost": row["cost"], "vendor": row["vendor"] or "",
+                         "notes": row["notes"] or ""} for row in rows}
 
 
-def fetch_wire_variants():
-    """Fetch all variants from the Wire Shopify store with cost data.
+def fetch_nonwire_variants():
+    """Fetch all non-wire variants from the Shopify store with cost data.
 
     Returns dict mapping SKU -> variant details.
+    Excludes W-prefix (wire) SKUs.
     """
     try:
         session = get_wire_shopify_session()
@@ -101,7 +95,7 @@ def fetch_wire_variants():
                 for v_edge in product.get("variants", {}).get("edges", []):
                     v = v_edge["node"]
                     sku = (v.get("sku") or "").strip()
-                    if not sku or not sku.startswith("W"):
+                    if not sku or sku.startswith("W"):
                         continue
 
                     inv = v.get("inventoryItem") or {}
@@ -120,7 +114,7 @@ def fetch_wire_variants():
         return variants
 
     except Exception as e:
-        print(f"   Error fetching wire store variants: {e}")
+        print(f"   Error fetching store variants: {e}")
         return {}
     finally:
         close_shopify_session()
@@ -136,7 +130,8 @@ def compare_costs(db_costs, shopify_variants):
 
     for sku in sorted(db_skus & shopify_skus):
         db_cost = db_costs[sku]["cost"]
-        db_option = db_costs[sku]["option"]
+        vendor = db_costs[sku]["vendor"]
+        notes = db_costs[sku]["notes"]
         shopify_cost = shopify_variants[sku]["cost"]
 
         if shopify_cost is not None and abs(db_cost - shopify_cost) <= 0.01:
@@ -144,7 +139,8 @@ def compare_costs(db_costs, shopify_variants):
         else:
             mismatches.append({
                 "sku": sku,
-                "option": db_option,
+                "vendor": vendor,
+                "notes": notes,
                 "db_cost": db_cost,
                 "shopify_cost": shopify_cost,
                 "variant_id": shopify_variants[sku]["variant_id"],
@@ -201,15 +197,15 @@ def update_variant_cost(product_id, variant_id, cost):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Compare and sync Wire store costs from SQLite to Shopify"
+        description="Compare and sync non-wire product costs to Shopify"
     )
     parser.add_argument(
         "--fix", action="store_true", help="Update Shopify costs to match DB"
     )
     args = parser.parse_args()
 
-    print("Wire Store Cost Sync")
-    print("=" * 70)
+    print("Non-Wire Product Cost Sync")
+    print("=" * 80)
     print()
 
     # Load DB costs
@@ -221,9 +217,9 @@ def main():
     print()
 
     # Fetch Shopify data
-    print("Fetching Wire store variants...")
-    shopify_variants = fetch_wire_variants()
-    print(f"   {len(shopify_variants)} variants from Shopify")
+    print("Fetching non-wire variants from Shopify...")
+    shopify_variants = fetch_nonwire_variants()
+    print(f"   {len(shopify_variants)} non-wire variants from Shopify")
     print()
 
     # Compare
@@ -234,33 +230,19 @@ def main():
     db_only = results["db_only"]
     shopify_only = results["shopify_only"]
 
-    # Summary
-    print("=" * 70)
-    print("Summary:")
-    print(f"   DB SKUs (with cost):   {len(db_costs)}")
-    print(f"   Shopify SKUs:          {len(shopify_variants)}")
-    print(f"   Cost matches:          {len(matches)}")
-    print(f"   Cost mismatches:       {len(mismatches)}")
-    print(f"   In DB only:            {len(db_only)}")
-    print(f"   In Shopify only:       {len(shopify_only)}")
-    print("=" * 70)
-    print()
-
     # Detail: mismatches
-    if mismatches:
-        def _fmt_cost(val):
-            if val is None:
-                return "not set"
-            return f"${val:.2f}"
+    def _fmt_cost(val):
+        if val is None:
+            return "not set"
+        return f"${val:.2f}"
 
-        print(f"Cost mismatches ({len(mismatches)}):")
+    if mismatches:
+        print(f"Cost differences ({len(mismatches)}):")
         for m in mismatches:
-            option = m.get("option", "")
-            option_str = f"  ({option})" if option else ""
             print(
                 f"   {m['sku']:25}  DB {_fmt_cost(m['db_cost']):>10}"
                 f"   Shopify {_fmt_cost(m['shopify_cost']):>10}"
-                f"{option_str}"
+                f"   [{m['vendor']}]"
             )
         print()
 
@@ -271,14 +253,16 @@ def main():
             print(f"   {sku}")
         print()
 
-    # Detail: Shopify only
-    if shopify_only:
-        print(f"In Shopify but not in DB ({len(shopify_only)}):")
-        for sku in shopify_only:
-            cost = shopify_variants[sku]["cost"]
-            cost_str = f"${cost:.2f}" if cost is not None else "not set"
-            print(f"   {sku:25}  cost: {cost_str}")
-        print()
+    # Summary
+    print("=" * 80)
+    print(f"DB SKUs:            {len(db_costs)}")
+    print(f"Shopify non-wire:   {len(shopify_variants)}")
+    print(f"Cost matches:       {len(matches)}")
+    print(f"Cost differences:   {len(mismatches)}")
+    print(f"In DB only:         {len(db_only)}")
+    print(f"In Shopify only:    {len(shopify_only)}")
+    print("=" * 80)
+    print()
 
     if not mismatches:
         print("All matched SKUs have correct costs!")
@@ -286,7 +270,6 @@ def main():
 
     if not args.fix:
         print(f"Run with --fix to update {len(mismatches)} Shopify variant costs.")
-        print(f"   Command: python util/wire_cost_sync.py --fix")
         return 0
 
     # Apply fixes
@@ -300,16 +283,17 @@ def main():
         ok, err = update_variant_cost(m["product_id"], m["variant_id"], m["db_cost"])
 
         if ok:
-            print(f"   OK   {m['sku']:25}  cost=${m['db_cost']:.2f}")
+            prev = _fmt_cost(m["shopify_cost"])
+            print(f"   OK   {m['sku']:25}  {prev:>10} -> ${m['db_cost']:.2f}")
             fixed += 1
         else:
             print(f"   FAIL {m['sku']}: {err}")
             failed += 1
 
     print()
-    print("=" * 70)
+    print("=" * 80)
     print(f"Done! Updated: {fixed}  Failed: {failed}")
-    print("=" * 70)
+    print("=" * 80)
 
     return 0
 

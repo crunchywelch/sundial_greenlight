@@ -7,8 +7,8 @@ and weight against Shopify product variants. Reports differences and
 optionally updates Shopify to match.
 
 Usage:
-    python util/shopify_price_sync.py           # Preview differences
-    python util/shopify_price_sync.py --fix     # Update Shopify to match YAML
+    python util/audio/shopify_price_sync.py           # Preview differences
+    python util/audio/shopify_price_sync.py --fix     # Update Shopify to match YAML
 """
 
 import sys
@@ -17,10 +17,10 @@ import argparse
 from pathlib import Path
 
 # Add util/ and project root to path
-sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from sync_skus import (
+from util.audio.sync_skus import (
     load_product_lines,
     load_patterns,
     get_patterns_for_fabric_type,
@@ -368,7 +368,7 @@ def main():
                         help='Update Shopify to match YAML values')
     args = parser.parse_args()
 
-    product_lines_dir = Path(__file__).parent / 'product_lines'
+    product_lines_dir = Path(__file__).parent.parent / 'product_lines'
 
     print("Shopify Price/Cost/Weight Sync")
     print("=" * 70)
@@ -447,7 +447,7 @@ def main():
 
     if not args.fix:
         print(f"Run with --fix to update Shopify.")
-        print(f"   Command: python util/shopify_price_sync.py --fix")
+        print(f"   Command: python util/audio/shopify_price_sync.py --fix")
         return 0
 
     # Apply fixes

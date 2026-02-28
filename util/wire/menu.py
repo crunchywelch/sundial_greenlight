@@ -3,7 +3,7 @@
 Simple menu for Sundial Wire data utilities.
 
 Usage:
-    python util/menu.py
+    python util/wire/menu.py
 """
 
 import subprocess

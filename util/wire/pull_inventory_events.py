@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 
 from sundial_db import DATA_DIR, get_db, init_db, insert_inventory_events, export_csv
 
-load_dotenv(Path(__file__).parent.parent / ".env")
+load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
 EXPORT_CSV = DATA_DIR / "exports" / "inventory_events_2026.csv"
 

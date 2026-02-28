@@ -7,8 +7,8 @@ customer) in Postgres with Shopify's available inventory.  The --fix flag
 sets Shopify to match Postgres for any mismatched SKUs.
 
 Usage:
-    python util/shopify_inventory_reconcile.py            # Report only
-    python util/shopify_inventory_reconcile.py --fix       # Fix mismatches
+    python util/audio/shopify_inventory_reconcile.py            # Report only
+    python util/audio/shopify_inventory_reconcile.py --fix       # Fix mismatches
 """
 
 import sys
@@ -16,7 +16,7 @@ import argparse
 from pathlib import Path
 
 # Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from greenlight.db import pg_pool
 from greenlight.shopify_client import get_all_product_skus, set_inventory_for_sku, ensure_special_baby_shopify_product

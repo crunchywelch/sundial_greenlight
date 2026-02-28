@@ -10,8 +10,8 @@ This script:
 5. Reports SKUs in database that don't match any YAML definition
 
 Usage:
-    python util/sync_skus.py           # Preview mode (show what would be changed)
-    python util/sync_skus.py --apply   # Actually insert/update SKUs
+    python util/audio/sync_skus.py           # Preview mode (show what would be changed)
+    python util/audio/sync_skus.py --apply   # Actually insert/update SKUs
 """
 
 import sys
@@ -20,7 +20,7 @@ import argparse
 from pathlib import Path
 
 # Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from greenlight.db import pg_pool
 
@@ -252,7 +252,7 @@ def main():
     args = parser.parse_args()
     
     # Paths
-    script_dir = Path(__file__).parent
+    script_dir = Path(__file__).parent.parent
     product_lines_dir = script_dir / 'product_lines'
     patterns_file = product_lines_dir / 'patterns.yaml'
 
@@ -417,7 +417,7 @@ def main():
         print("=" * 60)
     else:
         print("ℹ️  This is a preview. Run with --apply to insert/update SKUs.")
-        print(f"   Command: python util/sync_skus.py --apply")
+        print(f"   Command: python util/audio/sync_skus.py --apply")
     
     print()
     return 0

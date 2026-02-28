@@ -6,8 +6,8 @@ Fetches all product variants from Shopify with their inventory quantities
 and unit costs, then calculates total inventory value.
 
 Usage:
-    python util/inventory_value.py            # Summary by series
-    python util/inventory_value.py --detail   # Show every SKU
+    python util/audio/inventory_value.py            # Summary by series
+    python util/audio/inventory_value.py --detail   # Show every SKU
 """
 
 import sys
@@ -15,7 +15,7 @@ import json
 import argparse
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import shopify
 from greenlight.shopify_client import get_shopify_session, close_shopify_session
