@@ -19,7 +19,8 @@ import csv
 import sys
 from pathlib import Path
 
-from sundial_db import DATA_DIR, get_db
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from util.wire.sundial_db import DATA_DIR, get_db
 
 OUTPUT_DIR = DATA_DIR / "exports"
 
