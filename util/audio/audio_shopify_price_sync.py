@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from util.audio.sync_skus import (
+from util.audio.audio_sync_skus import (
     load_product_lines,
     load_patterns,
     get_patterns_for_fabric_type,
