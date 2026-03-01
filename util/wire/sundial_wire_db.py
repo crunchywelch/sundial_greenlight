@@ -101,9 +101,9 @@ SELECT
     COALESCE(e.net_change, 0) AS net_change_2026,
     s.qty - COALESCE(e.net_change, 0) AS dec31_qty,
     p.price,
-    COALESCE(sc.cost, s.cost) AS unit_cost,
+    CASE WHEN p.is_wire = 1 THEN s.cost ELSE sc.cost END AS unit_cost,
     (s.qty - COALESCE(e.net_change, 0)) *
-        COALESCE(sc.cost, s.cost) AS dec31_value
+        CASE WHEN p.is_wire = 1 THEN s.cost ELSE sc.cost END AS dec31_value
 FROM inventory_snapshots s
 LEFT JOIN (
     SELECT sku, SUM(change) AS net_change
@@ -113,7 +113,7 @@ LEFT JOIN (
     GROUP BY sku
 ) e ON s.sku = e.sku
 LEFT JOIN products p ON s.sku = p.sku
-LEFT JOIN sku_costs sc ON s.sku = sc.sku
+LEFT JOIN sku_costs sc ON s.sku = sc.sku AND p.is_wire = 0
 WHERE s.source = 'physical_count';
 """
 
