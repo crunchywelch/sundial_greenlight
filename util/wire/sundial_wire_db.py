@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS products (
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
--- Costs for non-wire SKUs (from nonwire_costs.csv)
+-- Costs for non-wire SKUs (synced from Shopify)
 CREATE TABLE IF NOT EXISTS sku_costs (
     sku TEXT PRIMARY KEY,
     cost REAL,

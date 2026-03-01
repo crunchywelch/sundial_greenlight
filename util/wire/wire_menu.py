@@ -20,7 +20,7 @@ ACTIONS = [
     ("Wire cost formula audit", [PYTHON, UTIL_DIR / "wire_cost_audit.py"]),
     ("Export inventory events CSV", [PYTHON, UTIL_DIR / "wire_pull_inventory_events.py", "--export"]),
     ("Generate tax assessment (Schedule E)", [PYTHON, UTIL_DIR / ".." / "tax_assessment.py"]),
-    ("Import source data (CSV/YAML → SQLite)", [PYTHON, UTIL_DIR / "wire_import_sundial_data.py"]),
+    ("Import vendor data and wire cost params", [PYTHON, UTIL_DIR / "wire_import_sundial_data.py"]),
     ("Audit inventory policies (sell when OOS)", [PYTHON, UTIL_DIR / "wire_audit_inventory_policy.py"]),
 ]
 
