@@ -1,0 +1,9 @@
+# SKUs to exclude from inventory
+# One SKU per line, comments and blank lines are ignored
+WCUTMX18MX10
+VTGMIDCENTA4
+VTGMIDCENTC1
+VTGMIDCENTC2
+VTGMIDCENTGS
+VTGMIDCENTJP
+VTGPNDMEDALN

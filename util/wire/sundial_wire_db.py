@@ -28,8 +28,6 @@ CREATE TABLE IF NOT EXISTS products (
     handle TEXT,
     title TEXT,
     option TEXT,
-    status TEXT,
-    published TEXT,
     product_type TEXT,
     qty INTEGER DEFAULT 0,
     price REAL,
@@ -138,10 +136,14 @@ def init_db(conn=None):
         conn = get_db()
         close = True
     conn.executescript(SCHEMA_SQL)
-    # Migrate: add last_received column if missing (existing databases)
+    # Migrations for existing databases
     cols = [r[1] for r in conn.execute("PRAGMA table_info(products)").fetchall()]
     if "last_received" not in cols:
         conn.execute("ALTER TABLE products ADD COLUMN last_received TEXT")
+    if "published" in cols:
+        conn.execute("ALTER TABLE products DROP COLUMN published")
+    if "status" in cols:
+        conn.execute("ALTER TABLE products DROP COLUMN status")
     conn.commit()
     if close:
         conn.close()
@@ -150,18 +152,17 @@ def init_db(conn=None):
 def upsert_products(conn, rows):
     """Bulk insert/update products.
 
-    Each row is a dict with keys: sku, handle, title, option, status,
-    published, product_type, qty, price, is_wire.
+    Each row is a dict with keys: sku, handle, title, option,
+    product_type, qty, price, is_wire.
     """
     conn.executemany(
-        """INSERT INTO products (sku, handle, title, option, status, published,
+        """INSERT INTO products (sku, handle, title, option,
                                  product_type, qty, price, is_wire, updated_at)
-           VALUES (:sku, :handle, :title, :option, :status, :published,
+           VALUES (:sku, :handle, :title, :option,
                    :product_type, :qty, :price, :is_wire, CURRENT_TIMESTAMP)
            ON CONFLICT(sku) DO UPDATE SET
                handle=excluded.handle, title=excluded.title,
-               option=excluded.option, status=excluded.status,
-               published=excluded.published, product_type=excluded.product_type,
+               option=excluded.option, product_type=excluded.product_type,
                qty=excluded.qty, price=excluded.price,
                is_wire=excluded.is_wire, updated_at=CURRENT_TIMESTAMP""",
         rows,

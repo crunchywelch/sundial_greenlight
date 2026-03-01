@@ -28,6 +28,19 @@ import shopify
 from greenlight.shopify_client import get_shopify_session, close_shopify_session
 
 OUTPUT_DIR = DATA_DIR / "exports"
+EXCLUDED_SKUS_FILE = DATA_DIR / "excluded_skus.txt"
+
+
+def load_excluded_skus():
+    """Load excluded SKUs from the exclusion file."""
+    if not EXCLUDED_SKUS_FILE.exists():
+        return set()
+    skus = set()
+    for line in EXCLUDED_SKUS_FILE.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            skus.add(line)
+    return skus
 
 # Map Shopify product_type to assessment category and group.
 # type_key: (group_header, assessment_type)
@@ -258,6 +271,10 @@ def build_description(item):
 def generate_report(conn, tax_year):
     """Generate the assessment report."""
     items = load_inventory(conn)
+
+    # Remove excluded SKUs (services, etc.)
+    excluded = load_excluded_skus()
+    items = [i for i in items if i["sku"] not in excluded]
 
     # Estimate non-wire quantities over 100 (no physical count available)
     for item in items:

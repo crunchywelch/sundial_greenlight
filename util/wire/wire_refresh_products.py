@@ -38,13 +38,12 @@ def fetch_all_products():
 
         query = """
         query getProducts($limit: Int!, $cursor: String) {
-            products(first: $limit, after: $cursor) {
+            products(first: $limit, after: $cursor, query: "status:active") {
                 pageInfo { hasNextPage endCursor }
                 edges {
                     node {
                         handle
                         title
-                        status
                         productType
                         variants(first: 100) {
                             edges {
@@ -84,8 +83,6 @@ def fetch_all_products():
                 product = edge["node"]
                 handle = product.get("handle", "")
                 title = product.get("title", "")
-                status = product.get("status", "").lower()
-                published = ""
                 product_type = product.get("productType", "")
 
                 for v_edge in product.get("variants", {}).get("edges", []):
@@ -109,8 +106,6 @@ def fetch_all_products():
                         "handle": handle,
                         "title": title,
                         "option": option,
-                        "status": status,
-                        "published": published,
                         "product_type": product_type,
                         "qty": qty,
                         "price": price,
