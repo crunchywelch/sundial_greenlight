@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import shopify
 from greenlight.shopify_client import get_wire_shopify_session, close_shopify_session
-from util.wire.sundial_wire_db import get_db, init_db, upsert_products, upsert_inventory_snapshot
+from util.wire.sundial_wire_db import get_db, init_db, upsert_products, upsert_inventory_snapshot, upsert_sku_costs
 
 
 def fetch_all_products():
@@ -139,15 +139,27 @@ def refresh_from_shopify(conn):
     upsert_products(conn, items)
 
     snapshot_count = 0
+    sku_cost_rows = []
     for item in items:
         if item["cost"] is not None:
             upsert_inventory_snapshot(
                 conn, item["sku"], today, item["qty"], item["cost"], "shopify_live"
             )
             snapshot_count += 1
+            if not item["is_wire"]:
+                sku_cost_rows.append({
+                    "sku": item["sku"],
+                    "cost": item["cost"],
+                    "vendor": "Shopify",
+                    "notes": "auto-synced from Shopify",
+                })
+
+    if sku_cost_rows:
+        upsert_sku_costs(conn, sku_cost_rows)
 
     print(f"  Updated {len(items)} products")
     print(f"  Updated {snapshot_count} inventory snapshots (date: {today})")
+    print(f"  Updated {len(sku_cost_rows)} non-wire SKU costs")
     print()
 
     return len(items), snapshot_count

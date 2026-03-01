@@ -235,7 +235,7 @@ def load_inventory(conn):
     rows = conn.execute("""
         SELECT
             p.sku, p.title, p.option, p.product_type, p.qty, p.price,
-            COALESCE(s.cost, sc.cost) AS unit_cost,
+            CASE WHEN p.is_wire = 1 THEN s.cost ELSE sc.cost END AS unit_cost,
             p.last_received, p.is_wire
         FROM products p
         LEFT JOIN (
@@ -243,8 +243,8 @@ def load_inventory(conn):
             WHERE (sku, snapshot_date) IN (
                 SELECT sku, MAX(snapshot_date) FROM inventory_snapshots GROUP BY sku
             )
-        ) s ON p.sku = s.sku
-        LEFT JOIN sku_costs sc ON p.sku = sc.sku
+        ) s ON p.sku = s.sku AND p.is_wire = 1
+        LEFT JOIN sku_costs sc ON p.sku = sc.sku AND p.is_wire = 0
         WHERE p.qty > 0 AND p.qty <= 5000
         ORDER BY p.product_type, p.sku
     """).fetchall()
