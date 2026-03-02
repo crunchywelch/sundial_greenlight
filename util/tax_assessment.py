@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from util.wire.sundial_wire_db import DATA_DIR, get_db, init_db, update_last_received
+from util.wire.sundial_wire_db import DATA_DIR, get_db, init_db
 
 import shopify
 from greenlight.shopify_client import get_shopify_session, close_shopify_session
@@ -447,7 +447,6 @@ def main():
 
     conn = get_db()
     init_db(conn)
-    update_last_received(conn)
     rows, grand_cost, grand_value = generate_report(conn, args.year)
     conn.close()
 

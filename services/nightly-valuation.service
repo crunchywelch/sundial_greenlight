@@ -1,0 +1,20 @@
+# /etc/systemd/system/nightly-valuation.service
+[Unit]
+Description=Nightly Inventory Valuation Snapshot
+Documentation=https://github.com/sundialwire/greenlight
+After=network-online.target db-tunnel.service
+Wants=network-online.target
+Requires=db-tunnel.service
+
+[Service]
+Type=oneshot
+User=welch
+Group=welch
+WorkingDirectory=/home/welch/projects/sundial_greenlight
+Environment="PATH=/home/welch/projects/sundial_greenlight/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/welch/projects/sundial_greenlight/venv/bin/python util/nightly_valuation.py
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nightly-valuation

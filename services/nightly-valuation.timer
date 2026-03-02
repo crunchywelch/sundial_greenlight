@@ -1,0 +1,10 @@
+# /etc/systemd/system/nightly-valuation.timer
+[Unit]
+Description=Run inventory valuation nightly at 2:00 AM
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

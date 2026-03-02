@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-SQLite database layer for Sundial Wire store data.
+SQLite database layer for Sundial store data.
 
-Provides schema management, bulk upserts, and CSV export for the year-end
-reconciliation workflow. The SQLite database consolidates data from Shopify
-exports, vendor worksheets, and cost CSVs into a single queryable store.
+Provides schema management, bulk upserts, and CSV export for inventory
+valuation and cost tracking. The SQLite database consolidates data from
+both Shopify stores (wire + audio) into a single queryable store.
 
 Usage:
     from util.wire.sundial_wire_db import get_db, init_db, upsert_products
@@ -52,22 +52,7 @@ CREATE TABLE IF NOT EXISTS vendor_parts (
     PRIMARY KEY (sku, vendor)
 );
 
--- Inventory events from ShopifyQL (pulled via API)
-CREATE TABLE IF NOT EXISTS inventory_events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    event_date TEXT,
-    sku TEXT,
-    change INTEGER,
-    reason TEXT,
-    state TEXT,
-    staff TEXT
-);
-
--- Dedupe index for inventory events
-CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_events_dedup
-    ON inventory_events(event_date, sku, change, reason, state, staff);
-
--- Inventory snapshots (post physical count + corrected)
+-- Inventory snapshots (daily from Shopify)
 CREATE TABLE IF NOT EXISTS inventory_snapshots (
     sku TEXT,
     snapshot_date TEXT,
@@ -93,28 +78,20 @@ CREATE TABLE IF NOT EXISTS wire_materials (
     PRIMARY KEY (material_sku, product_family)
 );
 
--- View: Dec 31 2025 reconciliation
-CREATE VIEW IF NOT EXISTS inventory_reconciliation AS
-SELECT
-    s.sku,
-    s.qty AS current_qty,
-    COALESCE(e.net_change, 0) AS net_change_2026,
-    s.qty - COALESCE(e.net_change, 0) AS dec31_qty,
-    p.price,
-    CASE WHEN p.is_wire = 1 THEN s.cost ELSE sc.cost END AS unit_cost,
-    (s.qty - COALESCE(e.net_change, 0)) *
-        CASE WHEN p.is_wire = 1 THEN s.cost ELSE sc.cost END AS dec31_value
-FROM inventory_snapshots s
-LEFT JOIN (
-    SELECT sku, SUM(change) AS net_change
-    FROM inventory_events
-    WHERE event_date >= '2026-01-01'
-      AND state = 'available'
-    GROUP BY sku
-) e ON s.sku = e.sku
-LEFT JOIN products p ON s.sku = p.sku
-LEFT JOIN sku_costs sc ON s.sku = sc.sku AND p.is_wire = 0
-WHERE s.source = 'physical_count';
+-- Daily inventory valuation snapshots
+CREATE TABLE IF NOT EXISTS daily_valuations (
+    valuation_date TEXT PRIMARY KEY,
+    wire_skus INTEGER,
+    wire_units INTEGER,
+    wire_value REAL,
+    lamp_skus INTEGER,
+    lamp_units INTEGER,
+    lamp_value REAL,
+    audio_skus INTEGER,
+    audio_units INTEGER,
+    audio_value REAL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 
@@ -136,14 +113,9 @@ def init_db(conn=None):
         conn = get_db()
         close = True
     conn.executescript(SCHEMA_SQL)
-    # Migrations for existing databases
-    cols = [r[1] for r in conn.execute("PRAGMA table_info(products)").fetchall()]
-    if "last_received" not in cols:
-        conn.execute("ALTER TABLE products ADD COLUMN last_received TEXT")
-    if "published" in cols:
-        conn.execute("ALTER TABLE products DROP COLUMN published")
-    if "status" in cols:
-        conn.execute("ALTER TABLE products DROP COLUMN status")
+    # Drop legacy tables/views if they exist
+    conn.execute("DROP VIEW IF EXISTS inventory_reconciliation")
+    conn.execute("DROP TABLE IF EXISTS inventory_events")
     conn.commit()
     if close:
         conn.close()
@@ -198,39 +170,6 @@ def upsert_vendor_parts(conn, rows):
                part_number=excluded.part_number""",
         rows,
     )
-    conn.commit()
-
-
-def insert_inventory_events(conn, rows):
-    """Append inventory events, skipping duplicates.
-
-    Each row is a dict with keys: event_date, sku, change, reason, state, staff.
-    """
-    conn.executemany(
-        """INSERT OR IGNORE INTO inventory_events
-               (event_date, sku, change, reason, state, staff)
-           VALUES (:event_date, :sku, :change, :reason, :state, :staff)""",
-        rows,
-    )
-    conn.commit()
-
-
-def update_last_received(conn):
-    """Update products.last_received from inventory events.
-
-    Sets last_received to the most recent event date where inventory was
-    added (change > 0) for each SKU.
-    """
-    conn.execute("""
-        UPDATE products SET last_received = (
-            SELECT MAX(event_date) FROM inventory_events
-            WHERE inventory_events.sku = products.sku
-              AND change > 0
-        )
-        WHERE sku IN (
-            SELECT DISTINCT sku FROM inventory_events WHERE change > 0
-        )
-    """)
     conn.commit()
 
 
@@ -306,6 +245,32 @@ def load_wire_materials(conn):
         "FROM wire_materials"
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+def upsert_daily_valuation(conn, valuation_date, wire, lamp, audio):
+    """Insert or update a daily valuation snapshot.
+
+    wire/lamp/audio are each dicts with keys: skus, units, value.
+    """
+    conn.execute(
+        """INSERT INTO daily_valuations
+               (valuation_date, wire_skus, wire_units, wire_value,
+                lamp_skus, lamp_units, lamp_value,
+                audio_skus, audio_units, audio_value)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(valuation_date) DO UPDATE SET
+               wire_skus=excluded.wire_skus, wire_units=excluded.wire_units,
+               wire_value=excluded.wire_value,
+               lamp_skus=excluded.lamp_skus, lamp_units=excluded.lamp_units,
+               lamp_value=excluded.lamp_value,
+               audio_skus=excluded.audio_skus, audio_units=excluded.audio_units,
+               audio_value=excluded.audio_value,
+               created_at=CURRENT_TIMESTAMP""",
+        (valuation_date, wire["skus"], wire["units"], wire["value"],
+         lamp["skus"], lamp["units"], lamp["value"],
+         audio["skus"], audio["units"], audio["value"]),
+    )
+    conn.commit()
 
 
 def export_csv(conn, query, output_path, params=None):
