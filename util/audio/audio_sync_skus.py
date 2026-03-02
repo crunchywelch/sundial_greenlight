@@ -36,8 +36,8 @@ def load_product_lines(product_lines_dir):
         return []
 
     for yaml_file in yaml_files:
-        # Skip patterns.yaml - it's not a product line definition
-        if yaml_file.name == 'patterns.yaml':
+        # Skip non-product-line files
+        if yaml_file.name in ('patterns.yaml', 'materials.yaml'):
             continue
 
         print(f"📖 Reading: {yaml_file.name}")
