@@ -203,28 +203,56 @@ def calc_audio_value(conn):
     return {"skus": sku_count, "units": total_units, "value": round(total_value, 2)}
 
 
-def show_recent(conn, limit=30):
-    """Print recent daily valuations."""
-    rows = conn.execute("""
-        SELECT * FROM daily_valuations
-        ORDER BY valuation_date DESC
-        LIMIT ?
-    """, (limit,)).fetchall()
+def show_valuation(conn, query_date=None, limit=30):
+    """Print daily valuations.
+
+    If query_date is given, show that single date. Otherwise show the most
+    recent entry, or up to `limit` rows with --all.
+    """
+    if query_date:
+        rows = conn.execute(
+            "SELECT * FROM daily_valuations WHERE valuation_date = ?",
+            (query_date,),
+        ).fetchall()
+        if not rows:
+            print(f"No valuation found for {query_date}.")
+            return
+    else:
+        rows = conn.execute("""
+            SELECT * FROM daily_valuations
+            ORDER BY valuation_date DESC
+            LIMIT ?
+        """, (limit,)).fetchall()
 
     if not rows:
         print("No valuations recorded yet.")
         return
 
-    print(f"{'Date':12s} {'Wire':>12s} {'Lamp Parts':>12s} {'Audio':>12s} {'Total':>12s}")
-    print("-" * 62)
+    # Write TSV file for easy Google Sheets import
+    from util.wire.sundial_wire_db import DATA_DIR
+    tsv_path = DATA_DIR / "valuations.tsv"
+    with open(tsv_path, "w") as f:
+        f.write("\t".join(["Date", "Wire", "Lamp Parts", "Audio", "Total"]) + "\n")
+        for r in reversed(rows):
+            total = r['wire_value'] + r['lamp_value'] + r['audio_value']
+            f.write("\t".join([
+                r['valuation_date'],
+                f"{r['wire_value']:.2f}",
+                f"{r['lamp_value']:.2f}",
+                f"{r['audio_value']:.2f}",
+                f"{total:.2f}",
+            ]) + "\n")
+
+    print(f"Wrote {tsv_path}")
+    print()
     for r in reversed(rows):
         total = r['wire_value'] + r['lamp_value'] + r['audio_value']
         print(
-            f"{r['valuation_date']:12s} "
-            f"${r['wire_value']:>10,.2f} "
-            f"${r['lamp_value']:>10,.2f} "
-            f"${r['audio_value']:>10,.2f} "
-            f"${total:>10,.2f}"
+            f"{r['valuation_date']}  "
+            f"wire ${r['wire_value']:>10,.2f}  "
+            f"lamp ${r['lamp_value']:>10,.2f}  "
+            f"audio ${r['audio_value']:>10,.2f}  "
+            f"total ${total:>10,.2f}"
         )
 
 
@@ -237,8 +265,8 @@ def main():
         help="Override valuation date (YYYY-MM-DD, default: today)"
     )
     parser.add_argument(
-        "--show", action="store_true",
-        help="Show recent valuations instead of running"
+        "--show", nargs="?", const="latest", default=None, metavar="DATE",
+        help="Show valuations: no arg = latest, DATE = specific date, 'all' = history"
     )
     parser.add_argument(
         "--skip-refresh", action="store_true",
@@ -249,8 +277,13 @@ def main():
     conn = get_db()
     init_db(conn)
 
-    if args.show:
-        show_recent(conn)
+    if args.show is not None:
+        if args.show == "latest":
+            show_valuation(conn, limit=1)
+        elif args.show == "all":
+            show_valuation(conn)
+        else:
+            show_valuation(conn, query_date=args.show)
         conn.close()
         return 0
 
