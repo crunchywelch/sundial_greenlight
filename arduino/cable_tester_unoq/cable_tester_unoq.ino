@@ -8,8 +8,8 @@
  *   - Relay coils driven via PN2222A transistors from 5V rail
  *     (3.3V GPIO -> 1k base resistor -> PN2222A -> relay coil -> +5V)
  *   - Resistance sense circuit powered from 3.3V (A0 not 5V tolerant)
- *   - Result LEDs: onboard RGB LED 3 (MCU pins PH10=R, PH11=G, PH12=B)
- *   - Status LED: D13 (LED_BUILTIN)
+ *   - Display: onboard 8x13 LED matrix (PE0-7 rows, PG0-12 cols)
+ *     Uses Arduino_LED_Matrix library — zero GPIO cost
  *
  * Commands:
  *   CONT     - Run TS continuity/polarity test, returns RESULT:...
@@ -82,25 +82,12 @@
 #define XLR_CONT_OUT_SHELL  16   // Continuity signal output to XLR shell (near side) (A2)
 #define XLR_CONT_IN_SHELL   20   // Continuity sense input from XLR shell (far side) (SDA)
 
-// --- LEDs ---
-// Result LED: onboard RGB LED 3 (active-high, accent colors via R/G/B)
-// TODO: Confirm these pin numbers for UNO Q Arduino core.
-//       On UNO R4, LED_MATRIX and LED pins may differ.
-//       PH10=R, PH11=G, PH12=B — may need direct port register access.
-//       For now, using placeholder defines. Update once hardware is in hand.
-#define RESULT_LED_R        102  // PH10 — placeholder pin number, needs verification
-#define RESULT_LED_G        103  // PH11 — placeholder pin number, needs verification
-#define RESULT_LED_B        104  // PH12 — placeholder pin number, needs verification
-#define STATUS_LED          LED_BUILTIN  // D13 — note: shared with XLR_CONT_OUT_PIN2!
-
-// Since D13 (LED_BUILTIN) is used for XLR_CONT_OUT_PIN2, we can't use it as
-// a dedicated status LED. Status will be reported via the result RGB LED instead.
-// Redefine STATUS_LED to use the blue channel of a second onboard RGB LED,
-// or simply blink the result LED white when idle.
-// TODO: Resolve D13 conflict. Options:
-//   1. Use RGB LED 4 (PH13-15) for status
-//   2. Use D21 (spare) for an external status LED
-//   3. Blink result LED between tests
+// --- Display: 8x13 LED Matrix ---
+// Uses Arduino_LED_Matrix library (same as UNO R4 WiFi).
+// Driven by internal MCU pins (PE0-7 rows, PG0-12 cols) — no GPIO cost.
+// Frames are 8 rows x 12 cols packed into 3x uint32_t.
+#include <Arduino_LED_Matrix.h>
+ArduinoLEDMatrix matrix;
 
 // ===== CONFIGURATION =====
 const char* TESTER_ID = "UNOQ_TESTER_1";
@@ -132,13 +119,42 @@ int xlrCalibrationADC_P3 = 0;        // XLR Pin 3 ADC reading with zero-ohm refe
 bool isXlrCalibrated = false;
 
 // Forward declarations
-void setResultLED(int color = 0);
+void showResult(int result = 0);
 
-// LED color constants for setResultLED()
-#define LED_OFF    0
-#define LED_RED    1   // Fail
-#define LED_GREEN  2   // Pass
-#define LED_BLUE   3   // Error/wiring fault
+// Display result constants
+#define SHOW_OFF    0
+#define SHOW_PASS   1   // Checkmark
+#define SHOW_FAIL   2   // X
+#define SHOW_ERROR  3   // ! (wiring fault)
+#define SHOW_READY  4   // Heartbeat dot
+
+// LED matrix frames (8 rows x 12 cols, packed as 3x uint32_t)
+// Each uint32_t holds ~32 bits of the 96-bit frame (8*12=96)
+const uint32_t FRAME_OFF[] = {0, 0, 0};
+
+const uint32_t FRAME_PASS[] = {  // Checkmark
+  0x00100180,
+  0x30060030,
+  0x00C00000
+};
+
+const uint32_t FRAME_FAIL[] = {  // X
+  0x81042108,
+  0x40081042,
+  0x10810000
+};
+
+const uint32_t FRAME_ERROR[] = { // !
+  0x0C030030,
+  0x00C00000,
+  0x0C000000
+};
+
+const uint32_t FRAME_READY[] = { // Center dot
+  0x00000000,
+  0x30060000,
+  0x00000000
+};
 
 // ===== GLOBAL STATE =====
 bool systemReady = false;
@@ -215,10 +231,8 @@ void setup() {
   pinMode(XLR_CONT_IN_PIN3, INPUT);
   pinMode(XLR_CONT_IN_SHELL, INPUT);
 
-  // --- LEDs ---
-  pinMode(RESULT_LED_R, OUTPUT);
-  pinMode(RESULT_LED_G, OUTPUT);
-  pinMode(RESULT_LED_B, OUTPUT);
+  // --- LED Matrix ---
+  matrix.begin();
 
   // Initialize all relays OFF
   digitalWrite(K1_K2_RELAY, LOW);
@@ -236,8 +250,8 @@ void setup() {
   digitalWrite(XLR_CONT_OUT_PIN3, LOW);
   digitalWrite(XLR_CONT_OUT_SHELL, LOW);
 
-  // All LEDs off
-  setResultLED(LED_OFF);
+  // Display off
+  showResult(SHOW_OFF);
 
   // Run self-test
   if (selfTest()) {
@@ -245,26 +259,19 @@ void setup() {
     Serial.println("READY:" + String(TESTER_ID));
   } else {
     systemReady = false;
-    setResultLED(LED_BLUE);
+    showResult(SHOW_ERROR);
     Serial.println("ERROR:SELF_TEST_FAILED");
   }
 }
 
 // ===== MAIN LOOP =====
 void loop() {
-  // Blink result LED dim white when idle (status heartbeat)
+  // Blink center dot when idle (status heartbeat)
   static unsigned long lastBlink = 0;
   static bool blinkState = false;
   if (systemReady && millis() - lastBlink > 1000) {
     blinkState = !blinkState;
-    if (blinkState) {
-      // Dim white pulse — all channels on
-      digitalWrite(RESULT_LED_R, HIGH);
-      digitalWrite(RESULT_LED_G, HIGH);
-      digitalWrite(RESULT_LED_B, HIGH);
-    } else {
-      setResultLED(LED_OFF);
-    }
+    matrix.loadFrame(blinkState ? FRAME_READY : FRAME_OFF);
     lastBlink = millis();
   }
 
@@ -349,19 +356,19 @@ void handleCommand(String cmd) {
   // ===== DEBUG COMMANDS FOR HARDWARE TESTING =====
   } else if (cmd == "LED") {
     Serial.println("DEBUG:LED_TEST_START");
-    setResultLED(LED_OFF);
+    showResult(SHOW_OFF);
     Serial.println("RED (fail)");
-    setResultLED(LED_RED);
+    showResult(SHOW_FAIL);
     delay(500);
-    setResultLED(LED_OFF);
+    showResult(SHOW_OFF);
     Serial.println("GREEN (pass)");
-    setResultLED(LED_GREEN);
+    showResult(SHOW_PASS);
     delay(500);
-    setResultLED(LED_OFF);
+    showResult(SHOW_OFF);
     Serial.println("BLUE (error)");
-    setResultLED(LED_BLUE);
+    showResult(SHOW_ERROR);
     delay(500);
-    setResultLED(LED_OFF);
+    showResult(SHOW_OFF);
     Serial.println("DEBUG:LED_TEST_DONE");
 
   // --- TS Relay Toggles ---
@@ -465,10 +472,8 @@ void handleCommand(String cmd) {
     Serial.println("  D19/A5 PIN3 IN:   " + String(digitalRead(XLR_CONT_IN_PIN3) ? "HIGH" : "LOW"));
     Serial.println("  D16/A2 SHELL OUT: " + String(digitalRead(XLR_CONT_OUT_SHELL) ? "HIGH" : "LOW"));
     Serial.println("  D20    SHELL IN:  " + String(digitalRead(XLR_CONT_IN_SHELL) ? "HIGH" : "LOW"));
-    Serial.println("=== LEDS (onboard RGB) ===");
-    Serial.println("  R: " + String(digitalRead(RESULT_LED_R) ? "ON" : "OFF"));
-    Serial.println("  G: " + String(digitalRead(RESULT_LED_G) ? "ON" : "OFF"));
-    Serial.println("  B: " + String(digitalRead(RESULT_LED_B) ? "ON" : "OFF"));
+    Serial.println("=== DISPLAY ===");
+    Serial.println("  LED Matrix (8x13) active");
 
   } else if (cmd == "HELP") {
     Serial.println("=== COMMANDS ===");
@@ -526,7 +531,7 @@ void runContinuityTest() {
   TestResults results;
 
   // Turn off result LEDs
-  setResultLED(LED_OFF);
+  showResult(SHOW_OFF);
 
   // Enter continuity test mode
   digitalWrite(K1_K2_RELAY, HIGH);   // K1+K2: continuity mode
@@ -572,13 +577,13 @@ void runContinuityTest() {
 
   // Update LEDs
   if (results.overallPass) {
-    setResultLED(LED_GREEN);
+    showResult(SHOW_PASS);
   } else if (results.reversed || results.shorted) {
     // Wiring error (reversed polarity or short)
-    setResultLED(LED_BLUE);
+    showResult(SHOW_ERROR);
   } else {
     // Open connection
-    setResultLED(LED_RED);
+    showResult(SHOW_FAIL);
   }
 
   // Send results
@@ -623,7 +628,7 @@ void sendResults(TestResults &r) {
 void runXlrContinuityTest() {
   XlrContResults r;
 
-  setResultLED(LED_OFF);
+  showResult(SHOW_OFF);
 
   // Ensure K5/K6 LOW = continuity mode
   resetCircuit();
@@ -673,13 +678,13 @@ void runXlrContinuityTest() {
 
   // LED
   if (r.overallPass) {
-    setResultLED(LED_GREEN);
+    showResult(SHOW_PASS);
   } else {
     bool anyConnection = false;
     for (int d = 0; d < 3; d++)
       for (int s = 0; s < 3; s++)
         if (r.p[d][s]) anyConnection = true;
-    setResultLED(anyConnection ? LED_BLUE : LED_RED);
+    showResult(anyConnection ? SHOW_ERROR : SHOW_FAIL);
   }
 
   // Send result
@@ -734,7 +739,7 @@ void runXlrContinuityTest() {
 void runXlrShellTest() {
   XlrShellResults r;
 
-  setResultLED(LED_OFF);
+  showResult(SHOW_OFF);
 
   resetCircuit();
   delay(RELAY_SETTLE_MS);
@@ -773,7 +778,7 @@ void runXlrShellTest() {
   // === EVALUATE ===
   r.overallPass = r.nearShellBond && r.farShellBond && !r.shellToP2 && !r.shellToP3;
 
-  setResultLED(r.overallPass ? LED_GREEN : (r.nearShellBond || r.farShellBond ? LED_BLUE : LED_RED));
+  showResult(r.overallPass ? SHOW_PASS : (r.nearShellBond || r.farShellBond ? SHOW_ERROR : SHOW_FAIL));
 
   // Send result
   String response = "XSHELL:";
@@ -833,7 +838,7 @@ void resetCircuit() {
 // Establishes baseline ADC that includes Vce_sat + parasitic resistance.
 // Cable resistance is then measured relative to this baseline.
 void runCalibration() {
-  setResultLED(LED_OFF);
+  showResult(SHOW_OFF);
 
   Serial.println("CAL:MEASURING...");
 
@@ -861,7 +866,7 @@ void runCalibration() {
 
   // Reject if reading is too high (no cable or bad connection)
   if (measuredADC > CAL_REJECT_THRESHOLD) {
-    setResultLED(LED_RED);
+    showResult(SHOW_FAIL);
     Serial.println("CAL:FAIL:ADC:" + String(measuredADC) + ":NO_CABLE");
     return;
   }
@@ -869,7 +874,7 @@ void runCalibration() {
   calibrationADC = measuredADC;
   isCalibrated = true;
 
-  setResultLED(LED_GREEN);
+  showResult(SHOW_PASS);
   Serial.println("CAL:OK:ADC:" + String(calibrationADC));
 }
 
@@ -877,7 +882,7 @@ void runCalibration() {
 // Calibrates both pin 2 and pin 3 paths separately since relay contact
 // resistance can differ between K4 LOW (pin 2) and K4 HIGH (pin 3).
 void runXlrCalibration() {
-  setResultLED(LED_OFF);
+  showResult(SHOW_OFF);
 
   Serial.println("XCAL:MEASURING...");
 
@@ -922,7 +927,7 @@ void runXlrCalibration() {
 
   // Reject if either reading is too high (no cable or bad connection)
   if (measuredP2 > CAL_REJECT_THRESHOLD || measuredP3 > CAL_REJECT_THRESHOLD) {
-    setResultLED(LED_RED);
+    showResult(SHOW_FAIL);
     Serial.println("XCAL:FAIL:P2ADC:" + String(measuredP2) + ":P3ADC:" + String(measuredP3) + ":NO_CABLE");
     return;
   }
@@ -931,7 +936,7 @@ void runXlrCalibration() {
   xlrCalibrationADC_P3 = measuredP3;
   isXlrCalibrated = true;
 
-  setResultLED(LED_GREEN);
+  showResult(SHOW_PASS);
   Serial.println("XCAL:OK:P2ADC:" + String(xlrCalibrationADC_P2) + ":P3ADC:" + String(xlrCalibrationADC_P3));
 }
 
@@ -990,7 +995,7 @@ void sendResResult(const char* prefix, int adcValue) {
 
 // ===== TS RESISTANCE TEST =====
 void runResistanceTest() {
-  setResultLED(LED_OFF);
+  showResult(SHOW_OFF);
 
   // Configure for TS resistance test
   // K1+K2 LOW = short far end + res path
@@ -1011,7 +1016,7 @@ void runResistanceTest() {
 
   // Update LED
   bool pass = resPassCheck(adcValue, isCalibrated, calibrationADC);
-  setResultLED(pass ? LED_GREEN : LED_RED);
+  showResult(pass ? SHOW_PASS : SHOW_FAIL);
 
   sendResResult("RES:", adcValue);
 }
@@ -1020,7 +1025,7 @@ void runResistanceTest() {
 // Tests pin 2 and pin 3 sequentially through the shared resistance circuit.
 // K3 HIGH = route to XLR, K4 selects pin (LOW = pin 2, HIGH = pin 3)
 void runXlrResistanceTest() {
-  setResultLED(LED_OFF);
+  showResult(SHOW_OFF);
 
   // Configure for XLR resistance test
   // K5 HIGH, K6 HIGH = switch pin 2 and pin 3 to resistance mode (into K4)
@@ -1057,7 +1062,7 @@ void runXlrResistanceTest() {
   bool pin3Pass = resPassCheck(adcPin3, isXlrCalibrated, xlrCalibrationADC_P3);
   bool overallPass = pin2Pass && pin3Pass;
 
-  setResultLED(overallPass ? LED_GREEN : LED_RED);
+  showResult(overallPass ? SHOW_PASS : SHOW_FAIL);
 
   // Send combined result using per-pin XLR calibration
   float res2 = 0.0, res3 = 0.0;
@@ -1085,21 +1090,25 @@ void runXlrResistanceTest() {
 
 // ===== UTILITY FUNCTIONS =====
 
-// Result LED: onboard RGB LED 3 (active-high)
-// LED_OFF=off, LED_RED=fail, LED_GREEN=pass, LED_BLUE=error
-void setResultLED(int color) {
-  digitalWrite(RESULT_LED_R, color == LED_RED   ? HIGH : LOW);
-  digitalWrite(RESULT_LED_G, color == LED_GREEN ? HIGH : LOW);
-  digitalWrite(RESULT_LED_B, color == LED_BLUE  ? HIGH : LOW);
+// Display result on LED matrix
+void showResult(int result) {
+  switch (result) {
+    case SHOW_PASS:  matrix.loadFrame(FRAME_PASS);  break;
+    case SHOW_FAIL:  matrix.loadFrame(FRAME_FAIL);  break;
+    case SHOW_ERROR: matrix.loadFrame(FRAME_ERROR); break;
+    case SHOW_READY: matrix.loadFrame(FRAME_READY); break;
+    default:         matrix.loadFrame(FRAME_OFF);   break;
+  }
 }
 
 bool selfTest() {
-  // Blink each result LED color in sequence
-  int colors[] = {LED_RED, LED_GREEN, LED_BLUE};
+  // Cycle through display patterns
+  int patterns[] = {SHOW_FAIL, SHOW_PASS, SHOW_ERROR};
   for (int i = 0; i < 3; i++) {
-    setResultLED(colors[i]);
-    delay(150);
-    setResultLED(LED_OFF);
+    showResult(patterns[i]);
+    delay(300);
+    showResult(SHOW_OFF);
+    delay(100);
   }
 
   // Could add more hardware checks here
