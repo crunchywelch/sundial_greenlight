@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "mini")(type "KiCad")(uri "/home/welch/Downloads/Pro_Mini/mini.pretty")(options "")(descr ""))
+)
