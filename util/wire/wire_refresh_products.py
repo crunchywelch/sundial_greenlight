@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import shopify
 from greenlight.shopify_client import get_wire_shopify_session, close_shopify_session
-from util.wire.sundial_wire_db import get_db, init_db, upsert_products, upsert_inventory_snapshot, upsert_sku_costs
+from util.wire.sundial_wire_db import get_db, init_db, upsert_products, upsert_inventory_snapshot
 
 
 def fetch_all_products():
@@ -101,6 +101,7 @@ def fetch_all_products():
                     options = v.get("selectedOptions", [])
                     option = options[0]["value"] if options else ""
 
+                    is_wire = 1 if sku.startswith("W") else 0
                     items.append({
                         "sku": sku,
                         "handle": handle,
@@ -109,8 +110,11 @@ def fetch_all_products():
                         "product_type": product_type,
                         "qty": qty,
                         "price": price,
-                        "is_wire": 1 if sku.startswith("W") else 0,
-                        "cost": cost,
+                        "is_wire": is_wire,
+                        "cost": cost if not is_wire else None,
+                        "cost_vendor": "Shopify" if (not is_wire and cost is not None) else None,
+                        "cost_notes": "auto-synced from Shopify" if (not is_wire and cost is not None) else None,
+                        "_snap_cost": cost,
                     })
 
             has_next_page = page_info.get("hasNextPage", False)
@@ -139,27 +143,16 @@ def refresh_from_shopify(conn):
     upsert_products(conn, items)
 
     snapshot_count = 0
-    sku_cost_rows = []
     for item in items:
-        if item["cost"] is not None:
+        snap_cost = item.get("_snap_cost")
+        if snap_cost is not None:
             upsert_inventory_snapshot(
-                conn, item["sku"], today, item["qty"], item["cost"], "shopify_live"
+                conn, item["sku"], today, item["qty"], snap_cost, "shopify_live"
             )
             snapshot_count += 1
-            if not item["is_wire"]:
-                sku_cost_rows.append({
-                    "sku": item["sku"],
-                    "cost": item["cost"],
-                    "vendor": "Shopify",
-                    "notes": "auto-synced from Shopify",
-                })
-
-    if sku_cost_rows:
-        upsert_sku_costs(conn, sku_cost_rows)
 
     print(f"  Updated {len(items)} products")
     print(f"  Updated {snapshot_count} inventory snapshots (date: {today})")
-    print(f"  Updated {len(sku_cost_rows)} non-wire SKU costs")
     print()
 
     return len(items), snapshot_count

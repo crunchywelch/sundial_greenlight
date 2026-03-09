@@ -1,0 +1,88 @@
+PUZZLE LIGHT CIRCUIT - ALL 64 SWITCH PERMUTATIONS
+==========================================================================================
+
+Circuit Logic:
+  L1 = SW1
+  L2 = SW2 AND (SW3_default OR SW5_pressed)
+  L3 = SW2 AND SW3_toggled
+  L4 = SW3_toggled AND SW4
+  L5 = (SW2 AND SW5_resting) OR SW6
+
+SW1    SW2    SW3       SW4    SW5       SW6      | L1   L2   L3   L4   L5   | Tot
+----------------------------------------------------------------------------------
+OFF    OFF    DEFAULT   OFF    REST      NONE     | --   --   --   --   --   | 0
+OFF    OFF    DEFAULT   OFF    REST      MAGNET   | --   --   --   --   ON   | 1
+OFF    OFF    DEFAULT   OFF    PRESSED   NONE     | --   --   --   --   --   | 0
+OFF    OFF    DEFAULT   OFF    PRESSED   MAGNET   | --   --   --   --   ON   | 1
+OFF    OFF    DEFAULT   ON     REST      NONE     | --   --   --   --   --   | 0
+OFF    OFF    DEFAULT   ON     REST      MAGNET   | --   --   --   --   ON   | 1
+OFF    OFF    DEFAULT   ON     PRESSED   NONE     | --   --   --   --   --   | 0
+OFF    OFF    DEFAULT   ON     PRESSED   MAGNET   | --   --   --   --   ON   | 1
+OFF    OFF    TOGGLED   OFF    REST      NONE     | --   --   --   --   --   | 0
+OFF    OFF    TOGGLED   OFF    REST      MAGNET   | --   --   --   --   ON   | 1
+OFF    OFF    TOGGLED   OFF    PRESSED   NONE     | --   --   --   --   --   | 0
+OFF    OFF    TOGGLED   OFF    PRESSED   MAGNET   | --   --   --   --   ON   | 1
+OFF    OFF    TOGGLED   ON     REST      NONE     | --   --   --   ON   --   | 1
+OFF    OFF    TOGGLED   ON     REST      MAGNET   | --   --   --   ON   ON   | 2
+OFF    OFF    TOGGLED   ON     PRESSED   NONE     | --   --   --   ON   --   | 1
+OFF    OFF    TOGGLED   ON     PRESSED   MAGNET   | --   --   --   ON   ON   | 2
+OFF    ON     DEFAULT   OFF    REST      NONE     | --   ON   --   --   ON   | 2
+OFF    ON     DEFAULT   OFF    REST      MAGNET   | --   ON   --   --   ON   | 2
+OFF    ON     DEFAULT   OFF    PRESSED   NONE     | --   ON   --   --   --   | 1
+OFF    ON     DEFAULT   OFF    PRESSED   MAGNET   | --   ON   --   --   ON   | 2
+OFF    ON     DEFAULT   ON     REST      NONE     | --   ON   --   --   ON   | 2
+OFF    ON     DEFAULT   ON     REST      MAGNET   | --   ON   --   --   ON   | 2
+OFF    ON     DEFAULT   ON     PRESSED   NONE     | --   ON   --   --   --   | 1
+OFF    ON     DEFAULT   ON     PRESSED   MAGNET   | --   ON   --   --   ON   | 2
+OFF    ON     TOGGLED   OFF    REST      NONE     | --   --   ON   --   ON   | 2
+OFF    ON     TOGGLED   OFF    REST      MAGNET   | --   --   ON   --   ON   | 2
+OFF    ON     TOGGLED   OFF    PRESSED   NONE     | --   ON   ON   --   --   | 2
+OFF    ON     TOGGLED   OFF    PRESSED   MAGNET   | --   ON   ON   --   ON   | 3
+OFF    ON     TOGGLED   ON     REST      NONE     | --   --   ON   ON   ON   | 3
+OFF    ON     TOGGLED   ON     REST      MAGNET   | --   --   ON   ON   ON   | 3
+OFF    ON     TOGGLED   ON     PRESSED   NONE     | --   ON   ON   ON   --   | 3
+OFF    ON     TOGGLED   ON     PRESSED   MAGNET   | --   ON   ON   ON   ON   | 4
+ON     OFF    DEFAULT   OFF    REST      NONE     | ON   --   --   --   --   | 1
+ON     OFF    DEFAULT   OFF    REST      MAGNET   | ON   --   --   --   ON   | 2
+ON     OFF    DEFAULT   OFF    PRESSED   NONE     | ON   --   --   --   --   | 1
+ON     OFF    DEFAULT   OFF    PRESSED   MAGNET   | ON   --   --   --   ON   | 2
+ON     OFF    DEFAULT   ON     REST      NONE     | ON   --   --   --   --   | 1
+ON     OFF    DEFAULT   ON     REST      MAGNET   | ON   --   --   --   ON   | 2
+ON     OFF    DEFAULT   ON     PRESSED   NONE     | ON   --   --   --   --   | 1
+ON     OFF    DEFAULT   ON     PRESSED   MAGNET   | ON   --   --   --   ON   | 2
+ON     OFF    TOGGLED   OFF    REST      NONE     | ON   --   --   --   --   | 1
+ON     OFF    TOGGLED   OFF    REST      MAGNET   | ON   --   --   --   ON   | 2
+ON     OFF    TOGGLED   OFF    PRESSED   NONE     | ON   --   --   --   --   | 1
+ON     OFF    TOGGLED   OFF    PRESSED   MAGNET   | ON   --   --   --   ON   | 2
+ON     OFF    TOGGLED   ON     REST      NONE     | ON   --   --   ON   --   | 2
+ON     OFF    TOGGLED   ON     REST      MAGNET   | ON   --   --   ON   ON   | 3
+ON     OFF    TOGGLED   ON     PRESSED   NONE     | ON   --   --   ON   --   | 2
+ON     OFF    TOGGLED   ON     PRESSED   MAGNET   | ON   --   --   ON   ON   | 3
+ON     ON     DEFAULT   OFF    REST      NONE     | ON   ON   --   --   ON   | 3
+ON     ON     DEFAULT   OFF    REST      MAGNET   | ON   ON   --   --   ON   | 3
+ON     ON     DEFAULT   OFF    PRESSED   NONE     | ON   ON   --   --   --   | 2
+ON     ON     DEFAULT   OFF    PRESSED   MAGNET   | ON   ON   --   --   ON   | 3
+ON     ON     DEFAULT   ON     REST      NONE     | ON   ON   --   --   ON   | 3
+ON     ON     DEFAULT   ON     REST      MAGNET   | ON   ON   --   --   ON   | 3
+ON     ON     DEFAULT   ON     PRESSED   NONE     | ON   ON   --   --   --   | 2
+ON     ON     DEFAULT   ON     PRESSED   MAGNET   | ON   ON   --   --   ON   | 3
+ON     ON     TOGGLED   OFF    REST      NONE     | ON   --   ON   --   ON   | 3
+ON     ON     TOGGLED   OFF    REST      MAGNET   | ON   --   ON   --   ON   | 3
+ON     ON     TOGGLED   OFF    PRESSED   NONE     | ON   ON   ON   --   --   | 3
+ON     ON     TOGGLED   OFF    PRESSED   MAGNET   | ON   ON   ON   --   ON   | 4
+ON     ON     TOGGLED   ON     REST      NONE     | ON   --   ON   ON   ON   | 4
+ON     ON     TOGGLED   ON     REST      MAGNET   | ON   --   ON   ON   ON   | 4
+ON     ON     TOGGLED   ON     PRESSED   NONE     | ON   ON   ON   ON   --   | 4
+ON     ON     TOGGLED   ON     PRESSED   MAGNET   | ON   ON   ON   ON   ON   | 5
+
+SOLUTION (all 5 on):
+  SW1:ON  SW2:ON  SW3:TOGGLED  SW4:ON  SW5:PRESSED  SW6:MAGNET
+  1 solution out of 64 permutations
+
+LIGHTS-ON DISTRIBUTION:
+  0 lights on: 6 states
+  1 lights on: 16 states
+  2 lights on: 21 states
+  3 lights on: 15 states
+  4 lights on: 5 states
+  5 lights on: 1 states

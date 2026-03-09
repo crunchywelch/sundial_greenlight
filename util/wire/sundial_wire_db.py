@@ -33,15 +33,10 @@ CREATE TABLE IF NOT EXISTS products (
     price REAL,
     is_wire INTEGER DEFAULT 0,
     last_received TEXT,
-    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
--- Costs for non-wire SKUs (synced from Shopify)
-CREATE TABLE IF NOT EXISTS sku_costs (
-    sku TEXT PRIMARY KEY,
     cost REAL,
-    vendor TEXT,
-    notes TEXT
+    cost_vendor TEXT,
+    cost_notes TEXT,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Vendor part number mappings (Satco, B&P)
@@ -113,6 +108,28 @@ def init_db(conn=None):
         conn = get_db()
         close = True
     conn.executescript(SCHEMA_SQL)
+
+    # Migrate sku_costs columns into products (idempotent)
+    for col, coltype in [("cost", "REAL"), ("cost_vendor", "TEXT"), ("cost_notes", "TEXT")]:
+        try:
+            conn.execute(f"ALTER TABLE products ADD COLUMN {col} {coltype}")
+        except Exception:
+            pass  # column already exists
+
+    # Migrate data from sku_costs if it still exists
+    try:
+        conn.execute("""
+            UPDATE products SET
+                cost = (SELECT cost FROM sku_costs WHERE sku_costs.sku = products.sku),
+                cost_vendor = (SELECT vendor FROM sku_costs WHERE sku_costs.sku = products.sku),
+                cost_notes = (SELECT notes FROM sku_costs WHERE sku_costs.sku = products.sku)
+            WHERE sku IN (SELECT sku FROM sku_costs)
+              AND cost IS NULL
+        """)
+        conn.execute("DROP TABLE sku_costs")
+    except Exception:
+        pass  # sku_costs already dropped
+
     # Drop legacy tables/views if they exist
     conn.execute("DROP VIEW IF EXISTS inventory_reconciliation")
     conn.execute("DROP TABLE IF EXISTS inventory_events")
@@ -125,34 +142,30 @@ def upsert_products(conn, rows):
     """Bulk insert/update products.
 
     Each row is a dict with keys: sku, handle, title, option,
-    product_type, qty, price, is_wire.
+    product_type, qty, price, is_wire, and optionally cost,
+    cost_vendor, cost_notes.
     """
+    # Ensure optional cost fields default to None
+    for row in rows:
+        row.setdefault("cost", None)
+        row.setdefault("cost_vendor", None)
+        row.setdefault("cost_notes", None)
     conn.executemany(
         """INSERT INTO products (sku, handle, title, option,
-                                 product_type, qty, price, is_wire, updated_at)
+                                 product_type, qty, price, is_wire,
+                                 cost, cost_vendor, cost_notes, updated_at)
            VALUES (:sku, :handle, :title, :option,
-                   :product_type, :qty, :price, :is_wire, CURRENT_TIMESTAMP)
+                   :product_type, :qty, :price, :is_wire,
+                   :cost, :cost_vendor, :cost_notes, CURRENT_TIMESTAMP)
            ON CONFLICT(sku) DO UPDATE SET
                handle=excluded.handle, title=excluded.title,
                option=excluded.option, product_type=excluded.product_type,
                qty=excluded.qty, price=excluded.price,
-               is_wire=excluded.is_wire, updated_at=CURRENT_TIMESTAMP""",
-        rows,
-    )
-    conn.commit()
-
-
-def upsert_sku_costs(conn, rows):
-    """Bulk insert/update non-wire costs.
-
-    Each row is a dict with keys: sku, cost, vendor, notes.
-    """
-    conn.executemany(
-        """INSERT INTO sku_costs (sku, cost, vendor, notes)
-           VALUES (:sku, :cost, :vendor, :notes)
-           ON CONFLICT(sku) DO UPDATE SET
-               cost=excluded.cost, vendor=excluded.vendor,
-               notes=excluded.notes""",
+               is_wire=excluded.is_wire,
+               cost=COALESCE(excluded.cost, products.cost),
+               cost_vendor=COALESCE(excluded.cost_vendor, products.cost_vendor),
+               cost_notes=COALESCE(excluded.cost_notes, products.cost_notes),
+               updated_at=CURRENT_TIMESTAMP""",
         rows,
     )
     conn.commit()

@@ -101,11 +101,11 @@ def calc_lamp_value(conn, excluded_skus):
 
     # Items with known cost, excluding made-to-order and audio
     rows = conn.execute(f"""
-        SELECT p.sku, p.qty, sc.cost
+        SELECT p.sku, p.qty, p.cost
         FROM products p
-        JOIN sku_costs sc ON p.sku = sc.sku
         WHERE p.is_wire = 0
           AND p.qty > 0 AND p.qty < 100000
+          AND p.cost IS NOT NULL
           AND p.product_type NOT IN ({mto_placeholders})
           AND p.sku NOT LIKE 'SC-%' AND p.sku NOT LIKE 'SV-%'
           AND p.sku NOT LIKE 'TC-%' AND p.sku NOT LIKE 'TV-%'
@@ -133,7 +133,7 @@ def calc_audio_value(conn):
     """Calculate audio cable inventory value from PostgreSQL + SQLite costs.
 
     Counts available (unsold) cables from PostgreSQL, then looks up per-SKU
-    cost from SQLite sku_costs.
+    cost from the SQLite products table.
 
     Returns dict with keys: skus, units, value.
     """
@@ -161,7 +161,7 @@ def calc_audio_value(conn):
     for sku, qty in available:
         # Standard SKUs: look up cost directly
         cost_row = conn.execute(
-            "SELECT cost FROM sku_costs WHERE sku = ?", (sku,)
+            "SELECT cost FROM products WHERE sku = ?", (sku,)
         ).fetchone()
 
         if cost_row and cost_row["cost"]:
@@ -182,7 +182,7 @@ def calc_audio_value(conn):
                 """, (sku,))
                 for (shopify_sku,) in cur2.fetchall():
                     misc_cost = conn.execute(
-                        "SELECT cost FROM sku_costs WHERE sku = ?", (shopify_sku,)
+                        "SELECT cost FROM products WHERE sku = ?", (shopify_sku,)
                     ).fetchone()
                     if misc_cost and misc_cost["cost"]:
                         total_value += misc_cost["cost"]

@@ -2,8 +2,8 @@
 """
 Refresh audio cable products and costs from the audio Shopify store into SQLite.
 
-Fetches all active products via GraphQL and updates the products table,
-sku_costs, and inventory_snapshots with current data from Shopify.
+Fetches all active products via GraphQL and updates the products table
+and inventory_snapshots with current data from Shopify.
 
 Usage:
     python util/audio/audio_refresh_products.py           # Refresh all products
@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import shopify
 from greenlight.shopify_client import get_shopify_session, close_shopify_session
-from util.wire.sundial_wire_db import get_db, init_db, upsert_products, upsert_inventory_snapshot, upsert_sku_costs
+from util.wire.sundial_wire_db import get_db, init_db, upsert_products, upsert_inventory_snapshot
 
 
 def fetch_all_products():
@@ -111,6 +111,8 @@ def fetch_all_products():
                         "price": price,
                         "is_wire": 0,
                         "cost": cost,
+                        "cost_vendor": "Shopify" if cost is not None else None,
+                        "cost_notes": "auto-synced from audio Shopify" if cost is not None else None,
                     })
 
             has_next_page = page_info.get("hasNextPage", False)
@@ -139,26 +141,15 @@ def refresh_from_shopify(conn):
     upsert_products(conn, items)
 
     snapshot_count = 0
-    sku_cost_rows = []
     for item in items:
         if item["cost"] is not None:
             upsert_inventory_snapshot(
                 conn, item["sku"], today, item["qty"], item["cost"], "shopify_live"
             )
             snapshot_count += 1
-            sku_cost_rows.append({
-                "sku": item["sku"],
-                "cost": item["cost"],
-                "vendor": "Shopify",
-                "notes": "auto-synced from audio Shopify",
-            })
-
-    if sku_cost_rows:
-        upsert_sku_costs(conn, sku_cost_rows)
 
     print(f"  Updated {len(items)} products")
     print(f"  Updated {snapshot_count} inventory snapshots (date: {today})")
-    print(f"  Updated {len(sku_cost_rows)} SKU costs")
     print()
 
     return len(items), snapshot_count
@@ -208,10 +199,10 @@ def main():
                 print(f"    {s['snapshot_date']}: qty={s['qty']}, cost={s['cost']}, source={s['source']}")
 
         cost_row = conn.execute(
-            "SELECT * FROM sku_costs WHERE sku = ?", (args.sku,)
+            "SELECT cost, cost_vendor FROM products WHERE sku = ?", (args.sku,)
         ).fetchone()
-        if cost_row:
-            print(f"  Cost: ${cost_row['cost']:.2f} (vendor: {cost_row['vendor']})")
+        if cost_row and cost_row["cost"]:
+            print(f"  Cost: ${cost_row['cost']:.2f} (vendor: {cost_row['cost_vendor']})")
 
     conn.close()
     print()
