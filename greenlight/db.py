@@ -344,6 +344,12 @@ def get_or_create_special_baby_type(base_sku, description, length=None):
     try:
         with conn:
             with conn.cursor() as cur:
+                # Serialize concurrent inserts for the same base_sku
+                cur.execute(
+                    "SELECT pg_advisory_xact_lock(hashtext(%s))",
+                    (base_sku,)
+                )
+
                 # Try to find existing match
                 cur.execute("""
                     SELECT id, shopify_sku FROM special_baby_types
@@ -489,6 +495,41 @@ def assign_cable_to_customer(serial_number, customer_shopify_gid):
                 }
     except Exception as e:
         print(f"❌ Error assigning cable to customer: {e}")
+        conn.rollback()
+        return {'error': 'database', 'message': str(e)}
+    finally:
+        pg_pool.putconn(conn)
+
+
+def force_reassign_cable(serial_number, customer_shopify_gid):
+    """Unconditionally reassign a cable to a customer (overrides existing assignment)"""
+    conn = pg_pool.getconn()
+    try:
+        formatted_serial = format_serial_number(serial_number)
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE audio_cables
+                    SET shopify_gid = %s
+                    WHERE serial_number = %s
+                    RETURNING serial_number, sku, shopify_gid
+                """, (customer_shopify_gid, formatted_serial))
+                result = cur.fetchone()
+                conn.commit()
+
+                if result:
+                    return {
+                        'success': True,
+                        'serial_number': result[0],
+                        'sku': result[1],
+                        'customer_gid': result[2]
+                    }
+                return {
+                    'error': 'not_found',
+                    'message': f'Cable with serial number {formatted_serial} not found'
+                }
+    except Exception as e:
+        print(f"❌ Error reassigning cable: {e}")
         conn.rollback()
         return {'error': 'database', 'message': str(e)}
     finally:

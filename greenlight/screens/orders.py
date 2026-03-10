@@ -375,55 +375,37 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
 
                 if choice == 'y' or choice == 'yes':
                     # Force reassignment
-                    from greenlight.db import pg_pool
-
                     self.ui.layout["body"].update(Panel(
                         f"[yellow]Reassigning cable {cable_serial}...[/yellow]",
                         title="Reassigning Cable"
                     ))
                     self.ui.render()
 
-                    try:
-                        conn = pg_pool.getconn()
-                        with conn:
-                            with conn.cursor() as cur:
-                                cur.execute("""
-                                    UPDATE audio_cables
-                                    SET shopify_gid = %s
-                                    WHERE serial_number = %s
-                                    RETURNING serial_number
-                                """, (customer_gid, cable_serial))
-                                updated = cur.fetchone()
-                                conn.commit()
+                    reassign_result = db.force_reassign_cable(cable_serial, customer_gid)
 
-                                if updated:
-                                    self.ui.layout["body"].update(Panel(
-                                        f"[bold green]✅ Cable Reassigned Successfully![/bold green]\n\n"
-                                        f"Cable: [yellow]{cable_serial}[/yellow] ({cable_sku})\n"
-                                        f"Customer: [cyan]{customer_name}[/cyan]\n\n"
-                                        f"[dim]Press enter to return to cable scanning[/dim]",
-                                        title="Reassignment Complete",
-                                        style="green"
-                                    ))
-                                    self.ui.layout["footer"].update(Panel("", title=""))
-                                    self.ui.render()
-                                    self.ui.console.input()
-
-                                    from greenlight.screens.cable import ScanCableLookupScreen
-                                    return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
-
-                        pg_pool.putconn(conn)
-                    except Exception as e:
+                    if reassign_result.get('success'):
                         self.ui.layout["body"].update(Panel(
-                            f"[red]❌ Error reassigning cable: {e}[/red]\n\n[dim]Press enter to return[/dim]",
-                            title="Error"
+                            f"[bold green]✅ Cable Reassigned Successfully![/bold green]\n\n"
+                            f"Cable: [yellow]{cable_serial}[/yellow] ({cable_sku})\n"
+                            f"Customer: [cyan]{customer_name}[/cyan]\n\n"
+                            f"[dim]Press enter to return to cable scanning[/dim]",
+                            title="Reassignment Complete",
+                            style="green"
                         ))
                         self.ui.layout["footer"].update(Panel("", title=""))
                         self.ui.render()
                         self.ui.console.input()
 
-                        if 'conn' in locals():
-                            pg_pool.putconn(conn)
+                        from greenlight.screens.cable import ScanCableLookupScreen
+                        return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+                    else:
+                        self.ui.layout["body"].update(Panel(
+                            f"[red]❌ Error reassigning cable: {reassign_result.get('message', 'Unknown error')}[/red]\n\n[dim]Press enter to return[/dim]",
+                            title="Error"
+                        ))
+                        self.ui.layout["footer"].update(Panel("", title=""))
+                        self.ui.render()
+                        self.ui.console.input()
 
                         from greenlight.screens.cable import ScanCableLookupScreen
                         return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
@@ -665,62 +647,39 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                     return ScreenResult(NavigationAction.POP, pop_to=CustomerLookupScreen)
 
                 if choice == 'y' or choice == 'yes':
-                    # Force reassignment by updating the database directly
-                    # First get the cable record, then update it
-                    from greenlight.db import pg_pool
-
+                    # Force reassignment
                     self.ui.layout["body"].update(Panel(
                         f"[yellow]Reassigning cable {serial_input}...[/yellow]",
                         title="Reassigning Cable"
                     ))
                     self.ui.render()
 
-                    try:
-                        conn = pg_pool.getconn()
-                        with conn:
-                            with conn.cursor() as cur:
-                                # Update the cable assignment (override existing)
-                                cur.execute("""
-                                    UPDATE audio_cables
-                                    SET shopify_gid = %s
-                                    WHERE serial_number = %s
-                                    RETURNING serial_number, sku
-                                """, (customer_gid, serial_input))
-                                updated = cur.fetchone()
-                                conn.commit()
+                    reassign_result = db.force_reassign_cable(serial_input, customer_gid)
 
-                                if updated:
-                                    assigned_serial = updated[0]
-                                    assigned_cables.append(assigned_serial)
+                    if reassign_result.get('success'):
+                        assigned_serial = reassign_result['serial_number']
+                        assigned_cables.append(assigned_serial)
 
-                                    # Update context
-                                    new_context = self.context.copy()
-                                    new_context["assigned_cables"] = assigned_cables
+                        new_context = self.context.copy()
+                        new_context["assigned_cables"] = assigned_cables
 
-                                    # Show success
-                                    self.ui.layout["body"].update(Panel(
-                                        f"[bold green]✅ Cable {assigned_serial} reassigned to {customer_name}![/bold green]",
-                                        title="Success"
-                                    ))
-                                    self.ui.render()
-
-                                    import time
-                                    time.sleep(1)
-
-                                    # Continue to next scan
-                                    return ScreenResult(NavigationAction.REPLACE, AssignCablesScreen, new_context)
-
-                        pg_pool.putconn(conn)
-                    except Exception as e:
                         self.ui.layout["body"].update(Panel(
-                            f"[red]❌ Error reassigning cable: {e}[/red]\n\n[dim]Press enter to continue[/dim]",
+                            f"[bold green]✅ Cable {assigned_serial} reassigned to {customer_name}![/bold green]",
+                            title="Success"
+                        ))
+                        self.ui.render()
+
+                        import time
+                        time.sleep(1)
+
+                        return ScreenResult(NavigationAction.REPLACE, AssignCablesScreen, new_context)
+                    else:
+                        self.ui.layout["body"].update(Panel(
+                            f"[red]❌ Error reassigning cable: {reassign_result.get('message', 'Unknown error')}[/red]\n\n[dim]Press enter to continue[/dim]",
                             title="Error"
                         ))
                         self.ui.render()
                         self.ui.console.input()
-
-                        if 'conn' in locals():
-                            pg_pool.putconn(conn)
 
                         return ScreenResult(NavigationAction.REPLACE, AssignCablesScreen, self.context)
 
