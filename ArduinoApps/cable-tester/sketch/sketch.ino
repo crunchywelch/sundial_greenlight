@@ -213,6 +213,10 @@ bool showingIcon = false;
 unsigned long iconStartTime = 0;
 #define ICON_DISPLAY_MS 3000  // Show icon for 3 seconds before resuming scroll
 
+// Brightness gradient per column (symmetric fade on edges)
+// Cols 0,12 = 1, Cols 1,11 = 2, Cols 2,10 = 4, Cols 3-9 = 7
+const uint8_t COL_BRIGHTNESS[] = {1, 2, 4, 7, 7, 7, 7, 7, 7, 7, 4, 2, 1};
+
 // Render one frame of scrolling text into the display buffer
 void renderScrollFrame(int offset) {
   uint8_t frame[104];
@@ -235,15 +239,18 @@ void renderScrollFrame(int offset) {
     int fi = fontIndex(scrollText[charIdx]);
     uint8_t colBits = FONT_5x7[fi][colInChar];
 
-    // Map 7-bit column to rows 1-7 (row 0 = top padding)
+    // Map 7-bit column to rows, flipped vertically (row 0 padding at bottom)
+    // Also mirror columns (12-col) so text reads correctly
+    int dispCol = 12 - col;
+    uint8_t brightness = COL_BRIGHTNESS[dispCol];
     for (int row = 0; row < 7; row++) {
       if (colBits & (1 << row)) {
-        frame[(row + 1) * 13 + col] = 1;
+        frame[(6 - row) * 13 + dispCol] = brightness;
       }
     }
   }
 
-  matrix.setGrayscaleBits(1);
+  matrix.setGrayscaleBits(3);
   matrix.draw(frame);
 }
 
