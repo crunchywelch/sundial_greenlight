@@ -9,7 +9,8 @@ from greenlight.screens import SplashScreen
 from greenlight.config import (
     APP_NAME, EXIT_MESSAGE,
     USE_REAL_PRINTERS, TSC_PRINTER_IP, TSC_PRINTER_PORT, TSC_LABEL_WIDTH_MM, TSC_LABEL_HEIGHT_MM,
-    USE_REAL_ARDUINO, ARDUINO_PORT, ARDUINO_BAUDRATE
+    USE_REAL_ARDUINO, ARDUINO_PORT, ARDUINO_BAUDRATE,
+    PLATFORM, ROUTER_SOCKET_PATH
 )
 
 def signal_handler(sig, frame):
@@ -56,22 +57,33 @@ def init_hardware():
             label_printer.initialize()
             print("✅ Mock label printer initialized")
 
-        # Initialize Arduino cable tester
+        # Initialize cable tester (auto-detect platform)
         if USE_REAL_ARDUINO:
-            print("🔌 Initializing Arduino cable tester...")
-            from greenlight.hardware.cable_tester import ArduinoCableTester
+            if PLATFORM == "unoq":
+                print("🔌 Initializing UNO Q cable tester (Bridge)...")
+                from greenlight.hardware.cable_tester import BridgeCableTester
 
-            cable_tester = ArduinoCableTester(
-                port=ARDUINO_PORT,  # None for auto-detect
-                baudrate=ARDUINO_BAUDRATE
-            )
+                cable_tester = BridgeCableTester(socket_path=ROUTER_SOCKET_PATH)
 
-            # Try to initialize
-            if cable_tester.initialize():
-                print(f"✅ Cable tester ready: {cable_tester.tester_id} on {cable_tester.port}")
+                if cable_tester.initialize():
+                    print(f"✅ Cable tester ready: {cable_tester.tester_id} via Bridge")
+                else:
+                    print("⚠️  Bridge cable tester not responding")
+                    print("   Check that the tester app is running on the MCU")
             else:
-                print("⚠️  Cable tester not found")
-                print("   Cable testing will be unavailable")
+                print("🔌 Initializing Arduino cable tester (serial)...")
+                from greenlight.hardware.cable_tester import ArduinoCableTester
+
+                cable_tester = ArduinoCableTester(
+                    port=ARDUINO_PORT,
+                    baudrate=ARDUINO_BAUDRATE
+                )
+
+                if cable_tester.initialize():
+                    print(f"✅ Cable tester ready: {cable_tester.tester_id} on {cable_tester.port}")
+                else:
+                    print("⚠️  Cable tester not found")
+                    print("   Cable testing will be unavailable")
         else:
             print("🔌 Using mock cable tester (USE_REAL_ARDUINO=false)")
             from greenlight.hardware.cable_tester import MockCableTester

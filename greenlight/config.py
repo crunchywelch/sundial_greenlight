@@ -35,6 +35,32 @@ REGISTRATION_BASE_URL = os.getenv("GREENLIGHT_REGISTRATION_URL", "https://sundia
 ARDUINO_PORT = os.getenv("GREENLIGHT_ARDUINO_PORT")  # e.g., "/dev/ttyUSB0"
 ARDUINO_BAUDRATE = int(os.getenv("GREENLIGHT_ARDUINO_BAUDRATE", "9600"))
 
+# Platform detection: UNO Q vs Pi + Mega 2560
+# UNO Q has the arduino-router service exposing a unix socket for Bridge RPC.
+# Can be overridden with GREENLIGHT_PLATFORM=unoq|serial|mock
+ROUTER_SOCKET_PATH = "/var/run/arduino-router.sock"
+
+def detect_platform() -> str:
+    """Detect hardware platform: 'unoq', 'serial', or 'mock'
+
+    Returns:
+        'unoq'   - Arduino UNO Q (Router Bridge via unix socket)
+        'serial' - Pi + Mega 2560 (USB serial)
+        'mock'   - No hardware (mock tester)
+    """
+    override = os.getenv("GREENLIGHT_PLATFORM", "").lower()
+    if override in ("unoq", "serial", "mock"):
+        return override
+
+    # Check for UNO Q Router Bridge socket
+    if os.path.exists(ROUTER_SOCKET_PATH):
+        return "unoq"
+
+    # Fall back to serial (Pi + Mega)
+    return "serial"
+
+PLATFORM = detect_platform()
+
 # TSC Label Printer configuration
 TSC_PRINTER_IP = os.getenv("GREENLIGHT_TSC_PRINTER_IP", "tsc")
 TSC_PRINTER_PORT = int(os.getenv("GREENLIGHT_TSC_PRINTER_PORT", "9100"))
