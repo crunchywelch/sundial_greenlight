@@ -28,48 +28,58 @@ Keep this open while editing in KiCad.
 | XLR_CONT_IN_PIN3     | D66      | D19 (A5)  |                              |
 | XLR_CONT_IN_SHELL    | D60      | D20 (SDA) |                              |
 | RES_SENSE            | A0       | A0        | **circuit now powered by 3.3V** |
+| LED_FAIL (red)       | D19      | D53 (PH13)| onboard LED4 R + external via 220Ω |
+| LED_PASS (green)     | D20      | D54 (PH14)| onboard LED4 G + external via 220Ω |
+| LED_ERROR (blue)     | D21      | D55 (PH15)| onboard LED4 B + external via 220Ω |
+| LED_STATUS (blue)    | —        | D52 (PH12)| onboard LED3 B + external via 220Ω |
 | (spare)              | —        | D21 (SCL) | available if needed          |
 
 ---
 
-## COMPONENTS TO REMOVE
+## EXTERNAL STATUS LEDs
 
-| Ref  | Part      | Why                              |
-|------|-----------|----------------------------------|
-| D1   | LED_RAGB  | Using onboard RGB LEDs instead   |
-| D2   | LED       | Status LED not needed externally |
-| R5   | 220Ω      | D1 red current limiter           |
-| R6   | 220Ω      | D1 green current limiter         |
-| R7   | 220Ω      | D1 blue current limiter          |
-| R8   | 220Ω      | D2 current limiter               |
+Keep D1 (RAGB LED), D2 (status LED), and their resistors R5-R8.
+Rewire to onboard LED3/LED4 MCU pins (accent: same GPIO drives both
+onboard SMD LED and external LED through enclosure).
 
-Remove net labels D19, D20, D21 (were FAIL/PASS/ERROR LEDs, no longer used).
+| Ref  | Part      | MCU Pin    | Arduino Pin | Function           |
+|------|-----------|------------|-------------|--------------------|
+| D1-R | LED_RAGB  | PH13       | D53         | FAIL (red)         |
+| D1-G | LED_RAGB  | PH14       | D54         | PASS (green)       |
+| D1-B | LED_RAGB  | PH15       | D55         | ERROR (blue)       |
+| D2   | LED       | PH12       | D52         | Status heartbeat   |
+| R5   | 220Ω      | —          | —           | D1 red limiter     |
+| R6   | 220Ω      | —          | —           | D1 green limiter   |
+| R7   | 220Ω      | —          | —           | D1 blue limiter    |
+| R8   | 220Ω      | —          | —           | D2 status limiter  |
 
-**Display uses onboard 8x13 LED matrix** (PE0-7 rows, PG0-12 cols).
-Driven internally by MCU — no external components, no GPIO cost.
-Controlled via `Arduino_LED_Matrix` library (same API as UNO R4 WiFi).
-Shows checkmark (pass), X (fail), ! (error), dot (idle heartbeat).
+Wire external LEDs from LED4/LED3 pads through R5-R8 to enclosure.
+Board mounts inverted — LED4 (result) on top, LED3 (status) below.
+Onboard LEDs light in parallel for bench testing visibility.
+Status LED (D52) blinks at 1Hz heartbeat when system is ready.
 
 ---
 
 ## COMPONENTS TO ADD — RELAY DRIVERS (x5)
 
-Each relay control line gets an identical sub-circuit:
+Each relay control line gets an identical NPN low-side switch:
 
 ```
-                      +5V
-                       │
-                  ┌────┤ A2
-                  │    │
-    GPIO ──[1kΩ]──┤B   K (relay coil)
-                  │    │
-                  │Q   ├ A1
-                  │    │
-              PN2222A  │C
-                  │    │
-                  │E   │
-                  │    │
-                 GND  GND
+                +5V
+                 │
+            relay coil A2
+                 │
+                 K (coil)
+                 │
+            relay coil A1
+                 │
+                 C (collector)
+                 │
+    GPIO ──[1kΩ]──B  PN2222A
+                 │
+                 E (emitter)
+                 │
+                GND
 ```
 
 Wiring detail:
@@ -78,6 +88,10 @@ Wiring detail:
 - PN2222A collector (pin 3) → relay coil pin A1
 - Relay coil pin A2 → +5V
 - Flyback diode across coil (cathode to +5V, anode to A1) — already exists
+
+The transistor sinks relay current to ground (low-side switch).
+Relay sees ~4.8V (5V minus Vce(sat) ≈ 0.2V).
+Base drive: (3.3V - 0.7V) / 1kΩ = 2.6mA — sufficient to saturate for relay coil current.
 
 ### New parts list
 
@@ -140,8 +154,11 @@ A0, A1, A2, A3, A4, A5
 | R1      | 330Ω      | Q1 base resistor (keep)           |
 | R2      | 20Ω       | R_sense (keep, rewire to 3.3V)    |
 | R3,R4   | 10K       | Pulldowns (keep)                   |
+| R5–R8   | 220Ω      | LED current limiters (keep, rewire)|
 | R9,R10  | 10K       | Pulldowns (keep)                   |
 | R13     | 10K       | Pulldown (keep)                    |
+| D1      | LED_RAGB  | Pass/fail/error LED (keep, rewire)|
+| D2      | LED       | Status heartbeat LED (keep, rewire)|
 | D3,D5,D6| 1N4007    | Flyback diodes (keep)             |
 | D8,D9   | 1N4007    | Flyback diodes (keep)             |
 | D12     | 1N4007    | Flyback diode (keep)              |
@@ -152,8 +169,9 @@ A0, A1, A2, A3, A4, A5
 
 ## CHECKLIST
 
-- [ ] Remove D1, D2, R5, R6, R7, R8
-- [ ] Remove D19/D20/D21 net labels (LED pins)
+- [ ] Rewire D1 (RAGB) + R5/R6/R7 to LED3 pads (D50/D51/D52)
+- [ ] Rewire D2 (status) + R8 to LED4 Blue pad (D55)
+- [ ] Remove old D19/D20/D21 net labels (Mega LED pins)
 - [ ] Add Q2-Q6 (PN2222A) with R14-R18 (1kΩ) for relay drives
 - [ ] Wire each relay coil through its new transistor driver
 - [ ] Rewire R2 high side from +5V to +3.3V
