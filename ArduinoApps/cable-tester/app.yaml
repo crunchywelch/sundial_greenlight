@@ -1,0 +1,7 @@
+# app.yaml: The main configuration file for your Arduino App.
+
+name: cable-tester
+description: "Greenlight cable QC tester (Bridge RPC)"
+icon: 🔌
+ports: []
+bricks: []

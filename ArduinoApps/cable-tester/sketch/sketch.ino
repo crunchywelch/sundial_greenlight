@@ -94,13 +94,158 @@ ArduinoLEDMatrix matrix;
 #define SHOW_PASS   1
 #define SHOW_FAIL   2
 #define SHOW_ERROR  3
-#define SHOW_READY  4
+#define SHOW_SCROLL 4
 
-const uint32_t FRAME_OFF[]   = {0, 0, 0};
-const uint32_t FRAME_PASS[]  = {0x00100180, 0x30060030, 0x00C00000};  // Checkmark
-const uint32_t FRAME_FAIL[]  = {0x81042108, 0x40081042, 0x10810000};  // X
-const uint32_t FRAME_ERROR[] = {0x0C030030, 0x00C00000, 0x0C000000};  // !
-const uint32_t FRAME_READY[] = {0x00000000, 0x30060000, 0x00000000};  // Center dot
+// Static icon frames (8x13 = 104 bits, packed into 3x uint32_t + 8 leftover bits)
+const uint32_t FRAME_OFF[] = {0, 0, 0, 0};
+
+// Icon bitmaps as flat byte arrays (8 rows x 13 cols)
+const uint8_t ICON_PASS[] = {
+  0,0,0,0,0,0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,0,1,0,
+  0,0,0,0,0,0,0,0,0,0,1,1,0,
+  0,0,0,0,0,0,0,0,0,1,1,0,0,
+  0,1,0,0,0,0,0,0,1,1,0,0,0,
+  0,0,1,0,0,0,0,1,1,0,0,0,0,
+  0,0,0,1,0,0,1,1,0,0,0,0,0,
+  0,0,0,0,1,1,1,0,0,0,0,0,0,
+};
+const uint8_t ICON_FAIL[] = {
+  0,0,0,0,0,0,0,0,0,0,0,0,0,
+  0,0,1,0,0,0,0,0,0,0,1,0,0,
+  0,0,0,1,0,0,0,0,0,1,0,0,0,
+  0,0,0,0,1,0,0,0,1,0,0,0,0,
+  0,0,0,0,0,1,0,1,0,0,0,0,0,
+  0,0,0,0,1,0,0,0,1,0,0,0,0,
+  0,0,0,1,0,0,0,0,0,1,0,0,0,
+  0,0,1,0,0,0,0,0,0,0,1,0,0,
+};
+const uint8_t ICON_ERROR[] = {
+  0,0,0,0,0,0,1,0,0,0,0,0,0,
+  0,0,0,0,0,1,1,1,0,0,0,0,0,
+  0,0,0,0,0,1,1,1,0,0,0,0,0,
+  0,0,0,0,0,0,1,0,0,0,0,0,0,
+  0,0,0,0,0,0,1,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,1,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,0,0,0,
+};
+
+// ===== SCROLLING TEXT =====
+// 5x7 font, column-major (each byte = 1 column, 7 bits, LSB = top row)
+// Only chars needed: space, A, D, E, I, L, N, R, S, U, W, a, d, e, i, l, n, r, s, u, w
+// Full A-Z + a-z + 0-9 for flexibility
+
+const uint8_t FONT_5x7[][5] = {
+  // space (32)
+  {0x00, 0x00, 0x00, 0x00, 0x00},
+  // A-Z (65-90) - index 1-26
+  {0x7E, 0x09, 0x09, 0x09, 0x7E}, // A
+  {0x7F, 0x49, 0x49, 0x49, 0x36}, // B
+  {0x3E, 0x41, 0x41, 0x41, 0x22}, // C
+  {0x7F, 0x41, 0x41, 0x41, 0x3E}, // D
+  {0x7F, 0x49, 0x49, 0x49, 0x41}, // E
+  {0x7F, 0x09, 0x09, 0x09, 0x01}, // F
+  {0x3E, 0x41, 0x49, 0x49, 0x3A}, // G
+  {0x7F, 0x08, 0x08, 0x08, 0x7F}, // H
+  {0x41, 0x41, 0x7F, 0x41, 0x41}, // I
+  {0x20, 0x40, 0x40, 0x40, 0x3F}, // J
+  {0x7F, 0x08, 0x14, 0x22, 0x41}, // K
+  {0x7F, 0x40, 0x40, 0x40, 0x40}, // L
+  {0x7F, 0x02, 0x04, 0x02, 0x7F}, // M
+  {0x7F, 0x02, 0x04, 0x08, 0x7F}, // N
+  {0x3E, 0x41, 0x41, 0x41, 0x3E}, // O
+  {0x7F, 0x09, 0x09, 0x09, 0x06}, // P
+  {0x3E, 0x41, 0x51, 0x21, 0x5E}, // Q
+  {0x7F, 0x09, 0x09, 0x19, 0x66}, // R
+  {0x26, 0x49, 0x49, 0x49, 0x32}, // S
+  {0x01, 0x01, 0x7F, 0x01, 0x01}, // T
+  {0x3F, 0x40, 0x40, 0x40, 0x3F}, // U
+  {0x07, 0x18, 0x60, 0x18, 0x07}, // V
+  {0x3F, 0x40, 0x30, 0x40, 0x3F}, // W
+  {0x63, 0x14, 0x08, 0x14, 0x63}, // X
+  {0x03, 0x04, 0x78, 0x04, 0x03}, // Y
+  {0x61, 0x51, 0x49, 0x45, 0x43}, // Z
+  // a-z (97-122) - index 27-52
+  {0x20, 0x54, 0x54, 0x54, 0x78}, // a
+  {0x7F, 0x44, 0x44, 0x44, 0x38}, // b
+  {0x38, 0x44, 0x44, 0x44, 0x28}, // c
+  {0x38, 0x44, 0x44, 0x44, 0x7F}, // d
+  {0x38, 0x54, 0x54, 0x54, 0x18}, // e
+  {0x08, 0x7E, 0x09, 0x09, 0x02}, // f
+  {0x08, 0x54, 0x54, 0x54, 0x3C}, // g
+  {0x7F, 0x04, 0x04, 0x04, 0x78}, // h
+  {0x00, 0x44, 0x7D, 0x40, 0x00}, // i
+  {0x20, 0x40, 0x40, 0x44, 0x3D}, // j
+  {0x7F, 0x10, 0x28, 0x44, 0x00}, // k
+  {0x00, 0x41, 0x7F, 0x40, 0x00}, // l
+  {0x7C, 0x04, 0x18, 0x04, 0x78}, // m
+  {0x7C, 0x04, 0x04, 0x04, 0x78}, // n
+  {0x38, 0x44, 0x44, 0x44, 0x38}, // o
+  {0x7C, 0x14, 0x14, 0x14, 0x08}, // p
+  {0x08, 0x14, 0x14, 0x14, 0x7C}, // q
+  {0x7C, 0x08, 0x04, 0x04, 0x08}, // r
+  {0x48, 0x54, 0x54, 0x54, 0x24}, // s
+  {0x04, 0x3F, 0x44, 0x44, 0x20}, // t
+  {0x3C, 0x40, 0x40, 0x40, 0x7C}, // u
+  {0x1C, 0x20, 0x40, 0x20, 0x1C}, // v
+  {0x3C, 0x40, 0x30, 0x40, 0x3C}, // w
+  {0x44, 0x28, 0x10, 0x28, 0x44}, // x
+  {0x0C, 0x50, 0x50, 0x50, 0x3C}, // y
+  {0x44, 0x64, 0x54, 0x4C, 0x44}, // z
+};
+
+// Get font index for a character (returns 0 for space/unknown)
+int fontIndex(char c) {
+  if (c >= 'A' && c <= 'Z') return 1 + (c - 'A');
+  if (c >= 'a' && c <= 'z') return 27 + (c - 'a');
+  return 0; // space
+}
+
+// Scroll state
+const char* scrollText = "Sundial Wire";
+#define SCROLL_SPEED_MS 80
+#define CHAR_WIDTH 6        // 5 pixels + 1 space
+int scrollOffset = 0;
+int scrollMaxOffset = 0;
+unsigned long lastScrollTime = 0;
+bool showingIcon = false;
+unsigned long iconStartTime = 0;
+#define ICON_DISPLAY_MS 3000  // Show icon for 3 seconds before resuming scroll
+
+// Render one frame of scrolling text into the display buffer
+void renderScrollFrame(int offset) {
+  uint8_t frame[104];
+  memset(frame, 0, sizeof(frame));
+
+  int textLen = strlen(scrollText);
+  // Total pixel width of the text
+  int textPixelWidth = textLen * CHAR_WIDTH;
+
+  for (int col = 0; col < 13; col++) {
+    int srcCol = col + offset - 13; // start with text scrolling in from right
+    if (srcCol < 0 || srcCol >= textPixelWidth) continue;
+
+    int charIdx = srcCol / CHAR_WIDTH;
+    int colInChar = srcCol % CHAR_WIDTH;
+    if (colInChar >= 5) continue; // inter-character gap
+
+    if (charIdx < 0 || charIdx >= textLen) continue;
+
+    int fi = fontIndex(scrollText[charIdx]);
+    uint8_t colBits = FONT_5x7[fi][colInChar];
+
+    // Map 7-bit column to rows 1-7 (row 0 = top padding)
+    for (int row = 0; row < 7; row++) {
+      if (colBits & (1 << row)) {
+        frame[(row + 1) * 13 + col] = 1;
+      }
+    }
+  }
+
+  matrix.setGrayscaleBits(1);
+  matrix.draw(frame);
+}
 
 // ===== CONFIGURATION =====
 const char* TESTER_ID = "UNOQ_TESTER_1";
@@ -207,6 +352,7 @@ void setup() {
 
   // --- LED Matrix ---
   matrix.begin();
+  scrollMaxOffset = strlen(scrollText) * CHAR_WIDTH + 13; // full scroll through
 
   // Initialize all outputs LOW
   digitalWrite(K1_K2_RELAY, LOW);
@@ -239,13 +385,26 @@ void setup() {
 
 // ===== MAIN LOOP =====
 void loop() {
-  // Heartbeat blink when idle
-  static unsigned long lastBlink = 0;
-  static bool blinkState = false;
-  if (systemReady && millis() - lastBlink > 1000) {
-    blinkState = !blinkState;
-    matrix.loadFrame(blinkState ? FRAME_READY : FRAME_OFF);
-    lastBlink = millis();
+  if (!systemReady) return;
+
+  // If showing a test result icon, wait before resuming scroll
+  if (showingIcon) {
+    if (millis() - iconStartTime >= ICON_DISPLAY_MS) {
+      showingIcon = false;
+      scrollOffset = 0;
+      lastScrollTime = millis();
+    }
+    return;
+  }
+
+  // Scroll text
+  if (millis() - lastScrollTime >= SCROLL_SPEED_MS) {
+    renderScrollFrame(scrollOffset);
+    scrollOffset++;
+    if (scrollOffset > scrollMaxOffset) {
+      scrollOffset = 0;
+    }
+    lastScrollTime = millis();
   }
 }
 
@@ -801,19 +960,37 @@ void resetCircuit() {
 }
 
 void showResult(int result) {
+  matrix.setGrayscaleBits(1);
   switch (result) {
-    case SHOW_PASS:  matrix.loadFrame(FRAME_PASS);  break;
-    case SHOW_FAIL:  matrix.loadFrame(FRAME_FAIL);  break;
-    case SHOW_ERROR: matrix.loadFrame(FRAME_ERROR); break;
-    case SHOW_READY: matrix.loadFrame(FRAME_READY); break;
-    default:         matrix.loadFrame(FRAME_OFF);   break;
+    case SHOW_PASS:
+      matrix.draw(ICON_PASS);
+      showingIcon = true;
+      iconStartTime = millis();
+      break;
+    case SHOW_FAIL:
+      matrix.draw(ICON_FAIL);
+      showingIcon = true;
+      iconStartTime = millis();
+      break;
+    case SHOW_ERROR:
+      matrix.draw(ICON_ERROR);
+      showingIcon = true;
+      iconStartTime = millis();
+      break;
+    default: {
+      uint8_t blank[104] = {0};
+      matrix.draw(blank);
+      break;
+    }
   }
 }
 
 bool selfTest() {
+  // Show each icon briefly during startup
   int patterns[] = {SHOW_FAIL, SHOW_PASS, SHOW_ERROR};
   for (int i = 0; i < 3; i++) {
     showResult(patterns[i]);
+    showingIcon = false;  // Don't hold icon during self-test
     delay(300);
     showResult(SHOW_OFF);
     delay(100);

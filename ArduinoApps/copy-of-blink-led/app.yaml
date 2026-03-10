@@ -1,0 +1,5 @@
+name: Copy of Blink LED
+description: This example shows how to make the LED blink alternately.
+ports: []
+bricks: []
+icon: 🔴
