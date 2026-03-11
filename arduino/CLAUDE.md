@@ -1,159 +1,87 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with Arduino hardware code.
 
-## Development Environment
+## Dual-Platform Architecture
 
-This is an Arduino project for cable testing hardware integration with the Greenlight Terminal system. The Arduino code communicates with a Raspberry Pi via USB serial.
+The cable tester runs on two platforms. Both use the same colon-delimited text command protocol.
 
-### Build and Upload Commands
+### Arduino UNO Q (primary)
+- **MCU:** STM32U5 (Cortex-M33), 3.3V GPIO, 14-bit ADC
+- **Sketch:** `ArduinoApps/cable-tester/sketch/sketch.ino`
+- **Communication:** Router Bridge (msgpack-rpc over unix socket `/var/run/arduino-router.sock`)
+- **Platform core:** `arduino:zephyr` v0.53.1
+- **Display:** Onboard 8x13 LED matrix (grayscale, zero GPIO cost)
+- **Flash:** ~29KB / 1.9MB (1.5%), RAM: ~4.8KB / 523KB (0.9%)
 
-```bash
-# Using arduino-cli (Recommended for Raspberry Pi)
-# Compile the sketch
-arduino-cli compile --fqbn arduino:avr:mega cable_tester
-
-# Upload to Arduino Mega 2560 (via built-in USB)
-arduino-cli upload -p /dev/ttyACM0 --fqbn arduino:avr:mega cable_tester
-
-# Monitor serial output (9600 baud)
-arduino-cli monitor -p /dev/ttyACM0 -c baudrate=9600
-
-# One-liner: compile and upload
-cd arduino && arduino-cli compile --fqbn arduino:avr:mega cable_tester && arduino-cli upload -p /dev/ttyACM0 --fqbn arduino:avr:mega cable_tester
-
-# Alternative: Using Arduino IDE
-# 1. Open cable_tester/cable_tester.ino in Arduino IDE
-# 2. Select Board: Tools > Board > Arduino AVR Boards > Arduino Mega or Mega 2560
-# 3. Select correct COM port: Tools > Port > /dev/ttyACM0
-# 4. Click Upload button
-```
-
-**Board Specifications:**
-- **Board:** Arduino Mega 2560 R3
-- **Processor:** ATmega2560
+### Arduino Mega 2560 (legacy)
+- **MCU:** ATmega2560, 5V GPIO, 10-bit ADC
+- **Sketch:** `arduino/cable_tester/cable_tester.ino`
+- **Communication:** USB serial at 9600 baud (`/dev/ttyACM0`)
 - **FQBN:** `arduino:avr:mega`
-- **Built-in USB:** No external USB-to-serial adapter needed
-- **Serial Port:** Usually `/dev/ttyACM0` on Linux
 
-**Memory Usage:**
-- Program storage: 12,404 bytes (4% of 253,952 bytes) ✅
-- Dynamic memory: 1,744 bytes (21% of 8,192 bytes) ✅
-- Free RAM: 6,448 bytes for local variables - excellent headroom!
-
-### Testing and Communication
+## Build and Deploy
 
 ```bash
-# Test serial communication (9600 baud)
-screen /dev/ttyUSB0 9600
-# Or using minicom
-minicom -b 9600 -D /dev/ttyUSB0
+# Auto-detects platform (UNO Q or Mega 2560), compiles and flashes
+cd arduino && ./deploy.sh
 
-# Basic test commands:
-# GET_UNIT_ID → Should return: UNIT_ID:1
-# GET_STATUS → Should return: STATUS:READY:FIXTURE_EMPTY:VOLTAGE_X.XX
-# TEST_CABLE → Runs complete cable test
+# UNO Q only: also set as boot default app
+cd arduino && ./deploy.sh --set-default
+
+# Interactive command monitor (auto-detects platform)
+cd arduino && ./monitor.sh
 ```
 
-## Architecture Overview
+### UNO Q Deploy Details
 
-**Arduino Cable Tester** is the hardware interface component of the Greenlight audio cable testing system. It provides precision measurement capabilities via an ATmega32 Arduino board.
+The UNO Q uses Arduino App Studio's framework:
+- Apps live in `ArduinoApps/<app-name>/` (symlinked to `/home/arduino/ArduinoApps/`)
+- CLI tool: `sudo -u arduino arduino-app-cli` (must NOT run as root)
+- Deploy = `app stop` + `app start` (compiles, flashes via OpenOCD/SWD)
+- Boot default stored in `/var/lib/arduino-app-cli/default.app` (path to app dir)
+- The App Studio UI sets this automatically; from CLI: `echo "/path/to/app" | sudo tee /var/lib/arduino-app-cli/default.app`
+- MCU sketch persists in flash but Bridge RPC registration requires the `arduino-app-cli` daemon to start the app
 
-### Core Components
+### UNO Q Key Commands
 
-- **cable_tester.ino**: Complete Arduino sketch with all testing functionality
-- **CableTester.h**: Library header for modular development (future use)
-- **HARDWARE_SETUP.md**: Detailed hardware requirements and circuit diagrams
-
-### Hardware Interface Design
-
-The Arduino controls a precision test circuit using:
-- **3x SPDT relays**: Continuity testing for tip/ring/sleeve connections
-- **Precision measurement circuits**: DC resistance and capacitance measurement
-- **LED indicators**: Pass/fail/error/status indication
-- **Cable fixture**: Physical cable insertion detection
-
-### Communication Protocol
-
-Arduino communicates with Raspberry Pi via USB serial (9600 baud) using structured commands:
-
-```
-Commands: GET_UNIT_ID, GET_STATUS, TEST_CABLE, CALIBRATE, RESET, SELF_TEST
-Responses: UNIT_ID:1, STATUS:READY:FIXTURE_EMPTY:VOLTAGE_4.98, TEST_RESULT:...
+```bash
+sudo -u arduino arduino-app-cli app list          # list apps and status
+sudo -u arduino arduino-app-cli app start user:cable-tester
+sudo -u arduino arduino-app-cli app stop user:cable-tester
+sudo -u arduino arduino-app-cli app logs user:cable-tester
 ```
 
-### Test Capabilities
+## Command Protocol
 
-1. **Continuity Testing**: Verifies tip, ring, and sleeve connections
-2. **Polarity Detection**: Ensures correct conductor polarity  
-3. **DC Resistance Measurement**: Precision resistance via constant current
-4. **Capacitance Measurement**: Cable capacitance via RC timing method
-5. **Self-Calibration**: Automated calibration with user prompts
+Both platforms accept identical text commands and return colon-delimited responses:
 
-### Pin Configuration (ATmega32)
-
-- **A0-A5**: Analog inputs for voltage measurements
-- **D2-D8**: Relay and test circuit control
-- **D9**: Cable insertion detection (INPUT_PULLUP)
-- **D10-D13**: LED indicators (fail/pass/error/status)
-- **D0-D1**: USB serial communication
-
-## Integration Notes
-
-### Raspberry Pi Integration
-
-The Arduino is designed to integrate with the main Greenlight Terminal system:
-- Automatic detection on `/dev/ttyUSB*` ports
-- Python code handles command/response protocol
-- Error handling and retry logic
-- Integration with Rich terminal UI
-
-### Calibration Requirements
-
-The system requires calibration for accurate measurements:
-- **Voltage reference calibration**: Using precision reference
-- **Resistance offset calibration**: Short circuit zeroing
-- **Capacitance offset calibration**: Open circuit baseline
-
-### Hardware Dependencies
-
-- ATmega32 Arduino board with USB serial
-- Custom test circuit (see HARDWARE_SETUP.md)
-- 5V power supply (500mA minimum)
-- Cable test fixture with insertion detection
-
-## Development Notes
-
-### Code Structure
-
-The Arduino sketch uses a command-response architecture:
-- **setup()**: Pin initialization and power-on self-test
-- **loop()**: Serial command handling and status heartbeat  
-- **handleSerialCommand()**: Command parser and dispatcher
-- **Test functions**: Modular measurement implementations
-
-### Adding New Test Functions
-
-1. Add command handling in `handleSerialCommand()`
-2. Implement test function following existing patterns
-3. Update response format in `sendTestResults()`
-4. Test integration with Python communication code
-
-### Measurement Accuracy
-
-Key calibration constants that may need adjustment:
-```cpp
-const float CONTINUITY_THRESHOLD_OHMS = 5.0;
-const float VOLTAGE_REF = 5.0; 
-const int MEASUREMENT_SAMPLES = 50;
+```
+ID       → ID:UNOQ_TESTER_1
+STATUS   → STATUS:READY
+RESET    → OK:RESET
+CONT     → RESULT:PASS:TT:1:TS:0:SS:1:ST:0  (or FAIL with :REASON:...)
+RES      → RES:PASS:ADC:150:CAL:120:MOHM:450:OHM:0.450
+CAL      → CAL:OK:ADC:120
+XCONT    → XCONT:PASS:P11:1:P12:0:P13:0:P21:0:P22:1:P23:0:P31:0:P32:0:P33:1
+XSHELL   → XSHELL:PASS:NEAR:1:FAR:1:SS:1
+XRES     → XRES:PASS:P2ADC:150:P3ADC:148:...
+XCAL     → XCAL:OK:P2ADC:120:P3ADC:118
 ```
 
-### Hardware Modifications
+## Pin Configuration (UNO Q)
 
-When modifying pin assignments:
-1. Update pin definitions at top of `cable_tester.ino`
-2. Update `HARDWARE_SETUP.md` documentation  
-3. Verify no conflicts with Arduino system requirements
-4. Test all relay and measurement functions
+See full pinout in sketch header. Key assignments:
+- **D2-D5:** TS continuity (drive/sense for tip and sleeve)
+- **D6:** Resistance test drive (shared TS/XLR via PN2222A)
+- **D7-D11:** Relay drives K1-K6 (via PN2222A transistors, coils on 5V)
+- **D12-D13, A1-A5, D20:** XLR continuity (drive/sense for pins 1-3 + shell)
+- **A0:** Resistance sense (analog, 3.3V circuit only)
 
-The system is designed for production cable testing environments and emphasizes measurement accuracy, reliability, and integration with the broader Greenlight Terminal ecosystem.
+## LED Matrix
+
+The UNO Q has an onboard 8x13 LED matrix with 8-level grayscale:
+- `matrix.begin()` / `matrix.draw(uint8_t[104])` / `matrix.setGrayscaleBits(3)`
+- Idle: scrolls "Sundial Wire" with edge fade effect
+- Tests: shows checkmark (pass), X (fail), or ! (error) for 3 seconds
+- Font: built-in 5x7 column-major (A-Z, a-z), `FONT_5x7[]` array in sketch
