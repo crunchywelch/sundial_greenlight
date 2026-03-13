@@ -67,6 +67,7 @@ WEBHOOK_URLS = [
 ]
 WEBHOOK_TIMEOUT = 2  # seconds
 WEBHOOK_ENABLED = True  # Set to False to disable HTTP posting
+WEBHOOK_SHOPIFY_USER_ID = None  # Shopify user ID to include in webhook POSTs
 
 # Reconnect settings
 RECONNECT_DELAY = 5  # seconds
@@ -120,15 +121,18 @@ class ScannerDaemon:
 
     def _on_mqtt_message(self, client, userdata, msg):
         """Handle incoming MQTT messages (webhook control)"""
-        global WEBHOOK_ENABLED
+        global WEBHOOK_ENABLED, WEBHOOK_SHOPIFY_USER_ID
         if msg.topic == MQTT_CONTROL_TOPIC:
             payload = msg.payload.decode('utf-8').strip()
             if payload == 'webhooks_off':
                 WEBHOOK_ENABLED = False
+                WEBHOOK_SHOPIFY_USER_ID = None
                 logger.info("Webhooks DISABLED via MQTT control")
-            elif payload == 'webhooks_on':
+            elif payload.startswith('webhooks_on'):
                 WEBHOOK_ENABLED = True
-                logger.info("Webhooks ENABLED via MQTT control")
+                parts = payload.split(':', 1)
+                WEBHOOK_SHOPIFY_USER_ID = parts[1] if len(parts) > 1 else None
+                logger.info(f"Webhooks ENABLED via MQTT control (shopify_user_id={WEBHOOK_SHOPIFY_USER_ID})")
 
     def setup_scanner(self) -> bool:
         """Initialize the barcode scanner"""
@@ -178,9 +182,12 @@ class ScannerDaemon:
     def _post_to_webhook(self, barcode: str, url: str):
         """POST scan to HTTP webhook (runs in background thread)"""
         try:
+            payload = {"serial": barcode}
+            if WEBHOOK_SHOPIFY_USER_ID:
+                payload["shopifyUserId"] = WEBHOOK_SHOPIFY_USER_ID
             response = requests.post(
                 url,
-                json={"serial": barcode},
+                json=payload,
                 timeout=WEBHOOK_TIMEOUT
             )
             if response.ok:

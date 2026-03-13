@@ -19,11 +19,20 @@ export async function loader({ request }) {
   // App handle from environment variable
   const appHandle = process.env.SHOPIFY_APP_HANDLE || "greenlight-2";
 
-  return json({ adminPath, appHandle });
+  // Extract Shopify user ID from session for scanner event filtering
+  let shopifyUserId = null;
+  try {
+    const { session } = await authenticate.admin(request);
+    shopifyUserId = session?.onlineAccessInfo?.associated_user?.id || null;
+  } catch (e) {
+    // Auth may fail on initial load, that's ok
+  }
+
+  return json({ adminPath, appHandle, shopifyUserId });
 }
 
 // Hook to receive scanner events via polling (SSE blocked in Shopify iframe)
-function useScannerEvents(enabled) {
+function useScannerEvents(enabled, shopifyUserId) {
   const [lastScanEvent, setLastScanEvent] = useState(null);
   const [lastTimestamp, setLastTimestamp] = useState(0);
 
@@ -31,10 +40,12 @@ function useScannerEvents(enabled) {
     // Only poll when enabled (on scan/assign views)
     if (!enabled) return;
 
+    const userParam = shopifyUserId ? `&shopifyUserId=${shopifyUserId}` : "";
+
     // Poll for new scans every 500ms
     const interval = setInterval(async () => {
       try {
-        const response = await fetch(`/api/scanner-events?since=${lastTimestamp}`);
+        const response = await fetch(`/api/scanner-events?since=${lastTimestamp}${userParam}`);
         const data = await response.json();
 
         if (data.serial && data.timestamp > lastTimestamp) {
@@ -48,7 +59,7 @@ function useScannerEvents(enabled) {
     }, 500);
 
     return () => clearInterval(interval);
-  }, [lastTimestamp, enabled]);
+  }, [lastTimestamp, enabled, shopifyUserId]);
 
   return lastScanEvent;
 }
@@ -480,7 +491,7 @@ export async function action({ request }) {
 export default function Index() {
   const submit = useSubmit();
   const actionData = useActionData();
-  const { adminPath, appHandle } = useLoaderData();
+  const { adminPath, appHandle, shopifyUserId } = useLoaderData();
 
   const [view, setView] = useState("scan"); // "scan", "assign", "customers", or "inventory"
   const [customerLookupSearch, setCustomerLookupSearch] = useState("");
@@ -498,7 +509,7 @@ export default function Index() {
 
   // Listen for scanner events (only when cable search input is focused)
   const scannerEnabled = (view === "scan" || view === "assign") && cableInputFocused;
-  const scanEvent = useScannerEvents(scannerEnabled);
+  const scanEvent = useScannerEvents(scannerEnabled, shopifyUserId);
 
   // Auto-fill and search when scanner sends a serial number
   useEffect(() => {

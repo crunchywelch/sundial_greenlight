@@ -1,16 +1,17 @@
 // Polling endpoint for scanner events (SSE blocked in Shopify iframe)
-// - GET: React polls this to get latest scan
-// - POST: Greenlight sends scans here
+// - GET: React polls this to get latest scan for a specific Shopify user
+// - POST: Greenlight scanner daemon sends scans here, tagged with shopifyUserId
 
-// In-memory store for the last scan event
-let lastScanEvent = null;
+// In-memory store keyed by Shopify user ID
+let lastScanEvents = {};
 
 // Export for use by other routes (e.g., order-fulfillment)
-export function getLastScanEvent() {
-  return lastScanEvent;
+export function getLastScanEvent(shopifyUserId) {
+  if (!shopifyUserId) return null;
+  return lastScanEvents[shopifyUserId] || null;
 }
 
-// POST endpoint - Greenlight sends scans here
+// POST endpoint - scanner daemon sends scans here
 export async function action({ request }) {
   if (request.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
@@ -46,13 +47,22 @@ export async function action({ request }) {
     // Trim whitespace and control characters
     serial = serial.trim().replace(/[\x00-\x1F\x7F]/g, '');
 
-    // Store the last scan event with timestamp
-    lastScanEvent = {
+    const shopifyUserId = data.shopifyUserId ? String(data.shopifyUserId) : null;
+
+    // Store the scan event keyed by Shopify user ID
+    const event = {
       serial,
       timestamp: Date.now()
     };
 
-    console.log(`Scanner event stored: "${serial}" at ${lastScanEvent.timestamp}`);
+    if (shopifyUserId) {
+      lastScanEvents[shopifyUserId] = event;
+      console.log(`Scanner event stored for user ${shopifyUserId}: "${serial}" at ${event.timestamp}`);
+    } else {
+      // Fallback: store under a default key for backward compatibility
+      lastScanEvents["_default"] = event;
+      console.log(`Scanner event stored (no user): "${serial}" at ${event.timestamp}`);
+    }
 
     return new Response(JSON.stringify({ success: true, serial }), {
       headers: {
@@ -72,21 +82,24 @@ export async function action({ request }) {
   }
 }
 
-// GET endpoint - React polls this to get latest scan
+// GET endpoint - React polls this to get latest scan for a specific user
 export async function loader({ request }) {
   const url = new URL(request.url);
   const since = parseInt(url.searchParams.get("since") || "0");
+  const shopifyUserId = url.searchParams.get("shopifyUserId") || "_default";
 
   // Expire scans after 5 seconds (so they don't reappear on page reload)
   const now = Date.now();
   const SCAN_TTL = 5000; // 5 seconds
 
-  // Return the last scan event if it's newer than what the client has seen
+  const event = lastScanEvents[shopifyUserId];
+
+  // Return the scan event if it's newer than what the client has seen
   // and hasn't expired
-  if (lastScanEvent &&
-      lastScanEvent.timestamp > since &&
-      (now - lastScanEvent.timestamp) < SCAN_TTL) {
-    return new Response(JSON.stringify(lastScanEvent), {
+  if (event &&
+      event.timestamp > since &&
+      (now - event.timestamp) < SCAN_TTL) {
+    return new Response(JSON.stringify(event), {
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",

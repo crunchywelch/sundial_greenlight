@@ -22,8 +22,8 @@ class SplashScreen(Screen):
 
         # Show operator selection immediately below splash
         rows = [
-            f"[green]{i + 1}.[/green] {name} ({code})"
-            for i, (code, name) in enumerate(OPERATORS.items())
+            f"[green]{i + 1}.[/green] {op['name']} ({code})"
+            for i, (code, op) in enumerate(OPERATORS.items())
         ]
 
         self.ui.console.print()  # Empty line

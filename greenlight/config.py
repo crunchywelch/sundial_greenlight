@@ -17,9 +17,9 @@ APP_SUBTITLE = "Cable QC + Inventory Terminal"
 EXIT_MESSAGE = "Thank you for using Greenlight!"
 
 OPERATORS = {
-    "ADW": "Aaron Welch",
-    "ISS": "Ian Smith", 
-    "EDR": "Ed Renauld",
+    "ADW": {"name": "Aaron Welch", "shopify_user_id": "221850185"},
+    "ISS": {"name": "Ian Smith", "shopify_user_id": "244198052"},
+    "EDR": {"name": "Ed Renauld", "shopify_user_id": "244198053"},
 }
 
 # Hardware feature flags
@@ -68,5 +68,12 @@ TSC_LABEL_WIDTH_MM = 76.2  # 3 inches
 TSC_LABEL_HEIGHT_MM = 25.4  # 1 inch
 
 def get_op_name(code):
-    return OPERATORS.get(code)
+    op = OPERATORS.get(code)
+    return op["name"] if op else None
+
+
+def get_shopify_user_id(operator_code):
+    """Get the Shopify staff member user ID for an operator."""
+    op = OPERATORS.get(operator_code)
+    return op.get("shopify_user_id") if op else None
 

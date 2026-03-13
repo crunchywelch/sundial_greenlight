@@ -19,11 +19,14 @@ class ShopifyScanModeScreen(Screen):
     def enter(self):
         """Enable webhooks and pause Greenlight scan processing"""
         from greenlight.hardware.interfaces import hardware_manager
+        from greenlight.config import get_shopify_user_id
         scanner = hardware_manager.scanner
         if scanner and hasattr(scanner, 'set_webhooks_enabled'):
-            scanner.set_webhooks_enabled(True)
+            operator_code = self.context.get("operator")
+            shopify_user_id = get_shopify_user_id(operator_code) if operator_code else None
+            scanner.set_webhooks_enabled(True, shopify_user_id=shopify_user_id)
             scanner.pause()
-            logger.info("Shopify scan mode: webhooks ON, Greenlight paused")
+            logger.info(f"Shopify scan mode: webhooks ON (user={shopify_user_id}), Greenlight paused")
 
     def run(self) -> ScreenResult:
         operator = self.context.get("operator_name", "Operator")
