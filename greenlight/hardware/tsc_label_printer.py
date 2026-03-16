@@ -210,6 +210,10 @@ class TSCLabelPrinter(LabelPrinterInterface):
                 tspl = self._generate_registration_label_tspl(print_job.data)
             elif print_job.template == "wire_label":
                 tspl = self._generate_wire_label_tspl(print_job.data)
+            elif print_job.template == "barcode_label":
+                tspl = self._generate_barcode_label_tspl(print_job.data)
+            elif print_job.template == "text_label":
+                tspl = self._generate_text_label_tspl(print_job.data)
             else:
                 logger.error(f"Unknown template: {print_job.template}")
                 return False
@@ -735,6 +739,154 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         return lines
 
+    def _generate_barcode_label_tspl(self, data: Dict[str, Any]) -> bytes:
+        """Generate TSPL commands for a serial number barcode label.
+
+        Label layout (1" x 3"):
+        +---------------------------------------------------+
+        |  SUNDIAL AUDIO                         SC-20GL    |
+        |  ─────────────                                    |
+        |  |||||||||||||||||||||||||||||||||||||||||||||||   |
+        |  |||||||||||||||||||||||||||||||||||||||||||||||   |
+        |              SD000123                              |
+        +---------------------------------------------------+
+
+        Args:
+            data: Dictionary with:
+                - serial_number: str (e.g., "SD000123")
+                - sku: str (optional, e.g., "SC-20GL")
+
+        Returns:
+            TSPL commands as bytes
+        """
+        serial_number = data.get('serial_number', '')
+        sku = data.get('sku', '')
+        series = data.get('series', '')
+        length = data.get('length', '')
+        color_pattern = data.get('color_pattern', '')
+        connector_type = data.get('connector_type', '')
+
+        # Format length (database returns float)
+        if isinstance(length, (int, float)):
+            length = str(int(length)) if length == int(length) else str(length)
+
+        # Format connector type
+        connector_display = self._format_connector_type(connector_type) if connector_type else ''
+
+        tspl_commands = []
+        tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
+        tspl_commands.append("GAP 2 mm, 2 mm")
+        tspl_commands.append("DIRECTION 1,0")
+        tspl_commands.append("REFERENCE 0,0")
+        tspl_commands.append("SET TEAR ON")
+        tspl_commands.append("SET PEEL OFF")
+        tspl_commands.append("CLS")
+        tspl_commands.append("DENSITY 10")
+        tspl_commands.append("SPEED 3")
+
+        x_left = 20
+        x_right = 370
+
+        # Brand header
+        y_brand = 8
+        tspl_commands.append(f'TEXT {x_left},{y_brand},"3",0,1,1,"SUNDIAL"')
+        # Wire logo between SUNDIAL and AUDIO
+        tspl_commands.append('__WIRE_LOGO__')
+        tspl_commands.append(f'TEXT {x_left + 190},{y_brand},"3",0,1,1,"AUDIO"')
+
+        # Decorative line
+        tspl_commands.append(f'BAR {x_left},{y_brand + 28},560,2')
+
+        # Code 128 barcode on left, human-readable text below
+        # BARCODE x,y,"code type",height,human readable,rotation,narrow,wide,"content"
+        barcode_x = 20
+        barcode_y = 50
+        barcode_height = 90
+        tspl_commands.append(
+            f'BARCODE {barcode_x},{barcode_y},"128",{barcode_height},1,0,2,4,"{serial_number}"'
+        )
+
+        # Cable details stacked on right side
+        y_detail = 50
+        if sku:
+            tspl_commands.append(f'TEXT {x_right},{y_detail},"2",0,1,1,"{sku}"')
+            y_detail += 25
+        if series:
+            tspl_commands.append(f'TEXT {x_right},{y_detail},"2",0,1,1,"{series}"')
+            y_detail += 25
+        if length and color_pattern:
+            tspl_commands.append(f'TEXT {x_right},{y_detail},"2",0,1,1,"{length}\' {color_pattern}"')
+            y_detail += 25
+        if connector_display:
+            tspl_commands.append(f'TEXT {x_right},{y_detail},"2",0,1,1,"{connector_display}"')
+
+        # Print
+        tspl_commands.append("PRINT 1")
+        tspl_commands.append("")
+
+        # Build output as bytes, handling inline bitmap
+        output = b''
+        for cmd in tspl_commands:
+            if cmd == '__WIRE_LOGO__':
+                bitmap_cmd = self._get_bitmap_command(x_left + 120, y_brand + 2)
+                if bitmap_cmd:
+                    output += bitmap_cmd + b'\r\n'
+            else:
+                output += cmd.encode('utf-8') + b'\r\n'
+
+        return output
+
+    def _generate_text_label_tspl(self, data: Dict[str, Any]) -> bytes:
+        """Generate TSPL commands for a simple text label.
+
+        Prints one or more lines of arbitrary text, centered on the label.
+        Useful for quick one-off labels (MAC addresses, asset tags, notes, etc).
+
+        Args:
+            data: Dictionary with:
+                - lines: list[str] — text lines to print
+                - title: str (optional) — bold header line
+
+        Returns:
+            TSPL commands as bytes
+        """
+        lines = data.get('lines', [])
+        title = data.get('title', '')
+
+        tspl_commands = []
+        tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
+        tspl_commands.append("GAP 2 mm, 2 mm")
+        tspl_commands.append("DIRECTION 1,0")
+        tspl_commands.append("REFERENCE 0,0")
+        tspl_commands.append("SET TEAR ON")
+        tspl_commands.append("SET PEEL OFF")
+        tspl_commands.append("CLS")
+        tspl_commands.append("DENSITY 10")
+        tspl_commands.append("SPEED 3")
+
+        x = 20
+        y = 15
+
+        if title:
+            # Bold title using font "4" (larger)
+            tspl_commands.append(f'TEXT {x},{y},"4",0,1,1,"{title}"')
+            y += 35
+            # Decorative line under title
+            tspl_commands.append(f'BAR {x},{y},560,2')
+            y += 15
+
+        # Print each text line using font "3" (medium)
+        for line in lines:
+            # Escape quotes in text
+            safe_line = line.replace('"', "'")
+            tspl_commands.append(f'TEXT {x},{y},"3",0,1,1,"{safe_line}"')
+            y += 30
+
+        tspl_commands.append("PRINT 1,1")
+        tspl_commands.append("")
+
+        return "\r\n".join(tspl_commands).encode('utf-8')
+
     def get_status(self) -> Dict[str, Any]:
         """Get printer status"""
         status = {
@@ -828,6 +980,10 @@ class MockTSCLabelPrinter(LabelPrinterInterface):
             logger.debug("Mock TSPL commands would be generated for registration label")
         elif print_job.template == "wire_label":
             logger.debug("Mock TSPL commands would be generated for wire label")
+        elif print_job.template == "barcode_label":
+            logger.debug("Mock TSPL commands would be generated for barcode label")
+        elif print_job.template == "text_label":
+            logger.debug("Mock TSPL commands would be generated for text label")
 
         return True
 

@@ -897,6 +897,40 @@ class CableScreenBase(Screen):
         )
         label_printer.print_labels(print_job)
 
+    def print_barcode_for_cable(self, operator, cable_record):
+        """Print a barcode label with the cable's serial number.
+
+        Args:
+            operator: Operator ID
+            cable_record: Cable record from database
+        """
+        from greenlight.hardware.interfaces import hardware_manager, PrintJob
+
+        label_printer = hardware_manager.get_label_printer()
+        if not label_printer:
+            return
+
+        serial_number = cable_record.get('serial_number', '')
+        sku = cable_record.get('sku', '')
+        series = cable_record.get('series', '')
+        length = cable_record.get('length', '')
+        color_pattern = cable_record.get('color_pattern', '')
+        connector_type = cable_record.get('connector_type', '')
+
+        print_job = PrintJob(
+            template="barcode_label",
+            data={
+                'serial_number': serial_number,
+                'sku': sku,
+                'series': series,
+                'length': length,
+                'color_pattern': color_pattern,
+                'connector_type': connector_type,
+            },
+            quantity=1,
+        )
+        label_printer.print_labels(print_job)
+
     def edit_cable_description(self, operator, cable_record):
         """Prompt operator to edit description for a MISC cable
 
@@ -1014,6 +1048,8 @@ class CableScreenBase(Screen):
                 footer_options.append("[cyan]'a'[/cyan] = Assign cable")
             if printer_available and cable_tested:
                 footer_options.append("[cyan]'p'[/cyan] = Print label")
+            if printer_available:
+                footer_options.append("[cyan]'b'[/cyan] = Print barcode")
             if is_misc:
                 footer_options.append("[cyan]'d'[/cyan] = Edit description")
             if mode == 'lookup' and not is_assigned:
@@ -1049,6 +1085,10 @@ class CableScreenBase(Screen):
 
                 elif choice_lower == 'p' and printer_available and cable_tested:
                     self.print_label_for_cable(operator, cable_record)
+                    continue
+
+                elif choice_lower == 'b' and printer_available:
+                    self.print_barcode_for_cable(operator, cable_record)
                     continue
 
                 elif choice_lower == 'd' and is_misc:

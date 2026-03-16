@@ -14,6 +14,9 @@ msgpack>=1.0.0
 pyusb>=1.2.0
 evdev>=1.6.0  # For HID barcode scanner input device access
 
+# MQTT for scanner daemon
+paho-mqtt>=2.0.0
+
 # System information
 psutil>=5.8.0
 

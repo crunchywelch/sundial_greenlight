@@ -24,6 +24,7 @@ if [[ "${SKIP_BOOTSTRAP:-0}" != "1" ]]; then
 
   ensure_pkg python3-venv
   ensure_pkg python3-pip
+  ensure_pkg mosquitto
 
   # Check if venv exists but is incomplete/corrupted
   if [[ -d "$ENV_DIR" && ! -f "$ENV_DIR/bin/activate" ]]; then
