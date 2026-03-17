@@ -501,6 +501,38 @@ def assign_cable_to_customer(serial_number, customer_shopify_gid):
         pg_pool.putconn(conn)
 
 
+def unassign_cable(serial_number):
+    """Remove customer and order assignment from a cable, returning it to inventory.
+
+    Returns:
+        dict with 'success' or 'error'/'message'
+    """
+    conn = pg_pool.getconn()
+    try:
+        formatted_serial = format_serial_number(serial_number)
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE audio_cables
+                    SET shopify_gid = NULL,
+                        shopify_order_gid = NULL,
+                        updated_timestamp = CURRENT_TIMESTAMP
+                    WHERE serial_number = %s AND shopify_gid IS NOT NULL
+                    RETURNING serial_number
+                """, (formatted_serial,))
+                result = cur.fetchone()
+                conn.commit()
+                if result:
+                    return {'success': True, 'serial_number': result[0]}
+                return {'error': 'not_assigned', 'message': f'Cable {formatted_serial} is not assigned to anyone'}
+    except Exception as e:
+        print(f"❌ Error unassigning cable: {e}")
+        conn.rollback()
+        return {'error': 'database', 'message': str(e)}
+    finally:
+        pg_pool.putconn(conn)
+
+
 def force_reassign_cable(serial_number, customer_shopify_gid):
     """Unconditionally reassign a cable to a customer (overrides existing assignment)"""
     conn = pg_pool.getconn()
@@ -709,6 +741,168 @@ def get_available_inventory(series=None):
         return []
     finally:
         pg_pool.putconn(conn)
+
+def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus):
+    """Assign a cable to a customer order with SKU validation.
+
+    Args:
+        serial_number: Cable serial number
+        customer_gid: Shopify customer GID
+        order_gid: Shopify order GID
+        line_item_skus: List of SKUs from order line items (for validation)
+
+    Returns:
+        dict with 'success' or 'error' key
+    """
+    conn = pg_pool.getconn()
+    try:
+        formatted_serial = format_serial_number(serial_number)
+
+        with conn:
+            with conn.cursor() as cur:
+                # Get cable with effective SKU (COALESCE for MISC cables)
+                cur.execute("""
+                    SELECT ac.serial_number, ac.sku, ac.shopify_gid, ac.shopify_order_gid,
+                           COALESCE(sbt.shopify_sku, ac.sku) as effective_sku
+                    FROM audio_cables ac
+                    LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
+                    WHERE ac.serial_number = %s
+                """, (formatted_serial,))
+                row = cur.fetchone()
+
+                if not row:
+                    return {
+                        'error': 'not_found',
+                        'message': f'Cable with serial number {formatted_serial} not found in database'
+                    }
+
+                cable_serial, cable_sku, existing_customer_gid, existing_order_gid, effective_sku = row
+
+                # Already scanned for this order
+                if existing_order_gid == order_gid:
+                    return {
+                        'error': 'duplicate',
+                        'message': f'Cable {formatted_serial} is already scanned for this order'
+                    }
+
+                # Assigned to a different order
+                if existing_order_gid and existing_order_gid != order_gid:
+                    return {
+                        'error': 'already_assigned_order',
+                        'message': f'Cable {formatted_serial} is assigned to a different order',
+                        'existing_order_gid': existing_order_gid
+                    }
+
+                # Assigned to customer only (no order) - warn, operator can confirm
+                if existing_customer_gid and not existing_order_gid:
+                    return {
+                        'error': 'assigned_no_order',
+                        'message': f'Cable {formatted_serial} is assigned to a customer without an order',
+                        'existing_customer_gid': existing_customer_gid
+                    }
+
+                # SKU validation
+                if effective_sku not in line_item_skus:
+                    return {
+                        'error': 'sku_mismatch',
+                        'message': f'Cable SKU {effective_sku} does not match any line item in this order',
+                        'cable_sku': effective_sku
+                    }
+
+                # Success - assign cable to order
+                cur.execute("""
+                    UPDATE audio_cables
+                    SET shopify_gid = %s,
+                        shopify_order_gid = %s,
+                        updated_timestamp = CURRENT_TIMESTAMP
+                    WHERE serial_number = %s
+                    RETURNING serial_number, sku
+                """, (customer_gid, order_gid, formatted_serial))
+                result = cur.fetchone()
+                conn.commit()
+
+                return {
+                    'success': True,
+                    'serial_number': result[0],
+                    'sku': result[1],
+                    'effective_sku': effective_sku
+                }
+    except Exception as e:
+        print(f"❌ Error assigning cable to order: {e}")
+        conn.rollback()
+        return {'error': 'database', 'message': str(e)}
+    finally:
+        pg_pool.putconn(conn)
+
+
+def force_assign_cable_to_order(serial_number, customer_gid, order_gid):
+    """Override existing customer-only assignment and assign cable to an order.
+
+    Used when operator confirms overriding an 'assigned_no_order' cable.
+    Skips SKU validation (already validated before the confirmation prompt).
+    """
+    conn = pg_pool.getconn()
+    try:
+        formatted_serial = format_serial_number(serial_number)
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE audio_cables
+                    SET shopify_gid = %s,
+                        shopify_order_gid = %s,
+                        updated_timestamp = CURRENT_TIMESTAMP
+                    WHERE serial_number = %s
+                    RETURNING serial_number, sku
+                """, (customer_gid, order_gid, formatted_serial))
+                result = cur.fetchone()
+                conn.commit()
+                if result:
+                    return {'success': True, 'serial_number': result[0], 'sku': result[1]}
+                return {'error': 'not_found', 'message': f'Cable {formatted_serial} not found'}
+    except Exception as e:
+        print(f"❌ Error force-assigning cable to order: {e}")
+        conn.rollback()
+        return {'error': 'database', 'message': str(e)}
+    finally:
+        pg_pool.putconn(conn)
+
+
+def get_cables_for_order(order_gid):
+    """Get all cables assigned to a specific order.
+
+    Returns list of dicts with cable info for progress tracking.
+    """
+    conn = pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT ac.serial_number, ac.sku,
+                       COALESCE(sbt.shopify_sku, ac.sku) as effective_sku,
+                       cs.series,
+                       COALESCE(sbt.length, CAST(cs.length AS REAL)) as length,
+                       cs.color_pattern, cs.connector_type,
+                       sbt.description
+                FROM audio_cables ac
+                JOIN cable_skus cs ON ac.sku = cs.sku
+                LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
+                WHERE ac.shopify_order_gid = %s
+                ORDER BY ac.updated_timestamp DESC
+            """, (order_gid,))
+            rows = cur.fetchall()
+            return [
+                {
+                    'serial_number': r[0], 'sku': r[1], 'effective_sku': r[2],
+                    'series': r[3], 'length': r[4], 'color_pattern': r[5],
+                    'connector_type': r[6], 'description': r[7]
+                }
+                for r in rows
+            ]
+    except Exception as e:
+        print(f"❌ Error fetching cables for order: {e}")
+        return []
+    finally:
+        pg_pool.putconn(conn)
+
 
 def assign_registration_code(serial_number, code):
     """Assign a registration code to a cable for wholesale/reseller sales.

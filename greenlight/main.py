@@ -100,9 +100,6 @@ def init_hardware():
         scanner = MQTTScanner()
         if scanner.initialize():
             print("✅ MQTT scanner connected (subscribing to scanner/barcode)")
-            # Disable Shopify webhooks while Greenlight is running
-            scanner.set_webhooks_enabled(False)
-            print("🔇 Shopify webhooks paused (Greenlight active)")
         else:
             print("⚠️  MQTT scanner not connected")
             print("   Check that mosquitto and scanner daemon are running")
@@ -155,8 +152,8 @@ def shutdown_hardware():
         from greenlight.hardware.interfaces import hardware_manager
         scanner = hardware_manager.scanner
         if scanner and hasattr(scanner, 'set_webhooks_enabled'):
+            # Always restore webhooks on exit as a safety net
             scanner.set_webhooks_enabled(True)
-            print("🔔 Shopify webhooks restored")
             time.sleep(0.1)  # ensure message is sent before disconnect
         hardware_manager.shutdown()
     except Exception as e:

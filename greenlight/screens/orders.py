@@ -1,4 +1,4 @@
-"""Order fulfillment screens: Customer lookup and order processing"""
+"""Order fulfillment screens: Customer lookup, order processing, and cable assignment"""
 from rich.panel import Panel
 from rich.table import Table
 
@@ -13,8 +13,6 @@ class FulfillOrdersScreen(Screen):
         operator = self.context.get("operator", "")
         menu_items = [
             "Lookup Customer",
-            "View Orders",
-            "Scan to Fulfill",
             "Back (q)"
         ]
 
@@ -31,11 +29,7 @@ class FulfillOrdersScreen(Screen):
         choice = self.ui.console.input("Choose: ")
         if choice == "1":
             return ScreenResult(NavigationAction.PUSH, CustomerLookupScreen, self.context)
-        elif choice == "2":
-            return ScreenResult(NavigationAction.PUSH, ViewOrdersScreen, self.context)
-        elif choice == "3":
-            return ScreenResult(NavigationAction.PUSH, ScanToFulfillScreen, self.context)
-        elif choice in ["4", "q"]:
+        elif choice in ["2", "q"]:
             return ScreenResult(NavigationAction.POP)
         else:
             return ScreenResult(NavigationAction.REPLACE, FulfillOrdersScreen, self.context)
@@ -101,6 +95,7 @@ class CustomerSearchResultsScreen(Screen):
         operator = self.context.get("operator", "")
         customers = self.context.get("customers", [])
         search_name = self.context.get("search_name", "")
+        fulfillment_mode = self.context.get("fulfillment_mode", False)
 
         # Create results table
         table = Table(show_header=True, header_style="bold cyan")
@@ -152,6 +147,11 @@ class CustomerSearchResultsScreen(Screen):
                 if "assign_cable_serial" in self.context:
                     new_context["assign_cable_serial"] = self.context["assign_cable_serial"]
                     new_context["assign_cable_sku"] = self.context.get("assign_cable_sku")
+
+                # In fulfillment mode, go straight to order selection
+                if fulfillment_mode:
+                    return ScreenResult(NavigationAction.PUSH, OrderSelectionScreen, new_context)
+
                 return ScreenResult(NavigationAction.PUSH, CustomerDetailScreen, new_context)
 
         # Invalid choice - re-display
@@ -276,7 +276,7 @@ class CustomerDetailScreen(Screen):
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(customer_info, title="Customer Details"))
 
-        footer_text = "[cyan]Press 'o' for orders, 'c' to assign cables, or 'enter' to go back[/cyan]"
+        footer_text = "[cyan]'o'[/cyan] = orders | [cyan]'c'[/cyan] = assign cables | [cyan]'f'[/cyan] = fulfill order | [cyan]Enter[/cyan] = back"
         self.ui.layout["footer"].update(Panel(footer_text, title=""))
         self.ui.render()
 
@@ -291,6 +291,9 @@ class CustomerDetailScreen(Screen):
         elif choice == 'c':
             # Assign cables to customer
             return ScreenResult(NavigationAction.PUSH, AssignCablesScreen, self.context)
+        elif choice == 'f':
+            # Fulfill an order for this customer
+            return ScreenResult(NavigationAction.PUSH, OrderSelectionScreen, self.context)
 
         return ScreenResult(NavigationAction.POP)
 
@@ -316,21 +319,7 @@ class CustomerDetailScreen(Screen):
         result = db.assign_cable_to_customer(cable_serial, customer_gid)
 
         if result.get('success'):
-            # Success - show confirmation
-            self.ui.layout["body"].update(Panel(
-                f"[bold green]✅ Cable Assigned Successfully![/bold green]\n\n"
-                f"Cable: [yellow]{cable_serial}[/yellow] ({cable_sku})\n"
-                f"Customer: [cyan]{customer_name}[/cyan]\n"
-                f"Email: {customer.get('email', 'N/A')}\n\n"
-                f"[dim]Press enter to return to cable scanning[/dim]",
-                title="Assignment Complete",
-                style="green"
-            ))
-            self.ui.layout["footer"].update(Panel("", title=""))
-            self.ui.render()
-            self.ui.console.input()
-
-            # Pop back to cable scan screen
+            # Pop back to cable info screen (it will show the assignment)
             from greenlight.screens.cable import ScanCableLookupScreen
             return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
         else:
@@ -384,18 +373,6 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                     reassign_result = db.force_reassign_cable(cable_serial, customer_gid)
 
                     if reassign_result.get('success'):
-                        self.ui.layout["body"].update(Panel(
-                            f"[bold green]✅ Cable Reassigned Successfully![/bold green]\n\n"
-                            f"Cable: [yellow]{cable_serial}[/yellow] ({cable_sku})\n"
-                            f"Customer: [cyan]{customer_name}[/cyan]\n\n"
-                            f"[dim]Press enter to return to cable scanning[/dim]",
-                            title="Reassignment Complete",
-                            style="green"
-                        ))
-                        self.ui.layout["footer"].update(Panel("", title=""))
-                        self.ui.render()
-                        self.ui.console.input()
-
                         from greenlight.screens.cable import ScanCableLookupScreen
                         return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
                     else:
@@ -490,38 +467,352 @@ class CustomerOrdersScreen(Screen):
         return ScreenResult(NavigationAction.POP)
 
 
-class ViewOrdersScreen(Screen):
-    """View all orders (placeholder)"""
+class OrderSelectionScreen(Screen):
+    """Display unfulfilled orders for a customer and allow selection for fulfillment"""
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
+        customer = self.context.get("selected_customer", {})
+        customer_id = customer.get("id", "")
+        customer_name = customer.get("displayName", "Customer")
+
+        # Fetch orders
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(
+            f"[yellow]Loading orders for {customer_name}...[/yellow]",
+            title="Order Selection"
+        ))
+        self.ui.render()
+
+        orders = shopify_client.get_customer_orders(customer_id, limit=25)
+
+        # Filter to unfulfilled/partially fulfilled orders
+        unfulfilled_orders = []
+        for order in orders:
+            status = (order.get("displayFulfillmentStatus") or "").upper()
+            if status in ("UNFULFILLED", "PARTIALLY_FULFILLED", ""):
+                unfulfilled_orders.append(order)
+
+        if not unfulfilled_orders:
+            self.ui.layout["body"].update(Panel(
+                f"[dim]No unfulfilled orders found for {customer_name}[/dim]\n\n[cyan]Press enter to go back[/cyan]",
+                title="Order Selection"
+            ))
+            self.ui.layout["footer"].update(Panel("", title=""))
+            self.ui.render()
+            self.ui.console.input()
+            return ScreenResult(NavigationAction.POP)
+
+        # Create orders table
+        table = Table(show_header=True, header_style="bold cyan")
+        table.add_column("#", style="green", width=3)
+        table.add_column("Order", style="white")
+        table.add_column("Date", style="dim")
+        table.add_column("Status", style="yellow")
+        table.add_column("Total", justify="right", style="green")
+        table.add_column("Items", justify="right", style="cyan")
+
+        for i, order in enumerate(unfulfilled_orders, 1):
+            order_name = order.get("name") or "N/A"
+            created_at = (order.get("createdAt") or "")[:10]
+            fulfillment_status = order.get("displayFulfillmentStatus") or "UNFULFILLED"
+
+            total_price = (order.get("totalPriceSet") or {}).get("shopMoney") or {}
+            total = f"${float(total_price.get('amount') or 0):.2f}" if total_price else "$0.00"
+
+            line_items = (order.get("lineItems") or {}).get("edges") or []
+            num_items = sum((item.get("node") or {}).get("quantity") or 0 for item in line_items)
+
+            table.add_row(str(i), order_name, created_at, fulfillment_status, total, str(num_items))
 
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(
-            "View all orders functionality coming soon",
-            title="View Orders"
+            table,
+            title=f"Unfulfilled Orders for {customer_name} ({len(unfulfilled_orders)} found)"
         ))
-        self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+
+        footer_text = "[cyan]Enter number to fulfill, or 'q' to go back[/cyan]"
+        self.ui.layout["footer"].update(Panel(footer_text, title="Select Order"))
         self.ui.render()
 
-        self.ui.console.input("Press enter to continue...")
-        return ScreenResult(NavigationAction.POP)
+        try:
+            choice = self.ui.console.input("Choice: ").strip().lower()
+        except KeyboardInterrupt:
+            return ScreenResult(NavigationAction.POP)
+
+        if choice == 'q':
+            return ScreenResult(NavigationAction.POP)
+        elif choice.isdigit():
+            idx = int(choice) - 1
+            if 0 <= idx < len(unfulfilled_orders):
+                selected_order = unfulfilled_orders[idx]
+                order_id = selected_order.get("id", "")
+                order_name = selected_order.get("name", "")
+
+                # Extract line items with SKUs for fulfillment
+                line_items_raw = (selected_order.get("lineItems") or {}).get("edges") or []
+                line_items = []
+                for edge in line_items_raw:
+                    node = edge.get("node") or {}
+                    sku = node.get("sku")
+                    if sku:  # Filter out non-cable items (null SKU)
+                        line_items.append({
+                            'sku': sku,
+                            'title': node.get("title") or "Unknown",
+                            'quantity': node.get("quantity") or 0,
+                        })
+
+                if not line_items:
+                    self.ui.layout["body"].update(Panel(
+                        "[red]No cable items (with SKUs) found in this order[/red]\n\n"
+                        "[dim]Press enter to go back[/dim]",
+                        title="Order Selection"
+                    ))
+                    self.ui.layout["footer"].update(Panel("", title=""))
+                    self.ui.render()
+                    self.ui.console.input()
+                    return ScreenResult(NavigationAction.REPLACE, OrderSelectionScreen, self.context)
+
+                new_context = self.context.copy()
+                new_context["order_id"] = order_id
+                new_context["order_name"] = order_name
+                new_context["line_items"] = line_items
+                new_context["scanned_cables"] = []
+                return ScreenResult(NavigationAction.PUSH, OrderFulfillScanScreen, new_context)
+
+        # Invalid choice - re-display
+        return ScreenResult(NavigationAction.REPLACE, OrderSelectionScreen, self.context)
 
 
-class ScanToFulfillScreen(Screen):
-    """Scan cables to fulfill orders (placeholder)"""
+class OrderFulfillScanScreen(Screen):
+    """Scan cables to fulfill a specific order with SKU validation and progress tracking"""
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
+        customer = self.context.get("selected_customer", {})
+        customer_name = customer.get("displayName", "Customer")
+        customer_gid = customer.get("id", "")
+        order_id = self.context.get("order_id", "")
+        order_name = self.context.get("order_name", "")
+        line_items = self.context.get("line_items", [])
+        scanned_cables = self.context.get("scanned_cables", [])
+
+        # Build line_item_skus list for validation
+        line_item_skus = [item['sku'] for item in line_items]
+
+        # Get already-assigned cables for this order (from DB, includes prior sessions)
+        existing_order_cables = db.get_cables_for_order(order_id)
+        existing_skus_scanned = {}
+        for cable in existing_order_cables:
+            sku = cable['effective_sku']
+            existing_skus_scanned[sku] = existing_skus_scanned.get(sku, 0) + 1
+
+        # Build progress table
+        progress_table = Table(show_header=True, header_style="bold cyan", expand=True)
+        progress_table.add_column("SKU", style="white")
+        progress_table.add_column("Title", style="dim")
+        progress_table.add_column("Progress", justify="center", style="yellow")
+        progress_table.add_column("Status", justify="center")
+
+        all_complete = True
+        for item in line_items:
+            sku = item['sku']
+            needed = item['quantity']
+            scanned = existing_skus_scanned.get(sku, 0)
+            progress_str = f"{scanned}/{needed}"
+
+            if scanned >= needed:
+                status = "[bold green]DONE[/bold green]"
+            else:
+                status = f"[yellow]{needed - scanned} remaining[/yellow]"
+                all_complete = False
+
+            progress_table.add_row(sku, item['title'], progress_str, status)
+
+        # Build body content
+        header_text = f"[bold cyan]Customer:[/bold cyan] {customer_name}\n"
+        header_text += f"[bold cyan]Order:[/bold cyan] {order_name}\n"
+
+        if scanned_cables:
+            header_text += f"\n[bold magenta]Recently scanned:[/bold magenta]"
+            for cable_info in scanned_cables[-5:]:
+                header_text += f"\n  • {cable_info}"
+
+        if all_complete:
+            header_text += "\n\n[bold green]✅ All line items fulfilled![/bold green]"
+
+        from rich.console import Group
+        body_content = Group(header_text, "", progress_table)
 
         self.ui.header(operator)
-        self.ui.layout["body"].update(Panel(
-            "Scan to fulfill functionality coming soon",
-            title="Scan to Fulfill"
-        ))
-        self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+        self.ui.layout["body"].update(Panel(body_content, title=f"Fulfill Order {order_name}"))
+
+        if all_complete:
+            self.ui.layout["footer"].update(Panel(
+                "[bold green]Order complete![/bold green] Press [cyan]'q'[/cyan] to go back, or continue scanning",
+                title="Fulfillment"
+            ))
+        else:
+            self.ui.layout["footer"].update(Panel(
+                "[cyan]Scan cable barcode (or 'q' to go back)[/cyan]",
+                title="Fulfillment"
+            ))
         self.ui.render()
 
-        self.ui.console.input("Press enter to continue...")
-        return ScreenResult(NavigationAction.POP)
+        # Get serial number input
+        serial_input = self.ui.get_serial_number_scan_or_manual()
+
+        if not serial_input or serial_input.lower() == 'q':
+            return ScreenResult(NavigationAction.POP)
+
+        # Validate serial number
+        from greenlight.db import validate_serial_number, format_serial_number
+        valid, err_msg = validate_serial_number(serial_input)
+        if not valid:
+            self.ui.layout["body"].update(Panel(
+                f"[red]❌ Invalid serial number: {err_msg}[/red]\n\n[dim]Press enter to continue[/dim]",
+                title=f"Fulfill Order {order_name}"
+            ))
+            self.ui.layout["footer"].update(Panel("", title=""))
+            self.ui.render()
+            self.ui.console.input()
+            return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
+
+        formatted_serial = format_serial_number(serial_input)
+
+        # Attempt assignment
+        result = db.assign_cable_to_order(formatted_serial, customer_gid, order_id, line_item_skus)
+
+        new_context = self.context.copy()
+
+        if result.get('success'):
+            effective_sku = result.get('effective_sku', '')
+            scanned_cables.append(f"{formatted_serial} ({effective_sku})")
+            new_context["scanned_cables"] = scanned_cables
+            return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, new_context)
+
+        # Handle errors
+        error_type = result.get('error')
+
+        if error_type == 'not_found':
+            self.ui.layout["body"].update(Panel(
+                f"[red]❌ Cable {formatted_serial} not found in database[/red]\n\n"
+                f"[dim]Press enter to continue scanning[/dim]",
+                title=f"Fulfill Order {order_name}"
+            ))
+            self.ui.layout["footer"].update(Panel("", title=""))
+            self.ui.render()
+            self.ui.console.input()
+            return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
+
+        elif error_type == 'duplicate':
+            self.ui.layout["body"].update(Panel(
+                f"[yellow]⚠️  Cable {formatted_serial} is already scanned for this order[/yellow]\n\n"
+                f"[dim]Press enter to continue scanning[/dim]",
+                title=f"Fulfill Order {order_name}"
+            ))
+            self.ui.layout["footer"].update(Panel("", title=""))
+            self.ui.render()
+            self.ui.console.input()
+            return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
+
+        elif error_type == 'already_assigned_order':
+            self.ui.layout["body"].update(Panel(
+                f"[red]❌ Cable {formatted_serial} is assigned to a different order[/red]\n\n"
+                f"[dim]Press enter to continue scanning[/dim]",
+                title=f"Fulfill Order {order_name}"
+            ))
+            self.ui.layout["footer"].update(Panel("", title=""))
+            self.ui.render()
+            self.ui.console.input()
+            return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
+
+        elif error_type == 'assigned_no_order':
+            # Cable assigned to customer without order - ask to override
+            existing_gid = result.get('existing_customer_gid', '')
+            existing_customer_name = "another customer"
+            try:
+                if existing_gid:
+                    customer_numeric_id = existing_gid.split('/')[-1]
+                    existing_customer = shopify_client.get_customer_by_id(customer_numeric_id)
+                    if existing_customer:
+                        existing_customer_name = existing_customer.get('displayName') or "another customer"
+            except:
+                pass
+
+            self.ui.layout["body"].update(Panel(
+                f"[yellow]⚠️  Cable {formatted_serial} is assigned to {existing_customer_name} (no order)[/yellow]\n\n"
+                f"Override and assign to this order?",
+                title=f"Fulfill Order {order_name}"
+            ))
+            self.ui.layout["footer"].update(Panel(
+                "[green]y[/green] = Override | [cyan]n[/cyan] = Skip",
+                title="Override?"
+            ))
+            self.ui.render()
+
+            try:
+                choice = self.ui.console.input("").strip().lower()
+            except KeyboardInterrupt:
+                return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
+
+            if choice in ('y', 'yes'):
+                # Need to also validate SKU before force-assigning
+                # Re-check SKU by looking up the cable
+                cable_record = db.get_audio_cable(formatted_serial)
+                if cable_record:
+                    effective_sku = cable_record.get('special_baby_shopify_sku') or cable_record.get('sku', '')
+                    if effective_sku not in line_item_skus:
+                        self.ui.layout["body"].update(Panel(
+                            f"[red]❌ SKU mismatch: cable is {effective_sku}, not in order[/red]\n\n"
+                            f"[dim]Press enter to continue scanning[/dim]",
+                            title=f"Fulfill Order {order_name}"
+                        ))
+                        self.ui.layout["footer"].update(Panel("", title=""))
+                        self.ui.render()
+                        self.ui.console.input()
+                        return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
+
+                override_result = db.force_assign_cable_to_order(formatted_serial, customer_gid, order_id)
+                if override_result.get('success'):
+                    scanned_cables.append(f"{formatted_serial} (override)")
+                    new_context["scanned_cables"] = scanned_cables
+                    return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, new_context)
+                else:
+                    self.ui.layout["body"].update(Panel(
+                        f"[red]❌ Error: {override_result.get('message', 'Unknown')}[/red]\n\n"
+                        f"[dim]Press enter to continue[/dim]",
+                        title=f"Fulfill Order {order_name}"
+                    ))
+                    self.ui.layout["footer"].update(Panel("", title=""))
+                    self.ui.render()
+                    self.ui.console.input()
+
+            return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
+
+        elif error_type == 'sku_mismatch':
+            cable_sku = result.get('cable_sku', 'unknown')
+            self.ui.layout["body"].update(Panel(
+                f"[red]❌ SKU mismatch![/red]\n\n"
+                f"Cable SKU: [yellow]{cable_sku}[/yellow]\n"
+                f"Order expects: {', '.join(line_item_skus)}\n\n"
+                f"[dim]Press enter to continue scanning[/dim]",
+                title=f"Fulfill Order {order_name}"
+            ))
+            self.ui.layout["footer"].update(Panel("", title=""))
+            self.ui.render()
+            self.ui.console.input()
+            return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
+
+        else:
+            # Generic error
+            self.ui.layout["body"].update(Panel(
+                f"[red]❌ Error: {result.get('message', 'Unknown error')}[/red]\n\n"
+                f"[dim]Press enter to continue scanning[/dim]",
+                title=f"Fulfill Order {order_name}"
+            ))
+            self.ui.layout["footer"].update(Panel("", title=""))
+            self.ui.render()
+            self.ui.console.input()
+            return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
 
 class AssignCablesScreen(Screen):

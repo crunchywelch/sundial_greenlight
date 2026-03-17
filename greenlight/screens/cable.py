@@ -1006,6 +1006,66 @@ class CableScreenBase(Screen):
         except KeyboardInterrupt:
             return cable_record
 
+    def _unassign_cable(self, operator, cable_record):
+        """Prompt for confirmation and unassign a cable from its customer/order."""
+        from greenlight import shopify_client, db as db_mod
+
+        serial = cable_record['serial_number']
+        customer_gid = cable_record.get('shopify_gid', '')
+
+        # Look up customer name for the confirmation prompt
+        customer_name = "unknown customer"
+        try:
+            if customer_gid:
+                customer_numeric_id = customer_gid.split('/')[-1]
+                customer = shopify_client.get_customer_by_id(customer_numeric_id)
+                if customer:
+                    customer_name = customer.get('displayName') or customer_name
+        except:
+            pass
+
+        has_order = bool(cable_record.get('shopify_order_gid'))
+        order_note = "\n[yellow]This cable is also assigned to an order — both will be cleared.[/yellow]" if has_order else ""
+
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(
+            f"[yellow]Unassign cable {serial}?[/yellow]\n\n"
+            f"Currently assigned to: [cyan]{customer_name}[/cyan]"
+            f"{order_note}\n\n"
+            f"This will return the cable to available inventory.",
+            title="Unassign Cable"
+        ))
+        self.ui.layout["footer"].update(Panel(
+            "[green]y[/green] = Confirm unassign | [cyan]n[/cyan] = Cancel",
+            title="Confirm?"
+        ))
+        self.ui.render()
+
+        try:
+            choice = self.ui.console.input("").strip().lower()
+        except KeyboardInterrupt:
+            return
+
+        if choice not in ('y', 'yes'):
+            return
+
+        result = db_mod.unassign_cable(serial)
+        if result.get('success'):
+            self.ui.layout["body"].update(Panel(
+                f"[bold green]Cable {serial} unassigned and returned to inventory.[/bold green]\n\n"
+                f"[dim]Press enter to continue[/dim]",
+                title="Unassigned", style="green"
+            ))
+        else:
+            self.ui.layout["body"].update(Panel(
+                f"[red]Error: {result.get('message', 'Unknown error')}[/red]\n\n"
+                f"[dim]Press enter to continue[/dim]",
+                title="Error"
+            ))
+        self.ui.layout["footer"].update(Panel("", title=""))
+        self.ui.render()
+        self.ui.console.input()
+
     def cable_action_loop(self, operator, cable_record, mode='lookup'):
         """Show cable info + action menu. Loops until quit or new scan.
 
@@ -1046,6 +1106,8 @@ class CableScreenBase(Screen):
                 footer_options.append("[cyan]'t'[/cyan] = Test cable")
             if mode == 'lookup' and not is_assigned:
                 footer_options.append("[cyan]'a'[/cyan] = Assign cable")
+            if mode == 'lookup' and is_assigned:
+                footer_options.append("[cyan]'u'[/cyan] = Unassign cable")
             if printer_available and cable_tested:
                 footer_options.append("[cyan]'p'[/cyan] = Print label")
             if printer_available:
@@ -1077,11 +1139,17 @@ class CableScreenBase(Screen):
 
                 elif choice_lower == 'a' and mode == 'lookup' and not is_assigned:
                     from greenlight.screens.orders import CustomerLookupScreen
+                    # Set return flag on our own context so ScanCableLookupScreen
+                    # re-enters cable_action_loop after popping back
+                    self.context["return_to_cable_serial"] = cable_record['serial_number']
                     new_context = self.context.copy()
                     new_context["assign_cable_serial"] = cable_record['serial_number']
                     new_context["assign_cable_sku"] = cable_record['sku']
-                    new_context["return_to_cable_serial"] = cable_record['serial_number']
                     return {'action': 'navigate', 'screen_result': ScreenResult(NavigationAction.PUSH, CustomerLookupScreen, new_context)}
+
+                elif choice_lower == 'u' and mode == 'lookup' and is_assigned:
+                    self._unassign_cable(operator, cable_record)
+                    continue
 
                 elif choice_lower == 'p' and printer_available and cable_tested:
                     self.print_label_for_cable(operator, cable_record)
@@ -1119,6 +1187,20 @@ class CableScreenBase(Screen):
 
 class ScanCableLookupScreen(CableScreenBase):
     """Main cable interface - scan to lookup, test, assign, or register cables"""
+
+    def enter(self):
+        """Disable Shopify webhooks while operator is active"""
+        from greenlight.hardware.barcode_scanner import get_scanner
+        scanner = get_scanner()
+        if hasattr(scanner, 'set_webhooks_enabled'):
+            scanner.set_webhooks_enabled(False)
+
+    def exit(self):
+        """Re-enable Shopify webhooks when operator logs out"""
+        from greenlight.hardware.barcode_scanner import get_scanner
+        scanner = get_scanner()
+        if hasattr(scanner, 'set_webhooks_enabled'):
+            scanner.set_webhooks_enabled(True)
 
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
@@ -1183,12 +1265,15 @@ class ScanCableLookupScreen(CableScreenBase):
                     "[cyan]'p'[/cyan] = Wire labels",
                     "[cyan]'s'[/cyan] = Shopify scan mode",
                 ]
-                row4 = "[cyan]'q'[/cyan] = Logout"
+                row4_parts = [
+                    "[cyan]'f'[/cyan] = Fulfill order",
+                    "[cyan]'q'[/cyan] = Logout",
+                ]
                 footer_text = "\n".join([
                     row1,
                     " | ".join(row2_parts),
                     " | ".join(row3_parts),
-                    row4,
+                    " | ".join(row4_parts),
                 ])
                 self.ui.layout["footer"].update(Panel(
                     footer_text,
@@ -1229,6 +1314,12 @@ class ScanCableLookupScreen(CableScreenBase):
                 # Enter Shopify scan mode (webhooks on, Greenlight paused)
                 from greenlight.screens.shopify_scan import ShopifyScanModeScreen
                 return ScreenResult(NavigationAction.PUSH, ShopifyScanModeScreen, self.context.copy())
+            elif input_lower == 'f':
+                # Fulfill order - go to customer lookup in fulfillment mode
+                from greenlight.screens.orders import CustomerLookupScreen
+                new_context = self.context.copy()
+                new_context["fulfillment_mode"] = True
+                return ScreenResult(NavigationAction.PUSH, CustomerLookupScreen, new_context)
             elif input_lower == 'c':
                 # Run manual calibration
                 self.run_manual_calibration(operator)

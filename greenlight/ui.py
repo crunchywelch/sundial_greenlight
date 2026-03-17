@@ -25,7 +25,10 @@ class UIBase:
 
     def header(self, op=""):
         if config.get_op_name(op):
-            self.layout["header"].update(Panel(f"🌿 {APP_NAME} v0.1 - Welcome {config.get_op_name(op)}", style="bold green"))
+            self.layout["header"].update(Panel(
+                f"🌿 {APP_NAME} v0.1 - Welcome {config.get_op_name(op)}    [yellow]⚠  Shopify scanner paused[/yellow]",
+                style="bold green"
+            ))
         else:
             self.layout["header"].update(Panel(f"🌿 {APP_NAME} v0.1", style="bold green"))
         return
