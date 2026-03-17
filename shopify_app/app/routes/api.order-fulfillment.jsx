@@ -11,10 +11,9 @@ export async function loader({ request }) {
   // Scanner event polling (proxied for admin extensions that can't use CORS)
   if (url.searchParams.has("since")) {
     const since = parseInt(url.searchParams.get("since") || "0");
-    const shopifyUserId = url.searchParams.get("shopifyUserId") || "_default";
     const SCAN_TTL = 5000;
     const now = Date.now();
-    const lastScanEvent = getLastScanEvent(shopifyUserId);
+    const lastScanEvent = getLastScanEvent();
 
     if (
       lastScanEvent &&

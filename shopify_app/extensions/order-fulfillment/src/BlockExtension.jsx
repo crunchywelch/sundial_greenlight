@@ -18,7 +18,7 @@ const TARGET = "admin.order-details.block.render";
 export default reactExtension(TARGET, () => <OrderFulfillmentBlock />);
 
 function OrderFulfillmentBlock() {
-  const { data, query, sessionToken } = useApi(TARGET);
+  const { data, query } = useApi(TARGET);
   const [lineItems, setLineItems] = useState([]);
   const [customerId, setCustomerId] = useState(null);
   const [assignedCables, setAssignedCables] = useState([]);
@@ -26,26 +26,8 @@ function OrderFulfillmentBlock() {
   const [banner, setBanner] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastTimestamp, setLastTimestamp] = useState(0);
-  const [shopifyUserId, setShopifyUserId] = useState(null);
 
   const orderId = data.selected?.[0]?.id;
-
-  // Extract Shopify user ID from session token JWT
-  useEffect(() => {
-    async function extractUserId() {
-      try {
-        const token = await sessionToken.getSessionToken();
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        console.log("Session token sub (shopifyUserId):", payload.sub, "type:", typeof payload.sub);
-        if (payload.sub) {
-          setShopifyUserId(String(payload.sub));
-        }
-      } catch (err) {
-        console.error("Error extracting user ID from session token:", err);
-      }
-    }
-    extractUserId();
-  }, [sessionToken]);
 
   // Fetch order details via admin GraphQL
   useEffect(() => {
@@ -204,14 +186,14 @@ function OrderFulfillmentBlock() {
     [orderId, showBanner, fetchAssignedCables]
   );
 
-  // Poll for scanner events (filtered by Shopify user ID)
+  // Poll for scanner events
   useEffect(() => {
-    if (!scannerActive || !orderId || !shopifyUserId) return;
+    if (!scannerActive || !orderId) return;
 
     const interval = setInterval(async () => {
       try {
         const response = await fetch(
-          `/api/order-fulfillment?since=${lastTimestamp}&shopifyUserId=${shopifyUserId}&_t=${Date.now()}`
+          `/api/order-fulfillment?since=${lastTimestamp}&_t=${Date.now()}`
         );
         const data = await response.json();
 
@@ -225,7 +207,7 @@ function OrderFulfillmentBlock() {
     }, 500);
 
     return () => clearInterval(interval);
-  }, [scannerActive, lastTimestamp, orderId, shopifyUserId, assignCable]);
+  }, [scannerActive, lastTimestamp, orderId, assignCable]);
 
   // Calculate progress per SKU
   const skuProgress = lineItems.map((li) => {

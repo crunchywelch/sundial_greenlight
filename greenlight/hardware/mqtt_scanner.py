@@ -193,19 +193,9 @@ class MQTTScanner:
             return result.rc == mqtt.MQTT_ERR_SUCCESS
         return False
 
-    def set_webhooks_enabled(self, enabled, shopify_user_id=None):
-        """Control Shopify webhooks in the scanner daemon via MQTT.
-
-        When enabling, includes the Shopify user ID so the daemon can tag
-        webhook POSTs, allowing the Shopify app to route scans to the
-        correct admin session.
-        """
-        if enabled and shopify_user_id:
-            payload = f"webhooks_on:{shopify_user_id}"
-        elif enabled:
-            payload = "webhooks_on"
-        else:
-            payload = "webhooks_off"
+    def set_webhooks_enabled(self, enabled):
+        """Control Shopify webhooks in the scanner daemon via MQTT"""
+        payload = "webhooks_on" if enabled else "webhooks_off"
         self._webhook_state_payload = payload
         return self.publish(MQTT_CONTROL_TOPIC, payload, qos=1, retain=True)
 
