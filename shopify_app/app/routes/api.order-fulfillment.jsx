@@ -144,10 +144,12 @@ async function handleAssignCable({ serialNumber, orderId, customerId, lineItemSk
     );
   }
 
-  // Look up the cable
+  // Look up the cable (join special_baby_types for MISC SKU matching)
   const result = await query(
-    `SELECT ac.serial_number, ac.sku, ac.shopify_gid, ac.shopify_order_gid
+    `SELECT ac.serial_number, ac.sku, ac.shopify_gid, ac.shopify_order_gid,
+            sbt.shopify_sku AS special_baby_shopify_sku
      FROM audio_cables ac
+     LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
      WHERE ac.serial_number = $1`,
     [serialNumber]
   );
@@ -178,8 +180,10 @@ async function handleAssignCable({ serialNumber, orderId, customerId, lineItemSk
   }
 
   // Check SKU matches a line item if lineItemSkus provided
+  // Special babies use their shopify_sku from special_baby_types (e.g. "SC-MISC-42")
+  // Regular cables match on audio_cables.sku directly
   if (lineItemSkus && lineItemSkus.length > 0) {
-    const cableSku = cable.sku;
+    const cableSku = cable.special_baby_shopify_sku || cable.sku;
     const matches = lineItemSkus.some((sku) => sku === cableSku);
     if (!matches) {
       return json(
