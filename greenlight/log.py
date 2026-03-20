@@ -36,7 +36,8 @@ def setup_logging(name: str = "greenlight") -> None:
     ident = f"{name}@{hostname}"
 
     level = getattr(logging, LOG_LEVEL.upper(), logging.INFO)
-    fmt = logging.Formatter(f"{ident}: %(name)s %(levelname)s %(message)s")
+    syslog_fmt = logging.Formatter(f"{ident}: %(name)s %(levelname)s %(message)s")
+    file_fmt = logging.Formatter(f"%(asctime)s {ident}: %(name)s %(levelname)s %(message)s")
 
     root = logging.getLogger()
     root.setLevel(level)
@@ -46,7 +47,10 @@ def setup_logging(name: str = "greenlight") -> None:
     file_handler = logging.handlers.RotatingFileHandler(
         _LOG_FILE, maxBytes=_MAX_BYTES, backupCount=_BACKUP_COUNT,
     )
-    file_handler.setFormatter(fmt)
+    # Rotate on startup so each run gets a fresh log
+    if _LOG_FILE.exists() and _LOG_FILE.stat().st_size > 0:
+        file_handler.doRollover()
+    file_handler.setFormatter(file_fmt)
     root.addHandler(file_handler)
 
     # --- Syslog over TCP ---
@@ -55,7 +59,7 @@ def setup_logging(name: str = "greenlight") -> None:
             address=("localhost", SYSLOG_PORT),
             socktype=socket.SOCK_STREAM,
         )
-        syslog_handler.setFormatter(fmt)
+        syslog_handler.setFormatter(syslog_fmt)
         root.addHandler(syslog_handler)
     except Exception as exc:
         logging.getLogger(__name__).warning(
