@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-SQLite database layer for Sundial store data.
+PostgreSQL database layer for Sundial store data.
 
-Provides schema management, bulk upserts, and CSV export for inventory
-valuation and cost tracking. The SQLite database consolidates data from
-both Shopify stores (wire + audio) into a single queryable store.
+Stores product data and inventory snapshots from both Shopify stores
+(wire + audio) in the Greenlight PostgreSQL database.
 
 Usage:
     from util.wire.sundial_wire_db import get_db, init_db, upsert_products
@@ -15,125 +14,128 @@ Usage:
 """
 
 import csv
-import sqlite3
 from pathlib import Path
 
+import psycopg2
+import psycopg2.extras
+
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
-DEFAULT_DB = DATA_DIR / "sundial.db"
 
-SCHEMA_SQL = """
--- Products from Shopify (wire + non-wire)
-CREATE TABLE IF NOT EXISTS products (
-    sku TEXT PRIMARY KEY,
-    handle TEXT,
-    title TEXT,
-    option TEXT,
-    product_type TEXT,
-    qty INTEGER DEFAULT 0,
-    price REAL,
-    is_wire INTEGER DEFAULT 0,
-    last_received TEXT,
-    cost REAL,
-    cost_vendor TEXT,
-    cost_notes TEXT,
-    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
 
--- Vendor part number mappings (Satco, B&P)
-CREATE TABLE IF NOT EXISTS vendor_parts (
-    sku TEXT,
-    vendor TEXT,
-    part_number TEXT,
-    PRIMARY KEY (sku, vendor)
-);
+class PgConnection:
+    """Wraps psycopg2 connection to provide sqlite3-compatible execute() API.
 
--- Inventory snapshots (daily from Shopify)
-CREATE TABLE IF NOT EXISTS inventory_snapshots (
-    sku TEXT,
-    snapshot_date TEXT,
-    qty INTEGER,
-    cost REAL,
-    source TEXT,
-    PRIMARY KEY (sku, snapshot_date)
-);
+    Allows calling code to use conn.execute(sql, params).fetchall() without
+    manually managing cursors. Uses DictCursor so rows support both integer
+    indexing (row[0]) and column name access (row["sku"]).
+    """
 
--- Wire cost formula parameters (from wire_cost_data.yaml)
-CREATE TABLE IF NOT EXISTS wire_cost_params (
-    key TEXT PRIMARY KEY,
-    category TEXT,
-    value REAL
-);
+    def __init__(self, conn):
+        self._conn = conn
 
--- Wire material to product mapping
-CREATE TABLE IF NOT EXISTS wire_materials (
-    material_sku TEXT,
-    description TEXT,
-    wire_cost_key TEXT,
-    product_family TEXT,
-    PRIMARY KEY (material_sku, product_family)
-);
+    def execute(self, sql, params=None):
+        cur = self._conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cur.execute(sql, params)
+        return cur
 
--- Daily inventory valuation snapshots
-CREATE TABLE IF NOT EXISTS daily_valuations (
-    valuation_date TEXT PRIMARY KEY,
-    wire_skus INTEGER,
-    wire_units INTEGER,
-    wire_value REAL,
-    lamp_skus INTEGER,
-    lamp_units INTEGER,
-    lamp_value REAL,
-    audio_skus INTEGER,
-    audio_units INTEGER,
-    audio_value REAL,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-"""
+    def executemany(self, sql, params_seq):
+        cur = self._conn.cursor()
+        cur.executemany(sql, params_seq)
+        return cur
+
+    def commit(self):
+        self._conn.commit()
+
+    def close(self):
+        self._conn.close()
 
 
 def get_db(path=None):
-    """Return a sqlite3 connection with row_factory set."""
-    db_path = path or DEFAULT_DB
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(db_path))
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    return conn
+    """Return a PgConnection to the valuation schema.
+
+    The path parameter is accepted for backward compatibility but ignored.
+    Reads PostgreSQL credentials directly from environment / .env file
+    so callers don't need greenlight.config on their import path.
+    """
+    import os
+    from dotenv import load_dotenv
+
+    env_path = Path(__file__).parent.parent.parent / ".env"
+    load_dotenv(env_path)
+
+    db_config = {
+        "dbname": os.getenv("GREENLIGHT_DB_NAME"),
+        "user": os.getenv("GREENLIGHT_DB_USER"),
+        "password": os.getenv("GREENLIGHT_DB_PASS"),
+        "host": os.getenv("GREENLIGHT_DB_HOST", "127.0.0.1"),
+        "port": int(os.getenv("GREENLIGHT_DB_PORT", 5432)),
+        "sslmode": os.getenv("GREENLIGHT_DB_SSLMODE", "require"),
+    }
+
+    conn = psycopg2.connect(**db_config)
+    return PgConnection(conn)
 
 
 def init_db(conn=None):
-    """Create all tables if they don't exist."""
+    """Create the valuation schema and all tables if they don't exist."""
     close = False
     if conn is None:
         conn = get_db()
         close = True
-    conn.executescript(SCHEMA_SQL)
 
-    # Migrate sku_costs columns into products (idempotent)
-    for col, coltype in [("cost", "REAL"), ("cost_vendor", "TEXT"), ("cost_notes", "TEXT")]:
-        try:
-            conn.execute(f"ALTER TABLE products ADD COLUMN {col} {coltype}")
-        except Exception:
-            pass  # column already exists
-
-    # Migrate data from sku_costs if it still exists
-    try:
-        conn.execute("""
-            UPDATE products SET
-                cost = (SELECT cost FROM sku_costs WHERE sku_costs.sku = products.sku),
-                cost_vendor = (SELECT vendor FROM sku_costs WHERE sku_costs.sku = products.sku),
-                cost_notes = (SELECT notes FROM sku_costs WHERE sku_costs.sku = products.sku)
-            WHERE sku IN (SELECT sku FROM sku_costs)
-              AND cost IS NULL
-        """)
-        conn.execute("DROP TABLE sku_costs")
-    except Exception:
-        pass  # sku_costs already dropped
-
-    # Drop legacy tables/views if they exist
-    conn.execute("DROP VIEW IF EXISTS inventory_reconciliation")
-    conn.execute("DROP TABLE IF EXISTS inventory_events")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS products (
+            sku TEXT PRIMARY KEY,
+            handle TEXT,
+            title TEXT,
+            option TEXT,
+            product_type TEXT,
+            qty INTEGER DEFAULT 0,
+            price REAL,
+            is_wire INTEGER DEFAULT 0,
+            last_received TEXT,
+            cost REAL,
+            cost_vendor TEXT,
+            cost_notes TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS vendor_parts (
+            sku TEXT,
+            vendor TEXT,
+            part_number TEXT,
+            PRIMARY KEY (sku, vendor)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS inventory_snapshots (
+            sku TEXT,
+            snapshot_date TEXT,
+            qty INTEGER,
+            cost REAL,
+            source TEXT,
+            PRIMARY KEY (sku, snapshot_date)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS wire_cost_params (
+            key TEXT PRIMARY KEY,
+            category TEXT,
+            value REAL
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS wire_materials (
+            material_sku TEXT,
+            description TEXT,
+            wire_cost_key TEXT,
+            product_family TEXT,
+            PRIMARY KEY (material_sku, product_family)
+        )
+    """)
     conn.commit()
+
     if close:
         conn.close()
 
@@ -154,17 +156,17 @@ def upsert_products(conn, rows):
         """INSERT INTO products (sku, handle, title, option,
                                  product_type, qty, price, is_wire,
                                  cost, cost_vendor, cost_notes, updated_at)
-           VALUES (:sku, :handle, :title, :option,
-                   :product_type, :qty, :price, :is_wire,
-                   :cost, :cost_vendor, :cost_notes, CURRENT_TIMESTAMP)
+           VALUES (%(sku)s, %(handle)s, %(title)s, %(option)s,
+                   %(product_type)s, %(qty)s, %(price)s, %(is_wire)s,
+                   %(cost)s, %(cost_vendor)s, %(cost_notes)s, CURRENT_TIMESTAMP)
            ON CONFLICT(sku) DO UPDATE SET
-               handle=excluded.handle, title=excluded.title,
-               option=excluded.option, product_type=excluded.product_type,
-               qty=excluded.qty, price=excluded.price,
-               is_wire=excluded.is_wire,
-               cost=COALESCE(excluded.cost, products.cost),
-               cost_vendor=COALESCE(excluded.cost_vendor, products.cost_vendor),
-               cost_notes=COALESCE(excluded.cost_notes, products.cost_notes),
+               handle=EXCLUDED.handle, title=EXCLUDED.title,
+               option=EXCLUDED.option, product_type=EXCLUDED.product_type,
+               qty=EXCLUDED.qty, price=EXCLUDED.price,
+               is_wire=EXCLUDED.is_wire,
+               cost=COALESCE(EXCLUDED.cost, products.cost),
+               cost_vendor=COALESCE(EXCLUDED.cost_vendor, products.cost_vendor),
+               cost_notes=COALESCE(EXCLUDED.cost_notes, products.cost_notes),
                updated_at=CURRENT_TIMESTAMP""",
         rows,
     )
@@ -178,9 +180,9 @@ def upsert_vendor_parts(conn, rows):
     """
     conn.executemany(
         """INSERT INTO vendor_parts (sku, vendor, part_number)
-           VALUES (:sku, :vendor, :part_number)
+           VALUES (%(sku)s, %(vendor)s, %(part_number)s)
            ON CONFLICT(sku, vendor) DO UPDATE SET
-               part_number=excluded.part_number""",
+               part_number=EXCLUDED.part_number""",
         rows,
     )
     conn.commit()
@@ -190,9 +192,9 @@ def upsert_inventory_snapshot(conn, sku, snapshot_date, qty, cost, source):
     """Insert or update a single inventory snapshot."""
     conn.execute(
         """INSERT INTO inventory_snapshots (sku, snapshot_date, qty, cost, source)
-           VALUES (?, ?, ?, ?, ?)
+           VALUES (%s, %s, %s, %s, %s)
            ON CONFLICT(sku, snapshot_date) DO UPDATE SET
-               qty=excluded.qty, cost=excluded.cost, source=excluded.source""",
+               qty=EXCLUDED.qty, cost=EXCLUDED.cost, source=EXCLUDED.source""",
         (sku, snapshot_date, qty, cost, source),
     )
     conn.commit()
@@ -205,9 +207,9 @@ def upsert_wire_cost_params(conn, rows):
     """
     conn.executemany(
         """INSERT INTO wire_cost_params (key, category, value)
-           VALUES (:key, :category, :value)
+           VALUES (%(key)s, %(category)s, %(value)s)
            ON CONFLICT(key) DO UPDATE SET
-               category=excluded.category, value=excluded.value""",
+               category=EXCLUDED.category, value=EXCLUDED.value""",
         rows,
     )
     conn.commit()
@@ -222,10 +224,10 @@ def upsert_wire_materials(conn, rows):
     conn.executemany(
         """INSERT INTO wire_materials (material_sku, description, wire_cost_key,
                                        product_family)
-           VALUES (:material_sku, :description, :wire_cost_key, :product_family)
+           VALUES (%(material_sku)s, %(description)s, %(wire_cost_key)s, %(product_family)s)
            ON CONFLICT(material_sku, product_family) DO UPDATE SET
-               description=excluded.description,
-               wire_cost_key=excluded.wire_cost_key""",
+               description=EXCLUDED.description,
+               wire_cost_key=EXCLUDED.wire_cost_key""",
         rows,
     )
     conn.commit()
@@ -260,38 +262,12 @@ def load_wire_materials(conn):
     return [dict(r) for r in rows]
 
 
-def upsert_daily_valuation(conn, valuation_date, wire, lamp, audio):
-    """Insert or update a daily valuation snapshot.
-
-    wire/lamp/audio are each dicts with keys: skus, units, value.
-    """
-    conn.execute(
-        """INSERT INTO daily_valuations
-               (valuation_date, wire_skus, wire_units, wire_value,
-                lamp_skus, lamp_units, lamp_value,
-                audio_skus, audio_units, audio_value)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(valuation_date) DO UPDATE SET
-               wire_skus=excluded.wire_skus, wire_units=excluded.wire_units,
-               wire_value=excluded.wire_value,
-               lamp_skus=excluded.lamp_skus, lamp_units=excluded.lamp_units,
-               lamp_value=excluded.lamp_value,
-               audio_skus=excluded.audio_skus, audio_units=excluded.audio_units,
-               audio_value=excluded.audio_value,
-               created_at=CURRENT_TIMESTAMP""",
-        (valuation_date, wire["skus"], wire["units"], wire["value"],
-         lamp["skus"], lamp["units"], lamp["value"],
-         audio["skus"], audio["units"], audio["value"]),
-    )
-    conn.commit()
-
-
 def export_csv(conn, query, output_path, params=None):
     """Run a query and write results to a CSV file.
 
     Returns the number of rows written.
     """
-    cursor = conn.execute(query, params or ())
+    cursor = conn.execute(query, params)
     columns = [desc[0] for desc in cursor.description]
     rows = cursor.fetchall()
 

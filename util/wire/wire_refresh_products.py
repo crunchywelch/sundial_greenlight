@@ -183,7 +183,7 @@ def main():
         print()
         print(f"Data for {args.sku}:")
         row = conn.execute(
-            "SELECT * FROM products WHERE sku = ?", (args.sku,)
+            "SELECT * FROM products WHERE sku = %s", (args.sku,)
         ).fetchone()
         if row:
             for key in row.keys():
@@ -192,7 +192,7 @@ def main():
             print(f"  SKU not found")
 
         snap = conn.execute(
-            "SELECT * FROM inventory_snapshots WHERE sku = ? ORDER BY snapshot_date DESC",
+            "SELECT * FROM inventory_snapshots WHERE sku = %s ORDER BY snapshot_date DESC",
             (args.sku,)
         ).fetchall()
         if snap:

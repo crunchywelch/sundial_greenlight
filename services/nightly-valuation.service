@@ -2,9 +2,8 @@
 [Unit]
 Description=Nightly Inventory Valuation Snapshot
 Documentation=https://github.com/sundialwire/greenlight
-After=network-online.target db-tunnel.service
+After=network-online.target
 Wants=network-online.target
-Requires=db-tunnel.service
 
 [Service]
 Type=oneshot

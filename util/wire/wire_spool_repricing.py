@@ -8,13 +8,15 @@ Usage:
     python -m util.wire.wire_spool_repricing
 """
 
-import sqlite3
 import re
 import csv
+import sys
 from collections import defaultdict
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent.parent.parent / "data" / "sundial.db"
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from util.wire.sundial_wire_db import get_db
 COST_AUDIT_PATH = Path(__file__).parent.parent.parent / "data" / "exports" / "wire_cost_audit.csv"
 OUTPUT_PATH = Path(__file__).parent.parent.parent / "data" / "exports" / "wire_spool_repricing.csv"
 
@@ -71,8 +73,7 @@ def load_costs():
 
 
 def main():
-    db = sqlite3.connect(DB_PATH)
-    db.row_factory = sqlite3.Row
+    db = get_db()
     cost_lookup = load_costs()
 
     rows = db.execute("""

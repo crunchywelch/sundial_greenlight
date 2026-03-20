@@ -215,9 +215,9 @@ def main():
 
     # Check data freshness
     conn = get_db()
-    row = conn.execute("SELECT MAX(DATE(updated_at)) as last_date FROM products").fetchone()
+    row = conn.execute("SELECT MAX(updated_at::DATE) as last_date FROM products").fetchone()
     last_updated = row["last_date"] if row else None
-    today = date.today().isoformat()
+    today = date.today()
 
     if last_updated and last_updated < today:
         print(f"   Product data last refreshed: {last_updated}")
