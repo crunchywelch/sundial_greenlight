@@ -1,5 +1,8 @@
+import logging
 import psycopg2
 from greenlight.db import pg_pool
+
+logger = logging.getLogger(__name__)
 
 def fetch_enum_values(enum_type_name):
     conn = pg_pool.getconn()
@@ -14,7 +17,7 @@ def fetch_enum_values(enum_type_name):
             """, (enum_type_name,))
             return [row[0] for row in cur.fetchall()]
     except Exception as e:
-        print(f"❌ Error fetching enums: {e}")
+        logger.error("Error fetching enums: %s", e)
         conn.rollback()
     finally:
         pg_pool.putconn(conn)

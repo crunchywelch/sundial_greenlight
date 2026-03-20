@@ -1,0 +1,27 @@
+# /etc/systemd/system/syslog-tunnel.service
+[Unit]
+Description=SSH tunnel for syslog to greenlight.sundialwire.com
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=welch
+Group=welch
+Environment="AUTOSSH_GATETIME=0" "AUTOSSH_LOGLEVEL=7"
+ExecStart=/usr/bin/autossh -M 0 -N \
+  -o "BatchMode=yes" \
+  -o "ExitOnForwardFailure=yes" \
+  -o "ServerAliveInterval=30" \
+  -o "ServerAliveCountMax=3" \
+  -o "StrictHostKeyChecking=yes" \
+  -i /home/welch/.ssh/do-gw-tunnel \
+  -L 127.0.0.1:1514:127.0.0.1:1514 \
+  welch@greenlight.sundialwire.com
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=full
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -11,6 +11,10 @@ DB_CONFIG = {
     "port": int(os.getenv("GREENLIGHT_DB_PORT", 5432)),
 }
 
+# Logging
+SYSLOG_PORT = int(os.getenv("GREENLIGHT_SYSLOG_PORT", "1514"))
+LOG_LEVEL = os.getenv("GREENLIGHT_LOG_LEVEL", "INFO")
+
 # Application constants
 APP_NAME = "Greenlight Terminal"
 APP_SUBTITLE = "Cable QC + Inventory Terminal"

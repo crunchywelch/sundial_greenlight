@@ -22,6 +22,9 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from greenlight.log import setup_logging
+setup_logging()
+
 from greenlight.db import pg_pool
 
 

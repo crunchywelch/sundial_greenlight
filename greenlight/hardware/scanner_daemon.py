@@ -29,11 +29,8 @@ import time
 import logging
 import threading
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+from greenlight.log import setup_logging
+setup_logging()
 logger = logging.getLogger('scanner_daemon')
 
 try:

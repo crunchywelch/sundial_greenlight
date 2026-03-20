@@ -11,7 +11,9 @@ shopify_app/extensions/*/node_modules/
 shopify_app/extensions/*/dist
 data/imports/
 data/exports/
+data/sundial.db
 data/sundial.db-wal
 data/sundial.db-shm
 *:Zone.Identifier
+logs/
 

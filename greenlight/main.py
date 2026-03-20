@@ -1,8 +1,9 @@
+import logging
 import signal
 import sys
 import time
-import logging
 
+from greenlight.log import setup_logging
 from greenlight.ui import UIBase
 from greenlight.screen_manager import ScreenManager
 from greenlight.screens import SplashScreen
@@ -15,8 +16,6 @@ from greenlight.config import (
 
 def signal_handler(sig, frame):
     """Handle Ctrl-C gracefully"""
-    print(f"\n\n🛑 Exiting {APP_NAME}...")
-    print(EXIT_MESSAGE)
     sys.exit(0)
 
 def init_hardware():
@@ -161,6 +160,10 @@ def shutdown_hardware():
 
 
 def main():
+    setup_logging()
+    logger = logging.getLogger(__name__)
+    logger.info("Starting %s", APP_NAME)
+
     # Set up graceful exit on Ctrl-C
     signal.signal(signal.SIGINT, signal_handler)
 
@@ -183,6 +186,7 @@ def main():
         print(f"\n\n🛑 Exiting {APP_NAME}...")
         print(EXIT_MESSAGE)
     except Exception as e:
+        logger.exception("Unexpected error in main loop")
         print(f"\n❌ An unexpected error occurred: {e}")
         print(f"Exiting {APP_NAME}...")
     finally:

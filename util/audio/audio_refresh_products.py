@@ -19,6 +19,9 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from greenlight.log import setup_logging
+setup_logging()
+
 import shopify
 from greenlight.shopify_client import get_shopify_session, close_shopify_session
 from util.wire.sundial_wire_db import get_db, init_db, upsert_products, upsert_inventory_snapshot
@@ -181,7 +184,7 @@ def main():
         print()
         print(f"Data for {args.sku}:")
         row = conn.execute(
-            "SELECT * FROM products WHERE sku = ?", (args.sku,)
+            "SELECT * FROM products WHERE sku = %s", (args.sku,)
         ).fetchone()
         if row:
             for key in row.keys():
@@ -190,7 +193,7 @@ def main():
             print(f"  SKU not found")
 
         snap = conn.execute(
-            "SELECT * FROM inventory_snapshots WHERE sku = ? ORDER BY snapshot_date DESC",
+            "SELECT * FROM inventory_snapshots WHERE sku = %s ORDER BY snapshot_date DESC",
             (args.sku,)
         ).fetchall()
         if snap:
@@ -199,7 +202,7 @@ def main():
                 print(f"    {s['snapshot_date']}: qty={s['qty']}, cost={s['cost']}, source={s['source']}")
 
         cost_row = conn.execute(
-            "SELECT cost, cost_vendor FROM products WHERE sku = ?", (args.sku,)
+            "SELECT cost, cost_vendor FROM products WHERE sku = %s", (args.sku,)
         ).fetchone()
         if cost_row and cost_row["cost"]:
             print(f"  Cost: ${cost_row['cost']:.2f} (vendor: {cost_row['cost_vendor']})")

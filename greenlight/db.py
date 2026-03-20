@@ -1,8 +1,11 @@
+import logging
 import psycopg2
 from psycopg2 import pool
 import os
 
 from greenlight.config import DB_CONFIG
+
+logger = logging.getLogger(__name__)
 
 pg_pool = psycopg2.pool.SimpleConnectionPool(
     minconn=1,
@@ -22,7 +25,7 @@ def insert_test_result(serial, resistance_adc, operator=None, source_node=None):
                 """, (serial, resistance_adc, operator, source_node))
             conn.commit()
     except Exception as e:
-        print(f"❌ Error creating tables: {e}")
+        logger.error("Error inserting test result: %s", e)
         conn.rollback()
     finally:
         pg_pool.putconn(conn)
@@ -37,7 +40,7 @@ def generate_serial_number():
             serial_num = cur.fetchone()[0]
             return f"SD{serial_num:06d}"  # Format: SD000001, SD000002, etc.
     except Exception as e:
-        print(f"❌ Error generating serial number: {e}")
+        logger.error("Error generating serial number: %s", e)
         return None
     finally:
         pg_pool.putconn(conn)
@@ -71,7 +74,7 @@ def insert_audio_cable(cable_type, test_result):
                     'sku': cable_type.sku
                 }
     except Exception as e:
-        print(f"❌ Error inserting audio cable: {e}")
+        logger.error("Error inserting audio cable: %s", e)
         conn.rollback()
         return None
     finally:
@@ -111,7 +114,7 @@ def get_audio_cable(serial_number):
                 return dict(zip(colnames, row))
             return None
     except Exception as e:
-        print(f"❌ Error fetching audio cable: {e}")
+        logger.error("Error fetching audio cable: %s", e)
         return None
     finally:
         pg_pool.putconn(conn)
@@ -228,7 +231,7 @@ def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_ex
                     'success': True
                 }
     except Exception as e:
-        print(f"❌ Error registering scanned cable: {e}")
+        logger.error("Error registering scanned cable: %s", e)
         conn.rollback()
         return {'error': 'database', 'message': str(e)}
     finally:
@@ -276,7 +279,7 @@ def update_cable_test_results(serial_number, test_passed, resistance_adc=None, c
                 conn.commit()
                 return result[0] if result else None
     except Exception as e:
-        print(f"❌ Error updating cable test results: {e}")
+        logger.error("Error updating cable test results: %s", e)
         conn.rollback()
         return None
     finally:
@@ -319,7 +322,7 @@ def update_cable_description(serial_number, description):
                 conn.commit()
                 return result is not None
     except Exception as e:
-        print(f"❌ Error updating cable description: {e}")
+        logger.error("Error updating cable description: %s", e)
         conn.rollback()
         return False
     finally:
@@ -380,7 +383,7 @@ def get_or_create_special_baby_type(base_sku, description, length=None):
                 conn.commit()
                 return {'id': type_id, 'shopify_sku': shopify_sku, 'created': True}
     except Exception as e:
-        print(f"Error in get_or_create_special_baby_type: {e}")
+        logger.error("Error in get_or_create_special_baby_type: %s", e)
         conn.rollback()
         return None
     finally:
@@ -412,7 +415,7 @@ def search_special_baby_types(base_sku):
                 for r in rows
             ]
     except Exception as e:
-        print(f"Error searching special_baby_types: {e}")
+        logger.error("Error searching special_baby_types: %s", e)
         return []
     finally:
         pg_pool.putconn(conn)
@@ -440,7 +443,7 @@ def get_available_count_for_sku(sku):
             """, (sku,))
             return cur.fetchone()[0]
     except Exception as e:
-        print(f"Error getting available count for SKU {sku}: {e}")
+        logger.error("Error getting available count for SKU %s: %s", sku, e)
         return 0
     finally:
         pg_pool.putconn(conn)
@@ -494,7 +497,7 @@ def assign_cable_to_customer(serial_number, customer_shopify_gid):
                     'customer_gid': result[2]
                 }
     except Exception as e:
-        print(f"❌ Error assigning cable to customer: {e}")
+        logger.error("Error assigning cable to customer: %s", e)
         conn.rollback()
         return {'error': 'database', 'message': str(e)}
     finally:
@@ -526,7 +529,7 @@ def unassign_cable(serial_number):
                     return {'success': True, 'serial_number': result[0]}
                 return {'error': 'not_assigned', 'message': f'Cable {formatted_serial} is not assigned to anyone'}
     except Exception as e:
-        print(f"❌ Error unassigning cable: {e}")
+        logger.error("Error unassigning cable: %s", e)
         conn.rollback()
         return {'error': 'database', 'message': str(e)}
     finally:
@@ -561,7 +564,7 @@ def force_reassign_cable(serial_number, customer_shopify_gid):
                     'message': f'Cable with serial number {formatted_serial} not found'
                 }
     except Exception as e:
-        print(f"❌ Error reassigning cable: {e}")
+        logger.error("Error reassigning cable: %s", e)
         conn.rollback()
         return {'error': 'database', 'message': str(e)}
     finally:
@@ -601,7 +604,7 @@ def get_cables_for_customer(customer_shopify_gid):
                 })
             return cables
     except Exception as e:
-        print(f"❌ Error fetching cables for customer: {e}")
+        logger.error("Error fetching cables for customer: %s", e)
         return []
     finally:
         pg_pool.putconn(conn)
@@ -645,7 +648,7 @@ def get_all_cables(limit=100, offset=0):
                 })
             return cables
     except Exception as e:
-        print(f"❌ Error fetching all cables: {e}")
+        logger.error("Error fetching all cables: %s", e)
         return []
     finally:
         pg_pool.putconn(conn)
@@ -658,7 +661,7 @@ def get_cable_count():
             cur.execute("SELECT COUNT(*) FROM audio_cables")
             return cur.fetchone()[0]
     except Exception as e:
-        print(f"❌ Error getting cable count: {e}")
+        logger.error("Error getting cable count: %s", e)
         return 0
     finally:
         pg_pool.putconn(conn)
@@ -737,7 +740,7 @@ def get_available_inventory(series=None):
                 })
             return inventory
     except Exception as e:
-        print(f"❌ Error fetching available inventory: {e}")
+        logger.error("Error fetching available inventory: %s", e)
         return []
     finally:
         pg_pool.putconn(conn)
@@ -828,7 +831,7 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
                     'effective_sku': effective_sku
                 }
     except Exception as e:
-        print(f"❌ Error assigning cable to order: {e}")
+        logger.error("Error assigning cable to order: %s", e)
         conn.rollback()
         return {'error': 'database', 'message': str(e)}
     finally:
@@ -860,7 +863,7 @@ def force_assign_cable_to_order(serial_number, customer_gid, order_gid):
                     return {'success': True, 'serial_number': result[0], 'sku': result[1]}
                 return {'error': 'not_found', 'message': f'Cable {formatted_serial} not found'}
     except Exception as e:
-        print(f"❌ Error force-assigning cable to order: {e}")
+        logger.error("Error force-assigning cable to order: %s", e)
         conn.rollback()
         return {'error': 'database', 'message': str(e)}
     finally:
@@ -898,7 +901,7 @@ def get_cables_for_order(order_gid):
                 for r in rows
             ]
     except Exception as e:
-        print(f"❌ Error fetching cables for order: {e}")
+        logger.error("Error fetching cables for order: %s", e)
         return []
     finally:
         pg_pool.putconn(conn)
@@ -1063,7 +1066,7 @@ def get_sku_stock_summary():
                 }
             return counts
     except Exception as e:
-        print(f"Error fetching SKU stock summary: {e}")
+        logger.error("Error fetching SKU stock summary: %s", e)
         return {}
     finally:
         pg_pool.putconn(conn)
@@ -1088,7 +1091,7 @@ def get_recent_sales(days=90):
             """, (days,))
             return {row[0]: row[1] for row in cur.fetchall()}
     except Exception as e:
-        print(f"Error fetching recent sales: {e}")
+        logger.error("Error fetching recent sales: %s", e)
         return {}
     finally:
         pg_pool.putconn(conn)
@@ -1121,7 +1124,7 @@ def get_special_baby_summary():
             return {row[0]: {"total": row[1], "available": row[2], "sold": row[3]}
                     for row in cur.fetchall()}
     except Exception as e:
-        print(f"Error fetching special baby summary: {e}")
+        logger.error("Error fetching special baby summary: %s", e)
         return {}
     finally:
         pg_pool.putconn(conn)
@@ -1143,7 +1146,7 @@ def get_available_series():
             rows = cur.fetchall()
             return [row[0] for row in rows if row[0]]
     except Exception as e:
-        print(f"❌ Error fetching available series: {e}")
+        logger.error("Error fetching available series: %s", e)
         return []
     finally:
         pg_pool.putconn(conn)

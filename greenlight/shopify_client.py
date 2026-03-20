@@ -74,13 +74,13 @@ def get_access_token_from_client_credentials() -> Optional[str]:
                 set_key(env_file, "SHOPIFY_ACCESS_TOKEN", access_token)
             return access_token
         else:
-            print(f"❌ No access token in response: {data}")
+            logger.error("No access token in response: %s", data)
             return None
 
     except requests.exceptions.RequestException as e:
-        print(f"❌ Error getting access token: {e}")
+        logger.error("Error getting access token: %s", e)
         if hasattr(e, 'response') and e.response is not None:
-            print(f"   Response: {e.response.text}")
+            logger.error("Response: %s", e.response.text)
         return None
 
 
@@ -325,14 +325,14 @@ def get_customer_by_id(customer_id: str) -> Optional[Dict[str, Any]]:
         data = json.loads(result)
 
         if "errors" in data:
-            print(f"❌ GraphQL errors: {data['errors']}")
+            logger.error("GraphQL errors: %s", data['errors'])
             return None
 
         customer = data.get("data", {}).get("customer")
         return customer
 
     except Exception as e:
-        print(f"❌ Error fetching customer by ID: {e}")
+        logger.error("Error fetching customer by ID: %s", e)
         return None
     finally:
         close_shopify_session()
@@ -397,14 +397,14 @@ def search_customers_by_name(name: str, limit: int = 100) -> list[Dict[str, Any]
         data = json.loads(result)
 
         if "errors" in data:
-            print(f"❌ GraphQL errors: {data['errors']}")
+            logger.error("GraphQL errors: %s", data['errors'])
             return []
 
         edges = data.get("data", {}).get("customers", {}).get("edges", [])
         return [edge["node"] for edge in edges]
 
     except Exception as e:
-        print(f"❌ Error searching customers by name: {e}")
+        logger.error("Error searching customers by name: %s", e)
         return []
     finally:
         close_shopify_session()
@@ -466,7 +466,7 @@ def get_customer_by_email(email: str) -> Optional[Dict[str, Any]]:
         data = json.loads(result)
 
         if "errors" in data:
-            print(f"❌ GraphQL errors: {data['errors']}")
+            logger.error("GraphQL errors: %s", data['errors'])
             return None
 
         edges = data.get("data", {}).get("customers", {}).get("edges", [])
@@ -476,7 +476,7 @@ def get_customer_by_email(email: str) -> Optional[Dict[str, Any]]:
         return None
 
     except Exception as e:
-        print(f"❌ Error fetching customer by email: {e}")
+        logger.error("Error fetching customer by email: %s", e)
         return None
     finally:
         close_shopify_session()
@@ -546,14 +546,14 @@ def get_customer_orders(customer_id: str, limit: int = 10) -> list[Dict[str, Any
         data = json.loads(result)
 
         if "errors" in data:
-            print(f"❌ GraphQL errors: {data['errors']}")
+            logger.error("GraphQL errors: %s", data['errors'])
             return []
 
         orders = data.get("data", {}).get("customer", {}).get("orders", {}).get("edges", [])
         return [edge["node"] for edge in orders]
 
     except Exception as e:
-        print(f"❌ Error fetching customer orders: {e}")
+        logger.error("Error fetching customer orders: %s", e)
         return []
     finally:
         close_shopify_session()
@@ -707,7 +707,7 @@ def get_all_products(limit: int = 250) -> list[Dict[str, Any]]:
             data = json.loads(result)
 
             if "errors" in data:
-                print(f"❌ GraphQL errors: {data['errors']}")
+                logger.error("GraphQL errors: %s", data['errors'])
                 break
 
             products_data = data.get("data", {}).get("products", {})
@@ -724,7 +724,7 @@ def get_all_products(limit: int = 250) -> list[Dict[str, Any]]:
         return all_products
 
     except Exception as e:
-        print(f"❌ Error fetching products: {e}")
+        logger.error("Error fetching products: %s", e)
         return []
     finally:
         close_shopify_session()
@@ -1005,7 +1005,7 @@ def get_all_product_skus() -> Dict[str, Dict[str, Any]]:
         return sku_map
 
     except Exception as e:
-        print(f"❌ Error fetching product SKUs: {e}")
+        logger.error("Error fetching product SKUs: %s", e)
         return {}
 
 
