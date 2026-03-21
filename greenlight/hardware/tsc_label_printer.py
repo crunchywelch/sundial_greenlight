@@ -510,10 +510,11 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         Label layout (1" x 3"):
         +---------------------------------------------------+
-        |  [QR CODE]   SUNDIAL AUDIO                        |
-        |  [QR CODE]   Register Your Cable                  |
-        |  [QR CODE]   XKDF-7M2P            #SD000123      |
-        |              sundial.audio/register    SC-20GL     |
+        |              REGISTER YOUR CABLE                   |
+        |  [QR CODE]   XKDF-7M2P                            |
+        |  [QR CODE]   sundialaudio.com/register             |
+        |              Take full advantage of our buy-it-    |
+        |              for-life warranty by registering...   |
         +---------------------------------------------------+
 
         Args:
@@ -528,8 +529,6 @@ class TSCLabelPrinter(LabelPrinterInterface):
         """
         reg_code = data.get('registration_code', '')
         reg_url = data.get('registration_url', '')
-        serial_number = data.get('serial_number', '')
-        sku = data.get('sku', '')
 
         # Start TSPL commands
         tspl_commands = []
@@ -543,48 +542,39 @@ class TSCLabelPrinter(LabelPrinterInterface):
         tspl_commands.append("DENSITY 10")
         tspl_commands.append("SPEED 3")
 
-        # QR code on left (~0.6" square = ~122 dots at 203 DPI)
-        # Position QR at x=10, y=10
+        # Label is 609 x 203 dots (3" x 1" at 203 DPI)
+        # QR bitmap is ~87x87 dots at module_size=3
+        qr_size = 87
         qr_x = 10
-        qr_y = 10
+        qr_y = (self.label_height_dots - qr_size) // 2  # Vertically centered
 
         # Generate QR bitmap for the registration URL
         qr_bitmap = self._generate_qr_bitmap(reg_url, module_size=3)
 
-        # Text positions (right of QR code)
-        x_text = 145  # Right of QR code area
-        x_right = 450  # Right-aligned items
+        # Text positions (right of QR code, which extends to ~x=97)
+        x_text = 160
 
-        # Y positions
-        y_brand = 12
-        y_subtitle = 45
-        y_code = 80
-        y_url = 130
-        y_serial = 80
-        y_sku = 130
+        # Y positions — distribute across the 203-dot height
+        y_title = 8
+        y_code = 55
+        y_url = 95
+        y_warranty = 140
 
-        # Brand
-        tspl_commands.append(f'TEXT {x_text},{y_brand},"3",0,1,1,"SUNDIAL AUDIO"')
+        # Title
+        tspl_commands.append(f'TEXT {x_text},{y_title},"3",0,1,1,"REGISTER YOUR CABLE"')
 
-        # Subtitle
-        tspl_commands.append(f'TEXT {x_text},{y_subtitle},"2",0,1,1,"Register Your Cable"')
+        # Decorative line under title
+        tspl_commands.append(f'BAR {x_text},{y_title + 28},370,2')
 
         # Registration code (large, prominent)
         tspl_commands.append(f'TEXT {x_text},{y_code},"3",0,1,1,"{reg_code}"')
 
-        # Serial number on right
-        if serial_number:
-            tspl_commands.append(f'TEXT {x_right},{y_serial},"2",0,1,1,"#{serial_number}"')
+        # URL
+        tspl_commands.append(f'TEXT {x_text},{y_url},"2",0,1,1,"sundialaudio.com/register"')
 
-        # URL at bottom left of text area
-        tspl_commands.append(f'TEXT {x_text},{y_url},"1",0,1,1,"sundial.audio/register"')
-
-        # SKU at bottom right
-        if sku:
-            tspl_commands.append(f'TEXT {x_right},{y_sku},"1",0,1,1,"{sku}"')
-
-        # Decorative line under brand
-        tspl_commands.append(f'BAR {x_text},{y_brand + 28},300,2')
+        # Warranty message
+        tspl_commands.append(f'TEXT {x_text},{y_warranty},"1",0,1,1,"Take advantage of our buy-it-for-life"')
+        tspl_commands.append(f'TEXT {x_text},{y_warranty + 18},"1",0,1,1,"warranty by registering your cable today!"')
 
         # QR code bitmap placeholder
         tspl_commands.append("__QR_CODE__")

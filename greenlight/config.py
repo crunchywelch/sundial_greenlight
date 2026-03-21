@@ -33,7 +33,7 @@ USE_REAL_PRINTERS = os.getenv("GREENLIGHT_USE_REAL_PRINTERS", "false").lower() i
 USE_REAL_GPIO = os.getenv("GREENLIGHT_USE_REAL_GPIO", "true").lower() in ("true", "1", "yes")
 
 # Registration URL for wholesale cable codes
-REGISTRATION_BASE_URL = os.getenv("GREENLIGHT_REGISTRATION_URL", "https://sundial.audio/register")
+REGISTRATION_BASE_URL = os.getenv("GREENLIGHT_REGISTRATION_URL", "https://sundialaudio.com/register")
 
 # Arduino configuration
 ARDUINO_PORT = os.getenv("GREENLIGHT_ARDUINO_PORT")  # e.g., "/dev/ttyUSB0"

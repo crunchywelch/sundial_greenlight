@@ -64,7 +64,8 @@ class WholesaleBatchScreen(Screen):
                 "[bold green]Scan barcode[/bold green] to add cable",
             ]
             if batch:
-                footer_parts.append("[cyan]'g'[/cyan] = Generate codes + print labels")
+                footer_parts.append("[cyan]'g'[/cyan] = Generate codes")
+                footer_parts.append("[cyan]'p'[/cyan] = Generate codes + print labels")
             footer_parts.append("[cyan]'q'[/cyan] = Cancel / go back")
 
             self.ui.layout["footer"].update(Panel(
@@ -85,8 +86,12 @@ class WholesaleBatchScreen(Screen):
                 return ScreenResult(NavigationAction.POP)
 
             if input_lower == 'g' and batch:
+                # Generate codes only, no printing
+                return self._generate_and_print(operator, batch, print_labels=False)
+
+            if input_lower == 'p' and batch:
                 # Generate codes and print labels
-                return self._generate_and_print(operator, batch)
+                return self._generate_and_print(operator, batch, print_labels=True)
 
             # Treat as serial number scan
             formatted_serial = format_serial_number(serial_input)
@@ -163,8 +168,13 @@ class WholesaleBatchScreen(Screen):
         except KeyboardInterrupt:
             pass
 
-    def _generate_and_print(self, operator, batch):
-        """Generate registration codes for the batch and print labels.
+    def _generate_and_print(self, operator, batch, print_labels=True):
+        """Generate registration codes for the batch and optionally print labels.
+
+        Args:
+            operator: Operator ID
+            batch: List of cable records
+            print_labels: If True, print registration labels after generating codes
 
         Returns:
             ScreenResult to navigate after completion
@@ -188,11 +198,13 @@ class WholesaleBatchScreen(Screen):
             self._show_error(operator, f"Failed to generate codes: {result.get('message', 'Unknown error')}")
             return ScreenResult(NavigationAction.POP)
 
-        # Print labels for successful codes
-        from greenlight.hardware.interfaces import hardware_manager, PrintJob
-
-        label_printer = hardware_manager.get_label_printer()
-        printer_available = label_printer and label_printer.is_ready() if label_printer else False
+        # Print labels for successful codes (if requested)
+        printer_available = False
+        label_printer = None
+        if print_labels:
+            from greenlight.hardware.interfaces import hardware_manager, PrintJob
+            label_printer = hardware_manager.get_label_printer()
+            printer_available = label_printer and label_printer.is_ready() if label_printer else False
 
         printed_count = 0
         results_list = result.get('results', [])
@@ -212,7 +224,7 @@ class WholesaleBatchScreen(Screen):
                 f"Processing {i + 1}/{len(results_list)}...\n\n"
                 f"Serial: {serial}\n"
                 f"Code: {reg_code}",
-                title="Generating + Printing", style="blue"
+                title="Generating + Printing" if printer_available else "Generating Codes", style="blue"
             ))
             self.ui.render()
 
