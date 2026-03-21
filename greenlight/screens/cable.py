@@ -1306,6 +1306,7 @@ class ScanCableLookupScreen(CableScreenBase):
                 ]
                 row4_parts = [
                     "[cyan]'f'[/cyan] = Fulfill order",
+                    "[cyan]'l'[/cyan] = Lookup customer",
                     "[cyan]'q'[/cyan] = Logout",
                 ]
                 footer_text = "\n".join([
@@ -1359,6 +1360,10 @@ class ScanCableLookupScreen(CableScreenBase):
                 new_context = self.context.copy()
                 new_context["fulfillment_mode"] = True
                 return ScreenResult(NavigationAction.PUSH, CustomerLookupScreen, new_context)
+            elif input_lower == 'l':
+                # Standalone customer lookup (no fulfillment mode)
+                from greenlight.screens.orders import CustomerLookupScreen
+                return ScreenResult(NavigationAction.PUSH, CustomerLookupScreen, self.context.copy())
             elif input_lower == 'c':
                 # Run manual calibration
                 self.run_manual_calibration(operator)

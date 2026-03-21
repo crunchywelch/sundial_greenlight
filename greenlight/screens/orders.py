@@ -276,7 +276,17 @@ class CustomerDetailScreen(Screen):
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(customer_info, title="Customer Details"))
 
-        footer_text = "[cyan]'o'[/cyan] = orders | [cyan]'c'[/cyan] = assign cables | [cyan]'f'[/cyan] = fulfill order | [cyan]Enter[/cyan] = back"
+        footer_parts = [
+            "[cyan]'o'[/cyan] = orders",
+            "[cyan]'c'[/cyan] = assign cables",
+        ]
+        if assigned_cables:
+            footer_parts.append("[cyan]'u'[/cyan] = unassign cable")
+        footer_parts.extend([
+            "[cyan]'f'[/cyan] = fulfill order",
+            "[cyan]Enter[/cyan] = back",
+        ])
+        footer_text = " | ".join(footer_parts)
         self.ui.layout["footer"].update(Panel(footer_text, title=""))
         self.ui.render()
 
@@ -291,6 +301,11 @@ class CustomerDetailScreen(Screen):
         elif choice == 'c':
             # Assign cables to customer
             return ScreenResult(NavigationAction.PUSH, AssignCablesScreen, self.context)
+        elif choice == 'u' and assigned_cables:
+            # Unassign a cable from this customer
+            new_context = self.context.copy()
+            new_context["assigned_cables"] = assigned_cables
+            return ScreenResult(NavigationAction.PUSH, UnassignCableScreen, new_context)
         elif choice == 'f':
             # Fulfill an order for this customer
             return ScreenResult(NavigationAction.PUSH, OrderSelectionScreen, self.context)
@@ -404,6 +419,112 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                 # Pop back to cable scan screen
                 from greenlight.screens.cable import ScanCableLookupScreen
                 return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+
+
+class UnassignCableScreen(Screen):
+    """Show customer's assigned cables and allow unassignment"""
+    def run(self) -> ScreenResult:
+        operator = self.context.get("operator", "")
+        customer = self.context.get("selected_customer", {})
+        assigned_cables = self.context.get("assigned_cables", [])
+        customer_name = customer.get("displayName") or "Customer"
+
+        if not assigned_cables:
+            self.ui.header(operator)
+            self.ui.layout["body"].update(Panel(
+                "[dim]No cables assigned to this customer[/dim]",
+                title="Unassign Cable"
+            ))
+            self.ui.layout["footer"].update(Panel("[cyan]Press Enter to go back[/cyan]", title=""))
+            self.ui.render()
+            self.ui.console.input()
+            return ScreenResult(NavigationAction.POP)
+
+        # Build cable list table
+        table = Table(show_header=True, header_style="bold cyan")
+        table.add_column("#", style="green", width=3)
+        table.add_column("Serial", style="white")
+        table.add_column("Cable", style="dim")
+        table.add_column("Tested", justify="center", style="yellow")
+
+        for i, cable in enumerate(assigned_cables, 1):
+            if cable['sku'].endswith('-MISC') and cable.get('description'):
+                cable_desc = f"{cable['series']} {cable['length']}ft - {cable['description']}"
+            else:
+                cable_desc = f"{cable['series']} {cable['length']}ft {cable['color_pattern']}"
+            tested = "[green]Yes[/green]" if cable.get('test_passed') else "[dim]No[/dim]"
+            table.add_row(str(i), cable['serial_number'], cable_desc, tested)
+
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(
+            table,
+            title=f"Cables Assigned to {customer_name}"
+        ))
+        self.ui.layout["footer"].update(Panel(
+            "[cyan]Enter cable number to unassign, or 'q' to go back[/cyan]",
+            title="Unassign Cable"
+        ))
+        self.ui.render()
+
+        try:
+            choice = self.ui.console.input("Choice: ").strip().lower()
+        except KeyboardInterrupt:
+            return ScreenResult(NavigationAction.POP)
+
+        if choice == 'q' or not choice:
+            return ScreenResult(NavigationAction.POP)
+
+        if not choice.isdigit():
+            return ScreenResult(NavigationAction.REPLACE, UnassignCableScreen, self.context)
+
+        idx = int(choice) - 1
+        if idx < 0 or idx >= len(assigned_cables):
+            return ScreenResult(NavigationAction.REPLACE, UnassignCableScreen, self.context)
+
+        cable = assigned_cables[idx]
+        serial = cable['serial_number']
+
+        # Confirm unassignment
+        self.ui.layout["body"].update(Panel(
+            f"Unassign [bold]{serial}[/bold] from [bold cyan]{customer_name}[/bold cyan]?\n\n"
+            f"The cable will be returned to available inventory.",
+            title="Confirm Unassign"
+        ))
+        self.ui.layout["footer"].update(Panel(
+            "[green]y[/green] = Confirm | [cyan]Enter[/cyan] = Cancel",
+            title=""
+        ))
+        self.ui.render()
+
+        try:
+            confirm = self.ui.console.input("").strip().lower()
+        except KeyboardInterrupt:
+            return ScreenResult(NavigationAction.POP)
+
+        if confirm not in ('y', 'yes'):
+            return ScreenResult(NavigationAction.REPLACE, UnassignCableScreen, self.context)
+
+        # Perform unassignment
+        result = db.unassign_cable(serial)
+
+        if result.get('success'):
+            self.ui.layout["body"].update(Panel(
+                f"[green]Cable {serial} unassigned from {customer_name}[/green]\n\n"
+                f"[dim]Press Enter to continue[/dim]",
+                title="Unassigned"
+            ))
+        else:
+            self.ui.layout["body"].update(Panel(
+                f"[red]Error: {result.get('message', 'Unknown error')}[/red]\n\n"
+                f"[dim]Press Enter to continue[/dim]",
+                title="Error"
+            ))
+        self.ui.layout["footer"].update(Panel("", title=""))
+        self.ui.render()
+        self.ui.console.input()
+
+        # Refresh the assigned cables list and go back to customer detail
+        return ScreenResult(NavigationAction.POP)
 
 
 class CustomerOrdersScreen(Screen):
