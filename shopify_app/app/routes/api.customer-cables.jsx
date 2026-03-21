@@ -1,6 +1,21 @@
 import { json } from "@remix-run/node";
 import { query } from "../db.server.js";
 
+const CABLE_IMAGE_MAP = {
+  "goldline": "cable-goldline.png",
+  "pearl white": "cable-pearl-white.png",
+  "silverline": "cable-silverline.png",
+  "bungalow": "cable-bungalow.png",
+  "electric houndstooth": "cable-electric-houndstooth.png",
+  "houndstooth putty": "cable-houndstooth-putty.png",
+  "road stripe": "cable-road-stripe.png",
+};
+const DEFAULT_IMAGE = "cable-special-babies.png";
+
+function getCableImageFilename(colorPattern) {
+  return CABLE_IMAGE_MAP[(colorPattern || "").toLowerCase()] || DEFAULT_IMAGE;
+}
+
 // This is a public API endpoint that the storefront can call
 export async function loader({ request }) {
   const url = new URL(request.url);
@@ -10,8 +25,13 @@ export async function loader({ request }) {
     return json({ error: "Customer ID is required" }, { status: 400 });
   }
 
+  // Accept both raw numeric ID and full GID format
+  const gid = customerId.startsWith("gid://")
+    ? customerId
+    : `gid://shopify/Customer/${customerId}`;
+
   try {
-    const cables = await fetchCustomerCables(customerId);
+    const cables = await fetchCustomerCables(gid);
 
     return json({ cables });
   } catch (error) {
@@ -53,5 +73,6 @@ async function fetchCustomerCables(customerId) {
     test_passed: row.test_passed,
     test_status: row.test_passed !== null ? "tested" : "not tested",
     operator: row.operator,
+    image: getCableImageFilename(row.color_pattern),
   }));
 }

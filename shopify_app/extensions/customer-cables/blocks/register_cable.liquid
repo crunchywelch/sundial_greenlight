@@ -1,0 +1,610 @@
+{% comment %}
+  Cable Registration Block
+  Place this on a custom "Register" page template.
+  Customers scan a QR code or enter a registration code to claim their cable.
+{% endcomment %}
+
+<div class="cable-register" id="cable-register-{{ block.id }}">
+  <h2>{{ block.settings.heading }}</h2>
+  <p class="cable-register__subtitle">{{ block.settings.subtitle }}</p>
+
+  {% if customer %}
+    {%- comment -%} LOGGED IN: Show registration flow {%- endcomment -%}
+
+    {%- comment -%} Step 1: Enter/confirm code {%- endcomment -%}
+    <div id="register-lookup-{{ block.id }}">
+      <div class="cable-register__input-group">
+        <label for="register-code-{{ block.id }}">Registration Code</label>
+        <input
+          type="text"
+          id="register-code-{{ block.id }}"
+          placeholder="XXXX-XXXX"
+          maxlength="9"
+          autocomplete="off"
+          spellcheck="false"
+          class="cable-register__input"
+        >
+        <button
+          id="register-lookup-btn-{{ block.id }}"
+          class="cable-register__btn cable-register__btn--primary"
+          type="button"
+        >
+          Look Up Cable
+        </button>
+      </div>
+      <div id="register-lookup-error-{{ block.id }}" class="cable-register__error" style="display:none;"></div>
+    </div>
+
+    {%- comment -%} Step 2: Confirm cable details {%- endcomment -%}
+    <div id="register-confirm-{{ block.id }}" style="display:none;">
+      <div class="cable-register__cable-card">
+        <img id="cable-image-{{ block.id }}" class="cable-register__cable-image" style="display:none;" alt="Cable" />
+        <h3>Your Cable</h3>
+        <div class="cable-register__details">
+          <div class="cable-register__detail"><span>Series</span><strong id="cable-series-{{ block.id }}"></strong></div>
+          <div class="cable-register__detail"><span>Color</span><strong id="cable-color-{{ block.id }}"></strong></div>
+          <div class="cable-register__detail"><span>Connector</span><strong id="cable-connector-{{ block.id }}"></strong></div>
+          <div class="cable-register__detail"><span>Length</span><strong id="cable-length-{{ block.id }}"></strong></div>
+          <div class="cable-register__detail"><span>QC Status</span><strong id="cable-test-{{ block.id }}"></strong></div>
+        </div>
+      </div>
+
+      <div class="cable-register__marketing">
+        <label class="cable-register__checkbox-label">
+          <input type="checkbox" id="register-marketing-{{ block.id }}">
+          <span>Sign me up for email updates about new products and promotions</span>
+        </label>
+      </div>
+
+      <div class="cable-register__actions">
+        <button
+          id="register-confirm-btn-{{ block.id }}"
+          class="cable-register__btn cable-register__btn--primary"
+          type="button"
+        >
+          Register This Cable
+        </button>
+        <button
+          id="register-back-btn-{{ block.id }}"
+          class="cable-register__btn cable-register__btn--secondary"
+          type="button"
+        >
+          Back
+        </button>
+      </div>
+      <div id="register-confirm-error-{{ block.id }}" class="cable-register__error" style="display:none;"></div>
+    </div>
+
+    {%- comment -%} Step 3: Success {%- endcomment -%}
+    <div id="register-success-{{ block.id }}" style="display:none;">
+      <div class="cable-register__success-card">
+        <img id="cable-image-success-{{ block.id }}" class="cable-register__cable-image" style="display:none;" alt="Cable" />
+        <div class="cable-register__success-icon">&#10003;</div>
+        <h3>Cable Registered!</h3>
+        <p>Your cable has been registered to your account.</p>
+        <div class="cable-register__details" id="register-success-details-{{ block.id }}"></div>
+      </div>
+      <div class="cable-register__actions">
+        <a href="{{ block.settings.cables_page_url }}" class="cable-register__btn cable-register__btn--primary">View My Cables</a>
+        <button
+          id="register-another-btn-{{ block.id }}"
+          class="cable-register__btn cable-register__btn--secondary"
+          type="button"
+        >
+          Register Another Cable
+        </button>
+      </div>
+    </div>
+
+  {% else %}
+    {%- comment -%} NOT LOGGED IN: Prompt to sign in {%- endcomment -%}
+    <div class="cable-register__login-prompt">
+      <p>Please log in or create an account to register your cable.</p>
+      <a
+        href="{{ routes.account_login_url }}?return_url=/pages/register{% if request.params.code %}%3Fcode={{ request.params.code }}{% endif %}"
+        class="cable-register__btn cable-register__btn--primary"
+        id="register-login-btn-{{ block.id }}"
+      >
+        Log In / Create Account
+      </a>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+(function() {
+  const blockId = '{{ block.id }}';
+  const appUrl = '{{ block.settings.app_url }}';
+  const customerId = '{{ customer.id }}';
+
+  const cableImages = {
+    'goldline': '{{ "cable-goldline.png" | asset_url }}',
+    'pearl white': '{{ "cable-pearl-white.png" | asset_url }}',
+    'silverline': '{{ "cable-silverline.png" | asset_url }}',
+    'bungalow': '{{ "cable-bungalow.png" | asset_url }}',
+    'electric houndstooth': '{{ "cable-electric-houndstooth.png" | asset_url }}',
+    'houndstooth putty': '{{ "cable-houndstooth-putty.png" | asset_url }}',
+    'road stripe': '{{ "cable-road-stripe.png" | asset_url }}',
+    'miscellaneous': '{{ "cable-special-babies.png" | asset_url }}',
+  };
+
+  function getCableImageUrl(color) {
+    if (!color) return cableImages['miscellaneous'];
+    return cableImages[color.toLowerCase()] || cableImages['miscellaneous'];
+  }
+
+  if (!customerId) {
+    // Build login redirect URL preserving code param
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const loginBtn = document.getElementById('register-login-btn-' + blockId);
+    if (loginBtn && code) {
+      loginBtn.href = '{{ routes.account_login_url }}?return_url=' + encodeURIComponent('/pages/register?code=' + code);
+    }
+    return;
+  }
+
+  // Elements
+  const codeInput = document.getElementById('register-code-' + blockId);
+  const lookupBtn = document.getElementById('register-lookup-btn-' + blockId);
+  const lookupError = document.getElementById('register-lookup-error-' + blockId);
+  const lookupSection = document.getElementById('register-lookup-' + blockId);
+  const confirmSection = document.getElementById('register-confirm-' + blockId);
+  const confirmBtn = document.getElementById('register-confirm-btn-' + blockId);
+  const backBtn = document.getElementById('register-back-btn-' + blockId);
+  const confirmError = document.getElementById('register-confirm-error-' + blockId);
+  const successSection = document.getElementById('register-success-' + blockId);
+  const successDetails = document.getElementById('register-success-details-' + blockId);
+  const anotherBtn = document.getElementById('register-another-btn-' + blockId);
+  const marketingCheckbox = document.getElementById('register-marketing-' + blockId);
+
+  let currentCode = null;
+  let currentCable = null;
+
+  // Pre-fill code from URL parameter
+  const params = new URLSearchParams(window.location.search);
+  const urlCode = params.get('code');
+  if (urlCode) {
+    codeInput.value = urlCode;
+    // Auto-lookup if code came from QR scan
+    doLookup();
+  }
+
+  // Auto-format: insert dash after 4 chars
+  codeInput.addEventListener('input', function() {
+    let val = this.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    if (val.length > 4) {
+      val = val.slice(0, 4) + '-' + val.slice(4, 8);
+    }
+    this.value = val;
+  });
+
+  // Enter key triggers lookup
+  codeInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      doLookup();
+    }
+  });
+
+  lookupBtn.addEventListener('click', doLookup);
+  confirmBtn.addEventListener('click', doRegister);
+  backBtn.addEventListener('click', showLookup);
+  anotherBtn.addEventListener('click', function() {
+    codeInput.value = '';
+    currentCode = null;
+    currentCable = null;
+    showLookup();
+  });
+
+  function showError(el, msg) {
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function hideError(el) {
+    el.style.display = 'none';
+  }
+
+  function showLookup() {
+    lookupSection.style.display = '';
+    confirmSection.style.display = 'none';
+    successSection.style.display = 'none';
+    hideError(lookupError);
+    hideError(confirmError);
+  }
+
+  function showConfirm() {
+    lookupSection.style.display = 'none';
+    confirmSection.style.display = '';
+    successSection.style.display = 'none';
+  }
+
+  function showSuccess() {
+    lookupSection.style.display = 'none';
+    confirmSection.style.display = 'none';
+    successSection.style.display = '';
+  }
+
+  function formatLength(len) {
+    if (!len) return '—';
+    var ft = parseFloat(len);
+    if (ft < 1) return Math.round(ft * 12) + ' in';
+    return ft + ' ft';
+  }
+
+  async function doLookup() {
+    const code = codeInput.value.trim();
+    if (!code) {
+      showError(lookupError, 'Please enter a registration code.');
+      return;
+    }
+
+    hideError(lookupError);
+    lookupBtn.disabled = true;
+    lookupBtn.textContent = 'Looking up...';
+
+    try {
+      const resp = await fetch(appUrl + '/api/register-cable?code=' + encodeURIComponent(code));
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        if (data.code === 'NOT_FOUND') {
+          showError(lookupError, 'Registration code not found. Please check and try again.');
+        } else if (data.code === 'ALREADY_REGISTERED') {
+          showError(lookupError, 'This cable has already been registered to an account.');
+        } else {
+          showError(lookupError, data.error || 'Something went wrong. Please try again.');
+        }
+        return;
+      }
+
+      currentCode = code;
+      currentCable = data.cable;
+
+      // Show cable image
+      var imgEl = document.getElementById('cable-image-' + blockId);
+      imgEl.src = getCableImageUrl(data.cable.color);
+      imgEl.style.display = '';
+
+      // Populate cable details
+      document.getElementById('cable-series-' + blockId).textContent = data.cable.series || '—';
+      document.getElementById('cable-color-' + blockId).textContent = data.cable.color || '—';
+      document.getElementById('cable-connector-' + blockId).textContent = data.cable.connector_type || '—';
+      document.getElementById('cable-length-' + blockId).textContent = formatLength(data.cable.length);
+      var testEl = document.getElementById('cable-test-' + blockId);
+      if (data.cable.test_passed === true) {
+        testEl.textContent = 'Passed';
+        testEl.classList.add('cable-register__badge--passed');
+      } else if (data.cable.test_passed === false) {
+        testEl.textContent = 'Failed';
+        testEl.classList.add('cable-register__badge--failed');
+      } else {
+        testEl.textContent = 'Not tested';
+      }
+
+      showConfirm();
+    } catch (err) {
+      showError(lookupError, 'Network error. Please check your connection and try again.');
+    } finally {
+      lookupBtn.disabled = false;
+      lookupBtn.textContent = 'Look Up Cable';
+    }
+  }
+
+  async function doRegister() {
+    if (!currentCode || !customerId) return;
+
+    hideError(confirmError);
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Registering...';
+
+    try {
+      const resp = await fetch(appUrl + '/api/register-cable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: currentCode,
+          customerId: 'gid://shopify/Customer/' + customerId,
+          marketingOptIn: marketingCheckbox.checked,
+        }),
+      });
+
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        if (data.code === 'ALREADY_REGISTERED') {
+          showError(confirmError, 'This cable has already been registered.');
+        } else {
+          showError(confirmError, data.error || 'Registration failed. Please try again.');
+        }
+        return;
+      }
+
+      // Show success
+      var successImg = document.getElementById('cable-image-success-' + blockId);
+      successImg.src = getCableImageUrl(currentCable.color);
+      successImg.style.display = '';
+
+      successDetails.innerHTML =
+        '<div class="cable-register__detail"><span>Serial Number</span><strong>' + (currentCable.serial_number || '') + '</strong></div>' +
+        '<div class="cable-register__detail"><span>Series</span><strong>' + (currentCable.series || '') + '</strong></div>' +
+        '<div class="cable-register__detail"><span>Color</span><strong>' + (currentCable.color || '') + '</strong></div>' +
+        '<div class="cable-register__detail"><span>Connector</span><strong>' + (currentCable.connector_type || '') + '</strong></div>';
+
+      showSuccess();
+    } catch (err) {
+      showError(confirmError, 'Network error. Please check your connection and try again.');
+    } finally {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Register This Cable';
+    }
+  }
+})();
+</script>
+
+<style>
+.cable-register {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.cable-register h2 {
+  margin: 0 0 8px;
+}
+
+.cable-register__subtitle {
+  color: #666;
+  margin: 0 0 24px;
+}
+
+.cable-register__input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cable-register__input-group label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.cable-register__input {
+  font-size: 24px;
+  font-family: monospace;
+  letter-spacing: 2px;
+  text-align: center;
+  text-transform: uppercase;
+  padding: 12px 16px;
+  border: 2px solid #ccc;
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.cable-register__input:focus {
+  border-color: #333;
+}
+
+.cable-register__btn {
+  display: inline-block;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  transition: opacity 0.2s;
+}
+
+.cable-register__btn:hover {
+  opacity: 0.85;
+}
+
+.cable-register__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cable-register__btn--primary {
+  background: #333;
+  color: #fff;
+}
+
+.cable-register__btn--secondary {
+  background: #eee;
+  color: #333;
+}
+
+.cable-register__error {
+  margin-top: 12px;
+  padding: 12px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.cable-register__cable-card {
+  background: #f9f9f9;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+
+.cable-register__cable-image {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  border-radius: 8px;
+  margin: 0 auto 16px;
+  display: block;
+  object-fit: cover;
+}
+
+.cable-register__cable-card h3 {
+  margin: 0 0 16px;
+}
+
+.cable-register__details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.cable-register__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cable-register__detail span {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+}
+
+.cable-register__detail strong {
+  font-size: 15px;
+}
+
+.cable-register__badge--passed {
+  color: #16a34a;
+}
+
+.cable-register__badge--failed {
+  color: #dc2626;
+}
+
+.cable-register__marketing {
+  margin: 16px 0 20px;
+}
+
+.cable-register__checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.cable-register__checkbox-label input[type="checkbox"] {
+  margin-top: 3px;
+  flex-shrink: 0;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  appearance: auto !important;
+  -webkit-appearance: checkbox !important;
+  opacity: 1 !important;
+  position: static !important;
+  pointer-events: auto !important;
+  accent-color: #333;
+}
+
+.cable-register__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.cable-register__success-card {
+  text-align: center;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 24px;
+  margin: 20px 0;
+}
+
+.cable-register__success-icon {
+  font-size: 48px;
+  color: #16a34a;
+  margin-bottom: 8px;
+}
+
+.cable-register__success-card h3 {
+  margin: 0 0 8px;
+  color: #16a34a;
+}
+
+.cable-register__success-card p {
+  color: #666;
+  margin: 0 0 16px;
+}
+
+.cable-register__success-card .cable-register__details {
+  text-align: left;
+}
+
+.cable-register__login-prompt {
+  text-align: center;
+  padding: 40px 20px;
+  background: #f9f9f9;
+  border-radius: 8px;
+}
+
+.cable-register__login-prompt p {
+  margin: 0 0 16px;
+  font-size: 16px;
+}
+
+@media (max-width: 480px) {
+  .cable-register {
+    padding: 16px;
+  }
+
+  .cable-register__details {
+    grid-template-columns: 1fr;
+  }
+
+  .cable-register__actions {
+    flex-direction: column;
+  }
+
+  .cable-register__input {
+    font-size: 20px;
+  }
+}
+</style>
+
+{% schema %}
+{
+  "name": "Cable Registration",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Register Your Cable"
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "label": "Subtitle",
+      "default": "Enter the code from your cable's label to register it to your account."
+    },
+    {
+      "type": "text",
+      "id": "app_url",
+      "label": "App URL",
+      "default": "https://greenlight.sundialwire.com",
+      "info": "Your Greenlight app URL (no trailing slash)"
+    },
+    {
+      "type": "text",
+      "id": "cables_page_url",
+      "label": "My Cables page URL",
+      "default": "https://account.sundialaudio.com/pages/019d1130-8b8b-77fa-95c3-121f1aa98415",
+      "info": "Full URL to the My Cables page in customer accounts"
+    }
+  ]
+}
+{% endschema %}

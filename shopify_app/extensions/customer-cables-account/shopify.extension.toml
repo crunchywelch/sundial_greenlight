@@ -1,0 +1,15 @@
+api_version = "2025-04"
+
+[[extensions]]
+name = "My Cables"
+handle = "customer-cables-account"
+uid = "f2bfdaba-677a-b8f7-5fa0-436630c62a0993466f03"
+type = "ui_extension"
+
+[extensions.capabilities]
+network_access = true
+
+[[extensions.targeting]]
+module = "./src/FullPage.jsx"
+target = "customer-account.page.render"
+url = "pages/my-cables"

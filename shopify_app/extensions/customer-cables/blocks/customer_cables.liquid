@@ -45,12 +45,15 @@
       if (data.cables && data.cables.length > 0) {
         let html = '<ul class="cable-list">';
         data.cables.forEach(cable => {
+          var title = [cable.series, cable.color, cable.connector_type].filter(Boolean).join(' — ');
           html += '<li class="cable-item">';
-          html += '<strong>' + cable.name + '</strong><br>';
+          html += '<strong>' + (title || cable.sku) + '</strong><br>';
           html += 'Serial: ' + cable.serial_number + '<br>';
-          html += 'Type: ' + cable.cable_type + '<br>';
+          if (cable.test_status === 'tested') {
+            html += 'QC: ' + (cable.test_passed ? 'Passed' : 'Failed') + '<br>';
+          }
           if (cable.test_date) {
-            html += 'Tested: ' + cable.test_date + '<br>';
+            html += 'Tested: ' + new Date(cable.test_date).toLocaleDateString() + '<br>';
           }
           html += '</li>';
         });
