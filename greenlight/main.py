@@ -146,13 +146,13 @@ def check_shopify_connection():
 
 
 def shutdown_hardware():
-    """Re-enable Shopify webhooks and shut down all hardware"""
+    """Publish idle status and shut down all hardware"""
     try:
         from greenlight.hardware.interfaces import hardware_manager
         scanner = hardware_manager.scanner
-        if scanner and hasattr(scanner, 'set_webhooks_enabled'):
-            # Always restore webhooks on exit as a safety net
-            scanner.set_webhooks_enabled(True)
+        if scanner and hasattr(scanner, 'set_scanning_active'):
+            # Always publish idle on exit as a safety net
+            scanner.set_scanning_active(False)
             time.sleep(0.1)  # ensure message is sent before disconnect
         hardware_manager.shutdown()
     except Exception as e:

@@ -23,6 +23,7 @@ function OrderFulfillmentBlock() {
   const [customerId, setCustomerId] = useState(null);
   const [assignedCables, setAssignedCables] = useState([]);
   const [scannerActive, setScannerActive] = useState(true);
+  const [greenlightHosts, setGreenlightHosts] = useState([]);
   const [banner, setBanner] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastTimestamp, setLastTimestamp] = useState(0);
@@ -201,6 +202,8 @@ function OrderFulfillmentBlock() {
           setLastTimestamp(data.timestamp);
           assignCable(data.serial);
         }
+        // Update Greenlight status from polling response
+        setGreenlightHosts(data.greenlightActive || []);
       } catch (err) {
         // Silently fail, will retry
       }
@@ -252,6 +255,11 @@ function OrderFulfillmentBlock() {
             {scannerActive ? "Pause" : "Resume"}
           </Button>
         </InlineStack>
+
+        {/* Greenlight active warning */}
+        {greenlightHosts.length > 0 && (
+          <Banner tone="warning" title={`Greenlight is running on ${greenlightHosts.join(", ")}`} />
+        )}
 
         {/* Scan result banner */}
         {banner && (

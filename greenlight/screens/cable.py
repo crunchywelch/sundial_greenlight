@@ -1228,18 +1228,18 @@ class ScanCableLookupScreen(CableScreenBase):
     """Main cable interface - scan to lookup, test, assign, or register cables"""
 
     def enter(self):
-        """Disable Shopify webhooks while operator is active"""
+        """Publish scanning status while operator is active"""
         from greenlight.hardware.barcode_scanner import get_scanner
         scanner = get_scanner()
-        if hasattr(scanner, 'set_webhooks_enabled'):
-            scanner.set_webhooks_enabled(False)
+        if hasattr(scanner, 'set_scanning_active'):
+            scanner.set_scanning_active(True)
 
     def exit(self):
-        """Re-enable Shopify webhooks when operator logs out"""
+        """Publish idle status when operator logs out"""
         from greenlight.hardware.barcode_scanner import get_scanner
         scanner = get_scanner()
-        if hasattr(scanner, 'set_webhooks_enabled'):
-            scanner.set_webhooks_enabled(True)
+        if hasattr(scanner, 'set_scanning_active'):
+            scanner.set_scanning_active(False)
 
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")

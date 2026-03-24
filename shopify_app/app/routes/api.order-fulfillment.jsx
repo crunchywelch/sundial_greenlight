@@ -1,6 +1,7 @@
 import { json } from "@remix-run/node";
 import { query } from "../db.server.js";
-import { getLastScanEvent } from "./api.scanner-events.jsx";
+import { getLastScanEvent } from "../mqtt.server.js";
+import { getActiveGreenlightHosts } from "../mqtt.server.js";
 
 // CORS is handled by nginx for all /api/ routes — no app-level CORS headers needed.
 
@@ -14,15 +15,26 @@ export async function loader({ request }) {
     const SCAN_TTL = 5000;
     const now = Date.now();
     const lastScanEvent = getLastScanEvent();
+    const greenlightActive = getActiveGreenlightHosts();
+
+    const response = {};
 
     if (
       lastScanEvent &&
       lastScanEvent.timestamp > since &&
       now - lastScanEvent.timestamp < SCAN_TTL
     ) {
-      return json(lastScanEvent);
+      response.serial = lastScanEvent.serial;
+      response.timestamp = lastScanEvent.timestamp;
+      response.host = lastScanEvent.host;
     }
-    return json({});
+
+    // Always include Greenlight status so the extension can show it
+    if (greenlightActive.length > 0) {
+      response.greenlightActive = greenlightActive;
+    }
+
+    return json(response);
   }
 
   const orderId = url.searchParams.get("orderId");

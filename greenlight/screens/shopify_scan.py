@@ -17,13 +17,13 @@ class ShopifyScanModeScreen(Screen):
     """Screen that routes scanner to Shopify while pausing Greenlight"""
 
     def enter(self):
-        """Enable webhooks and pause Greenlight scan processing"""
+        """Set scanner idle and pause Greenlight scan processing"""
         from greenlight.hardware.interfaces import hardware_manager
         scanner = hardware_manager.scanner
-        if scanner and hasattr(scanner, 'set_webhooks_enabled'):
-            scanner.set_webhooks_enabled(True)
+        if scanner and hasattr(scanner, 'set_scanning_active'):
+            scanner.set_scanning_active(False)
             scanner.pause()
-            logger.info("Shopify scan mode: webhooks ON, Greenlight paused")
+            logger.info("Shopify scan mode: status idle, Greenlight paused")
 
     def run(self) -> ScreenResult:
         operator = self.context.get("operator_name", "Operator")
@@ -48,10 +48,10 @@ class ShopifyScanModeScreen(Screen):
         return ScreenResult(NavigationAction.POP)
 
     def exit(self):
-        """Disable webhooks and resume Greenlight scan processing"""
+        """Set scanner active and resume Greenlight scan processing"""
         from greenlight.hardware.interfaces import hardware_manager
         scanner = hardware_manager.scanner
-        if scanner and hasattr(scanner, 'set_webhooks_enabled'):
-            scanner.set_webhooks_enabled(False)
+        if scanner and hasattr(scanner, 'set_scanning_active'):
+            scanner.set_scanning_active(True)
             scanner.resume()
-            logger.info("Shopify scan mode: webhooks OFF, Greenlight resumed")
+            logger.info("Shopify scan mode ended: status scanning, Greenlight resumed")

@@ -7,6 +7,7 @@ Provides the same interface as BarcodeScanner for drop-in replacement.
 
 import json
 import queue
+import socket
 import threading
 import time
 import logging
@@ -27,7 +28,7 @@ except ImportError:
 MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
 MQTT_TOPIC = "scanner/barcode"
-MQTT_CONTROL_TOPIC = "scanner/webhook_control"
+MQTT_STATUS_TOPIC = "scanner/status"
 
 
 class MQTTScanner:
@@ -45,7 +46,8 @@ class MQTTScanner:
         self.connected = False
         self.running = False
         self._paused = False
-        self._webhook_state_payload = None
+        self._status_payload = None
+        self._hostname = socket.gethostname()
         self._connect_lock = threading.Lock()
 
         # For compatibility with BarcodeScanner interface
@@ -75,8 +77,13 @@ class MQTTScanner:
                 self.mqtt_client.on_disconnect = self._on_disconnect
                 self.mqtt_client.on_message = self._on_message
 
-                # Set Last Will: if Greenlight crashes, re-enable webhooks
-                self.mqtt_client.will_set(MQTT_CONTROL_TOPIC, payload="webhooks_on", qos=1, retain=True)
+                # Set Last Will: if Greenlight crashes, publish idle status
+                self.mqtt_client.will_set(
+                    MQTT_STATUS_TOPIC,
+                    payload=json.dumps({"state": "idle"}),
+                    qos=1,
+                    retain=True
+                )
 
                 # Connect
                 self.mqtt_client.connect(self.broker, self.port, keepalive=60)
@@ -103,9 +110,9 @@ class MQTTScanner:
             # Subscribe to scanner topic
             client.subscribe(MQTT_TOPIC, qos=1)
             logger.info(f"Subscribed to topic: {MQTT_TOPIC}")
-            # Re-assert webhook state on reconnect
-            if self._webhook_state_payload:
-                self.mqtt_client.publish(MQTT_CONTROL_TOPIC, self._webhook_state_payload, qos=1, retain=True)
+            # Re-assert scanner status on reconnect
+            if self._status_payload:
+                self.mqtt_client.publish(MQTT_STATUS_TOPIC, self._status_payload, qos=1, retain=True)
         else:
             logger.error(f"MQTT connection failed: {reason_code}")
             self.connected = False
@@ -193,11 +200,19 @@ class MQTTScanner:
             return result.rc == mqtt.MQTT_ERR_SUCCESS
         return False
 
+    def set_scanning_active(self, active):
+        """Publish scanner status to MQTT so subscribers know Greenlight state"""
+        if active:
+            status = {"state": "scanning", "host": self._hostname}
+        else:
+            status = {"state": "idle"}
+        payload = json.dumps(status)
+        self._status_payload = payload
+        return self.publish(MQTT_STATUS_TOPIC, payload, qos=1, retain=True)
+
     def set_webhooks_enabled(self, enabled):
-        """Control Shopify webhooks in the scanner daemon via MQTT"""
-        payload = "webhooks_on" if enabled else "webhooks_off"
-        self._webhook_state_payload = payload
-        return self.publish(MQTT_CONTROL_TOPIC, payload, qos=1, retain=True)
+        """Backward-compatible alias for set_scanning_active"""
+        return self.set_scanning_active(not enabled)
 
     def pause(self):
         """Pause scan processing (ignore incoming barcode messages)"""

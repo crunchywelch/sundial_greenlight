@@ -1,0 +1,25 @@
+# /etc/systemd/system/mqtt-tunnel.service
+#
+# Reverse SSH tunnel exposing the local Mosquitto MQTT broker to the DO host.
+# Remote port is 18830 + Pi number (derived from hostname glpiX):
+#   glpi1: -R 18831:localhost:1883
+#   glpi2: -R 18832:localhost:1883
+#
+[Unit]
+Description=Reverse SSH tunnel for MQTT to greenlight.sundialwire.com
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=welch
+Group=welch
+Environment="AUTOSSH_GATETIME=0" "AUTOSSH_LOGLEVEL=7"
+ExecStart=/bin/bash -c 'PI_NUM=$${HOSTNAME##glpi}; exec /usr/bin/autossh -M 0 -N -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=yes -i /home/welch/.ssh/do-gw-tunnel -R 1883$${PI_NUM}:localhost:1883 welch@greenlight.sundialwire.com'
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=full
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
