@@ -1504,7 +1504,9 @@ class SeriesSelectionScreen(Screen):
         except ValueError:
             pass
 
-        # Invalid choice, stay on same screen
+        # Invalid choice - brief feedback, then re-display
+        self.ui.console.print("[red]Invalid choice[/red]")
+        import time; time.sleep(0.5)
         return ScreenResult(NavigationAction.REPLACE, SeriesSelectionScreen, self.context)
 
 
@@ -1562,7 +1564,9 @@ class ColorPatternSelectionScreen(Screen):
         except ValueError:
             pass
 
-        # Invalid choice, stay on same screen
+        # Invalid choice - brief feedback, then re-display
+        self.ui.console.print("[red]Invalid choice[/red]")
+        import time; time.sleep(0.5)
         return ScreenResult(NavigationAction.REPLACE, ColorPatternSelectionScreen, self.context)
 
 
@@ -1734,7 +1738,9 @@ class LengthSelectionScreen(Screen):
         except ValueError:
             pass
 
-        # Invalid choice, stay on same screen
+        # Invalid choice - brief feedback, then re-display
+        self.ui.console.print("[red]Invalid choice[/red]")
+        import time; time.sleep(0.5)
         return ScreenResult(NavigationAction.REPLACE, LengthSelectionScreen, self.context)
 
 
@@ -1812,7 +1818,9 @@ class ConnectorTypeSelectionScreen(Screen):
         except ValueError:
             pass
 
-        # Invalid choice, stay on same screen
+        # Invalid choice - brief feedback, then re-display
+        self.ui.console.print("[red]Invalid choice[/red]")
+        import time; time.sleep(0.5)
         return ScreenResult(NavigationAction.REPLACE, ConnectorTypeSelectionScreen, self.context)
 
 

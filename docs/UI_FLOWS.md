@@ -23,6 +23,8 @@ stateDiagram-v2
     Hub --> Wholesale: 'w' wholesale
     Hub --> WireLabels: 'p' wire labels
     Hub --> ShopifyScan: 's' shopify scan
+    Hub --> CustLookup_F: 'f' fulfill orders
+    Hub --> CustLookup_L: 'l' customer lookup
     Hub --> Splash: 'q' logout
 
     %% --- Cable Not Found ---
@@ -30,10 +32,13 @@ stateDiagram-v2
     NotFound --> SeriesSelect: 'r' register
     NotFound --> Hub: Enter (continue)
 
-    %% --- Cable Action Loop ---
+    %% --- Cable Action Menu ---
     CableAction --> CableTest: 't' test
-    CableAction --> CustomerLookup: 'a' assign
-    CableAction --> PrintLabel: 'p' print
+    CableAction --> CustLookup_A: 'a' assign to customer
+    CableAction --> CableAction: 'u' unassign (with confirm)
+    CableAction --> PrintLabel: 'p' print label
+    CableAction --> PrintBarcode: 'b' print barcode
+    CableAction --> PrintRegLabel: 'l' print reg label
     CableAction --> EditDescription: 'd' edit desc (MISC)
     CableAction --> SeriesSelect: 'e' re-register
     CableAction --> CableAction: scan next serial
@@ -44,6 +49,12 @@ stateDiagram-v2
 
     state "Print Label" as PrintLabel
     PrintLabel --> CableAction: done
+
+    state "Print Barcode" as PrintBarcode
+    PrintBarcode --> CableAction: done
+
+    state "Print Reg Label" as PrintRegLabel
+    PrintRegLabel --> CableAction: done
 
     state "Edit Description<br/>(MISC only)" as EditDescription
     EditDescription --> CableAction: done
@@ -114,30 +125,78 @@ stateDiagram-v2
     state "Customer Detail<br/>(Info + Orders)" as CustDetail
     state "Order History" as Orders
     state "Assign Cables<br/>(Scan Loop)" as AssignCables
+    state "Unassign Cable<br/>(Select + Confirm)" as UnassignCable
     state "Cable Info<br/>+ Action Menu" as CableAction
 
+    %% --- Entry points ---
     CableAction --> CustLookup: 'a' assign
 
     CustLookup --> CustResults: search
     CustLookup --> [*]: 'q' back
 
     CustResults --> CustDetail: select customer
+    CustResults --> CustDetail: Enter (auto-select, single result)
     CustResults --> CustLookup: 'n' new search
     CustResults --> [*]: 'q' back
 
-    %% Auto-assign mode (from cable action 'a')
+    %% --- Auto-assign mode (from cable action 'a') ---
     CustDetail --> [*]: auto-assign cable (pop to hub)
 
-    %% Normal mode
+    %% --- Normal mode ---
     CustDetail --> Orders: 'o' view orders
-    CustDetail --> AssignCables: 'c' assign cables
+    CustDetail --> AssignCables: 'c' assign (no open orders)
+    CustDetail --> OrderSelect: 'c' → 'y' (has open orders)
+    CustDetail --> AssignCables: 'c' → 'n' (has open orders, skip)
+    CustDetail --> UnassignCable: 'u' unassign cable
+    CustDetail --> OrderSelect: 'f' fulfill order
     CustDetail --> [*]: Enter back
 
     Orders --> CustDetail: Enter back
 
     AssignCables --> AssignCables: scan serial (success)
     AssignCables --> AssignCables: scan serial (reassign confirmed)
-    AssignCables --> [*]: 'q' done
+    AssignCables --> CustLookup: 'q' done
+
+    UnassignCable --> [*]: confirm unassign / cancel
+```
+
+## Order Fulfillment Flow
+
+```mermaid
+stateDiagram-v2
+    state "Customer Lookup<br/>(Name Search)" as CustLookup
+    state "Search Results<br/>(Customer List)" as CustResults
+    state "Order Selection<br/>(Unfulfilled Orders)" as OrderSelect
+    state "Order Fulfill Scan<br/>(Cable Scanning)" as FulfillScan
+    state "Scan / Cable Lookup<br/>(Main Hub)" as Hub
+
+    %% --- Entry from Hub 'f' (fulfillment mode) ---
+    Hub --> CustLookup: 'f' fulfill orders
+
+    CustLookup --> CustResults: search
+    CustLookup --> [*]: 'q' back
+
+    %% --- Fulfillment mode skips Customer Detail ---
+    CustResults --> OrderSelect: select customer (fulfillment mode)
+    CustResults --> CustLookup: 'n' new search
+    CustResults --> [*]: 'q' back
+
+    %% --- Order selection ---
+    OrderSelect --> FulfillScan: select order
+    OrderSelect --> FulfillScan: auto-select (single order)
+    OrderSelect --> [*]: 'q' back / no orders
+
+    %% --- Fulfillment scanning loop ---
+    FulfillScan --> FulfillScan: scan cable (success, SKU matches)
+    FulfillScan --> FulfillScan: scan cable (override assigned)
+    FulfillScan --> FulfillScan: scan cable (error, continue)
+    FulfillScan --> Hub: 'q' done (pop to hub)
+
+    note right of FulfillScan
+        Shows progress table per line item
+        SKU validated against order
+        'q' pops all the way to Hub
+    end note
 ```
 
 ## Inventory Flow
@@ -163,11 +222,15 @@ stateDiagram-v2
     state "Wholesale Batch<br/>(Scan Cables)" as Batch
 
     Batch --> Batch: scan serial (add to batch)
-    Batch --> GenerateCodes: 'g' generate codes
+    Batch --> GenerateCodes: 'g' generate codes only
+    Batch --> GenerateAndPrint: 'p' generate + print labels
     Batch --> [*]: 'q' cancel
 
-    state "Generate Codes<br/>+ Print Labels" as GenerateCodes
+    state "Generate Codes" as GenerateCodes
     GenerateCodes --> [*]: Enter (done)
+
+    state "Generate + Print" as GenerateAndPrint
+    GenerateAndPrint --> [*]: Enter (done)
 ```
 
 ## Utility Screens
@@ -181,6 +244,11 @@ stateDiagram-v2
     Wire --> [*]: 'q' back
 
     ShopScan --> [*]: any key (resume)
+
+    note right of ShopScan
+        Disables Greenlight scanner on enter
+        Re-enables scanner on exit
+    end note
 ```
 
 ## Cable Test Detail (TS)
@@ -203,7 +271,7 @@ stateDiagram-v2
     Cont --> Save: FAIL
     Res --> Save: done
     Save --> Shopify: saved to DB
-    Shopify --> [*]: done
+    Shopify --> [*]: done (auto-print label if printer available)
 ```
 
 ## Cable Test Detail (XLR)
@@ -230,7 +298,7 @@ stateDiagram-v2
     Shell --> Res: done
     Res --> Save: done
     Save --> Shopify: saved to DB
-    Shopify --> [*]: done
+    Shopify --> [*]: done (auto-print label if printer available)
 ```
 
 ## External Dependencies
@@ -239,19 +307,21 @@ stateDiagram-v2
 |--------|--------|---------|
 | Register cable | PostgreSQL | Intake |
 | Save test results | PostgreSQL | Cable Test |
-| Assign to customer | PostgreSQL | Assign Cables, Customer Detail |
+| Assign to customer | PostgreSQL | Assign Cables, Customer Detail, Order Fulfill |
 | Update description | PostgreSQL + Shopify | Edit Description |
 | Set inventory | Shopify API | Cable Test (on pass) |
 | Create MISC product | Shopify API | Intake (MISC cables) |
 | Customer search | Shopify API | Customer Lookup |
-| Customer orders | Shopify API | Customer Detail, Orders |
+| Customer orders | Shopify API | Customer Detail, Order Selection |
+| Order line items | Shopify API | Order Fulfill Scan |
 | Wire product lookup | Shopify API | Wire Labels |
 | Run continuity test | Arduino | Cable Test |
 | Run resistance test | Arduino | Cable Test |
 | Run shell bond test | Arduino | Cable Test (XLR) |
 | Calibrate tester | Arduino | Calibration |
 | Print cable label | TSC Printer | Print Label, Cable Test (auto) |
+| Print barcode label | TSC Printer | Cable Action |
+| Print reg code label | TSC Printer | Wholesale, Cable Action |
 | Print wire label | TSC Printer | Wire Labels |
-| Print reg code label | TSC Printer | Wholesale |
-| Scan barcode | Zebra DS2208 | Hub, Intake, Assign, Wholesale |
+| Scan barcode | Zebra DS2208 | Hub, Intake, Assign, Wholesale, Order Fulfill |
 | Webhook control | MQTT | Shopify Scan Mode |

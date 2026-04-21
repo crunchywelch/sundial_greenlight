@@ -124,18 +124,26 @@ class CustomerSearchResultsScreen(Screen):
             title=f"Search Results for '{search_name}' ({len(customers)} found)"
         ))
 
-        footer_text = "[cyan]Enter number to view details, 'n' for new search, or 'q' to go back[/cyan]"
+        if len(customers) == 1:
+            footer_text = "[cyan]Press Enter to select, 'n' for new search, or 'q' to go back[/cyan]"
+        else:
+            footer_text = "[cyan]Enter number to view details, 'n' for new search, or 'q' to go back[/cyan]"
         self.ui.layout["footer"].update(Panel(footer_text, title="Select Customer"))
         self.ui.render()
 
         try:
             choice = self.ui.console.input("Choice: ").strip().lower()
         except KeyboardInterrupt:
-            return ScreenResult(NavigationAction.POP, pop_count=2)
+            from greenlight.screens.cable import ScanCableLookupScreen
+            return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+
+        # Auto-select if only one result and user pressed Enter
+        if choice == '' and len(customers) == 1:
+            choice = '1'
 
         if choice == 'q':
-            # Pop 2 screens to go back to order fulfillment main menu
-            return ScreenResult(NavigationAction.POP, pop_count=2)
+            from greenlight.screens.cable import ScanCableLookupScreen
+            return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
         elif choice == 'n':
             return ScreenResult(NavigationAction.REPLACE, CustomerLookupScreen, self.context)
         elif choice.isdigit():
@@ -296,21 +304,36 @@ class CustomerDetailScreen(Screen):
             return ScreenResult(NavigationAction.POP)
 
         if choice == 'o':
-            # Fetch and display orders
             return ScreenResult(NavigationAction.PUSH, CustomerOrdersScreen, self.context)
         elif choice == 'c':
-            # Assign cables to customer
+            # Check for unfulfilled orders before allowing direct assignment
+            orders = shopify_client.get_customer_orders(customer_id, limit=25)
+            unfulfilled = [
+                o for o in orders
+                if (o.get("displayFulfillmentStatus") or "").upper()
+                in ("UNFULFILLED", "PARTIALLY_FULFILLED", "")
+            ]
+            if unfulfilled:
+                try:
+                    confirm = self.ui.console.input(
+                        "This customer has open orders. Fulfill them instead? (y/n): "
+                    ).strip().lower()
+                except KeyboardInterrupt:
+                    confirm = 'n'
+                if confirm == 'y':
+                    return ScreenResult(NavigationAction.PUSH, OrderSelectionScreen, self.context)
             return ScreenResult(NavigationAction.PUSH, AssignCablesScreen, self.context)
         elif choice == 'u' and assigned_cables:
-            # Unassign a cable from this customer
             new_context = self.context.copy()
             new_context["assigned_cables"] = assigned_cables
             return ScreenResult(NavigationAction.PUSH, UnassignCableScreen, new_context)
         elif choice == 'f':
-            # Fulfill an order for this customer
             return ScreenResult(NavigationAction.PUSH, OrderSelectionScreen, self.context)
+        elif choice == '':
+            return ScreenResult(NavigationAction.POP)
 
-        return ScreenResult(NavigationAction.POP)
+        # Invalid choice - re-display
+        return ScreenResult(NavigationAction.REPLACE, CustomerDetailScreen, self.context)
 
     def assign_cable_and_return(self, operator, customer, cable_serial):
         """Assign a cable to customer and return to cable scan screen
@@ -623,6 +646,10 @@ class OrderSelectionScreen(Screen):
             self.ui.console.input()
             return ScreenResult(NavigationAction.POP)
 
+        # Single order - skip selection and go directly to fulfillment
+        if len(unfulfilled_orders) == 1:
+            return self._select_order(unfulfilled_orders[0])
+
         # Create orders table
         table = Table(show_header=True, header_style="bold cyan")
         table.add_column("#", style="green", width=3)
@@ -665,43 +692,46 @@ class OrderSelectionScreen(Screen):
         elif choice.isdigit():
             idx = int(choice) - 1
             if 0 <= idx < len(unfulfilled_orders):
-                selected_order = unfulfilled_orders[idx]
-                order_id = selected_order.get("id", "")
-                order_name = selected_order.get("name", "")
-
-                # Extract line items with SKUs for fulfillment
-                line_items_raw = (selected_order.get("lineItems") or {}).get("edges") or []
-                line_items = []
-                for edge in line_items_raw:
-                    node = edge.get("node") or {}
-                    sku = node.get("sku")
-                    if sku:  # Filter out non-cable items (null SKU)
-                        line_items.append({
-                            'sku': sku,
-                            'title': node.get("title") or "Unknown",
-                            'quantity': node.get("quantity") or 0,
-                        })
-
-                if not line_items:
-                    self.ui.layout["body"].update(Panel(
-                        "[red]No cable items (with SKUs) found in this order[/red]\n\n"
-                        "[dim]Press enter to go back[/dim]",
-                        title="Order Selection"
-                    ))
-                    self.ui.layout["footer"].update(Panel("", title=""))
-                    self.ui.render()
-                    self.ui.console.input()
-                    return ScreenResult(NavigationAction.REPLACE, OrderSelectionScreen, self.context)
-
-                new_context = self.context.copy()
-                new_context["order_id"] = order_id
-                new_context["order_name"] = order_name
-                new_context["line_items"] = line_items
-                new_context["scanned_cables"] = []
-                return ScreenResult(NavigationAction.PUSH, OrderFulfillScanScreen, new_context)
+                return self._select_order(unfulfilled_orders[idx])
 
         # Invalid choice - re-display
         return ScreenResult(NavigationAction.REPLACE, OrderSelectionScreen, self.context)
+
+
+    def _select_order(self, selected_order):
+        """Prepare context for a selected order and navigate to fulfillment scan"""
+        order_id = selected_order.get("id", "")
+        order_name = selected_order.get("name", "")
+
+        line_items_raw = (selected_order.get("lineItems") or {}).get("edges") or []
+        line_items = []
+        for edge in line_items_raw:
+            node = edge.get("node") or {}
+            sku = node.get("sku")
+            if sku:
+                line_items.append({
+                    'sku': sku,
+                    'title': node.get("title") or "Unknown",
+                    'quantity': node.get("quantity") or 0,
+                })
+
+        if not line_items:
+            self.ui.layout["body"].update(Panel(
+                "[red]No cable items (with SKUs) found in this order[/red]\n\n"
+                "[dim]Press enter to go back[/dim]",
+                title="Order Selection"
+            ))
+            self.ui.layout["footer"].update(Panel("", title=""))
+            self.ui.render()
+            self.ui.console.input()
+            return ScreenResult(NavigationAction.REPLACE, OrderSelectionScreen, self.context)
+
+        new_context = self.context.copy()
+        new_context["order_id"] = order_id
+        new_context["order_name"] = order_name
+        new_context["line_items"] = line_items
+        new_context["scanned_cables"] = []
+        return ScreenResult(NavigationAction.PUSH, OrderFulfillScanScreen, new_context)
 
 
 class OrderFulfillScanScreen(Screen):
@@ -782,7 +812,8 @@ class OrderFulfillScanScreen(Screen):
         serial_input = self.ui.get_serial_number_scan_or_manual()
 
         if not serial_input or serial_input.lower() == 'q':
-            return ScreenResult(NavigationAction.POP)
+            from greenlight.screens.cable import ScanCableLookupScreen
+            return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
 
         # Validate serial number
         from greenlight.db import validate_serial_number, format_serial_number
@@ -977,8 +1008,8 @@ class AssignCablesScreen(Screen):
         serial_input = self.ui.get_serial_number_scan_or_manual()
 
         if not serial_input or serial_input.lower() == 'q':
-            # Go back to customer lookup screen
-            return ScreenResult(NavigationAction.POP, pop_to=CustomerLookupScreen)
+            from greenlight.screens.cable import ScanCableLookupScreen
+            return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
 
         # Assign the cable to the customer
         self.ui.layout["body"].update(Panel(
@@ -1056,7 +1087,8 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                 try:
                     choice = self.ui.console.input("").strip().lower()
                 except KeyboardInterrupt:
-                    return ScreenResult(NavigationAction.POP, pop_to=CustomerLookupScreen)
+                    from greenlight.screens.cable import ScanCableLookupScreen
+                    return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
 
                 if choice == 'y' or choice == 'yes':
                     # Force reassignment
@@ -1096,8 +1128,9 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                         return ScreenResult(NavigationAction.REPLACE, AssignCablesScreen, self.context)
 
                 elif choice == 'q':
-                    # Quit assignment and go back
-                    return ScreenResult(NavigationAction.POP, pop_to=CustomerLookupScreen)
+                    # Quit assignment and go back to main hub
+                    from greenlight.screens.cable import ScanCableLookupScreen
+                    return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
                 else:
                     # Skip this cable, continue scanning
                     return ScreenResult(NavigationAction.REPLACE, AssignCablesScreen, self.context)
