@@ -54,9 +54,11 @@ export async function loader({ request }) {
         ac.shopify_order_gid,
         cs.series,
         cs.color_pattern,
-        cs.connector_type
+        cs.connector_type,
+        sbt.shopify_sku AS special_baby_shopify_sku
       FROM audio_cables ac
       LEFT JOIN cable_skus cs ON ac.sku = cs.sku
+      LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
       WHERE ac.shopify_order_gid = $1
       ORDER BY ac.test_timestamp DESC NULLS LAST`,
       [orderId]
@@ -64,7 +66,7 @@ export async function loader({ request }) {
 
     const cables = result.rows.map((row) => ({
       serial_number: row.serial_number,
-      sku: row.sku,
+      sku: row.special_baby_shopify_sku || row.sku,
       series: row.series,
       color: row.color_pattern,
       connector_type: row.connector_type,
@@ -122,9 +124,11 @@ async function handleLookupCable({ serialNumber }) {
       ac.test_passed,
       cs.series,
       cs.color_pattern,
-      cs.connector_type
+      cs.connector_type,
+      sbt.shopify_sku AS special_baby_shopify_sku
     FROM audio_cables ac
     LEFT JOIN cable_skus cs ON ac.sku = cs.sku
+    LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
     WHERE ac.serial_number = $1`,
     [serialNumber]
   );
@@ -137,7 +141,7 @@ async function handleLookupCable({ serialNumber }) {
   return json({
     cable: {
       serial_number: row.serial_number,
-      sku: row.sku,
+      sku: row.special_baby_shopify_sku || row.sku,
       series: row.series,
       color: row.color_pattern,
       connector_type: row.connector_type,
