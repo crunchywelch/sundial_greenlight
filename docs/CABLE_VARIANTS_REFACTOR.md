@@ -1,6 +1,6 @@
 # Cable Variants Refactor
 
-**Status:** Phase 1 code complete (2026-04-29) — pending DB migration on DO host + smoke test. Phase 2 not started.
+**Status:** Phase 1 complete and shipped (2026-04-29). Migration ran on DO host (46 MISC variants promoted, 54 audio_cables rows repointed, 4 placeholder rows deleted). Greenlight TUI smoke-tested. Remix server rebuilt and restarted. Shopify extensions redeployed. Phase 2 (LTD editions) not started.
 
 ## Implementation notes (2026-04-29)
 
