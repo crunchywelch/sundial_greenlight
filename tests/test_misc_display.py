@@ -4,7 +4,7 @@
 import sys
 sys.path.insert(0, '/home/welch/projects/sundial_greenlight')
 
-from greenlight.db import get_audio_cable, get_cables_for_customer
+from greenlight.db import get_audio_cable, get_cables_for_customer, sku_kind
 
 def test_misc_cable_display():
     """Test that MISC cable descriptions are properly displayed"""
@@ -30,7 +30,7 @@ def test_misc_cable_display():
     print(f"Description: {cable.get('description', 'N/A')}")
 
     # Verify it's a MISC cable with description
-    is_misc = cable['sku'].endswith('-MISC')
+    is_misc = sku_kind(cable['sku']) == 'misc'
     has_description = bool(cable.get('description'))
 
     if is_misc and has_description:
@@ -65,7 +65,7 @@ Cable Details:
   Connector: {connector_type}"""
 
     # Add description for MISC cables
-    if sku.endswith("-MISC") and description:
+    if sku_kind(sku) == 'misc' and description:
         cable_info += f"\n  Description: {description}"
 
     print(cable_info)
@@ -90,7 +90,7 @@ Cable Details:
             test_cable = next((c for c in cables if c['serial_number'] == '000009'), None)
             if test_cable:
                 # This is how it's shown in orders.py
-                if test_cable['sku'].endswith('-MISC') and test_cable.get('description'):
+                if sku_kind(test_cable['sku']) == 'misc' and test_cable.get('description'):
                     cable_desc = f"{test_cable['series']} {test_cable['length']}ft - {test_cable['description']}"
                 else:
                     cable_desc = f"{test_cable['series']} {test_cable['length']}ft {test_cable['color_pattern']}"

@@ -116,7 +116,7 @@ function formatLength(cable) {
     if (ft < 1) return `${Math.round(ft * 12)} in`;
     return `${ft} ft`;
   }
-  if (cable.sku && !cable.sku.endsWith("MISC")) {
+  if (cable.sku && !/-MISC-\d+$/.test(cable.sku)) {
     const match = cable.sku.match(/-(\d+)/);
     if (match) return `${match[1]} ft`;
   }

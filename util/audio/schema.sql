@@ -5,7 +5,11 @@
 -- TABLES
 -- ============================================================================
 
--- Cable SKUs table - Product definitions
+-- Cable SKUs table - all cable variants (catalog and MISC).
+-- Every variant has its own row keyed by its SKU. MISC variants follow the
+-- pattern {series_prefix}-MISC-{seq} (e.g. "SC-MISC-42") and have a
+-- color_pattern of 'Miscellaneous'. Catalog rows use the standard format.
+-- See docs/CABLE_VARIANTS_REFACTOR.md.
 CREATE TABLE IF NOT EXISTS cable_skus (
     sku TEXT PRIMARY KEY,
     series TEXT NOT NULL,
@@ -17,16 +21,6 @@ CREATE TABLE IF NOT EXISTS cable_skus (
     description TEXT,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
--- Special baby types table - Stable type definitions for MISC cables
-CREATE TABLE IF NOT EXISTS special_baby_types (
-    id SERIAL PRIMARY KEY,
-    base_sku TEXT NOT NULL REFERENCES cable_skus(sku),
-    description TEXT NOT NULL,
-    length REAL,
-    shopify_sku TEXT UNIQUE,  -- set to "{base_sku}-{id}" after insert
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Audio cables table - Production records
@@ -46,8 +40,15 @@ CREATE TABLE IF NOT EXISTS audio_cables (
     resistance_adc_p3 INTEGER,
     calibration_adc_p3 INTEGER,
     shopify_order_gid TEXT,
-    special_baby_type_id INTEGER REFERENCES special_baby_types(id),
     FOREIGN KEY (sku) REFERENCES cable_skus(sku)
 );
 
 CREATE INDEX IF NOT EXISTS idx_audio_cables_order_gid ON audio_cables(shopify_order_gid);
+
+-- ============================================================================
+-- SEQUENCES
+-- ============================================================================
+
+-- Generates the {seq} portion of MISC variant SKUs ({prefix}-MISC-{seq}).
+-- See greenlight.db.get_or_create_misc_sku for usage.
+CREATE SEQUENCE IF NOT EXISTS cable_misc_variant_seq;

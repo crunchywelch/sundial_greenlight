@@ -304,8 +304,9 @@ def main():
     existing_sku_codes = set(existing_skus.keys())
     
     missing_sku_codes = generated_sku_codes - existing_sku_codes
+    # Exclude MISC variants — they're created on demand from the QC app, not in YAML
     orphaned_sku_codes = {s for s in existing_sku_codes - generated_sku_codes
-                          if not s.endswith('-MISC')}
+                          if '-MISC-' not in s}
     common_sku_codes = generated_sku_codes & existing_sku_codes
     
     # Find what needs to be inserted

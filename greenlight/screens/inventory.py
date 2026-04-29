@@ -9,7 +9,7 @@ from rich.columns import Columns
 from rich.console import Group
 
 from greenlight.screen_manager import Screen, ScreenResult, NavigationAction
-from greenlight.db import get_sku_stock_summary, get_recent_sales, get_special_baby_summary
+from greenlight.db import get_sku_stock_summary, get_recent_sales, get_misc_summary
 from greenlight.product_lines import (
     PREFIX_MAP, LOW_STOCK_THRESHOLD,
     load_yaml_skus, build_sku, get_cost,
@@ -35,7 +35,7 @@ class InventoryDashboardScreen(Screen):
         operator = self.context.get("operator", "")
         yaml_lines = load_yaml_skus()
         sku_counts = get_sku_stock_summary()
-        misc = get_special_baby_summary()
+        misc = get_misc_summary()
 
         table = Table(title="Inventory Dashboard", show_header=True, header_style="bold cyan",
                       padding=(0, 1))

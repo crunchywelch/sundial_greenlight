@@ -70,7 +70,7 @@ export async function loader({ request, params }) {
 // Get length from data or derive from SKU
 function getCableLength(cable) {
   if (cable.length) return `${cable.length}'`;
-  if (cable.sku && !cable.sku.endsWith("MISC")) {
+  if (cable.sku && !/-MISC-\d+$/.test(cable.sku)) {
     const match = cable.sku.match(/-(\d+)/);
     if (match) return `${match[1]}'`;
   }
@@ -144,7 +144,7 @@ export default function CustomerCables() {
                     <div style={{ fontSize: '14px', color: '#666' }}>
                       {cable.sku}
                     </div>
-                    {cable.sku?.endsWith('MISC') && cable.description && (
+                    {cable.sku && /-MISC-\d+$/.test(cable.sku) && cable.description && (
                       <div style={{ fontSize: '13px', color: '#888', marginTop: '2px' }}>
                         {cable.description}
                       </div>

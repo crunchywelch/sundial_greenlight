@@ -668,8 +668,7 @@ export default function Index() {
                 <div>
                   <h3 style={{ fontSize: '16px', marginBottom: '10px' }}>Results:</h3>
                   {cables.map((item) => {
-                    // For MISC cables, use cable_length; otherwise use sku_length
-                    const displayLength = item.sku?.endsWith('MISC') ? item.cable_length : item.sku_length;
+                    const displayLength = item.sku_length;
 
                     return (
                       <div

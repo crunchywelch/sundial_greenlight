@@ -22,15 +22,12 @@ from greenlight.log import setup_logging
 setup_logging()
 
 from greenlight.db import pg_pool
-from greenlight.shopify_client import get_all_product_skus, set_inventory_for_sku, ensure_special_baby_shopify_product
+from greenlight.shopify_client import get_all_product_skus, set_inventory_for_sku, ensure_misc_shopify_product
 from greenlight.db import get_audio_cable
 
 
 def get_postgres_available_counts():
-    """Get count of available (passed + unassigned) cables per effective SKU.
-
-    For MISC cables with a special_baby_type, groups by the type's shopify_sku
-    (e.g. SC-MISC-42) instead of the generic base SKU (SC-MISC).
+    """Get count of available (passed + unassigned) cables per SKU.
 
     Returns:
         dict mapping SKU -> count of available cables
@@ -39,13 +36,12 @@ def get_postgres_available_counts():
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT COALESCE(sbt.shopify_sku, ac.sku) as effective_sku, COUNT(*)
+                SELECT ac.sku, COUNT(*)
                 FROM audio_cables ac
-                LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
                 WHERE ac.test_passed = TRUE
                   AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
-                GROUP BY effective_sku
-                ORDER BY effective_sku
+                GROUP BY ac.sku
+                ORDER BY ac.sku
             """)
             return {row[0]: row[1] for row in cur.fetchall()}
     finally:
@@ -155,15 +151,14 @@ def fix_mismatches():
 
         # For MISC SKUs not yet in Shopify, we need to create the product
         if shopify_qty is None and '-MISC-' in sku:
-            # Find a cable with this special baby type to get the record
+            # Find any cable with this MISC SKU to get a record we can use
             conn = pg_pool.getconn()
             try:
                 with conn.cursor() as cur:
                     cur.execute("""
-                        SELECT ac.serial_number
-                        FROM audio_cables ac
-                        LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
-                        WHERE sbt.shopify_sku = %s AND ac.test_passed = TRUE
+                        SELECT serial_number
+                        FROM audio_cables
+                        WHERE sku = %s AND test_passed = TRUE
                         LIMIT 1
                     """, (sku,))
                     row = cur.fetchone()
@@ -173,7 +168,7 @@ def fix_mismatches():
             if row:
                 cable_record = get_audio_cable(row[0])
                 if cable_record:
-                    success, err = ensure_special_baby_shopify_product(cable_record, quantity=pg_count)
+                    success, err = ensure_misc_shopify_product(cable_record, quantity=pg_count)
                     if success:
                         success_count += 1
                         print(f"  {sku}: created product, set to {pg_count}")

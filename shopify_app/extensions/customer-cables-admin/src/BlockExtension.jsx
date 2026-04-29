@@ -19,8 +19,8 @@ const MAX_DISPLAY = 3;
 function getCableLength(cable) {
   if (cable.length) return `${cable.length}'`;
 
-  // Parse length from SKU - number after first dash (skip MISC skus)
-  if (cable.sku && !cable.sku.endsWith("MISC")) {
+  // Parse length from SKU - number after first dash (skip MISC variants like SC-MISC-42)
+  if (cable.sku && !/-MISC-\d+$/.test(cable.sku)) {
     const match = cable.sku.match(/-(\d+)/);
     if (match) return `${match[1]}'`;
   }

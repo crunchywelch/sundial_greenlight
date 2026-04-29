@@ -301,8 +301,9 @@ class TSCLabelPrinter(LabelPrinterInterface):
         # Format connector type for display
         connector_display = self._format_connector_type(connector_type)
 
-        # Check if this is a MISC cable with custom description
-        is_misc = sku.endswith('-MISC')
+        # MISC variant SKUs follow {prefix}-MISC-{seq}; show "Special Baby" branding for these
+        from greenlight.db import sku_kind
+        is_misc = sku_kind(sku) == 'misc'
 
         # Start TSPL commands
         tspl_commands = []

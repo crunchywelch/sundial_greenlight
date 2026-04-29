@@ -86,9 +86,9 @@ def build_yaml_sku_map(product_lines_dir):
 
 
 def build_special_baby_sku_map(product_lines_dir):
-    """Build shopify_sku -> {price, cost, weight} for special baby types.
+    """Build shopify_sku -> {price, cost, weight} for MISC variants.
 
-    Reads special_baby_types from DB and interpolates cost/weight
+    Reads MISC variants directly from cable_skus and interpolates cost/weight
     from the matching product line YAML based on length.
     """
     product_lines = load_product_lines(product_lines_dir)
@@ -98,26 +98,29 @@ def build_special_baby_sku_map(product_lines_dir):
     for pl in product_lines:
         pl_by_prefix[pl['sku_prefix']] = pl
 
-    # Get all special baby types from DB
+    # Get all MISC variants from cable_skus
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT shopify_sku, base_sku, length
-                FROM special_baby_types
-                WHERE shopify_sku IS NOT NULL
+                SELECT sku, length
+                FROM cable_skus
+                WHERE sku ~ '-MISC-[0-9]+$'
+                  AND length IS NOT NULL
             """)
             rows = cur.fetchall()
     finally:
         pg_pool.putconn(conn)
 
     sku_map = {}
-    for shopify_sku, base_sku, length in rows:
-        if not length:
+    for sku, length_text in rows:
+        try:
+            length = float(length_text)
+        except (TypeError, ValueError):
             continue
 
-        # Derive prefix from base_sku (e.g. "SC-MISC" -> "SC")
-        prefix = base_sku.split('-')[0]
+        # Derive prefix from sku (e.g. "SC-MISC-42" -> "SC")
+        prefix = sku.split('-')[0]
         pl = pl_by_prefix.get(prefix)
         if not pl:
             continue
@@ -125,7 +128,7 @@ def build_special_baby_sku_map(product_lines_dir):
         cost = interpolate_cost(pl.get('cost', {}), length)
         weight = interpolate_cost(pl.get('weight', {}), length)
 
-        sku_map[shopify_sku] = {
+        sku_map[sku] = {
             'price': float(SPECIAL_BABY_PRICE),
             'cost': cost,
             'weight': weight,

@@ -5,6 +5,7 @@ from rich.table import Table
 from greenlight.screen_manager import Screen, ScreenResult, NavigationAction
 from greenlight import shopify_client
 from greenlight import db
+from greenlight.db import sku_kind
 
 
 class FulfillOrdersScreen(Screen):
@@ -256,8 +257,8 @@ class CustomerDetailScreen(Screen):
         if assigned_cables:
             cables_text += "\n"
             for cable in assigned_cables[:5]:  # Show first 5
-                # For MISC cables, show the custom description
-                if cable['sku'].endswith('-MISC') and cable.get('description'):
+                # MISC variants have a per-variant custom description; show it
+                if sku_kind(cable['sku']) == 'misc' and cable.get('description'):
                     cable_desc = f"{cable['series']} {cable['length']}ft - {cable['description']}"
                 else:
                     cable_desc = f"{cable['series']} {cable['length']}ft {cable['color_pattern']}"
@@ -471,7 +472,7 @@ class UnassignCableScreen(Screen):
         table.add_column("Tested", justify="center", style="yellow")
 
         for i, cable in enumerate(assigned_cables, 1):
-            if cable['sku'].endswith('-MISC') and cable.get('description'):
+            if sku_kind(cable['sku']) == 'misc' and cable.get('description'):
                 cable_desc = f"{cable['series']} {cable['length']}ft - {cable['description']}"
             else:
                 cable_desc = f"{cable['series']} {cable['length']}ft {cable['color_pattern']}"
@@ -753,7 +754,7 @@ class OrderFulfillScanScreen(Screen):
         existing_order_cables = db.get_cables_for_order(order_id)
         existing_skus_scanned = {}
         for cable in existing_order_cables:
-            sku = cable['effective_sku']
+            sku = cable['sku']
             existing_skus_scanned[sku] = existing_skus_scanned.get(sku, 0) + 1
 
         # Build progress table
@@ -836,8 +837,8 @@ class OrderFulfillScanScreen(Screen):
         new_context = self.context.copy()
 
         if result.get('success'):
-            effective_sku = result.get('effective_sku', '')
-            scanned_cables.append(f"{formatted_serial} ({effective_sku})")
+            cable_sku = result.get('sku', '')
+            scanned_cables.append(f"{formatted_serial} ({cable_sku})")
             new_context["scanned_cables"] = scanned_cables
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, new_context)
 
@@ -911,10 +912,10 @@ class OrderFulfillScanScreen(Screen):
                 # Re-check SKU by looking up the cable
                 cable_record = db.get_audio_cable(formatted_serial)
                 if cable_record:
-                    effective_sku = cable_record.get('special_baby_shopify_sku') or cable_record.get('sku', '')
-                    if effective_sku not in line_item_skus:
+                    cable_sku = cable_record.get('sku', '')
+                    if cable_sku not in line_item_skus:
                         self.ui.layout["body"].update(Panel(
-                            f"[red]❌ SKU mismatch: cable is {effective_sku}, not in order[/red]\n\n"
+                            f"[red]❌ SKU mismatch: cable is {cable_sku}, not in order[/red]\n\n"
                             f"[dim]Press enter to continue scanning[/dim]",
                             title=f"Fulfill Order {order_name}"
                         ))

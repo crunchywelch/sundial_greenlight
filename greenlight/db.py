@@ -81,11 +81,7 @@ def insert_audio_cable(cable_type, test_result):
         pg_pool.putconn(conn)
 
 def get_audio_cable(serial_number):
-    """Get audio cable record by serial number
-
-    Length comes from special_baby_types for MISC cables, cable_skus for standard.
-    Description comes from special_baby_types if linked, otherwise audio_cables.
-    """
+    """Get audio cable record by serial number."""
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
@@ -94,18 +90,14 @@ def get_audio_cable(serial_number):
                        ac.resistance_adc_p3, ac.calibration_adc_p3, ac.test_passed,
                        ac.operator, ac.arduino_unit_id, ac.notes, ac.test_timestamp,
                        ac.shopify_gid, ac.updated_timestamp,
-                       sbt.description,
+                       cs.description,
                        ac.registration_code,
                        cs.series,
-                       COALESCE(sbt.length, CAST(cs.length AS REAL)) as length,
+                       CAST(cs.length AS REAL) as length,
                        cs.color_pattern, cs.connector_type,
-                       cs.core_cable, cs.braid_material,
-                       cs.description as sku_description,
-                       sbt.shopify_sku as special_baby_shopify_sku,
-                       ac.special_baby_type_id
+                       cs.core_cable, cs.braid_material
                 FROM audio_cables ac
                 JOIN cable_skus cs ON ac.sku = cs.sku
-                LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
                 WHERE ac.serial_number = %s
             """, (serial_number,))
             row = cur.fetchone()
@@ -155,15 +147,15 @@ def format_serial_number(serial_number):
     # If doesn't match expected pattern, return as-is
     return serial_number
 
-def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_exists=False, special_baby_type_id=None):
+def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_exists=False):
     """Register a cable with a scanned serial number into the database (intake workflow)
 
     Args:
         serial_number: The serial number from the cable label
-        cable_sku: The SKU code for the cable
+        cable_sku: The SKU code for the cable (resolved variant SKU; for MISC,
+            this is the {prefix}-MISC-{seq} value from get_or_create_misc_sku)
         operator: Operator ID who registered the cable
         update_if_exists: If True, update existing cable records
-        special_baby_type_id: Optional FK to special_baby_types for MISC cables
     """
     conn = pg_pool.getconn()
     try:
@@ -199,11 +191,10 @@ def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_ex
                             UPDATE audio_cables
                             SET sku = %s,
                                 operator = %s,
-                                updated_timestamp = CURRENT_TIMESTAMP,
-                                special_baby_type_id = %s
+                                updated_timestamp = CURRENT_TIMESTAMP
                             WHERE serial_number = %s
                             RETURNING serial_number, updated_timestamp
-                        """, (cable_sku, operator, special_baby_type_id, formatted_serial))
+                        """, (cable_sku, operator, formatted_serial))
                         result = cur.fetchone()
                         conn.commit()
                         return {
@@ -218,10 +209,10 @@ def register_scanned_cable(serial_number, cable_sku, operator=None, update_if_ex
                 cur.execute("""
                     INSERT INTO audio_cables
                         (serial_number, sku, resistance_adc,
-                         operator, arduino_unit_id, notes, special_baby_type_id)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                         operator, arduino_unit_id, notes)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     RETURNING serial_number, updated_timestamp
-                """, (formatted_serial, cable_sku, None, operator, None, 'Scanned intake', special_baby_type_id))
+                """, (formatted_serial, cable_sku, None, operator, None, 'Scanned intake'))
                 result = cur.fetchone()
                 conn.commit()
                 return {
@@ -286,17 +277,32 @@ def update_cable_test_results(serial_number, test_passed, resistance_adc=None, c
         pg_pool.putconn(conn)
 
 
-def update_cable_description(serial_number, description):
-    """Update the description for a MISC cable via its special_baby_types row.
+def sku_kind(sku):
+    """Classify a SKU by pattern.
 
-    This changes the description for ALL cables of this type.
+    MISC variants follow {prefix}-MISC-{seq}. Anything else is treated as a
+    standard catalog SKU. (LTD will be added in Phase 2.)
+    """
+    if not sku:
+        return 'catalog'
+    parts = sku.split('-')
+    if len(parts) >= 3 and parts[-2] == 'MISC' and parts[-1].isdigit():
+        return 'misc'
+    return 'catalog'
+
+
+def update_cable_description(serial_number, description):
+    """Update the description for a MISC cable's variant row in cable_skus.
+
+    This changes the description for ALL cables registered against the same
+    MISC variant SKU. No-op (returns False) for non-MISC SKUs.
 
     Args:
         serial_number: Cable serial number
         description: New description text
 
     Returns:
-        True if updated, False on error or if cable has no type
+        True if updated, False on error or if cable is not a MISC variant
     """
     conn = pg_pool.getconn()
     try:
@@ -304,20 +310,19 @@ def update_cable_description(serial_number, description):
         with conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT special_baby_type_id FROM audio_cables
+                    SELECT sku FROM audio_cables
                     WHERE serial_number = %s
                 """, (formatted_serial,))
                 row = cur.fetchone()
-                if not row or not row[0]:
+                if not row or sku_kind(row[0]) != 'misc':
                     return False
 
                 cur.execute("""
-                    UPDATE special_baby_types
-                    SET description = %s
-                    WHERE id = %s
-                    RETURNING id
+                    UPDATE cable_skus
+                    SET description = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE sku = %s
+                    RETURNING sku
                 """, (description, row[0]))
-
                 result = cur.fetchone()
                 conn.commit()
                 return result is not None
@@ -329,93 +334,116 @@ def update_cable_description(serial_number, description):
         pg_pool.putconn(conn)
 
 
-def get_or_create_special_baby_type(base_sku, description, length=None):
-    """Get or create a special_baby_types row for a MISC cable.
+def get_or_create_misc_sku(series_prefix, description, length):
+    """Look up or create a MISC variant SKU in cable_skus.
 
-    If a row with matching (base_sku, description, length) exists, returns it.
-    Otherwise inserts a new row and sets shopify_sku = "{base_sku}-{id}".
+    Dedupes by (series_prefix, description, length): if a matching MISC
+    variant already exists for this prefix, returns its SKU. Otherwise
+    inserts a new cable_skus row with sku = "{prefix}-MISC-{nextval}".
+
+    The new row inherits series, core_cable, braid_material, and connector_type
+    from the existing -MISC base SKU's catalog rows for that prefix (we look up
+    a representative row via series filter).
 
     Args:
-        base_sku: The MISC SKU (e.g. "SC-MISC")
-        description: Cable description text
-        length: Optional cable length in feet
+        series_prefix: e.g. "SC", "TC"
+        description: Free-form cable description
+        length: Cable length in feet (numeric)
 
     Returns:
-        dict with 'id', 'shopify_sku', 'created' (bool), or None on error
+        sku string, or None on error
     """
+    if length is None:
+        logger.error("get_or_create_misc_sku called without length")
+        return None
+    length_text = str(length)
+
     conn = pg_pool.getconn()
     try:
         with conn:
             with conn.cursor() as cur:
-                # Serialize concurrent inserts for the same base_sku
+                # Serialize concurrent inserts for the same prefix
                 cur.execute(
                     "SELECT pg_advisory_xact_lock(hashtext(%s))",
-                    (base_sku,)
+                    (series_prefix,)
                 )
 
-                # Try to find existing match
+                # Try to find an existing MISC variant with the same shape
                 cur.execute("""
-                    SELECT id, shopify_sku FROM special_baby_types
-                    WHERE base_sku = %s
+                    SELECT sku FROM cable_skus
+                    WHERE sku LIKE %s
                       AND description = %s
-                      AND COALESCE(length, -1) = COALESCE(%s, -1)
-                """, (base_sku, description, length))
+                      AND length = %s
+                      AND color_pattern = 'Miscellaneous'
+                """, (f"{series_prefix}-MISC-%", description, length_text))
                 existing = cur.fetchone()
                 if existing:
-                    return {'id': existing[0], 'shopify_sku': existing[1], 'created': False}
+                    return existing[0]
 
-                # Insert new type
+                # Pull series + construction fields from any existing cable_skus
+                # row in this series prefix (catalog rows or other MISC variants).
                 cur.execute("""
-                    INSERT INTO special_baby_types (base_sku, description, length)
-                    VALUES (%s, %s, %s)
-                    RETURNING id
-                """, (base_sku, description, length))
-                type_id = cur.fetchone()[0]
+                    SELECT series, core_cable, braid_material, connector_type
+                    FROM cable_skus
+                    WHERE sku LIKE %s
+                    ORDER BY sku
+                    LIMIT 1
+                """, (f"{series_prefix}-%",))
+                template = cur.fetchone()
+                if not template:
+                    logger.error("No cable_skus rows found for series prefix %s", series_prefix)
+                    return None
+                series, core_cable, braid_material, connector_type = template
 
-                # Set shopify_sku
-                shopify_sku = f"{base_sku}-{type_id}"
+                # Allocate a new sequence number and build the SKU
+                cur.execute("SELECT nextval('cable_misc_variant_seq')")
+                seq = cur.fetchone()[0]
+                new_sku = f"{series_prefix}-MISC-{seq}"
+
                 cur.execute("""
-                    UPDATE special_baby_types
-                    SET shopify_sku = %s
-                    WHERE id = %s
-                """, (shopify_sku, type_id))
-
+                    INSERT INTO cable_skus
+                        (sku, series, core_cable, braid_material, color_pattern,
+                         length, connector_type, description)
+                    VALUES (%s, %s, %s, %s, 'Miscellaneous', %s, %s, %s)
+                """, (new_sku, series, core_cable, braid_material,
+                      length_text, connector_type, description))
                 conn.commit()
-                return {'id': type_id, 'shopify_sku': shopify_sku, 'created': True}
+                return new_sku
     except Exception as e:
-        logger.error("Error in get_or_create_special_baby_type: %s", e)
+        logger.error("Error in get_or_create_misc_sku: %s", e)
         conn.rollback()
         return None
     finally:
         pg_pool.putconn(conn)
 
 
-def search_special_baby_types(base_sku):
-    """Return recent special_baby_types for a base_sku (for duplicate detection UI).
+def search_misc_variants(series_prefix):
+    """Return recent MISC variants for a series prefix (for picker UI).
 
     Args:
-        base_sku: The MISC SKU to search (e.g. "SC-MISC")
+        series_prefix: e.g. "SC", "TC"
 
     Returns:
-        List of dicts with id, description, length, shopify_sku
+        List of dicts with sku, description, length
     """
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT id, description, length, shopify_sku
-                FROM special_baby_types
-                WHERE base_sku = %s
-                ORDER BY id DESC
+                SELECT sku, description, length
+                FROM cable_skus
+                WHERE sku LIKE %s
+                  AND sku ~ '-MISC-[0-9]+$'
+                ORDER BY sku DESC
                 LIMIT 20
-            """, (base_sku,))
+            """, (f"{series_prefix}-MISC-%",))
             rows = cur.fetchall()
             return [
-                {'id': r[0], 'description': r[1], 'length': r[2], 'shopify_sku': r[3]}
+                {'sku': r[0], 'description': r[1], 'length': r[2]}
                 for r in rows
             ]
     except Exception as e:
-        logger.error("Error searching special_baby_types: %s", e)
+        logger.error("Error searching MISC variants: %s", e)
         return []
     finally:
         pg_pool.putconn(conn)
@@ -423,9 +451,6 @@ def search_special_baby_types(base_sku):
 
 def get_available_count_for_sku(sku):
     """Get count of available (passed + unassigned) cables for a SKU.
-
-    For MISC cables, pass the special_baby_types shopify_sku (e.g. "SC-MISC-42").
-    For standard cables, pass the cable_skus SKU (e.g. "SC-STD-BK-10-TS").
 
     Returns:
         int count of available cables
@@ -436,10 +461,9 @@ def get_available_count_for_sku(sku):
             cur.execute("""
                 SELECT COUNT(*)
                 FROM audio_cables ac
-                LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
                 WHERE ac.test_passed = TRUE
                   AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
-                  AND COALESCE(sbt.shopify_sku, ac.sku) = %s
+                  AND ac.sku = %s
             """, (sku,))
             return cur.fetchone()[0]
     except Exception as e:
@@ -578,13 +602,12 @@ def get_cables_for_customer(customer_shopify_gid):
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT ac.serial_number, ac.sku, ac.updated_timestamp,
-                       sbt.description,
+                       cs.description,
                        cs.series,
-                       COALESCE(sbt.length, CAST(cs.length AS REAL)) as length,
+                       CAST(cs.length AS REAL) as length,
                        cs.color_pattern, cs.connector_type
                 FROM audio_cables ac
                 JOIN cable_skus cs ON ac.sku = cs.sku
-                LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
                 WHERE ac.shopify_gid = %s
                 ORDER BY ac.updated_timestamp DESC
             """, (customer_shopify_gid,))
@@ -617,13 +640,12 @@ def get_all_cables(limit=100, offset=0):
             cur.execute("""
                 SELECT ac.serial_number, ac.sku, ac.updated_timestamp, ac.test_timestamp,
                        ac.resistance_adc, ac.test_passed, ac.operator, ac.shopify_gid,
-                       sbt.description,
+                       cs.description,
                        cs.series,
-                       COALESCE(sbt.length, CAST(cs.length AS REAL)) as length,
+                       CAST(cs.length AS REAL) as length,
                        cs.color_pattern, cs.connector_type
                 FROM audio_cables ac
                 JOIN cable_skus cs ON ac.sku = cs.sku
-                LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
                 ORDER BY ac.serial_number DESC
                 LIMIT %s OFFSET %s
             """, (limit, offset))
@@ -667,64 +689,43 @@ def get_cable_count():
         pg_pool.putconn(conn)
 
 def get_available_inventory(series=None):
-    """Get count of cables available to sell (not assigned to customer) grouped by SKU
+    """Get count of cables available to sell (not assigned to customer) grouped by SKU.
 
     Args:
-        series: Optional series filter (e.g., 'Standard', 'Signature', 'MISC')
+        series: Optional series filter (e.g., 'Studio Classic', 'Tour Classic')
 
-    Note: For MISC SKUs, inventory is not grouped since each cable has unique attributes.
-    MISC cables are listed individually with their custom lengths and descriptions.
+    Every cable variant lives in cable_skus with one row per SKU, so MISC
+    variants group naturally alongside catalog SKUs.
     """
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
-            # For MISC series, show individual cables with their custom attributes
-            if series and 'misc' in series.lower():
-                query = """
-                    SELECT
-                        ac.sku,
-                        cs.series,
-                        COALESCE(sbt.length, CAST(cs.length AS REAL)) as length,
-                        cs.color_pattern,
-                        cs.connector_type,
-                        sbt.description,
-                        1 as available_count
-                    FROM audio_cables ac
-                    JOIN cable_skus cs ON ac.sku = cs.sku
-                    LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
-                    WHERE cs.series = %s
-                        AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
-                    ORDER BY length, description
-                """
-                cur.execute(query, [series])
-            else:
-                # For regular SKUs, group by SKU attributes
-                query = """
-                    SELECT
-                        cs.sku,
-                        cs.series,
-                        cs.length,
-                        cs.color_pattern,
-                        cs.connector_type,
-                        cs.description,
-                        COUNT(ac.serial_number) as available_count
-                    FROM cable_skus cs
-                    LEFT JOIN audio_cables ac ON cs.sku = ac.sku
-                        AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
-                """
+            query = """
+                SELECT
+                    cs.sku,
+                    cs.series,
+                    cs.length,
+                    cs.color_pattern,
+                    cs.connector_type,
+                    cs.description,
+                    COUNT(ac.serial_number) as available_count
+                FROM cable_skus cs
+                LEFT JOIN audio_cables ac ON cs.sku = ac.sku
+                    AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
+            """
 
-                params = []
-                if series:
-                    query += " WHERE cs.series = %s"
-                    params.append(series)
+            params = []
+            if series:
+                query += " WHERE cs.series = %s"
+                params.append(series)
 
-                query += """
-                    GROUP BY cs.sku, cs.series, cs.length, cs.color_pattern, cs.connector_type, cs.description
-                    HAVING COUNT(ac.serial_number) > 0
-                    ORDER BY cs.length, cs.color_pattern, cs.connector_type
-                """
-                cur.execute(query, params)
-
+            query += """
+                GROUP BY cs.sku, cs.series, cs.length, cs.color_pattern,
+                         cs.connector_type, cs.description
+                HAVING COUNT(ac.serial_number) > 0
+                ORDER BY cs.length, cs.color_pattern, cs.connector_type
+            """
+            cur.execute(query, params)
             rows = cur.fetchall()
 
             inventory = []
@@ -763,12 +764,9 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
 
         with conn:
             with conn.cursor() as cur:
-                # Get cable with effective SKU (COALESCE for MISC cables)
                 cur.execute("""
-                    SELECT ac.serial_number, ac.sku, ac.shopify_gid, ac.shopify_order_gid,
-                           COALESCE(sbt.shopify_sku, ac.sku) as effective_sku
+                    SELECT ac.serial_number, ac.sku, ac.shopify_gid, ac.shopify_order_gid
                     FROM audio_cables ac
-                    LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
                     WHERE ac.serial_number = %s
                 """, (formatted_serial,))
                 row = cur.fetchone()
@@ -779,7 +777,7 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
                         'message': f'Cable with serial number {formatted_serial} not found in database'
                     }
 
-                cable_serial, cable_sku, existing_customer_gid, existing_order_gid, effective_sku = row
+                cable_serial, cable_sku, existing_customer_gid, existing_order_gid = row
 
                 # Already scanned for this order
                 if existing_order_gid == order_gid:
@@ -805,11 +803,11 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
                     }
 
                 # SKU validation
-                if effective_sku not in line_item_skus:
+                if cable_sku not in line_item_skus:
                     return {
                         'error': 'sku_mismatch',
-                        'message': f'Cable SKU {effective_sku} does not match any line item in this order',
-                        'cable_sku': effective_sku
+                        'message': f'Cable SKU {cable_sku} does not match any line item in this order',
+                        'cable_sku': cable_sku
                     }
 
                 # Success - assign cable to order
@@ -828,7 +826,6 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
                     'success': True,
                     'serial_number': result[0],
                     'sku': result[1],
-                    'effective_sku': effective_sku
                 }
     except Exception as e:
         logger.error("Error assigning cable to order: %s", e)
@@ -880,23 +877,21 @@ def get_cables_for_order(order_gid):
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT ac.serial_number, ac.sku,
-                       COALESCE(sbt.shopify_sku, ac.sku) as effective_sku,
                        cs.series,
-                       COALESCE(sbt.length, CAST(cs.length AS REAL)) as length,
+                       CAST(cs.length AS REAL) as length,
                        cs.color_pattern, cs.connector_type,
-                       sbt.description
+                       cs.description
                 FROM audio_cables ac
                 JOIN cable_skus cs ON ac.sku = cs.sku
-                LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
                 WHERE ac.shopify_order_gid = %s
                 ORDER BY ac.updated_timestamp DESC
             """, (order_gid,))
             rows = cur.fetchall()
             return [
                 {
-                    'serial_number': r[0], 'sku': r[1], 'effective_sku': r[2],
-                    'series': r[3], 'length': r[4], 'color_pattern': r[5],
-                    'connector_type': r[6], 'description': r[7]
+                    'serial_number': r[0], 'sku': r[1],
+                    'series': r[2], 'length': r[3], 'color_pattern': r[4],
+                    'connector_type': r[5], 'description': r[6]
                 }
                 for r in rows
             ]
@@ -1051,7 +1046,7 @@ def get_sku_stock_summary():
                         WHERE ac.test_passed IS NULL
                     ) as untested
                 FROM audio_cables ac
-                WHERE ac.sku NOT LIKE '%%-MISC'
+                WHERE ac.sku !~ '-MISC-[0-9]+$'
                 GROUP BY ac.sku
                 ORDER BY ac.sku
             """)
@@ -1085,7 +1080,7 @@ def get_recent_sales(days=90):
                 FROM audio_cables ac
                 WHERE ac.shopify_gid IS NOT NULL AND ac.shopify_gid != ''
                   AND ac.updated_timestamp >= NOW() - INTERVAL '%s days'
-                  AND ac.sku NOT LIKE '%%-MISC'
+                  AND ac.sku !~ '-MISC-[0-9]+$'
                 GROUP BY ac.sku
                 ORDER BY COUNT(*) DESC
             """, (days,))
@@ -1097,8 +1092,8 @@ def get_recent_sales(days=90):
         pg_pool.putconn(conn)
 
 
-def get_special_baby_summary():
-    """Get summary of special baby (MISC) cables grouped by series.
+def get_misc_summary():
+    """Get summary of MISC cables grouped by series.
 
     Returns dict: series -> {total, available, sold}
     """
@@ -1118,13 +1113,13 @@ def get_special_baby_summary():
                     ) as sold
                 FROM audio_cables ac
                 JOIN cable_skus cs ON ac.sku = cs.sku
-                WHERE ac.sku LIKE '%%-MISC'
+                WHERE ac.sku ~ '-MISC-[0-9]+$'
                 GROUP BY cs.series
             """)
             return {row[0]: {"total": row[1], "available": row[2], "sold": row[3]}
                     for row in cur.fetchall()}
     except Exception as e:
-        logger.error("Error fetching special baby summary: %s", e)
+        logger.error("Error fetching MISC summary: %s", e)
         return {}
     finally:
         pg_pool.putconn(conn)

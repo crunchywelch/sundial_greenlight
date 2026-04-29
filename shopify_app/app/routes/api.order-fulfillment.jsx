@@ -54,11 +54,9 @@ export async function loader({ request }) {
         ac.shopify_order_gid,
         cs.series,
         cs.color_pattern,
-        cs.connector_type,
-        sbt.shopify_sku AS special_baby_shopify_sku
+        cs.connector_type
       FROM audio_cables ac
       LEFT JOIN cable_skus cs ON ac.sku = cs.sku
-      LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
       WHERE ac.shopify_order_gid = $1
       ORDER BY ac.updated_timestamp DESC NULLS LAST`,
       [orderId]
@@ -66,7 +64,7 @@ export async function loader({ request }) {
 
     const cables = result.rows.map((row) => ({
       serial_number: row.serial_number,
-      sku: row.special_baby_shopify_sku || row.sku,
+      sku: row.sku,
       series: row.series,
       color: row.color_pattern,
       connector_type: row.connector_type,
@@ -124,11 +122,9 @@ async function handleLookupCable({ serialNumber }) {
       ac.test_passed,
       cs.series,
       cs.color_pattern,
-      cs.connector_type,
-      sbt.shopify_sku AS special_baby_shopify_sku
+      cs.connector_type
     FROM audio_cables ac
     LEFT JOIN cable_skus cs ON ac.sku = cs.sku
-    LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
     WHERE ac.serial_number = $1`,
     [serialNumber]
   );
@@ -141,7 +137,7 @@ async function handleLookupCable({ serialNumber }) {
   return json({
     cable: {
       serial_number: row.serial_number,
-      sku: row.special_baby_shopify_sku || row.sku,
+      sku: row.sku,
       series: row.series,
       color: row.color_pattern,
       connector_type: row.connector_type,
@@ -160,12 +156,10 @@ async function handleAssignCable({ serialNumber, orderId, customerId, lineItemSk
     );
   }
 
-  // Look up the cable (join special_baby_types for MISC SKU matching)
+  // Look up the cable
   const result = await query(
-    `SELECT ac.serial_number, ac.sku, ac.shopify_gid, ac.shopify_order_gid,
-            sbt.shopify_sku AS special_baby_shopify_sku
+    `SELECT ac.serial_number, ac.sku, ac.shopify_gid, ac.shopify_order_gid
      FROM audio_cables ac
-     LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
      WHERE ac.serial_number = $1`,
     [serialNumber]
   );
@@ -196,17 +190,14 @@ async function handleAssignCable({ serialNumber, orderId, customerId, lineItemSk
   }
 
   // Check SKU matches a line item if lineItemSkus provided
-  // Special babies use their shopify_sku from special_baby_types (e.g. "SC-MISC-42")
-  // Regular cables match on audio_cables.sku directly
   if (lineItemSkus && lineItemSkus.length > 0) {
-    const cableSku = cable.special_baby_shopify_sku || cable.sku;
-    const matches = lineItemSkus.some((sku) => sku === cableSku);
+    const matches = lineItemSkus.some((sku) => sku === cable.sku);
     if (!matches) {
       return json(
         {
-          error: `Cable SKU "${cableSku}" does not match any line item in this order`,
+          error: `Cable SKU "${cable.sku}" does not match any line item in this order`,
           code: "SKU_MISMATCH",
-          cableSku,
+          cableSku: cable.sku,
         },
         { status: 422 }
       );

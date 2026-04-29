@@ -69,28 +69,6 @@ def get_database_skus() -> Dict[str, Dict[str, str]]:
                     'description': row[7]
                 }
 
-            # Include special baby types (e.g. SC-MISC-42)
-            cur.execute("""
-                SELECT sbt.shopify_sku, cs.series, cs.core_cable, cs.braid_material,
-                       'Special Baby' as color_pattern, sbt.length::text, cs.connector_type,
-                       sbt.description
-                FROM special_baby_types sbt
-                JOIN cable_skus cs ON sbt.base_sku = cs.sku
-                WHERE sbt.shopify_sku IS NOT NULL
-                ORDER BY sbt.shopify_sku
-            """)
-            for row in cur.fetchall():
-                sku_map[row[0]] = {
-                    'sku': row[0],
-                    'series': row[1],
-                    'core_cable': row[2],
-                    'braid_material': row[3],
-                    'color_pattern': row[4],
-                    'length': row[5],
-                    'connector_type': row[6],
-                    'description': row[7]
-                }
-
             return sku_map
     except Exception as e:
         print(f"❌ Error fetching database SKUs: {e}")
@@ -130,8 +108,7 @@ def main():
     db_sku_codes = set(db_skus.keys())
     shopify_sku_codes = set(shopify_skus.keys())
 
-    missing_in_shopify = {s for s in db_sku_codes - shopify_sku_codes
-                          if not s.endswith('-MISC')}
+    missing_in_shopify = db_sku_codes - shopify_sku_codes
     orphaned_in_shopify = shopify_sku_codes - db_sku_codes
     matched_skus = db_sku_codes & shopify_sku_codes
 

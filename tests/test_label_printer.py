@@ -148,7 +148,7 @@ def test_label_printer(use_mock=False):
                 'length': '15',
                 'color_pattern': 'Miscellaneous',
                 'connector_type': 'TS-TRS',
-                'sku': 'SC-MISC',
+                'sku': 'SC-MISC-1',
                 'description': 'Custom putty houndstooth with gold connectors'
             }
         }

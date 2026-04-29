@@ -15,7 +15,7 @@ from greenlight.cable import (
     get_distinct_color_patterns, get_distinct_lengths, get_distinct_connector_types,
     find_cable_by_attributes
 )
-from greenlight.db import get_audio_cable, register_scanned_cable, format_serial_number, update_cable_test_results
+from greenlight.db import get_audio_cable, register_scanned_cable, format_serial_number, update_cable_test_results, sku_kind
 from rich.table import Table
 import time
 
@@ -170,12 +170,8 @@ class CableScreenBase(Screen):
   Connector: {connector_type}"""
 
         description = cable_record.get("description")
-        if sku.endswith("-MISC") and description:
+        if sku_kind(sku) == 'misc' and description:
             left += f"\n  Description: {description}"
-
-        special_baby_shopify_sku = cable_record.get("special_baby_shopify_sku")
-        if special_baby_shopify_sku:
-            left += f"\n  Shopify SKU: {special_baby_shopify_sku}"
 
         registration_code = cable_record.get("registration_code")
         if registration_code:
@@ -356,17 +352,14 @@ class CableScreenBase(Screen):
         if all_passed:
             try:
                 from greenlight.db import get_available_count_for_sku
-                is_misc = cable_record.get('sku', '').endswith('-MISC')
-                if is_misc:
-                    from greenlight.shopify_client import ensure_special_baby_shopify_product
-                    effective_sku = cable_record.get('special_baby_shopify_sku')
-                    count = get_available_count_for_sku(effective_sku) if effective_sku else 0
-                    success, err = ensure_special_baby_shopify_product(cable_record, quantity=count)
+                sku = cable_record['sku']
+                count = get_available_count_for_sku(sku)
+                if sku_kind(sku) == 'misc':
+                    from greenlight.shopify_client import ensure_misc_shopify_product
+                    success, err = ensure_misc_shopify_product(cable_record, quantity=count)
                 else:
                     from greenlight.shopify_client import set_inventory_for_sku
-                    effective_sku = cable_record['sku']
-                    count = get_available_count_for_sku(effective_sku)
-                    success, err = set_inventory_for_sku(effective_sku, count)
+                    success, err = set_inventory_for_sku(sku, count)
                 if success:
                     saved_status += f" | [green]Shopify={count}[/green]"
                 else:
@@ -404,7 +397,7 @@ class CableScreenBase(Screen):
 
         serial_number = cable_record.get('serial_number')
         series = cable_record.get('series', '')
-        is_misc = cable_record.get('sku', '').endswith('-MISC')
+        is_misc = sku_kind(cable_record.get('sku', '')) == 'misc'
         is_touring = series.startswith("Tour") and not is_misc
 
         # Keep cable info in body
@@ -547,16 +540,14 @@ class CableScreenBase(Screen):
         if all_passed:
             try:
                 from greenlight.db import get_available_count_for_sku
+                sku = cable_record['sku']
+                count = get_available_count_for_sku(sku)
                 if is_misc:
-                    from greenlight.shopify_client import ensure_special_baby_shopify_product
-                    effective_sku = cable_record.get('special_baby_shopify_sku')
-                    count = get_available_count_for_sku(effective_sku) if effective_sku else 0
-                    success, err = ensure_special_baby_shopify_product(cable_record, quantity=count)
+                    from greenlight.shopify_client import ensure_misc_shopify_product
+                    success, err = ensure_misc_shopify_product(cable_record, quantity=count)
                 else:
                     from greenlight.shopify_client import set_inventory_for_sku
-                    effective_sku = cable_record['sku']
-                    count = get_available_count_for_sku(effective_sku)
-                    success, err = set_inventory_for_sku(effective_sku, count)
+                    success, err = set_inventory_for_sku(sku, count)
                 if success:
                     saved_status += f" | [green]Shopify={count}[/green]"
                 else:
@@ -975,7 +966,7 @@ class CableScreenBase(Screen):
         """
         serial_number = cable_record.get('serial_number')
         current_desc = cable_record.get('description', '')
-        has_type = cable_record.get('special_baby_type_id') is not None
+        is_misc_variant = sku_kind(cable_record.get('sku', '')) == 'misc'
 
         self.ui.console.clear()
         self.ui.header(operator)
@@ -993,8 +984,8 @@ class CableScreenBase(Screen):
                     prompt_text += f"Current description: {current_desc}\n\n"
                 else:
                     prompt_text += "No description set.\n\n"
-                if has_type:
-                    prompt_text += "[bold yellow]Warning: This will change the description for ALL cables of this type.[/bold yellow]\n\n"
+                if is_misc_variant:
+                    prompt_text += "[bold yellow]Warning: This will change the description for ALL cables of this MISC variant.[/bold yellow]\n\n"
                 if prefill_text:
                     prompt_text += f"[red]Too long ({len(prefill_text)}/{max_desc_len} chars) — please shorten:[/red]"
                 else:
@@ -1026,11 +1017,12 @@ class CableScreenBase(Screen):
                 if update_cable_description(serial_number, new_desc):
                     updated = get_audio_cable(serial_number)
                     if updated:
-                        # Update Shopify description if this is a special baby with a product
-                        shopify_sku = updated.get('special_baby_shopify_sku')
-                        if shopify_sku:
-                            from greenlight.shopify_client import update_special_baby_description
-                            success, err = update_special_baby_description(shopify_sku, new_desc)
+                        # Update Shopify description for MISC variants (catalog SKUs use
+                        # their own marketing copy from the product line, don't overwrite)
+                        sku = updated.get('sku')
+                        if sku and sku_kind(sku) == 'misc':
+                            from greenlight.shopify_client import update_shopify_product_description
+                            success, err = update_shopify_product_description(sku, new_desc)
                             if not success:
                                 logger.warning(f"Shopify description update failed: {err}")
                         return updated
@@ -1129,7 +1121,7 @@ class CableScreenBase(Screen):
             printer_available = label_printer.is_ready() if label_printer else False
 
             cable_tested = cable_record.get('test_passed') is True
-            is_misc = cable_record.get('sku', '').endswith('-MISC')
+            is_misc = sku_kind(cable_record.get('sku', '')) == 'misc'
             is_assigned = bool(cable_record.get('shopify_gid'))
 
             # Build footer options based on mode and hardware
@@ -1556,8 +1548,8 @@ class ColorPatternSelectionScreen(Screen):
 
                 # Check if this is a MISC/Miscellaneous cable
                 if selected_color.lower() in ['misc', 'miscellaneous']:
-                    # Go to custom MISC cable entry screen
-                    return ScreenResult(NavigationAction.REPLACE, MiscCableEntryScreen, new_context)
+                    # Go to MISC variant picker (existing variants + new variant option)
+                    return ScreenResult(NavigationAction.REPLACE, MiscVariantPickerScreen, new_context)
                 else:
                     # Normal flow - go to length selection
                     return ScreenResult(NavigationAction.REPLACE, LengthSelectionScreen, new_context)
@@ -1570,22 +1562,146 @@ class ColorPatternSelectionScreen(Screen):
         return ScreenResult(NavigationAction.REPLACE, ColorPatternSelectionScreen, self.context)
 
 
-class MiscCableEntryScreen(Screen):
-    """Custom entry screen for MISC cables - prompts for length"""
+SERIES_PREFIX_MAP = {
+    'Studio Classic': 'SC',
+    'Studio Patch': 'SP',
+    'Studio Vocal Classic': 'SV',
+    'Tour Classic': 'TC',
+    'Tour Vocal Classic': 'TV',
+}
+
+
+def _format_length(length):
+    """Render a length value as e.g. '10ft' or '10.5ft'."""
+    try:
+        val = float(length)
+    except (TypeError, ValueError):
+        return str(length) if length is not None else ""
+    return f"{int(val)}ft" if val == int(val) else f"{val}ft"
+
+
+class MiscVariantPickerScreen(Screen):
+    """Pick an existing MISC variant for the selected series, or create a new one."""
+
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
         selected_series = self.context.get("selected_series")
+        series_prefix = SERIES_PREFIX_MAP.get(selected_series)
+
+        if not series_prefix:
+            self.ui.header(operator)
+            self.ui.layout["body"].update(Panel(
+                f"❌ Unknown series: {selected_series}",
+                title="Error", style="red"
+            ))
+            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.render()
+            self.ui.console.input()
+            return ScreenResult(NavigationAction.POP)
+
+        from greenlight.db import search_misc_variants
+        existing = search_misc_variants(series_prefix)
+
+        body_lines = [
+            f"[bold yellow]Miscellaneous Cable — {selected_series}[/bold yellow]\n",
+        ]
+        if existing:
+            body_lines.append("Existing MISC variants for this series:\n")
+        else:
+            body_lines.append("No existing MISC variants for this series yet.\n")
+
+        menu_items = []
+        for v in existing:
+            length_display = _format_length(v.get("length"))
+            label = f"{v['sku']}  ({length_display})  {v['description']}"
+            menu_items.append(label)
+        menu_items.append("[N] New MISC variant")
+        menu_items.append("[Q] Back")
+
+        rows = [
+            f"[green]{i + 1}.[/green] {name}" if i < len(existing)
+            else f"[green]{name}[/green]"
+            for i, name in enumerate(menu_items)
+        ]
 
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(
-            f"[bold yellow]Miscellaneous Cable Entry[/bold yellow]\n\n"
-            f"Series: {selected_series}\n"
-            f"Pattern: Miscellaneous (one-off/custom cable)\n\n"
-            f"[bold cyan]Enter cable length in feet:[/bold cyan]\n"
-            f"Examples: 3, 6, 10, 15, 20, 25\n\n"
-            f"This will be used for the cable description.",
-            title="MISC Cable - Enter Length",
-            border_style="yellow"
+            "\n".join(body_lines), title="Step 3: MISC Variant"
+        ))
+        self.ui.layout["footer"].update(Panel(
+            "\n".join(rows),
+            title="Pick a variant or press 'N' to create a new one"
+        ))
+        self.ui.render()
+
+        try:
+            choice = self.ui.console.input("Choose: ").strip().lower()
+        except KeyboardInterrupt:
+            return ScreenResult(NavigationAction.POP)
+
+        if choice in ('q', ''):
+            return ScreenResult(NavigationAction.POP)
+
+        if choice == 'n':
+            return ScreenResult(NavigationAction.REPLACE, MiscVariantCreateScreen, self.context)
+
+        try:
+            idx = int(choice) - 1
+        except ValueError:
+            self.ui.console.print("[red]Invalid choice[/red]")
+            time.sleep(0.5)
+            return ScreenResult(NavigationAction.REPLACE, MiscVariantPickerScreen, self.context)
+
+        if 0 <= idx < len(existing):
+            selected_sku = existing[idx]['sku']
+            try:
+                cable_type = CableType()
+                cable_type.load(selected_sku)
+            except ValueError as e:
+                self.ui.layout["body"].update(Panel(
+                    f"❌ Error loading SKU {selected_sku}: {e}",
+                    title="Error", style="red"
+                ))
+                self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+                self.ui.render()
+                self.ui.console.input()
+                return ScreenResult(NavigationAction.POP)
+
+            new_context = self.context.copy()
+            new_context["cable_type"] = cable_type
+            return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
+
+        self.ui.console.print("[red]Invalid choice[/red]")
+        time.sleep(0.5)
+        return ScreenResult(NavigationAction.REPLACE, MiscVariantPickerScreen, self.context)
+
+
+class MiscVariantCreateScreen(Screen):
+    """Create a new MISC variant: prompt for length and description."""
+
+    def run(self) -> ScreenResult:
+        operator = self.context.get("operator", "")
+        selected_series = self.context.get("selected_series")
+        series_prefix = SERIES_PREFIX_MAP.get(selected_series)
+
+        if not series_prefix:
+            self.ui.header(operator)
+            self.ui.layout["body"].update(Panel(
+                f"❌ Unknown series: {selected_series}",
+                title="Error", style="red"
+            ))
+            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.render()
+            self.ui.console.input()
+            return ScreenResult(NavigationAction.POP)
+
+        # --- Step 1: length ---
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(
+            f"[bold yellow]New MISC variant — {selected_series}[/bold yellow]\n\n"
+            "[bold cyan]Enter cable length in feet:[/bold cyan]\n"
+            "Examples: 3, 6, 10, 15, 20, 25",
+            title="MISC Variant — Length", border_style="yellow"
         ))
         self.ui.layout["footer"].update(Panel(
             "Enter length in feet (number only) or 'q' to go back",
@@ -1595,87 +1711,106 @@ class MiscCableEntryScreen(Screen):
 
         try:
             length_input = self.ui.console.input("Length (ft): ").strip()
-
-            if length_input.lower() == 'q':
-                return ScreenResult(NavigationAction.POP)
-
-            # Try to parse as a number
-            try:
-                length_value = float(length_input)
-                if length_value <= 0:
-                    self.ui.layout["body"].update(Panel(
-                        "❌ Length must be greater than 0",
-                        title="Invalid Length",
-                        style="red"
-                    ))
-                    self.ui.layout["footer"].update(Panel("Press enter to try again", title=""))
-                    self.ui.render()
-                    self.ui.console.input()
-                    return ScreenResult(NavigationAction.REPLACE, MiscCableEntryScreen, self.context)
-
-                # Store the custom length
-                new_context = self.context.copy()
-                new_context["custom_length"] = length_value
-
-                # Load the MISC SKU for this series
-                # MISC SKUs follow pattern: SeriesPrefix-MISC (e.g., SC-MISC, TC-MISC)
-                # Extract series prefix from the series name
-                series_prefix_map = {
-                    'Studio Classic': 'SC',
-                    'Studio Patch': 'SP',
-                    'Studio Vocal Classic': 'SV',
-                    'Tour Classic': 'TC',
-                    'Tour Vocal Classic': 'TV'
-                }
-
-                series_prefix = series_prefix_map.get(selected_series)
-                if not series_prefix:
-                    self.ui.layout["body"].update(Panel(
-                        f"❌ Unknown series: {selected_series}",
-                        title="Error",
-                        style="red"
-                    ))
-                    self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
-                    self.ui.render()
-                    self.ui.console.input()
-                    return ScreenResult(NavigationAction.POP)
-
-                misc_sku = f"{series_prefix}-MISC"
-
-                # Load the cable type
-                try:
-                    cable_type = CableType()
-                    cable_type.load(misc_sku)
-
-                    # Store cable type in context
-                    new_context["cable_type"] = cable_type
-
-                    # Go directly to scanning screen
-                    return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
-                except ValueError as e:
-                    self.ui.layout["body"].update(Panel(
-                        f"❌ Error loading MISC SKU {misc_sku}: {str(e)}",
-                        title="Error",
-                        style="red"
-                    ))
-                    self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
-                    self.ui.render()
-                    self.ui.console.input()
-                    return ScreenResult(NavigationAction.POP)
-
-            except ValueError:
-                self.ui.layout["body"].update(Panel(
-                    f"❌ Invalid number: {length_input}\n\nPlease enter a valid number (e.g., 3, 6, 10, 15)",
-                    title="Invalid Input",
-                    style="red"
-                ))
-                self.ui.layout["footer"].update(Panel("Press enter to try again", title=""))
-                self.ui.render()
-                self.ui.console.input()
-                return ScreenResult(NavigationAction.REPLACE, MiscCableEntryScreen, self.context)
-
         except KeyboardInterrupt:
             return ScreenResult(NavigationAction.POP)
+
+        if length_input.lower() == 'q' or not length_input:
+            return ScreenResult(NavigationAction.POP)
+
+        try:
+            length_value = float(length_input)
+            if length_value <= 0:
+                raise ValueError("must be positive")
+        except ValueError:
+            self.ui.layout["body"].update(Panel(
+                f"❌ Invalid length: {length_input}",
+                title="Invalid Length", style="red"
+            ))
+            self.ui.layout["footer"].update(Panel("Press enter to try again", title=""))
+            self.ui.render()
+            self.ui.console.input()
+            return ScreenResult(NavigationAction.REPLACE, MiscVariantCreateScreen, self.context)
+
+        # --- Step 2: description ---
+        max_desc_len = 90
+        prefill_text = None
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(
+            f"[bold yellow]New MISC variant — {selected_series}[/bold yellow]\n"
+            f"Length: [bold green]{_format_length(length_value)}[/bold green]\n\n"
+            "[bold cyan]Enter a description for this variant:[/bold cyan]\n"
+            "[dim](Length is stored separately — don't include it here)[/dim]\n\n"
+            "Include details like:\n"
+            "  • Color/pattern (e.g., 'custom blue/orange')\n"
+            "  • Connector types (e.g., 'Neutrik TS-TRS')\n"
+            "  • Cable construction (e.g., 'cotton braid')\n"
+            "  • Any special attributes\n\n"
+            "Example: 'dark putty houndstooth with gold connectors instead of nickel'",
+            title="MISC Variant — Description", border_style="yellow"
+        ))
+
+        try:
+            while True:
+                if prefill_text:
+                    self.ui.layout["footer"].update(Panel(
+                        f"[red]Too long ({len(prefill_text)}/{max_desc_len} chars) — please shorten:[/red]",
+                        title="Description"
+                    ))
+                else:
+                    self.ui.layout["footer"].update(Panel(
+                        f"Enter description (max {max_desc_len} chars) or 'q' to cancel",
+                        title="Description"
+                    ))
+                self.ui.render()
+
+                if prefill_text:
+                    readline.set_startup_hook(lambda: readline.insert_text(prefill_text))
+                else:
+                    readline.set_startup_hook(None)
+
+                try:
+                    description = self.ui.console.input("Description: ").strip()
+                finally:
+                    readline.set_startup_hook(None)
+
+                if description.lower() == 'q' or not description:
+                    return ScreenResult(NavigationAction.POP)
+
+                if len(description) <= max_desc_len:
+                    break
+                prefill_text = description
+        except KeyboardInterrupt:
+            return ScreenResult(NavigationAction.POP)
+
+        # --- Resolve / create the SKU ---
+        from greenlight.db import get_or_create_misc_sku
+        new_sku = get_or_create_misc_sku(series_prefix, description, length_value)
+        if not new_sku:
+            self.ui.layout["body"].update(Panel(
+                "❌ Failed to create MISC variant SKU. Check logs.",
+                title="Error", style="red"
+            ))
+            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.render()
+            self.ui.console.input()
+            return ScreenResult(NavigationAction.POP)
+
+        try:
+            cable_type = CableType()
+            cable_type.load(new_sku)
+        except ValueError as e:
+            self.ui.layout["body"].update(Panel(
+                f"❌ Error loading new SKU {new_sku}: {e}",
+                title="Error", style="red"
+            ))
+            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.render()
+            self.ui.console.input()
+            return ScreenResult(NavigationAction.POP)
+
+        new_context = self.context.copy()
+        new_context["cable_type"] = cable_type
+        return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
 
 
 class LengthSelectionScreen(Screen):
@@ -1844,144 +1979,14 @@ class ScanCableIntakeScreen(CableScreenBase):
             self.ui.console.input("Press enter to continue...")
             return ScreenResult(NavigationAction.POP)
 
-        # Check if this is a MISC SKU that needs custom description
-        cable_description = None
-        special_baby_type_id = None
-        if cable_type.sku.endswith("-MISC"):
-            result = self.get_misc_cable_description(operator, cable_type)
-            if result is None:
-                # User cancelled — return to main scan hub
-                return ScreenResult(NavigationAction.REPLACE, ScanCableLookupScreen, self.context)
-            cable_description, special_baby_type_id = result
+        return self.scan_cables_loop(operator, cable_type)
 
-            # If new description (no existing type selected), create the type now
-            if special_baby_type_id is None and cable_description:
-                from greenlight.db import get_or_create_special_baby_type
-                custom_length = self.context.get("custom_length")
-                type_result = get_or_create_special_baby_type(cable_type.sku, cable_description, custom_length)
-                if type_result:
-                    special_baby_type_id = type_result['id']
-
-        # Show scanning interface
-        return self.scan_cables_loop(operator, cable_type, cable_description, special_baby_type_id)
-
-    def get_misc_cable_description(self, operator, cable_type):
-        """Prompt for custom description for miscellaneous cable.
-
-        Shows existing types for this base SKU so the operator can reuse one,
-        or enter a new description.
-
-        Returns:
-            (description, special_baby_type_id) tuple, or None if user cancels.
-            type_id is set when reusing an existing type, None when entering new.
-        """
-        from greenlight.db import search_special_baby_types
-
-        self.ui.console.clear()
-        self.ui.header(operator)
-
-        # Get custom length from context if available
-        custom_length = self.context.get("custom_length")
-        length_info = ""
-        if custom_length:
-            # Format length nicely
-            if custom_length == int(custom_length):
-                length_str = f"{int(custom_length)}ft"
-            else:
-                length_str = f"{custom_length}ft"
-            length_info = f"Length: [bold green]{length_str}[/bold green]\n"
-
-        # Check for existing types for this base SKU
-        existing_types = search_special_baby_types(cable_type.sku)
-
-        # Build body text
-        body_parts = [
-            f"[bold yellow]Miscellaneous Cable Registration[/bold yellow]\n",
-            f"SKU: {cable_type.sku}",
-            f"Series: {cable_type.series}",
-            length_info,
-        ]
-
-        if existing_types:
-            body_parts.append("[bold cyan]Existing types for this SKU:[/bold cyan]")
-            for i, t in enumerate(existing_types):
-                length_display = f" ({t['length']}ft)" if t.get('length') else ""
-                body_parts.append(f"  [green]{i + 1}.[/green] {t['description']}{length_display}")
-            body_parts.append("")
-            body_parts.append("[bold cyan]Enter a number to reuse, or type a new description:[/bold cyan]")
-        else:
-            body_parts.append(
-                "[bold cyan]Please enter a description for this cable:[/bold cyan]\n"
-                "[dim](Length is already stored separately - don't include it here)[/dim]\n\n"
-                "Include details like:\n"
-                "  • Color/pattern (e.g., 'custom blue/orange')\n"
-                "  • Connector types (e.g., 'Neutrik TS-TRS')\n"
-                "  • Cable construction (e.g., 'cotton braid')\n"
-                "  • Any special attributes\n\n"
-                "Example: 'dark putty houndstooth with gold connectors instead of nickel'"
-            )
-
-        self.ui.layout["body"].update(Panel(
-            "\n".join(body_parts),
-            title="📝 Custom Cable Description",
-            border_style="yellow"
-        ))
-        max_desc_len = 90
-        prefill_text = None
-
-        try:
-            while True:
-                if prefill_text:
-                    self.ui.layout["footer"].update(Panel(
-                        f"[red]Too long ({len(prefill_text)}/{max_desc_len} chars) — please shorten:[/red]",
-                        title="Description"
-                    ))
-                else:
-                    prompt_hint = "Enter number or description"
-                    if existing_types:
-                        prompt_hint += f" (1-{len(existing_types)} to reuse)"
-                    self.ui.layout["footer"].update(Panel(
-                        f"{prompt_hint} (max {max_desc_len} chars) or 'q' to cancel",
-                        title="Description"
-                    ))
-                self.ui.render()
-
-                # Pre-fill input with previous too-long text so user can edit in place
-                if prefill_text:
-                    readline.set_startup_hook(lambda: readline.insert_text(prefill_text))
-                else:
-                    readline.set_startup_hook(None)
-
-                try:
-                    description = self.ui.console.input("Description: ").strip()
-                finally:
-                    readline.set_startup_hook(None)
-
-                if description.lower() == 'q' or not description:
-                    return None
-
-                # Check if they entered a number to select an existing type
-                if existing_types and description.isdigit():
-                    idx = int(description) - 1
-                    if 0 <= idx < len(existing_types):
-                        selected = existing_types[idx]
-                        return (selected['description'], selected['id'])
-
-                if len(description) <= max_desc_len:
-                    return (description, None)
-
-                prefill_text = description
-        except KeyboardInterrupt:
-            return None
-
-    def scan_cables_loop(self, operator, cable_type, cable_description=None, special_baby_type_id=None):
+    def scan_cables_loop(self, operator, cable_type):
         """Main scanning loop for registering multiple cables
 
         Args:
             operator: Operator ID
-            cable_type: CableType object
-            cable_description: Optional custom description for MISC SKUs
-            special_baby_type_id: Optional FK to special_baby_types for MISC cables
+            cable_type: CableType object (already resolved to a real variant SKU)
         """
         scanned_count = 0
         scanned_serials = []
@@ -2010,8 +2015,8 @@ class ScanCableIntakeScreen(CableScreenBase):
                     f"[bold cyan]Cable Type:[/bold cyan] {cable_type.name()}\n"
                     f"[bold cyan]SKU:[/bold cyan] {cable_type.sku}\n"
                 )
-                if cable_description:
-                    scan_info += f"[bold cyan]Description:[/bold cyan] {cable_description}\n"
+                if sku_kind(cable_type.sku) == 'misc' and cable_type.description:
+                    scan_info += f"[bold cyan]Description:[/bold cyan] {cable_type.description}\n"
                 scan_info += f"\n[bold yellow]Scanned:[/bold yellow] {scanned_count} cable{'s' if scanned_count != 1 else ''}"
                 if scanned_serials:
                     recent = scanned_serials[-5:]
@@ -2060,14 +2065,13 @@ class ScanCableIntakeScreen(CableScreenBase):
             # Format the serial number (pad to 6 digits)
             formatted_serial = format_serial_number(serial_number)
 
-            # Allow update if MISC cable or re-registering an existing cable
-            is_misc_cable = cable_type.sku.endswith("-MISC")
-            allow_update = is_misc_cable or self.context.get("re_register", False)
+            # Re-registering an existing cable lets the operator update test/operator fields,
+            # but the SKU itself is locked once a cable has been registered (per design).
+            allow_update = self.context.get("re_register", False)
 
             # Register the cable in database (note: formatted_serial is already formatted in register_scanned_cable)
             result = register_scanned_cable(serial_number, cable_type.sku, operator,
-                                          update_if_exists=allow_update,
-                                          special_baby_type_id=special_baby_type_id)
+                                          update_if_exists=allow_update)
 
             if result.get('success'):
                 # Successfully registered or updated
@@ -2150,8 +2154,7 @@ class ScanCableIntakeScreen(CableScreenBase):
                         elif user_choice == 'update':
                             # User chose to update - retry with update flag
                             update_result = register_scanned_cable(serial_number, cable_type.sku, operator,
-                                                                  update_if_exists=True,
-                                                                  special_baby_type_id=special_baby_type_id)
+                                                                  update_if_exists=True)
                             if update_result.get('success'):
                                 scanned_count += 1
                                 saved_serial = update_result['serial_number']

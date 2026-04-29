@@ -1394,8 +1394,8 @@ def _create_special_baby_product(title: str, shopify_sku: str, series: str, desc
             pass
 
 
-def update_special_baby_description(shopify_sku: str, description: str) -> Tuple[bool, Optional[str]]:
-    """Update the description of an existing special baby Shopify product.
+def update_shopify_product_description(shopify_sku: str, description: str) -> Tuple[bool, Optional[str]]:
+    """Update the description of an existing Shopify product by SKU.
 
     Returns (success, error_msg).
     """
@@ -1426,7 +1426,7 @@ def update_special_baby_description(shopify_sku: str, description: str) -> Tuple
 
         if "errors" in data:
             err = str(data["errors"])
-            logger.error(f"GraphQL errors updating special baby description: {err}")
+            logger.error(f"GraphQL errors updating product description: {err}")
             return False, err
 
         user_errors = data.get("data", {}).get("productUpdate", {}).get("userErrors", [])
@@ -1439,7 +1439,7 @@ def update_special_baby_description(shopify_sku: str, description: str) -> Tuple
         return True, None
     except Exception as e:
         err = str(e)
-        logger.error(f"Error updating special baby description: {err}")
+        logger.error(f"Error updating product description: {err}")
         return False, err
     finally:
         try:
@@ -1448,12 +1448,13 @@ def update_special_baby_description(shopify_sku: str, description: str) -> Tuple
             pass
 
 
-def ensure_special_baby_shopify_product(cable_record: Dict[str, Any], quantity: int = 1) -> Tuple[bool, Optional[str]]:
-    """Find-or-create a Shopify product for a MISC (special baby) cable and set inventory.
+def ensure_misc_shopify_product(cable_record: Dict[str, Any], quantity: int = 1) -> Tuple[bool, Optional[str]]:
+    """Find-or-create a "Special Baby" branded Shopify product for a MISC variant.
 
-    Uses the stable DB-sourced shopify_sku (from special_baby_types table).
-    If a product with that SKU already exists, sets inventory to quantity.
-    Otherwise creates a new product with the given inventory quantity.
+    Takes a cable record with sku, description, length, series, and connector
+    fields (matching the shape returned by db.get_audio_cable et al.). If a
+    Shopify product with the cable's SKU already exists, sets its inventory to
+    quantity. Otherwise creates a new product with the given inventory.
 
     Returns (success, error_msg).
     """
@@ -1464,10 +1465,9 @@ def ensure_special_baby_shopify_product(cable_record: Dict[str, Any], quantity: 
     if not description:
         return False, "MISC cable has no description — cannot create Shopify product"
 
-    # Use DB-sourced SKU from the joined special_baby_types table
-    shopify_sku = cable_record.get("special_baby_shopify_sku")
+    shopify_sku = cable_record.get("sku")
     if not shopify_sku:
-        return False, "MISC cable has no special_baby_shopify_sku — run migration or re-register"
+        return False, "Cable record has no sku"
 
     # Check if product already exists
     existing = _find_variant_by_sku(shopify_sku)
