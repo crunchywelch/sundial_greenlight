@@ -60,7 +60,7 @@ export async function loader({ request }) {
       LEFT JOIN cable_skus cs ON ac.sku = cs.sku
       LEFT JOIN special_baby_types sbt ON ac.special_baby_type_id = sbt.id
       WHERE ac.shopify_order_gid = $1
-      ORDER BY ac.test_timestamp DESC NULLS LAST`,
+      ORDER BY ac.updated_timestamp DESC NULLS LAST`,
       [orderId]
     );
 

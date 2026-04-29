@@ -21,12 +21,15 @@ function OrderFulfillmentBlock() {
   const { data, query } = useApi(TARGET);
   const [lineItems, setLineItems] = useState([]);
   const [customerId, setCustomerId] = useState(null);
+  const [fulfillmentStatus, setFulfillmentStatus] = useState(null);
   const [assignedCables, setAssignedCables] = useState([]);
-  const [scannerActive, setScannerActive] = useState(true);
   const [greenlightHosts, setGreenlightHosts] = useState([]);
   const [banner, setBanner] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastTimestamp, setLastTimestamp] = useState(0);
+  const [showAllScanned, setShowAllScanned] = useState(false);
+
+  const isReadOnly = fulfillmentStatus === "FULFILLED";
 
   const orderId = data.selected?.[0]?.id;
 
@@ -42,6 +45,7 @@ function OrderFulfillmentBlock() {
         const result = await query(
           `query getOrder($id: ID!) {
             order(id: $id) {
+              displayFulfillmentStatus
               customer {
                 id
               }
@@ -62,6 +66,7 @@ function OrderFulfillmentBlock() {
         const order = result?.data?.order;
         if (order) {
           setCustomerId(order.customer?.id || null);
+          setFulfillmentStatus(order.displayFulfillmentStatus || null);
           const items = (order.lineItems?.edges || []).map((e) => ({
             title: e.node.title,
             quantity: e.node.quantity,
@@ -189,7 +194,7 @@ function OrderFulfillmentBlock() {
 
   // Poll for scanner events
   useEffect(() => {
-    if (!scannerActive || !orderId) return;
+    if (!orderId || isReadOnly) return;
 
     const interval = setInterval(async () => {
       try {
@@ -198,19 +203,24 @@ function OrderFulfillmentBlock() {
         );
         const data = await response.json();
 
-        if (data.serial && data.timestamp > lastTimestamp) {
+        const greenlightActive = data.greenlightActive || [];
+        setGreenlightHosts(greenlightActive);
+
+        if (
+          data.serial &&
+          data.timestamp > lastTimestamp &&
+          greenlightActive.length === 0
+        ) {
           setLastTimestamp(data.timestamp);
           assignCable(data.serial);
         }
-        // Update Greenlight status from polling response
-        setGreenlightHosts(data.greenlightActive || []);
       } catch (err) {
         // Silently fail, will retry
       }
     }, 500);
 
     return () => clearInterval(interval);
-  }, [scannerActive, lastTimestamp, orderId, assignCable]);
+  }, [lastTimestamp, orderId, assignCable, isReadOnly]);
 
   // Calculate progress per SKU
   const skuProgress = lineItems.map((li) => {
@@ -240,29 +250,20 @@ function OrderFulfillmentBlock() {
   return (
     <AdminBlock title={`Fulfillment (${totalScanned}/${totalNeeded})`}>
       <BlockStack gap="base">
-        {/* Scanner status */}
-        <InlineStack gap="base" blockAlignment="center">
-          <Text fontWeight="bold">Scanner</Text>
-          {scannerActive ? (
-            <Badge tone="success">Active</Badge>
-          ) : (
-            <Badge tone="subdued">Paused</Badge>
-          )}
-          <Button
-            kind="plain"
-            onPress={() => setScannerActive(!scannerActive)}
-          >
-            {scannerActive ? "Pause" : "Resume"}
-          </Button>
-        </InlineStack>
-
-        {/* Greenlight active warning */}
-        {greenlightHosts.length > 0 && (
-          <Banner tone="warning" title={`Greenlight is running on ${greenlightHosts.join(", ")}`} />
+        {/* Scanner status (active mode only) */}
+        {!isReadOnly && (
+          <InlineStack gap="base" blockAlignment="center">
+            <Text fontWeight="bold">Scanner</Text>
+            {greenlightHosts.length > 0 ? (
+              <Badge tone="info">{`Greenlight scanning on ${greenlightHosts.join(", ")}`}</Badge>
+            ) : (
+              <Badge tone="success">Active</Badge>
+            )}
+          </InlineStack>
         )}
 
         {/* Scan result banner */}
-        {banner && (
+        {!isReadOnly && banner && (
           <Banner tone={banner.tone} title={banner.title} />
         )}
 
@@ -295,31 +296,62 @@ function OrderFulfillmentBlock() {
         {assignedCables.length > 0 && (
           <>
             <Divider />
-            <Text fontWeight="bold">
-              Scanned Cables ({assignedCables.length})
-            </Text>
-            {assignedCables.map((cable) => (
-              <InlineStack
-                key={cable.serial_number}
-                gap="base"
-                blockAlignment="center"
-              >
-                <Box inlineSize="fill">
-                  <Text>
-                    <Text fontWeight="bold">#{cable.serial_number}</Text>
-                    {" - "}
-                    {cable.series || ""}{cable.color ? ` ${cable.color}` : ""}{cable.sku ? ` (${cable.sku})` : ""}
-                  </Text>
-                </Box>
+            <InlineStack gap="base" blockAlignment="center">
+              <Box inlineSize="fill">
+                <Text fontWeight="bold">
+                  Scanned Cables ({assignedCables.length})
+                </Text>
+              </Box>
+              {!isReadOnly && assignedCables.length > 5 && (
                 <Button
                   kind="plain"
-                  tone="critical"
-                  onPress={() => unassignCable(cable.serial_number)}
+                  onPress={() => setShowAllScanned(!showAllScanned)}
                 >
-                  Remove
+                  {showAllScanned ? "Show recent" : `Show all (${assignedCables.length})`}
                 </Button>
-              </InlineStack>
-            ))}
+              )}
+            </InlineStack>
+            {isReadOnly ? (
+              // Read-only: grouped by SKU, one line per group
+              Object.entries(
+                assignedCables.reduce((acc, c) => {
+                  const key = c.sku || "(no sku)";
+                  if (!acc[key]) acc[key] = [];
+                  acc[key].push(c);
+                  return acc;
+                }, {})
+              ).map(([sku, cables]) => (
+                <Text key={sku}>
+                  <Text fontWeight="bold">{sku}</Text>
+                  {` (${cables.length}): `}
+                  {cables.map((c) => `#${c.serial_number}`).join(", ")}
+                </Text>
+              ))
+            ) : (
+              // Active: last 5 (or all if expanded), with Remove buttons
+              (showAllScanned ? assignedCables : assignedCables.slice(0, 5)).map((cable) => (
+                <InlineStack
+                  key={cable.serial_number}
+                  gap="base"
+                  blockAlignment="center"
+                >
+                  <Box inlineSize="fill">
+                    <Text>
+                      <Text fontWeight="bold">#{cable.serial_number}</Text>
+                      {" - "}
+                      {cable.series || ""}{cable.color ? ` ${cable.color}` : ""}{cable.sku ? ` (${cable.sku})` : ""}
+                    </Text>
+                  </Box>
+                  <Button
+                    kind="plain"
+                    tone="critical"
+                    onPress={() => unassignCable(cable.serial_number)}
+                  >
+                    Remove
+                  </Button>
+                </InlineStack>
+              ))
+            )}
           </>
         )}
       </BlockStack>
