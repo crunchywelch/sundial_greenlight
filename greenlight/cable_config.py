@@ -70,9 +70,31 @@ def series_for_prefix(prefix: str) -> Optional[str]:
     return s.get('product_line') if s else None
 
 
+def series_data_for_prefix(prefix: str) -> Optional[dict]:
+    """Return the full series YAML data for a prefix (product_line, core_cable,
+    braid_material, lengths[], connectors[], cost[]), or None if unknown.
+
+    Use series_for_prefix when only the name is needed; this is for callers
+    that need the full series spec (e.g. attribute defaults for variants).
+    """
+    return _SERIES.get(prefix)
+
+
 def pattern_for_code(code: str) -> Optional[dict]:
     """Return the pattern dict {code, name, fabric_type, description}, or None."""
     return _PATTERNS.get(code)
+
+
+def prefix_for_series(series_name: str) -> Optional[str]:
+    """Reverse lookup: full series name → SKU prefix. Returns None if unknown.
+
+    Useful when an existing API takes a series name (e.g. 'Studio Classic')
+    and we need to filter cable_skus by SKU prefix instead.
+    """
+    for prefix, data in _SERIES.items():
+        if data.get('product_line') == series_name:
+            return prefix
+    return None
 
 
 def _connector_display(series_prefix: str, connector_code: str) -> Optional[str]:

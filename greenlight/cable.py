@@ -5,6 +5,11 @@ from rich.text import Text
 from greenlight.db import pg_pool
 from greenlight.enums import fetch_enum_values
 from greenlight.hardware.interfaces import hardware_manager
+from greenlight.cable_config import (
+    series_for_prefix, prefix_for_series, series_data_for_prefix,
+    pattern_for_code, all_prefixes, all_patterns,
+)
+
 
 def get_all_skus():
     """Fetch all SKUs from the database"""
@@ -19,118 +24,162 @@ def get_all_skus():
     finally:
         pg_pool.putconn(conn)
 
+
 def filter_skus(partial_sku, all_skus):
     """Filter SKUs that match the partial input"""
     if not partial_sku:
         return all_skus[:20]  # Show first 20 if no input
-    
+
     partial_upper = partial_sku.upper()
     filtered = [sku for sku in all_skus if sku.upper().startswith(partial_upper)]
     return filtered[:20]  # Limit to 20 results
 
+
+# The discovery functions below all read from YAML now (no DB queries). The
+# previous DB-driven implementations queried distinct series/color_pattern/etc
+# from cable_skus columns that go away in Phase 3.5. YAML is the canonical
+# source for "what attribute combinations are available" — the DB only tracks
+# which specific SKUs have been generated.
+
 def get_distinct_series():
-    """Fetch all distinct series from the database"""
-    conn = pg_pool.getconn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT DISTINCT series FROM cable_skus ORDER BY series")
-            return [row[0] for row in cur.fetchall()]
-    except Exception as e:
-        print(f"Error fetching series: {e}")
-        return []
-    finally:
-        pg_pool.putconn(conn)
+    """All product series, sorted alphabetically. Sourced from YAML."""
+    return sorted(s for s in (series_for_prefix(p) for p in all_prefixes()) if s)
+
 
 def get_distinct_color_patterns(series=None):
-    """Fetch distinct color patterns, optionally filtered by series"""
-    conn = pg_pool.getconn()
-    try:
-        with conn.cursor() as cur:
-            if series:
-                cur.execute("SELECT DISTINCT color_pattern FROM cable_skus WHERE series = %s ORDER BY color_pattern", (series,))
-            else:
-                cur.execute("SELECT DISTINCT color_pattern FROM cable_skus ORDER BY color_pattern")
-            return [row[0] for row in cur.fetchall()]
-    except Exception as e:
-        print(f"Error fetching color patterns: {e}")
+    """Pattern names available for the selected series (or all series).
+
+    Filters by the series' fabric_type — only rayon patterns appear for rayon
+    series, only cotton patterns appear for cotton series. Sourced from
+    patterns.yaml + the per-series YAML's braid_material.
+    """
+    if series is None:
+        return sorted({p['name'] for p in all_patterns()})
+
+    prefix = prefix_for_series(series)
+    if prefix is None:
         return []
-    finally:
-        pg_pool.putconn(conn)
+    series_data = series_data_for_prefix(prefix)
+    if not series_data:
+        return []
+    fabric_type = (series_data.get('braid_material') or '').lower()
+    matching = [p['name'] for p in all_patterns()
+                if p.get('fabric_type', '').lower() == fabric_type]
+    return sorted(matching)
+
 
 def get_distinct_lengths(series=None, color_pattern=None):
-    """Fetch distinct lengths, optionally filtered by previous selections"""
-    conn = pg_pool.getconn()
-    try:
-        with conn.cursor() as cur:
-            conditions = []
-            params = []
-            
-            if series:
-                conditions.append("series = %s")
-                params.append(series)
-            if color_pattern:
-                conditions.append("color_pattern = %s")
-                params.append(color_pattern)
-            
-            where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
-            query = f"SELECT DISTINCT length FROM cable_skus{where_clause}"
-            
-            cur.execute(query, params)
-            lengths = [row[0] for row in cur.fetchall()]
-            # Sort numerically
-            try:
-                return sorted(lengths, key=lambda x: float(x))
-            except ValueError:
-                return sorted(lengths)
-    except Exception as e:
-        print(f"Error fetching lengths: {e}")
+    """Lengths offered for a series (color_pattern is informational here —
+    every pattern that fits the series is available in every length).
+
+    Sourced from the per-series YAML's lengths[] list.
+    """
+    if series is None:
+        # Union of every series' lengths
+        lengths = set()
+        for prefix in all_prefixes():
+            data = series_data_for_prefix(prefix)
+            if data:
+                lengths.update(data.get('lengths', []))
+        return sorted(lengths)
+
+    prefix = prefix_for_series(series)
+    if prefix is None:
         return []
-    finally:
-        pg_pool.putconn(conn)
+    data = series_data_for_prefix(prefix)
+    if not data:
+        return []
+    # Format consistently with what audio_sync_skus.format_length_for_sku does.
+    # The screens generally treat lengths as strings for SKU construction.
+    return [str(l) if l >= 1 else '06' for l in sorted(data.get('lengths', []))]
+
 
 def get_distinct_connector_types(series=None, color_pattern=None, length=None):
-    """Fetch distinct connector types, optionally filtered by previous selections"""
-    conn = pg_pool.getconn()
-    try:
-        with conn.cursor() as cur:
-            conditions = []
-            params = []
-            
-            if series:
-                conditions.append("series = %s")
-                params.append(series)
-            if color_pattern:
-                conditions.append("color_pattern = %s")
-                params.append(color_pattern)
-            if length:
-                conditions.append("length = %s")
-                params.append(length)
-            
-            where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
-            query = f"SELECT DISTINCT connector_type FROM cable_skus{where_clause} ORDER BY connector_type"
-            
-            cur.execute(query, params)
-            return [row[0] for row in cur.fetchall()]
-    except Exception as e:
-        print(f"Error fetching connector types: {e}")
+    """Connector display strings offered for a series (e.g. 'TS–TS', 'RA–TS',
+    'XLR–XLR'). Sourced from the per-series YAML's connectors[] list."""
+    if series is None:
+        # Union across all series
+        out = set()
+        for prefix in all_prefixes():
+            data = series_data_for_prefix(prefix)
+            if data:
+                for c in data.get('connectors', []):
+                    if c.get('display'):
+                        out.add(c['display'])
+        return sorted(out)
+
+    prefix = prefix_for_series(series)
+    if prefix is None:
         return []
-    finally:
-        pg_pool.putconn(conn)
+    data = series_data_for_prefix(prefix)
+    if not data:
+        return []
+    return [c['display'] for c in data.get('connectors', []) if c.get('display')]
+
+
+def _connector_code_for_display(prefix, display):
+    """Reverse lookup: connector display string → SKU connector code (e.g.
+    'RA–TS' → '-R'). Returns None if no match."""
+    data = series_data_for_prefix(prefix)
+    if not data:
+        return None
+    for conn in data.get('connectors', []):
+        if conn.get('display') == display:
+            return conn.get('code') or ''
+    return None
+
+
+def _pattern_code_for_name(name, fabric_type=None):
+    """Reverse lookup: pattern name → pattern code, optionally filtered by
+    fabric_type. Returns None if not found."""
+    for p in all_patterns():
+        if p.get('name') != name:
+            continue
+        if fabric_type and p.get('fabric_type', '').lower() != fabric_type.lower():
+            continue
+        return p.get('code')
+    return None
+
 
 def find_cable_by_attributes(series, color_pattern, length, connector_type):
-    """Find cable SKU that matches the selected attributes"""
+    """Find the catalog SKU matching (series, color_pattern, length, connector).
+
+    Constructs the SKU from YAML lookups (prefix from series, code from
+    pattern_name, code from connector display string) and verifies it exists
+    in cable_skus before returning it. Returns None if any lookup fails or
+    the SKU isn't registered.
+    """
+    prefix = prefix_for_series(series)
+    if prefix is None:
+        return None
+
+    series_data = series_data_for_prefix(prefix)
+    if not series_data:
+        return None
+
+    pattern_code = _pattern_code_for_name(
+        color_pattern, fabric_type=series_data.get('braid_material'))
+    if pattern_code is None:
+        return None
+
+    connector_code = _connector_code_for_display(prefix, connector_type)
+    if connector_code is None:
+        return None
+
+    # Length comes in as a string like '12' or '06' from the screens.
+    sku = f"{prefix}-{length}{pattern_code}{connector_code}"
+
+    # Confirm the SKU exists in cable_skus (audio_sync_skus generates the
+    # full cartesian, but a missing combination would be a config gap).
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""
-                SELECT sku FROM cable_skus 
-                WHERE series = %s AND color_pattern = %s AND length = %s AND connector_type = %s
-                LIMIT 1
-            """, (series, color_pattern, length, connector_type))
-            result = cur.fetchone()
-            return result[0] if result else None
+            cur.execute("SELECT 1 FROM cable_skus WHERE sku = %s LIMIT 1", (sku,))
+            if cur.fetchone():
+                return sku
+            return None
     except Exception as e:
-        print(f"Error finding cable by attributes: {e}")
+        print(f"Error verifying cable SKU: {e}")
         return None
     finally:
         pg_pool.putconn(conn)
@@ -158,35 +207,56 @@ class CableType:
     def name(self):
         if not self.series:
             return "Not loaded"
-        
-        base = f"{self.series} {self.length}ft {self.color_pattern}"
-        if self.connector_type and self.connector_type.startswith("RA"):
-            base += " (RA)"
-        return base
+
+        # Catalog cables: "Series LengthFt ColorPattern (RA)"
+        # MISC/LTD: color_pattern/connector_type are None (kind-driven shape).
+        # Fall back to "Series LengthFt — description" for those.
+        if self.color_pattern:
+            base = f"{self.series} {self.length}ft {self.color_pattern}"
+            if self.connector_type and self.connector_type.startswith("RA"):
+                base += " (RA)"
+            return base
+
+        suffix = self.description or 'variant'
+        return f"{self.series} {self.length}ft — {suffix}"
 
     def load(self, sku):
-        """Load cable data from database by SKU"""
+        """Load cable data by SKU.
+
+        Reads the minimal columns from cable_skus (sku, description, length)
+        and resolves series/core_cable/braid_material/color_pattern/connector_type
+        via the YAML resolver. After Phase 3.5 drops the soon-to-die columns,
+        this function is the only place that needs to change to keep the
+        public attribute surface (.series, .color_pattern, etc.) stable.
+        """
+        from greenlight.db import _enrich_record
+
         conn = pg_pool.getconn()
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT * FROM cable_skus WHERE sku = %s", (sku,))
+                cur.execute(
+                    "SELECT sku, description, length FROM cable_skus WHERE sku = %s",
+                    (sku,),
+                )
                 row = cur.fetchone()
                 if not row:
                     raise ValueError(f"SKU {sku} not found.")
-                
-                colnames = [desc[0] for desc in cur.description]
-                cable_data = dict(zip(colnames, row))
-                
-                # Populate instance attributes
-                self.sku = cable_data.get('sku')
-                self.series = cable_data.get('series')
-                self.price = cable_data.get('price')
-                self.core_cable = cable_data.get('core_cable')
-                self.braid_material = cable_data.get('braid_material')
-                self.color_pattern = cable_data.get('color_pattern')
-                self.length = cable_data.get('length')
-                self.connector_type = cable_data.get('connector_type')
-                self.description = cable_data.get('description')
+
+                record = _enrich_record({
+                    'sku': row[0],
+                    'description': row[1],
+                    'length': row[2],
+                })
+
+                self.sku = record['sku']
+                self.series = record.get('series')
+                self.price = None  # not stored on cable_skus; not used by callers today
+                self.core_cable = record.get('core_cable')
+                self.braid_material = record.get('braid_material')
+                self.color_pattern = record.get('color_pattern')
+                self.length = record.get('length')
+                self.connector_type = record.get('connector_type')
+                self.description = record.get('description')
         finally:
             pg_pool.putconn(conn)
     

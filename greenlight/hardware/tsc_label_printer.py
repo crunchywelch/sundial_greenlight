@@ -267,8 +267,11 @@ class TSCLabelPrinter(LabelPrinterInterface):
         if isinstance(length, (int, float)):
             # Format as integer if it's a whole number (20.0 -> 20)
             length = str(int(length)) if length == int(length) else str(length)
-        color_pattern = data.get('color_pattern', 'Unknown')
-        connector_type = data.get('connector_type', 'Unknown')
+        # color_pattern / connector_type are catalog-only after Phase 3.4 (None for
+        # MISC/LTD via the resolver). Default to 'Unknown' if absent OR None so
+        # downstream string formatting stays safe.
+        color_pattern = data.get('color_pattern') or 'Unknown'
+        connector_type = data.get('connector_type') or 'Unknown'
         sku = data.get('sku', 'UNKNOWN')
         description = data.get('description')
         if description:

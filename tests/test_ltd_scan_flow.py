@@ -27,31 +27,35 @@ TEST_SERIAL = "TESTLTD1"
 
 
 def insert_ltd_edition_directly():
-    """Simulate what the Shopify app's CRUD UI does: insert cable_skus row + sidecar."""
+    """Simulate what the Shopify app's CRUD UI does: insert cable_skus row + sidecar.
+
+    Sources series/core_cable/braid_material/connector_type from the YAML
+    resolver (matches greenlight.db.get_or_create_misc_sku and the Shopify
+    app's editions.server.js post-Phase-3.4). After Phase 3.5 drops those
+    columns the INSERT will simplify further.
+    """
+    from greenlight.cable_config import series_data_for_prefix
+
+    series_data = series_data_for_prefix(TEST_PREFIX)
+    if not series_data:
+        raise RuntimeError(f"Unknown series prefix {TEST_PREFIX} in YAML")
+    series_name = series_data['product_line']
+    core_cable = series_data['core_cable']
+    braid_material = series_data['braid_material']
+    connectors = series_data.get('connectors') or []
+    connector_type = connectors[0]['display'] if connectors else 'Unknown'
+
     conn = pg_pool.getconn()
     try:
         with conn:
             with conn.cursor() as cur:
-                # Get template fields from any existing cable_skus row in the prefix
-                cur.execute("""
-                    SELECT series, core_cable, braid_material, connector_type
-                    FROM cable_skus
-                    WHERE sku LIKE %s
-                    ORDER BY sku
-                    LIMIT 1
-                """, (f"{TEST_PREFIX}-%",))
-                tmpl = cur.fetchone()
-                if not tmpl:
-                    raise RuntimeError(f"No cable_skus rows for prefix {TEST_PREFIX}")
-                series, core_cable, braid_material, connector_type = tmpl
-
                 cur.execute("""
                     INSERT INTO cable_skus (sku, series, core_cable, braid_material,
                                             color_pattern, length, connector_type, description)
                     VALUES (%s, %s, %s, %s, 'Limited Edition', %s, %s, %s)
                     ON CONFLICT (sku) DO UPDATE
                     SET description = EXCLUDED.description
-                """, (TEST_SKU, series, core_cable, braid_material,
+                """, (TEST_SKU, series_name, core_cable, braid_material,
                       TEST_LENGTH, connector_type, TEST_DESCRIPTION))
 
                 cur.execute("""

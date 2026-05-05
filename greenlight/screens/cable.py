@@ -165,9 +165,13 @@ class CableScreenBase(Screen):
 
 [bold cyan]Cable Details:[/bold cyan]
   Series: {series}
-  Length: {length} ft
-  Color: {color_pattern}
-  Connector: {connector_type}"""
+  Length: {length} ft"""
+
+        # Color and connector are catalog-only (resolver returns None for MISC/LTD).
+        if color_pattern:
+            left += f"\n  Color: {color_pattern}"
+        if connector_type:
+            left += f"\n  Connector: {connector_type}"
 
         kind = sku_kind(sku)
         event_name = cable_record.get("event_name")

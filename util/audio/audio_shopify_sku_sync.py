@@ -46,29 +46,22 @@ def get_database_skus() -> Dict[str, Dict[str, str]]:
             }
         }
     """
+    from greenlight.db import _enrich_record
+
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT sku, series, core_cable, braid_material,
-                       color_pattern, length, connector_type, description
-                FROM cable_skus
-                ORDER BY sku
+                SELECT sku, length, description FROM cable_skus ORDER BY sku
             """)
 
             sku_map = {}
-            for row in cur.fetchall():
-                sku_map[row[0]] = {
-                    'sku': row[0],
-                    'series': row[1],
-                    'core_cable': row[2],
-                    'braid_material': row[3],
-                    'color_pattern': row[4],
-                    'length': row[5],
-                    'connector_type': row[6],
-                    'description': row[7]
-                }
-
+            for sku, length, description in cur.fetchall():
+                sku_map[sku] = _enrich_record({
+                    'sku': sku,
+                    'length': length,
+                    'description': description,
+                })
             return sku_map
     except Exception as e:
         print(f"❌ Error fetching database SKUs: {e}")
@@ -143,10 +136,10 @@ def main():
                 skus = by_series[series]
                 print(f"   {series} ({len(skus)} SKUs):")
                 for sku_data in sorted(skus, key=lambda x: x['sku'])[:20]:
-                    length = sku_data['length']
-                    color = sku_data['color_pattern']
-                    connector = sku_data['connector_type']
-                    print(f"      {sku_data['sku']:20} | {length:>4}ft | {color:15} | {connector}")
+                    length = sku_data.get('length') or '?'
+                    color = sku_data.get('color_pattern') or sku_data.get('description') or '—'
+                    connector = sku_data.get('connector_type') or '—'
+                    print(f"      {sku_data['sku']:20} | {str(length):>4}ft | {color:15} | {connector}")
 
                 if len(skus) > 20:
                     print(f"      ... and {len(skus) - 20} more")
