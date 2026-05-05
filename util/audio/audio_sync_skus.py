@@ -161,31 +161,19 @@ def generate_skus(product_lines, patterns):
 
 
 def get_existing_skus():
-    """Get all SKUs currently in database with their descriptions"""
+    """Get all SKUs currently in database with their descriptions.
+
+    Returns dict keyed by sku → {sku, description}. After Phase 3.5,
+    cable_skus only stores the irreducible (sku, description, length)
+    state — derivable fields come from the YAML resolver at read time.
+    Catalog rows have length=NULL (length token is in the SKU); MISC/LTD
+    have a numeric length.
+    """
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""
-                SELECT sku, description, series, core_cable, braid_material,
-                       color_pattern, length, connector_type
-                FROM cable_skus
-                ORDER BY sku
-            """)
-
-            existing = {}
-            for row in cur.fetchall():
-                existing[row[0]] = {
-                    'sku': row[0],
-                    'description': row[1],
-                    'series': row[2],
-                    'core_cable': row[3],
-                    'braid_material': row[4],
-                    'color_pattern': row[5],
-                    'length': row[6],
-                    'connector_type': row[7]
-                }
-            
-            return existing
+            cur.execute("SELECT sku, description FROM cable_skus ORDER BY sku")
+            return {row[0]: {'sku': row[0], 'description': row[1]} for row in cur.fetchall()}
     except Exception as e:
         print(f"❌ Error fetching existing SKUs: {e}")
         return {}
@@ -194,19 +182,14 @@ def get_existing_skus():
 
 
 def insert_sku(sku_data):
-    """Insert a single SKU into database"""
+    """Insert a catalog SKU. Length is NULL (encoded in the SKU itself)."""
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO cable_skus
-                    (sku, series, core_cable, braid_material,
-                     color_pattern, length, connector_type, description)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, (sku_data['sku'], sku_data['series'],
-                  sku_data['core_cable'], sku_data['braid_material'],
-                  sku_data['color_pattern'], sku_data['length'],
-                  sku_data['connector_type'], sku_data['description']))
+            cur.execute(
+                "INSERT INTO cable_skus (sku, description) VALUES (%s, %s)",
+                (sku_data['sku'], sku_data['description']),
+            )
             conn.commit()
             return True
     except Exception as e:
@@ -218,24 +201,14 @@ def insert_sku(sku_data):
 
 
 def update_sku(sku_data):
-    """Update an existing SKU in database"""
+    """Update an existing catalog SKU's description."""
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""
-                UPDATE cable_skus
-                SET description = %s,
-                    series = %s,
-                    core_cable = %s,
-                    braid_material = %s,
-                    color_pattern = %s,
-                    length = %s,
-                    connector_type = %s
-                WHERE sku = %s
-            """, (sku_data['description'], sku_data['series'],
-                  sku_data['core_cable'], sku_data['braid_material'],
-                  sku_data['color_pattern'], sku_data['length'],
-                  sku_data['connector_type'], sku_data['sku']))
+            cur.execute(
+                "UPDATE cable_skus SET description = %s, updated_at = CURRENT_TIMESTAMP WHERE sku = %s",
+                (sku_data['description'], sku_data['sku']),
+            )
             conn.commit()
             return True
     except Exception as e:
@@ -312,22 +285,17 @@ def main():
     # Find what needs to be inserted
     missing_skus = [sku for sku in generated_skus if sku['sku'] in missing_sku_codes]
     
-    # Find what needs to be updated (description or other fields changed)
+    # Find what needs to be updated. After Phase 3.5, only description is
+    # stored on cable_skus for catalog rows — everything else is derived
+    # from the SKU + YAML at read time.
     skus_to_update = []
     for sku in generated_skus:
         if sku['sku'] in common_sku_codes:
             existing = existing_skus[sku['sku']]
-            # Check if any field has changed
-            if (existing['description'] != sku['description'] or
-                existing['series'] != sku['series'] or
-                existing['core_cable'] != sku['core_cable'] or
-                existing['braid_material'] != sku['braid_material'] or
-                existing['color_pattern'] != sku['color_pattern'] or
-                existing['length'] != sku['length'] or
-                existing['connector_type'] != sku['connector_type']):
+            if existing['description'] != sku['description']:
                 skus_to_update.append({
                     'sku': sku,
-                    'old': existing
+                    'old': existing,
                 })
     
     # Show results
@@ -347,7 +315,7 @@ def main():
         print()
         for sku_code in sorted(orphaned_sku_codes):
             sku_data = existing_skus[sku_code]
-            print(f"   {sku_code:20} | {sku_data['series']:15} | {sku_data['color_pattern']}")
+            print(f"   {sku_code:20} | {sku_data['description'] or '—'}")
         print()
         print("   Note: These SKUs won't be deleted automatically.")
         print("   Remove them manually if they're no longer needed.")

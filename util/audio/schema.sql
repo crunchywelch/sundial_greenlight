@@ -5,22 +5,28 @@
 -- TABLES
 -- ============================================================================
 
--- Cable SKUs table - all cable variants (catalog and MISC).
--- Every variant has its own row keyed by its SKU. MISC variants follow the
--- pattern {series_prefix}-MISC-{seq} (e.g. "SC-MISC-42") and have a
--- color_pattern of 'Miscellaneous'. Catalog rows use the standard format.
--- See docs/CABLE_VARIANTS_REFACTOR.md.
+-- Cable SKUs table - all cable variants (catalog, MISC, LTD).
+-- Stores only the irreducible per-SKU state. Series, construction fields,
+-- color/pattern, and connector type are derived from the SKU + YAML config
+-- (util/product_lines/*.yaml) at read time. See greenlight/cable_config.py
+-- and shopify_app/app/cable-config.server.js for the resolver.
+--
+-- length is NULL for catalog SKUs (where the length token lives in the SKU
+-- string itself, e.g. "SC-12GL" → 12ft) and required for MISC/LTD variants
+-- (where the SKU does not encode length). The CHECK constraint enforces
+-- this structurally.
+--
+-- See docs/CABLE_VARIANTS_REFACTOR.md for the full design rationale.
 CREATE TABLE IF NOT EXISTS cable_skus (
     sku TEXT PRIMARY KEY,
-    series TEXT NOT NULL,
-    core_cable TEXT NOT NULL,
-    braid_material TEXT NOT NULL,
-    color_pattern TEXT NOT NULL,
-    length TEXT NOT NULL,
-    connector_type TEXT NOT NULL,
     description TEXT,
+    length NUMERIC(5,2),
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT length_required_for_variants CHECK (
+        length IS NOT NULL
+        OR NOT (sku ~ '-(MISC-[0-9]+|LTD-[A-Z0-9]{4,12})$')
+    )
 );
 
 -- Audio cables table - Production records
@@ -48,11 +54,10 @@ CREATE INDEX IF NOT EXISTS idx_audio_cables_order_gid ON audio_cables(shopify_or
 -- LTD (Limited Edition) cable metadata sidecar.
 -- One row per LTD edition cable_skus row (sku pattern: {prefix}-LTD-{slug}).
 -- CRUD lives in the Shopify app; greenlight is read-only on this table.
--- See docs/CABLE_VARIANTS_REFACTOR.md § Phase 2.
+-- archived_at IS NULL means the edition is active.
 CREATE TABLE IF NOT EXISTS cable_ltd_metadata (
     sku TEXT PRIMARY KEY REFERENCES cable_skus(sku) ON DELETE CASCADE,
     event_name TEXT NOT NULL,
-    active BOOLEAN NOT NULL DEFAULT TRUE,
     archived_at TIMESTAMPTZ,
     created_by TEXT,
     notes TEXT,
@@ -60,7 +65,7 @@ CREATE TABLE IF NOT EXISTS cable_ltd_metadata (
 );
 
 CREATE INDEX IF NOT EXISTS idx_ltd_metadata_active
-    ON cable_ltd_metadata(active) WHERE active = TRUE;
+    ON cable_ltd_metadata(archived_at) WHERE archived_at IS NULL;
 
 -- ============================================================================
 -- SEQUENCES

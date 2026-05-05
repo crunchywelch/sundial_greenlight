@@ -20,7 +20,7 @@ TEST_PREFIX = "SC"
 TEST_SLUG = "TESTPHISH"
 TEST_SKU = f"{TEST_PREFIX}-LTD-{TEST_SLUG}"
 TEST_EVENT_NAME = "Phish Summer Tour Test 2026"
-TEST_LENGTH = "10"
+TEST_LENGTH = 10  # cable_skus.length is now NUMERIC(5,2)
 TEST_DESCRIPTION = "10ft cotton TRS-TRS, custom forest green braid"
 TEST_OPERATOR = "ADW"
 TEST_SERIAL = "TESTLTD1"
@@ -29,41 +29,27 @@ TEST_SERIAL = "TESTLTD1"
 def insert_ltd_edition_directly():
     """Simulate what the Shopify app's CRUD UI does: insert cable_skus row + sidecar.
 
-    Sources series/core_cable/braid_material/connector_type from the YAML
-    resolver (matches greenlight.db.get_or_create_misc_sku and the Shopify
-    app's editions.server.js post-Phase-3.4). After Phase 3.5 drops those
-    columns the INSERT will simplify further.
+    Post-Phase-3.5, cable_skus is just (sku, description, length); series and
+    construction fields come from the YAML resolver at read time. The
+    cable_ltd_metadata sidecar carries event_name and lifecycle state.
     """
-    from greenlight.cable_config import series_data_for_prefix
-
-    series_data = series_data_for_prefix(TEST_PREFIX)
-    if not series_data:
-        raise RuntimeError(f"Unknown series prefix {TEST_PREFIX} in YAML")
-    series_name = series_data['product_line']
-    core_cable = series_data['core_cable']
-    braid_material = series_data['braid_material']
-    connectors = series_data.get('connectors') or []
-    connector_type = connectors[0]['display'] if connectors else 'Unknown'
-
     conn = pg_pool.getconn()
     try:
         with conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    INSERT INTO cable_skus (sku, series, core_cable, braid_material,
-                                            color_pattern, length, connector_type, description)
-                    VALUES (%s, %s, %s, %s, 'Limited Edition', %s, %s, %s)
+                    INSERT INTO cable_skus (sku, description, length)
+                    VALUES (%s, %s, %s)
                     ON CONFLICT (sku) DO UPDATE
-                    SET description = EXCLUDED.description
-                """, (TEST_SKU, series_name, core_cable, braid_material,
-                      TEST_LENGTH, connector_type, TEST_DESCRIPTION))
+                    SET description = EXCLUDED.description,
+                        length = EXCLUDED.length
+                """, (TEST_SKU, TEST_DESCRIPTION, TEST_LENGTH))
 
                 cur.execute("""
-                    INSERT INTO cable_ltd_metadata (sku, event_name, active, created_by)
-                    VALUES (%s, %s, TRUE, %s)
+                    INSERT INTO cable_ltd_metadata (sku, event_name, created_by)
+                    VALUES (%s, %s, %s)
                     ON CONFLICT (sku) DO UPDATE
                     SET event_name = EXCLUDED.event_name,
-                        active = TRUE,
                         archived_at = NULL
                 """, (TEST_SKU, TEST_EVENT_NAME, TEST_OPERATOR))
             conn.commit()

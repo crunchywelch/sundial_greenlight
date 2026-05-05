@@ -324,18 +324,20 @@ def _enrich_record(record):
     record['series'] = parsed.get('series')
 
     if kind == 'catalog':
-        # SKU encodes length; resolver returns int. Override DB-text length.
+        # SKU encodes length; resolver returns int. Override the DB length
+        # (which is NULL for catalog rows post-Phase-3.5).
         record['length'] = parsed.get('length')
         record['color_pattern'] = parsed.get('pattern_name')
         record['connector_type'] = parsed.get('connector_display')
     else:
-        # MISC/LTD: length lives on cable_skus.length (already in record).
-        # Coerce to numeric if it's a text value from the DB.
+        # MISC/LTD: length lives on cable_skus.length as NUMERIC(5,2). Coerce
+        # to float so consumers see a stable type (psycopg2 returns Decimal
+        # for NUMERIC, which compares equal to float but formats differently).
         raw_length = record.get('length')
-        if isinstance(raw_length, str):
+        if raw_length is not None:
             try:
                 record['length'] = float(raw_length)
-            except ValueError:
+            except (TypeError, ValueError):
                 pass  # leave as-is
         # color_pattern / connector_type aren't really applicable to variants.
         # Consumers that branch on kind handle display.
@@ -404,13 +406,6 @@ def get_or_create_misc_sku(series_prefix, description, length):
     variant already exists for this prefix, returns its SKU. Otherwise
     inserts a new cable_skus row with sku = "{prefix}-MISC-{nextval}".
 
-    The series/core_cable/braid_material/connector_type columns on cable_skus
-    are still NOT NULL until Phase 3.5, so we still write them here, but the
-    values come from the YAML resolver instead of a template-row SELECT (the
-    old approach copied from a representative existing row in the prefix).
-    Once 3.5 drops those columns, this INSERT simplifies to (sku, description,
-    length) only.
-
     Args:
         series_prefix: e.g. "SC", "TC"
         description: Free-form cable description
@@ -419,24 +414,17 @@ def get_or_create_misc_sku(series_prefix, description, length):
     Returns:
         sku string, or None on error
     """
-    from greenlight.cable_config import series_data_for_prefix
+    from greenlight.cable_config import series_for_prefix
 
     if length is None:
         logger.error("get_or_create_misc_sku called without length")
         return None
-    length_text = str(length)
 
-    series_data = series_data_for_prefix(series_prefix)
-    if not series_data:
+    # Validate the prefix is known to the YAML — protects against typos
+    # and unknown series before we allocate a sequence number.
+    if series_for_prefix(series_prefix) is None:
         logger.error("Unknown series prefix %s — no YAML config", series_prefix)
         return None
-
-    series_name = series_data.get('product_line')
-    core_cable = series_data.get('core_cable')
-    braid_material = series_data.get('braid_material')
-    # Pick the first connector option as a placeholder for the soon-to-die column.
-    connectors = series_data.get('connectors') or []
-    connector_type = connectors[0].get('display') if connectors else 'Unknown'
 
     conn = pg_pool.getconn()
     try:
@@ -454,7 +442,7 @@ def get_or_create_misc_sku(series_prefix, description, length):
                     WHERE sku LIKE %s
                       AND description = %s
                       AND length = %s
-                """, (f"{series_prefix}-MISC-%", description, length_text))
+                """, (f"{series_prefix}-MISC-%", description, length))
                 existing = cur.fetchone()
                 if existing:
                     return existing[0]
@@ -465,12 +453,9 @@ def get_or_create_misc_sku(series_prefix, description, length):
                 new_sku = f"{series_prefix}-MISC-{seq}"
 
                 cur.execute("""
-                    INSERT INTO cable_skus
-                        (sku, series, core_cable, braid_material, color_pattern,
-                         length, connector_type, description)
-                    VALUES (%s, %s, %s, %s, 'Miscellaneous', %s, %s, %s)
-                """, (new_sku, series_name, core_cable, braid_material,
-                      length_text, connector_type, description))
+                    INSERT INTO cable_skus (sku, description, length)
+                    VALUES (%s, %s, %s)
+                """, (new_sku, description, length))
                 conn.commit()
                 return new_sku
     except Exception as e:
@@ -530,7 +515,7 @@ def list_ltd_editions(active_only=True, series_prefix=None):
             params = []
             where_clauses = ["cs.sku ~ '-LTD-[A-Z0-9]{4,12}$'"]
             if active_only:
-                where_clauses.append("lm.active = TRUE")
+                where_clauses.append("lm.archived_at IS NULL")
             if series_prefix:
                 where_clauses.append("cs.sku LIKE %s")
                 params.append(f"{series_prefix}-LTD-%")
@@ -538,12 +523,12 @@ def list_ltd_editions(active_only=True, series_prefix=None):
             where_sql = " AND ".join(where_clauses)
             cur.execute(f"""
                 SELECT cs.sku, cs.length, cs.description,
-                       lm.event_name, lm.active, lm.created_at,
+                       lm.event_name, lm.archived_at, lm.created_at,
                        (SELECT COUNT(*) FROM audio_cables ac WHERE ac.sku = cs.sku) AS cable_count
                 FROM cable_skus cs
                 JOIN cable_ltd_metadata lm ON lm.sku = cs.sku
                 WHERE {where_sql}
-                ORDER BY lm.active DESC, lm.created_at DESC
+                ORDER BY (lm.archived_at IS NULL) DESC, lm.created_at DESC
             """, params)
             rows = cur.fetchall()
             results = []
@@ -556,7 +541,8 @@ def list_ltd_editions(active_only=True, series_prefix=None):
                 enriched.update({
                     'slug': r[0].rsplit('-', 1)[-1],
                     'event_name': r[3],
-                    'active': r[4],
+                    'archived_at': r[4],
+                    'active': r[4] is None,  # derived: active means not yet archived
                     'created_at': r[5],
                     'cable_count': r[6],
                 })
@@ -580,7 +566,7 @@ def get_ltd_edition(sku):
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT cs.sku, cs.length, cs.description,
-                       lm.event_name, lm.active, lm.archived_at, lm.created_by,
+                       lm.event_name, lm.archived_at, lm.created_by,
                        lm.notes, lm.created_at,
                        (SELECT COUNT(*) FROM audio_cables ac WHERE ac.sku = cs.sku) AS cable_count
                 FROM cable_skus cs
@@ -598,12 +584,12 @@ def get_ltd_edition(sku):
             enriched.update({
                 'slug': row[0].rsplit('-', 1)[-1],
                 'event_name': row[3],
-                'active': row[4],
-                'archived_at': row[5],
-                'created_by': row[6],
-                'notes': row[7],
-                'created_at': row[8],
-                'cable_count': row[9],
+                'archived_at': row[4],
+                'active': row[4] is None,  # derived: active means not yet archived
+                'created_by': row[5],
+                'notes': row[6],
+                'created_at': row[7],
+                'cable_count': row[8],
             })
             return enriched
     except Exception as e:
