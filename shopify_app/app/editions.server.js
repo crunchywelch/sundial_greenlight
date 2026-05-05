@@ -1,6 +1,6 @@
-import { getClient, query } from "./db.server";
-import { SLUG_PATTERN, parseLtdSku } from "./editions-shared";
-import { seriesForPrefix, seriesDataForPrefix, parseSku } from "./cable-config.server";
+import { getClient, query } from "./db.server.js";
+import { SLUG_PATTERN, parseLtdSku } from "./editions-shared.js";
+import { seriesForPrefix, seriesDataForPrefix, parseSku } from "./cable-config.server.js";
 
 // Re-export so existing server-side imports keep working.
 export { SLUG_PATTERN, parseLtdSku };
