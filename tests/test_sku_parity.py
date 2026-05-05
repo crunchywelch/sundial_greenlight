@@ -18,12 +18,20 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from greenlight.cable_config import parse_sku
 
 
-FIXTURE_PATH = Path(__file__).resolve().parent / "sku_fixtures.json"
+FIXTURES_DIR = Path(__file__).resolve().parent
+FIXTURE_FILES = ["sku_fixtures.json", "sku_fixtures_prod.json"]
 
 
 def load_fixtures():
-    with open(FIXTURE_PATH) as f:
-        return json.load(f)
+    """Load every fixture file that exists. Synthetic + (optional) prod."""
+    fixtures = []
+    for fname in FIXTURE_FILES:
+        path = FIXTURES_DIR / fname
+        if not path.exists():
+            continue
+        with open(path) as f:
+            fixtures.extend(json.load(f))
+    return fixtures
 
 
 def run_parity_check():
@@ -63,7 +71,8 @@ def test_sku_parity():
 def main():
     """Standalone runner — prints results and exits non-zero on failure."""
     fixtures, failures = run_parity_check()
-    print(f"Loaded {len(fixtures)} fixtures from {FIXTURE_PATH.name}")
+    loaded = [f for f in FIXTURE_FILES if (FIXTURES_DIR / f).exists()]
+    print(f"Loaded {len(fixtures)} fixtures from: {', '.join(loaded)}")
     print()
 
     if not failures:
