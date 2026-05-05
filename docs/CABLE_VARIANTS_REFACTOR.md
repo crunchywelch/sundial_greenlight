@@ -1,6 +1,124 @@
 # Cable Variants Refactor
 
-**Status:** Phase 1 complete and shipped (2026-04-29). Phase 2 greenlight-side complete on `feat/cable-variants-phase-2-ltd` (2026-04-30) — pending DB migration on DO host + Shopify app CRUD UI work. Migration is non-destructive (just adds `cable_ltd_metadata` table); safe to run while the app is up.
+**Status:** Phase 1 complete and shipped (2026-04-29). Phase 2 greenlight-side complete on main (bd2ee938, 2026-04-30); migration applied to prod DB (2026-05-05). **Phase 2 Shopify CRUD work paused** in favor of Phase 3 schema cleanup, decided 2026-05-05 after the LTD CRUD work surfaced longstanding sprawl in `cable_skus` (kind sentinels stuffed into `color_pattern`, `length` stored as text, `series`/`core_cable`/`braid_material`/`connector_type` denormalized per row when they're really per-prefix or per-SKU-derivable). Phase 2 LTD CRUD (the Shopify app routes + helpers) lands as-is for now and will be simplified once Phase 3 cleans up the underlying shape. No data is in `cable_ltd_metadata` yet so the cleanup window is open.
+
+---
+
+## Phase 3 — Schema cleanup (2026-05-05)
+
+**Goal:** Stop denormalizing data that's already canonical in YAML config. Shrink `cable_skus` to its irreducible per-cable fields. Make derivations (kind, series, color name, defaults) a property of the SKU + config, not a column.
+
+### What's actually in YAML today
+
+The canonical sources of truth already exist:
+- `util/product_lines/patterns.yaml` — color/pattern catalog: code → (name, fabric_type, description). E.g., `GL` → "Goldline", rayon, "Black rayon braid with gold tracer".
+- `util/product_lines/{studio_classic,studio_vocal,tour_classic,tour_vocal}.yaml` — per-series files with `sku_prefix`, `core_cable`, `braid_material`, `lengths`, `connectors[]`, plus cost data.
+- `util/product_lines/materials.yaml` — already used for weight calc.
+
+`util/audio/audio_sync_skus.py` reads these YAMLs and writes the data row-by-row into `cable_skus`. Phase 3 inverts this: YAMLs stay canonical, and reads consult them (or a small DB-side mirror) instead of denormalized cable_skus columns.
+
+### Design principle
+
+YAML stays the single source of truth for cable config (series, patterns, materials). The DB stores per-cable irreducible state (sku, description, length-when-not-in-sku, audit). Both apps load the YAML at startup and resolve derivations in code. **No lookup tables. No backwards-compat view.** Anything that mirrors YAML into the DB is a drift hazard, and views built on hardcoded derivation just push the same drift into a different file. If a third consumer ever shows up, that's when we revisit a shared library or thin API — not before.
+
+### Target shape for `cable_skus`
+
+```
+cable_skus (
+  sku           TEXT PRIMARY KEY,
+  description   TEXT,                   -- name TBD; see open question
+  length        NUMERIC(5,2),           -- NULL for catalog (length is in the SKU); required for MISC/LTD
+  archived_at   TIMESTAMPTZ,            -- soft-delete; replaces a separate active flag
+  created_at    TIMESTAMPTZ,
+  updated_at    TIMESTAMPTZ
+)
+```
+
+Dropped: `series`, `core_cable`, `braid_material`, `color_pattern`, `connector_type`. Length stays as a column (renamed type to `numeric(5,2)`) but is NULL for catalog SKUs (where the length token lives in the SKU string itself) and required for MISC/LTD (where the SKU doesn't encode it).
+
+### `cable_ltd_metadata` cleanup
+
+- Drop `active`. Active signal is `archived_at IS NULL`, matching the soft-delete pattern we're applying to `cable_skus`.
+- Other columns stay as-is (event_name NOT NULL, archived_at, created_by, notes, created_at).
+
+### Where derivations live
+
+Two parallel implementations of the same SKU parser + YAML loader:
+
+- **Python**: `greenlight/cable_config.py` (or extend the existing helpers) — loads `util/product_lines/*.yaml` once, exposes `series_for_prefix(prefix)`, `pattern_for_code(code)`, `parse_sku(sku) -> {prefix, length, color_code, connector_codes, kind}`.
+- **JS**: `shopify_app/app/cable-config.server.js` — same surface, mirrored. Loads the same YAML files at server startup.
+- **Parity test**: a fixture file `tests/sku_fixtures.json` listing `(sku, expected_attrs)` pairs is consumed by both a Python test and a JS test. Same input, same output, enforced by CI.
+
+Yes, two parsers is duplication. It's bounded (~50 lines each), the SKU shape is small, and the YAML format is fixed. The alternative (DB-side mirroring) drifts; the alternative (single-language helpers behind an API) is a much bigger commitment we don't need yet.
+
+### Key derivation rules (from SKU shape)
+
+- Catalog SKU `{prefix}-{length}{color}{?conn}`: prefix → series via YAML; length token → numeric; color token → pattern name via patterns.yaml; connector suffix → display string.
+- MISC SKU `{prefix}-MISC-{n}`: prefix → series; length lives in `cable_skus.length`.
+- LTD SKU `{prefix}-LTD-{slug}`: prefix → series; length lives in `cable_skus.length`.
+- `kind(sku)` is determined by SKU shape: `*-MISC-{n}` → misc, `*-LTD-{slug}` → ltd, otherwise catalog.
+
+### `audio_sync_skus.py` after Phase 3
+
+Becomes ~30-50 lines: iterate over YAML-derived SKUs, ensure each `(sku, description)` row exists in `cable_skus`. No more series/core_cable/braid_material/color_pattern/connector_type fields to write. Stays as an idempotent CLI loader (run on demand or in CI), not folded into greenlight startup.
+
+### Sequencing — big-bang consumer migration
+
+Because there's no transitional view, all consumers update first, then a single migration drops the columns. With nothing in production for LTD and only two consumers (both in this repo), the coordination cost is low and the result is no transitional cruft.
+
+1. **3.1 Recon** — DO-side complete (this commit). Pi-side recon needed before design freeze.
+2. **3.2 Design review** — confirm description rename (or leave it), confirm parity-test format.
+3. **3.3 Build the resolvers** — Python `cable_config.py` and JS `cable-config.server.js` + parity test. No DB changes yet. Both apps still happy on existing schema.
+4. **3.4 Consumers migrate** — pi + DO in parallel. Every read site that pulls `series/color_pattern/connector_type/core_cable/braid_material` from `cable_skus` switches to reading the SKU + asking the in-process resolver. Length reads switch to either parsing the SKU (catalog) or reading `cable_skus.length` (MISC/LTD). Update `audio_sync_skus.py` to its minimal form. Ship as one PR per app or coordinated set.
+5. **3.5 Migration** — once both apps are deployed on the new code: add `length numeric(5,2)` column, backfill from existing text length, drop the redundant columns, drop `cable_ltd_metadata.active`. Atomic transaction.
+6. **3.6 Resume LTD CRUD** — `createLtdEdition` simplifies: drop the template-row SELECT entirely, just insert `(sku, description, length)` + sidecar. Series picker reads from YAML. Smoke test on the cleaned-up foundation.
+
+### Phase 3.1 recon — DO-side consumer checklist
+
+Reads of soon-to-be-derived columns. Each file switches from `SELECT cs.{series, color_pattern, ...} FROM cable_skus` to `SELECT cs.{sku, description, length} FROM cable_skus` plus an in-process call to the JS resolver (`cableConfig.attrsForSku(sku)` or similar). Length-from-SKU is parsed by the resolver for catalog rows; MISC/LTD read `cable_skus.length` directly.
+
+| File | Reads |
+|---|---|
+| `shopify_app/app/routes/api.register-cable.jsx` | series, color_pattern, connector_type, core_cable, length |
+| `shopify_app/app/routes/api.customer-cables.jsx` | series, color_pattern, connector_type, core_cable |
+| `shopify_app/app/routes/api.order-fulfillment.jsx` | series, color_pattern, connector_type (3 query sites) |
+| `shopify_app/app/routes/app._index.jsx` | series, length (as `sku_length`) |
+| `shopify_app/app/routes/app.cables.$sku.jsx` | series, color_pattern |
+| `shopify_app/app/routes/app.customer.$id.cables.jsx` | series, color_pattern, connector_type, core_cable |
+| `shopify_app/app/routes/app.editions._index.jsx` | series, length, description |
+| `shopify_app/app/routes/app.editions.$sku.jsx` | All (via `getEdition`) |
+| `shopify_app/app/routes/app.editions.new.jsx` | connector_type (post-insert lookup) |
+| `shopify_app/app/editions.server.js` | All (template-row read for create + getEdition) |
+| `shopify_app/extensions/customer-cables-account/src/FullPage.jsx` | series, color, connector_type, length |
+| `shopify_app/extensions/customer-cables-admin/src/BlockExtension.jsx` | length |
+
+Writes (these go away or simplify):
+
+| File | Writes |
+|---|---|
+| `util/audio/audio_sync_skus.py` | INSERTs/UPDATEs all derivable columns from YAML. Becomes: ensure cable_skus has a `(sku, description)` row for every YAML-generated SKU. Most of the script's write path collapses. |
+| `shopify_app/app/editions.server.js` | INSERT into cable_skus with template-row copies. Simplifies to `(sku, description, length)` + sidecar — the template-row SELECT goes away entirely. |
+
+Other files that touch the soon-to-be-derived columns and need updating:
+
+- `util/audio/audio_shopify_sku_sync.py` — SELECT-then-format flow uses color_pattern/connector_type/length. Switches to reading `(sku, description, length)` from cable_skus + resolving the rest in Python.
+- `util/audio/audio_shopify_price_sync.py` — `length` becomes numeric in the migration; existing `float(length_text)` parse becomes a direct read.
+- `util/audio/audio_shopify_inventory_reconcile.py` — already uses sku-pattern checks; minimal impact.
+
+### Open design questions (carry into 3.2)
+
+1. **`description` rename.** Today it plays three roles depending on SKU kind: vestigial (catalog), the discriminator (MISC), marketing copy (LTD). Candidates: `display_note`, `variant_subtitle`, `subtitle`, `display_text`. Or leave as `description` and accept the multi-role meaning. Doesn't gate the migration — can rename later if a clearer name surfaces.
+2. **Parity test format.** Single fixture file (JSON list of `{sku, expected: {...}}`) consumed by both Python and JS tests. Anyone agree this is fine, or want a different shape (per-language fixtures, generated cross-checks, etc)?
+
+Resolved (2026-05-05):
+
+- Length column stays on `cable_skus` as `numeric(5,2)` NULL — NULL for catalog, required for MISC/LTD.
+- No `cable_color_patterns` lookup table — apps load `patterns.yaml` directly.
+- No `cable_series` lookup table — apps load per-series YAMLs directly.
+- No `cable_skus_v` view — consumers update first, then migration drops columns (big-bang).
+- SKU parser lives in app code, mirrored Python + JS, parity-tested. No SQL parsing functions.
+- `audio_sync_skus.py` shrinks to its minimum form, stays a CLI loader (not folded into startup).
+
 
 ## Implementation notes (2026-04-29)
 
