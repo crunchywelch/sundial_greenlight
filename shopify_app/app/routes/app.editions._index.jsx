@@ -2,6 +2,7 @@ import { json } from "@remix-run/node";
 import { useLoaderData, useSearchParams, useLocation, Link } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
 import { query } from "../db.server";
+import { parseSku } from "../cable-config.server";
 
 export async function loader({ request }) {
   await authenticate.admin(request);
@@ -14,7 +15,7 @@ export async function loader({ request }) {
   else if (filter === "archived") where.push("lm.active = FALSE");
 
   const result = await query(
-    `SELECT cs.sku, cs.series, cs.length, cs.description,
+    `SELECT cs.sku, cs.length, cs.description,
             lm.event_name, lm.active, lm.archived_at, lm.created_at,
             (SELECT COUNT(*) FROM audio_cables ac WHERE ac.sku = cs.sku) AS cable_count
      FROM cable_skus cs
@@ -23,18 +24,21 @@ export async function loader({ request }) {
      ORDER BY lm.active DESC, lm.created_at DESC`
   );
 
-  const editions = result.rows.map((r) => ({
-    sku: r.sku,
-    slug: r.sku.split("-").slice(-1)[0],
-    series: r.series,
-    length: r.length,
-    description: r.description,
-    event_name: r.event_name,
-    active: r.active,
-    archived_at: r.archived_at,
-    created_at: r.created_at,
-    cable_count: parseInt(r.cable_count, 10),
-  }));
+  const editions = result.rows.map((r) => {
+    const parsed = parseSku(r.sku);
+    return {
+      sku: r.sku,
+      slug: parsed.slug ?? r.sku.split("-").slice(-1)[0],
+      series: parsed.series,
+      length: r.length,
+      description: r.description,
+      event_name: r.event_name,
+      active: r.active,
+      archived_at: r.archived_at,
+      created_at: r.created_at,
+      cable_count: parseInt(r.cable_count, 10),
+    };
+  });
 
   return json({ editions, filter });
 }

@@ -77,6 +77,17 @@ export function seriesForPrefix(prefix) {
   return s ? (s.product_line ?? null) : null;
 }
 
+/**
+ * Return the full series YAML data for a prefix (product_line, core_cable,
+ * braid_material, lengths[], connectors[], cost[]), or null if unknown.
+ *
+ * Use seriesForPrefix when only the name is needed; this is for callers
+ * that need the full series spec (e.g. defaults for cable creation).
+ */
+export function seriesDataForPrefix(prefix) {
+  return SERIES[prefix] ?? null;
+}
+
 /** Return the pattern dict {code, name, fabric_type, description}, or null. */
 export function patternForCode(code) {
   return PATTERNS[code] ?? null;

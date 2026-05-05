@@ -1,5 +1,6 @@
 import { json } from "@remix-run/node";
 import { query } from "../db.server.js";
+import { parseSku, seriesDataForPrefix } from "../cable-config.server.js";
 
 const CABLE_IMAGE_MAP = {
   "goldline": "cable-goldline.png",
@@ -51,10 +52,7 @@ async function fetchCustomerCables(customerId) {
       ac.test_timestamp,
       ac.operator,
       ac.shopify_gid,
-      cs.series,
-      cs.color_pattern,
-      cs.connector_type,
-      cs.core_cable
+      cs.length AS variant_length
     FROM audio_cables ac
     LEFT JOIN cable_skus cs ON ac.sku = cs.sku
     WHERE ac.shopify_gid = $1
@@ -62,17 +60,24 @@ async function fetchCustomerCables(customerId) {
     [customerId]
   );
 
-  return result.rows.map((row) => ({
-    serial_number: row.serial_number,
-    sku: row.sku,
-    series: row.series,
-    color: row.color_pattern,
-    connector_type: row.connector_type,
-    core_cable: row.core_cable,
-    test_date: row.test_timestamp,
-    test_passed: row.test_passed,
-    test_status: row.test_passed !== null ? "tested" : "not tested",
-    operator: row.operator,
-    image: getCableImageFilename(row.color_pattern),
-  }));
+  return result.rows.map((row) => {
+    const parsed = parseSku(row.sku);
+    const seriesData = parsed.series_prefix ? seriesDataForPrefix(parsed.series_prefix) : null;
+    const length = parsed.kind === "catalog" ? parsed.length : row.variant_length;
+    const colorPattern = parsed.pattern_name ?? null;
+    return {
+      serial_number: row.serial_number,
+      sku: row.sku,
+      series: parsed.series,
+      color: colorPattern,
+      connector_type: parsed.connector_display ?? null,
+      core_cable: seriesData?.core_cable ?? null,
+      length,
+      test_date: row.test_timestamp,
+      test_passed: row.test_passed,
+      test_status: row.test_passed !== null ? "tested" : "not tested",
+      operator: row.operator,
+      image: getCableImageFilename(colorPattern),
+    };
+  });
 }

@@ -1,5 +1,6 @@
 import { getClient, query } from "./db.server";
 import { SLUG_PATTERN, parseLtdSku } from "./editions-shared";
+import { seriesForPrefix, seriesDataForPrefix, parseSku } from "./cable-config.server";
 
 // Re-export so existing server-side imports keep working.
 export { SLUG_PATTERN, parseLtdSku };
@@ -41,17 +42,28 @@ function validateCreateInput({ seriesPrefix, slug, lengthFt, description, eventN
 
 /**
  * Create an LTD edition atomically:
- *   1. Pull a template row from cable_skus matching the series prefix to copy
- *      series/core_cable/braid_material/connector_type.
- *   2. Insert cable_skus row with sku = `${prefix}-LTD-${slug}`, color_pattern='Limited Edition'.
- *   3. Insert cable_ltd_metadata sidecar.
+ *   1. Insert cable_skus row with sku = `${prefix}-LTD-${slug}`, sourcing
+ *      the derivable fields (series, core_cable, braid_material,
+ *      connector_type) from the YAML config via the cable-config resolver.
+ *      color_pattern keeps its 'Limited Edition' sentinel until Phase 3.5
+ *      drops the column.
+ *   2. Insert cable_ltd_metadata sidecar.
  * All in one transaction. Returns { sku, series } on success.
  *
- * Throws EditionValidationError for bad input, EditionConflictError if slug
- * already exists, or generic Error for unexpected failures.
+ * Throws EditionValidationError for bad input (including unknown series
+ * prefix), EditionConflictError if the slug already exists, or generic
+ * Error for unexpected failures.
  */
 export async function createLtdEdition({ seriesPrefix, slug, lengthFt, description, eventName, createdBy, notes }) {
   validateCreateInput({ seriesPrefix, slug, lengthFt, description, eventName });
+
+  const seriesData = seriesDataForPrefix(seriesPrefix);
+  if (!seriesData) {
+    throw new EditionValidationError(`Unknown series prefix '${seriesPrefix}'.`, "seriesPrefix");
+  }
+  const defaultConnector = seriesData.connectors?.find((c) => (c.code ?? "") === "")?.display
+    ?? seriesData.connectors?.[0]?.display
+    ?? "";
 
   const sku = `${seriesPrefix}-LTD-${slug}`;
   const len = parseFloat(lengthFt);
@@ -60,22 +72,11 @@ export async function createLtdEdition({ seriesPrefix, slug, lengthFt, descripti
   try {
     await client.query("BEGIN");
 
-    const tplResult = await client.query(
-      `SELECT series, core_cable, braid_material, connector_type
-       FROM cable_skus
-       WHERE sku LIKE $1 AND sku !~ '-LTD-' AND sku !~ '-MISC-'
-       LIMIT 1`,
-      [`${seriesPrefix}-%`]
-    );
-    if (tplResult.rows.length === 0) {
-      throw new EditionValidationError(`No catalog SKUs found for series prefix '${seriesPrefix}'.`, "seriesPrefix");
-    }
-    const tpl = tplResult.rows[0];
-
     await client.query(
       `INSERT INTO cable_skus (sku, series, core_cable, braid_material, color_pattern, length, connector_type, description)
        VALUES ($1, $2, $3, $4, 'Limited Edition', $5, $6, $7)`,
-      [sku, tpl.series, tpl.core_cable, tpl.braid_material, String(len), tpl.connector_type, description || null]
+      [sku, seriesData.product_line, seriesData.core_cable, seriesData.braid_material,
+       String(len), defaultConnector, description || null]
     );
 
     await client.query(
@@ -85,7 +86,7 @@ export async function createLtdEdition({ seriesPrefix, slug, lengthFt, descripti
     );
 
     await client.query("COMMIT");
-    return { sku, series: tpl.series };
+    return { sku, series: seriesData.product_line };
   } catch (e) {
     await client.query("ROLLBACK");
     if (e.code === "23505") {
@@ -97,11 +98,17 @@ export async function createLtdEdition({ seriesPrefix, slug, lengthFt, descripti
   }
 }
 
-/** Fetch a single edition with cable count. Returns null if not found. */
+/**
+ * Fetch a single edition with cable count. Returns null if not found.
+ *
+ * series/core_cable/braid_material/connector_type are resolved from YAML
+ * via the cable-config resolver — not read from cable_skus columns. The
+ * returned shape stays the same so consumers (admin UI, Shopify product
+ * helpers) don't have to know whether a field came from the DB or YAML.
+ */
 export async function getEdition(sku) {
   const result = await query(
-    `SELECT cs.sku, cs.series, cs.core_cable, cs.braid_material, cs.color_pattern,
-            cs.length, cs.connector_type, cs.description,
+    `SELECT cs.sku, cs.length, cs.description,
             lm.event_name, lm.active, lm.archived_at, lm.created_by, lm.notes, lm.created_at,
             (SELECT COUNT(*) FROM audio_cables ac WHERE ac.sku = cs.sku) AS cable_count
      FROM cable_skus cs
@@ -111,15 +118,22 @@ export async function getEdition(sku) {
   );
   if (result.rows.length === 0) return null;
   const r = result.rows[0];
+
+  const parsed = parseSku(r.sku);
+  const seriesData = parsed.series_prefix ? seriesDataForPrefix(parsed.series_prefix) : null;
+  const defaultConnector = seriesData?.connectors?.find((c) => (c.code ?? "") === "")?.display
+    ?? seriesData?.connectors?.[0]?.display
+    ?? null;
+
   return {
     sku: r.sku,
-    slug: r.sku.split("-").slice(-1)[0],
-    series: r.series,
-    core_cable: r.core_cable,
-    braid_material: r.braid_material,
-    color_pattern: r.color_pattern,
+    slug: parsed.slug ?? r.sku.split("-").slice(-1)[0],
+    series: parsed.series,
+    core_cable: seriesData?.core_cable ?? null,
+    braid_material: seriesData?.braid_material ?? null,
+    color_pattern: "Limited Edition",
     length: r.length,
-    connector_type: r.connector_type,
+    connector_type: defaultConnector,
     description: r.description,
     event_name: r.event_name,
     active: r.active,

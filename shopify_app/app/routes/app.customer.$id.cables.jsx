@@ -2,6 +2,7 @@ import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
 import { query } from "../db.server";
+import { parseSku, seriesDataForPrefix } from "../cable-config.server";
 
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
@@ -32,7 +33,10 @@ export async function loader({ request, params }) {
     console.error("Error fetching customer:", error);
   }
 
-  // Fetch cables from database
+  // Fetch cables from database. Display attrs (series, color, connector,
+  // core_cable, length) are resolved from the SKU + YAML config rather
+  // than read off cable_skus columns. Description and length-for-variants
+  // stay on cable_skus and come through.
   const result = await query(
     `SELECT
       ac.serial_number,
@@ -40,10 +44,8 @@ export async function loader({ request, params }) {
       ac.test_passed,
       ac.test_timestamp,
       ac.operator,
-      cs.series,
-      cs.color_pattern,
-      cs.connector_type,
-      cs.core_cable
+      cs.length AS variant_length,
+      cs.description
     FROM audio_cables ac
     LEFT JOIN cable_skus cs ON ac.sku = cs.sku
     WHERE ac.shopify_gid = $1
@@ -51,30 +53,32 @@ export async function loader({ request, params }) {
     [customerId]
   );
 
-  const cables = result.rows.map((row) => ({
-    serial_number: row.serial_number,
-    sku: row.sku,
-    series: row.series,
-    color: row.color_pattern,
-    connector_type: row.connector_type,
-    core_cable: row.core_cable,
-    test_date: row.test_timestamp,
-    test_passed: row.test_passed,
-    test_status: row.test_passed !== null ? "tested" : "not tested",
-    operator: row.operator,
-  }));
+  const cables = result.rows.map((row) => {
+    const parsed = parseSku(row.sku);
+    const seriesData = parsed.series_prefix ? seriesDataForPrefix(parsed.series_prefix) : null;
+    const length = parsed.kind === "catalog" ? parsed.length : row.variant_length;
+    return {
+      serial_number: row.serial_number,
+      sku: row.sku,
+      kind: parsed.kind,
+      series: parsed.series,
+      color: parsed.pattern_name ?? null,
+      connector_type: parsed.connector_display ?? null,
+      core_cable: seriesData?.core_cable ?? null,
+      length,
+      description: row.description,
+      test_date: row.test_timestamp,
+      test_passed: row.test_passed,
+      test_status: row.test_passed !== null ? "tested" : "not tested",
+      operator: row.operator,
+    };
+  });
 
   return json({ customer, cables, customerId: id });
 }
 
-// Get length from data or derive from SKU
-function getCableLength(cable) {
-  if (cable.length) return `${cable.length}'`;
-  if (cable.sku && !/-MISC-\d+$/.test(cable.sku)) {
-    const match = cable.sku.match(/-(\d+)/);
-    if (match) return `${match[1]}'`;
-  }
-  return null;
+function formatLength(cable) {
+  return cable.length != null ? `${cable.length}'` : null;
 }
 
 export default function CustomerCables() {
@@ -123,7 +127,7 @@ export default function CustomerCables() {
       ) : (
         <div style={{ display: 'grid', gap: '15px' }}>
           {cables.map((cable) => {
-            const length = getCableLength(cable);
+            const length = formatLength(cable);
             const isRightAngle = cable.sku?.endsWith("-R");
 
             return (
@@ -144,7 +148,7 @@ export default function CustomerCables() {
                     <div style={{ fontSize: '14px', color: '#666' }}>
                       {cable.sku}
                     </div>
-                    {cable.sku && /-MISC-\d+$/.test(cable.sku) && cable.description && (
+                    {cable.kind === "misc" && cable.description && (
                       <div style={{ fontSize: '13px', color: '#888', marginTop: '2px' }}>
                         {cable.description}
                       </div>

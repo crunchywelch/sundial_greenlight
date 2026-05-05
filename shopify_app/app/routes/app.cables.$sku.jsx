@@ -2,6 +2,7 @@ import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
 import { query } from "../db.server";
+import { parseSku } from "../cable-config.server";
 
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
@@ -19,24 +20,28 @@ export async function loader({ request, params }) {
   );
   const counts = countResult.rows[0];
 
-  // Fetch only assigned cables with this SKU
+  // Fetch only assigned cables with this SKU. Display attrs (series,
+  // color_pattern) come from the resolver — they're identical for every
+  // row (same SKU), so resolve once and apply.
   const result = await query(
     `SELECT
       ac.serial_number,
       ac.sku,
       ac.shopify_gid,
       ac.test_timestamp,
-      ac.test_passed,
-      cs.series,
-      cs.color_pattern
+      ac.test_passed
     FROM audio_cables ac
-    LEFT JOIN cable_skus cs ON ac.sku = cs.sku
     WHERE ac.sku = $1 AND ac.shopify_gid IS NOT NULL AND ac.shopify_gid != ''
     ORDER BY ac.serial_number`,
     [sku]
   );
 
-  const cables = result.rows;
+  const parsed = parseSku(sku);
+  const cables = result.rows.map((row) => ({
+    ...row,
+    series: parsed.series,
+    color_pattern: parsed.pattern_name ?? null,
+  }));
 
   // Get unique customer IDs to fetch in batch
   const customerIds = [...new Set(cables.filter(c => c.shopify_gid).map(c => c.shopify_gid))];

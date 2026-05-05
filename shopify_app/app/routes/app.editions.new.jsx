@@ -2,24 +2,25 @@ import { useState } from "react";
 import { json, redirect } from "@remix-run/node";
 import { Form, Link, useActionData, useLoaderData, useLocation, useNavigation } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
-import { query } from "../db.server";
 import {
   createLtdEdition,
   EditionValidationError,
   EditionConflictError,
 } from "../editions.server";
 import { SLUG_PATTERN } from "../editions-shared";
+import { allPrefixes, seriesForPrefix, seriesDataForPrefix } from "../cable-config.server";
 import { createLtdShopifyProduct } from "../shopify-products.server";
 
 export async function loader({ request }) {
   await authenticate.admin(request);
-  const result = await query(
-    `SELECT DISTINCT split_part(sku, '-', 1) AS prefix, series
-     FROM cable_skus
-     WHERE sku !~ '-LTD-' AND sku !~ '-MISC-'
-     ORDER BY prefix`
-  );
-  return json({ seriesOptions: result.rows });
+  // Series options come from YAML, not from cable_skus. The picker should
+  // show every defined series whether or not catalog rows happen to exist
+  // for it yet.
+  const seriesOptions = allPrefixes().map((prefix) => ({
+    prefix,
+    series: seriesForPrefix(prefix),
+  }));
+  return json({ seriesOptions });
 }
 
 export async function action({ request }) {
@@ -62,9 +63,12 @@ export async function action({ request }) {
   // breadcrumb so the detail page can offer a retry.
   let shopifyError = null;
   try {
-    // Look up the connector_type we just inherited from the template
-    const cs = await query(`SELECT connector_type FROM cable_skus WHERE sku = $1`, [created.sku]);
-    const connectorType = cs.rows[0]?.connector_type || "";
+    // Resolve the default connector for this series from YAML (used by the
+    // Shopify metafields helper to pick "Microphone Cable" vs "Instrument Cable").
+    const seriesData = seriesDataForPrefix(seriesPrefix);
+    const connectorType = seriesData?.connectors?.find((c) => (c.code ?? "") === "")?.display
+      ?? seriesData?.connectors?.[0]?.display
+      ?? "";
     await createLtdShopifyProduct(admin, {
       sku: created.sku,
       eventName,

@@ -1,5 +1,6 @@
 import { json } from "@remix-run/node";
 import { query } from "../db.server.js";
+import { parseSku, seriesDataForPrefix } from "../cable-config.server.js";
 
 // CORS is handled by nginx for all /api/ routes.
 
@@ -24,11 +25,7 @@ export async function loader({ request }) {
         ac.shopify_gid,
         ac.test_passed,
         ac.test_timestamp,
-        cs.series,
-        cs.color_pattern,
-        cs.connector_type,
-        cs.core_cable,
-        cs.length
+        cs.length AS variant_length
       FROM audio_cables ac
       LEFT JOIN cable_skus cs ON ac.sku = cs.sku
       WHERE ac.registration_code = $1`,
@@ -52,15 +49,21 @@ export async function loader({ request }) {
       );
     }
 
+    // Resolve display attrs from the SKU + YAML config. Length comes from
+    // the SKU for catalog rows; from cable_skus.length for MISC/LTD.
+    const parsed = parseSku(row.sku);
+    const seriesData = parsed.series_prefix ? seriesDataForPrefix(parsed.series_prefix) : null;
+    const length = parsed.kind === "catalog" ? parsed.length : row.variant_length;
+
     return json({
       cable: {
         serial_number: row.serial_number,
         sku: row.sku,
-        series: row.series,
-        color: row.color_pattern,
-        connector_type: row.connector_type,
-        core_cable: row.core_cable,
-        length: row.length,
+        series: parsed.series,
+        color: parsed.pattern_name ?? null,
+        connector_type: parsed.connector_display ?? null,
+        core_cable: seriesData?.core_cable ?? null,
+        length,
         test_passed: row.test_passed,
         test_date: row.test_timestamp,
       },

@@ -3,6 +3,7 @@ import { useSubmit, useActionData, useLoaderData } from "@remix-run/react";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { query } from "../db.server";
+import { parseSku } from "../cable-config.server";
 
 export async function loader({ request }) {
   const url = new URL(request.url);
@@ -118,7 +119,7 @@ export async function action({ request }) {
     const searchTerm = formData.get("searchTerm");
     try {
       const result = await query(
-        `SELECT ac.serial_number, ac.sku, ac.shopify_gid, cs.series, cs.length as sku_length
+        `SELECT ac.serial_number, ac.sku, ac.shopify_gid, cs.length AS variant_length
          FROM audio_cables ac
          LEFT JOIN cable_skus cs ON ac.sku = cs.sku
          WHERE ac.serial_number ILIKE $1
@@ -127,7 +128,16 @@ export async function action({ request }) {
         [`%${searchTerm}%`]
       );
 
-      const cables = result.rows;
+      // Resolve series + length per row from SKU + YAML; cs.length is only
+      // populated for MISC/LTD variants where the SKU doesn't encode length.
+      const cables = result.rows.map((row) => {
+        const parsed = parseSku(row.sku);
+        return {
+          ...row,
+          series: parsed.series,
+          sku_length: parsed.kind === "catalog" ? parsed.length : row.variant_length,
+        };
+      });
 
       // For cables with shopify_gid, fetch customer details
       for (const cable of cables) {

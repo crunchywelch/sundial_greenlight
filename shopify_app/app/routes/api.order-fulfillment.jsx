@@ -2,6 +2,7 @@ import { json } from "@remix-run/node";
 import { query } from "../db.server.js";
 import { getLastScanEvent } from "../mqtt.server.js";
 import { getActiveGreenlightHosts } from "../mqtt.server.js";
+import { parseSku } from "../cable-config.server.js";
 
 // CORS is handled by nginx for all /api/ routes — no app-level CORS headers needed.
 
@@ -51,26 +52,25 @@ export async function loader({ request }) {
         ac.test_passed,
         ac.test_timestamp,
         ac.shopify_gid,
-        ac.shopify_order_gid,
-        cs.series,
-        cs.color_pattern,
-        cs.connector_type
+        ac.shopify_order_gid
       FROM audio_cables ac
-      LEFT JOIN cable_skus cs ON ac.sku = cs.sku
       WHERE ac.shopify_order_gid = $1
       ORDER BY ac.updated_timestamp DESC NULLS LAST`,
       [orderId]
     );
 
-    const cables = result.rows.map((row) => ({
-      serial_number: row.serial_number,
-      sku: row.sku,
-      series: row.series,
-      color: row.color_pattern,
-      connector_type: row.connector_type,
-      test_date: row.test_timestamp,
-      test_passed: row.test_passed,
-    }));
+    const cables = result.rows.map((row) => {
+      const parsed = parseSku(row.sku);
+      return {
+        serial_number: row.serial_number,
+        sku: row.sku,
+        series: parsed.series,
+        color: parsed.pattern_name ?? null,
+        connector_type: parsed.connector_display ?? null,
+        test_date: row.test_timestamp,
+        test_passed: row.test_passed,
+      };
+    });
 
     return json({ cables });
   } catch (error) {
@@ -119,12 +119,8 @@ async function handleLookupCable({ serialNumber }) {
       ac.sku,
       ac.shopify_gid,
       ac.shopify_order_gid,
-      ac.test_passed,
-      cs.series,
-      cs.color_pattern,
-      cs.connector_type
+      ac.test_passed
     FROM audio_cables ac
-    LEFT JOIN cable_skus cs ON ac.sku = cs.sku
     WHERE ac.serial_number = $1`,
     [serialNumber]
   );
@@ -134,13 +130,14 @@ async function handleLookupCable({ serialNumber }) {
   }
 
   const row = result.rows[0];
+  const parsed = parseSku(row.sku);
   return json({
     cable: {
       serial_number: row.serial_number,
       sku: row.sku,
-      series: row.series,
-      color: row.color_pattern,
-      connector_type: row.connector_type,
+      series: parsed.series,
+      color: parsed.pattern_name ?? null,
+      connector_type: parsed.connector_display ?? null,
       shopify_gid: row.shopify_gid,
       shopify_order_gid: row.shopify_order_gid,
       test_passed: row.test_passed,
