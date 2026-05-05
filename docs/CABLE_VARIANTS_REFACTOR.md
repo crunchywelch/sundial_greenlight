@@ -2,6 +2,8 @@
 
 **Status:** Phase 1 complete and shipped (2026-04-29). Phase 2 greenlight-side complete on main (bd2ee938, 2026-04-30); migration applied to prod DB (2026-05-05). **Phase 2 Shopify CRUD work paused** in favor of Phase 3 schema cleanup, decided 2026-05-05 after the LTD CRUD work surfaced longstanding sprawl in `cable_skus` (kind sentinels stuffed into `color_pattern`, `length` stored as text, `series`/`core_cable`/`braid_material`/`connector_type` denormalized per row when they're really per-prefix or per-SKU-derivable). Phase 2 LTD CRUD (the Shopify app routes + helpers) lands as-is for now and will be simplified once Phase 3 cleans up the underlying shape. No data is in `cable_ltd_metadata` yet so the cleanup window is open.
 
+**Phase 3 readiness (2026-05-05 evening):** DO-side recon complete; Pi-side recon complete (added below); schema invariants, length backfill plan, pre-migration verification, and parity-test fixture format all incorporated. Ready for the user's final review before execution.
+
 ---
 
 ## Phase 3 — Schema cleanup (2026-05-05)
@@ -26,15 +28,21 @@ YAML stays the single source of truth for cable config (series, patterns, materi
 ```
 cable_skus (
   sku           TEXT PRIMARY KEY,
-  description   TEXT,                   -- name TBD; see open question
+  description   TEXT,                   -- multi-role; see open question
   length        NUMERIC(5,2),           -- NULL for catalog (length is in the SKU); required for MISC/LTD
   archived_at   TIMESTAMPTZ,            -- soft-delete; replaces a separate active flag
   created_at    TIMESTAMPTZ,
-  updated_at    TIMESTAMPTZ
+  updated_at    TIMESTAMPTZ,
+  CONSTRAINT length_required_for_variants CHECK (
+    length IS NOT NULL
+    OR NOT (sku ~ '-(MISC-[0-9]+|LTD-[A-Z0-9]{4,12})$')
+  )
 )
 ```
 
 Dropped: `series`, `core_cable`, `braid_material`, `color_pattern`, `connector_type`. Length stays as a column (renamed type to `numeric(5,2)`) but is NULL for catalog SKUs (where the length token lives in the SKU string itself) and required for MISC/LTD (where the SKU doesn't encode it).
+
+The CHECK constraint enforces "NULL for catalog, required for variants" structurally — without it, a future code path could insert a NULL-length MISC and silently break inventory math. Catalog rows are allowed NULL because the length token lives in the SKU string itself.
 
 ### `cable_ltd_metadata` cleanup
 
@@ -47,7 +55,29 @@ Two parallel implementations of the same SKU parser + YAML loader:
 
 - **Python**: `greenlight/cable_config.py` (or extend the existing helpers) — loads `util/product_lines/*.yaml` once, exposes `series_for_prefix(prefix)`, `pattern_for_code(code)`, `parse_sku(sku) -> {prefix, length, color_code, connector_codes, kind}`.
 - **JS**: `shopify_app/app/cable-config.server.js` — same surface, mirrored. Loads the same YAML files at server startup.
-- **Parity test**: a fixture file `tests/sku_fixtures.json` listing `(sku, expected_attrs)` pairs is consumed by both a Python test and a JS test. Same input, same output, enforced by CI.
+- **Parity test**: a fixture file `tests/sku_fixtures.json` listing `(sku, expected)` pairs is consumed by both a Python test and a JS test. Same input, same output, enforced by CI.
+
+**Fixture format** (resolved in 3.2):
+
+```json
+[
+  {"sku": "SC-12-RED-TS-TS", "expected": {
+    "kind": "catalog", "series_prefix": "SC", "series": "Studio Classic",
+    "length": 12, "pattern_code": "RED", "pattern_name": "Red Hot",
+    "connectors": ["TS", "TS"]
+  }},
+  {"sku": "SC-MISC-42", "expected": {
+    "kind": "misc", "series_prefix": "SC", "series": "Studio Classic"
+  }},
+  {"sku": "SC-LTD-PHISH26", "expected": {
+    "kind": "ltd", "series_prefix": "SC", "series": "Studio Classic", "slug": "PHISH26"
+  }}
+]
+```
+
+Catalog cases carry length/pattern/connectors (parseable from the SKU); MISC/LTD cases don't (those values live in the DB row, not in the SKU). That asymmetry is explicit so neither parser is tempted to fake a value it can't derive.
+
+**Real-SKU coverage**: synthetic fixtures alone won't catch a YAML edit that drops a color code. The fixture should include the full set of `cable_skus.sku` from prod (~46 MISC + the catalog set), with `expected` populated by running the resolver against the live YAML at fixture-generation time. Any future YAML change that breaks back-compat for an existing SKU surfaces immediately on test run.
 
 Yes, two parsers is duplication. It's bounded (~50 lines each), the SKU shape is small, and the YAML format is fixed. The alternative (DB-side mirroring) drifts; the alternative (single-language helpers behind an API) is a much bigger commitment we don't need yet.
 
@@ -70,7 +100,16 @@ Because there's no transitional view, all consumers update first, then a single 
 2. **3.2 Design review** — confirm description rename (or leave it), confirm parity-test format.
 3. **3.3 Build the resolvers** — Python `cable_config.py` and JS `cable-config.server.js` + parity test. No DB changes yet. Both apps still happy on existing schema.
 4. **3.4 Consumers migrate** — pi + DO in parallel. Every read site that pulls `series/color_pattern/connector_type/core_cable/braid_material` from `cable_skus` switches to reading the SKU + asking the in-process resolver. Length reads switch to either parsing the SKU (catalog) or reading `cable_skus.length` (MISC/LTD). Update `audio_sync_skus.py` to its minimal form. Ship as one PR per app or coordinated set.
-5. **3.5 Migration** — once both apps are deployed on the new code: add `length numeric(5,2)` column, backfill from existing text length, drop the redundant columns, drop `cable_ltd_metadata.active`. Atomic transaction.
+5. **3.5 Migration** — once both apps are deployed on the new code, run the migration as a single transaction. Sub-steps:
+   1. **Pre-migration parity check.** For every `cable_skus` row, compare the resolver's output against the existing column values (series/color_pattern/connector_type/length text). Any non-empty diff aborts the migration. Cheap insurance that the resolvers aren't returning stale or wrong derivations against real data — runs as a script before the SQL transaction begins.
+   2. **Length backfill** (within the transaction):
+      - `ALTER TABLE cable_skus ADD COLUMN length_num NUMERIC(5,2);`
+      - Backfill variants only: `UPDATE cable_skus SET length_num = length::numeric WHERE sku ~ '-(MISC-[0-9]+|LTD-[A-Z0-9]{4,12})$' AND length ~ '^[0-9]+(\.[0-9]+)?$';`
+      - Verify: `SELECT COUNT(*) FROM cable_skus WHERE sku ~ '-(MISC-|LTD-)' AND length_num IS NULL;` must be 0. If not, abort — anything that failed to parse needs a manual fix, not a silent NULL.
+      - `ALTER TABLE cable_skus DROP COLUMN length; ALTER TABLE cable_skus RENAME COLUMN length_num TO length;`
+   3. **Drop redundant columns**: `ALTER TABLE cable_skus DROP COLUMN series, DROP COLUMN core_cable, DROP COLUMN braid_material, DROP COLUMN color_pattern, DROP COLUMN connector_type;`
+   4. **Apply CHECK constraint** for length (see Target shape above).
+   5. **`cable_ltd_metadata.active`**: `ALTER TABLE cable_ltd_metadata DROP COLUMN active;` and update the partial index (`DROP INDEX idx_ltd_metadata_active; CREATE INDEX idx_ltd_metadata_active ON cable_ltd_metadata(archived_at) WHERE archived_at IS NULL;` — or drop the index entirely if `list_ltd_editions` ends up filtering some other way).
 6. **3.6 Resume LTD CRUD** — `createLtdEdition` simplifies: drop the template-row SELECT entirely, just insert `(sku, description, length)` + sidecar. Series picker reads from YAML. Smoke test on the cleaned-up foundation.
 
 ### Phase 3.1 recon — DO-side consumer checklist
@@ -105,19 +144,50 @@ Other files that touch the soon-to-be-derived columns and need updating:
 - `util/audio/audio_shopify_price_sync.py` — `length` becomes numeric in the migration; existing `float(length_text)` parse becomes a direct read.
 - `util/audio/audio_shopify_inventory_reconcile.py` — already uses sku-pattern checks; minimal impact.
 
+### Phase 3.1 recon — Pi-side consumer checklist
+
+Read sites in `greenlight/` that pull soon-to-be-derived columns from `cable_skus`. Each switches from `SELECT cs.{series, color_pattern, ...}` to `SELECT cs.{sku, description, length}` plus an in-process call to the Python resolver.
+
+| File | Reads from cable_skus |
+|---|---|
+| `greenlight/db.py:get_audio_cable` (~85) | series, color_pattern, connector_type, core_cable, braid_material, length |
+| `greenlight/db.py:get_cables_for_customer` (~607) | series, color_pattern, connector_type, length |
+| `greenlight/db.py:get_all_cables` (~644) | series, color_pattern, connector_type, length |
+| `greenlight/db.py:get_cables_for_order` (~879) | series, color_pattern, connector_type, length |
+| `greenlight/db.py:get_available_inventory` (~700) | series, length, color_pattern, connector_type — also `WHERE cs.series = ?` filter |
+| `greenlight/db.py:get_misc_summary` (~1104) | `GROUP BY cs.series` |
+| `greenlight/db.py:get_available_series` (~1137) | `SELECT DISTINCT cs.series` |
+| `greenlight/db.py:list_ltd_editions` / `get_ltd_edition` | series, length, description |
+| `greenlight/db.py:get_or_create_misc_sku` (~346) | template-row SELECT for series/core_cable/braid_material/connector_type — **the entire template lookup goes away** in 3.4 |
+| `greenlight/cable.py:CableType.load` | series, core_cable, braid_material, connector_type, length, color_pattern, description — class becomes resolver-backed wrapper around `(sku, description, length)` |
+| `greenlight/screens/cable.py:build_cable_info_panel` (~167) | series, length, color_pattern, connector_type (consumes dict from `get_audio_cable`) |
+| `greenlight/screens/orders.py` (~261, 475) | series, length, color_pattern (consumes dict from `get_cables_for_customer`) |
+| `greenlight/hardware/tsc_label_printer.py` | series, length, color_pattern, connector_type (consumes label_data dict) |
+| `greenlight/screens/inventory.py` | uses `get_available_inventory` — series filter |
+
+Three sites need attention beyond a mechanical column-swap:
+
+1. **`get_or_create_misc_sku` template lookup goes away.** The "find a representative row in this prefix to copy fields from" pattern dies. INSERT becomes `(sku, description, length)` only. Net code reduction.
+2. **`WHERE cs.series = ?` filter in `get_available_inventory`.** Series is derived. Filter by SKU prefix instead (`WHERE cs.sku LIKE 'SC-%'`) — keeps the filtering pushed to the DB. The series-prefix mapping is in YAML so the screen looks up the prefix for the chosen series before querying.
+3. **`GROUP BY cs.series` / `SELECT DISTINCT cs.series`.** Same problem. Either group/distinct by SKU prefix and resolve in Python, or read the series list directly from YAML and use it as the iteration source. The latter is cleaner — the YAML already has the canonical series list.
+
 ### Open design questions (carry into 3.2)
 
-1. **`description` rename.** Today it plays three roles depending on SKU kind: vestigial (catalog), the discriminator (MISC), marketing copy (LTD). Candidates: `display_note`, `variant_subtitle`, `subtitle`, `display_text`. Or leave as `description` and accept the multi-role meaning. Doesn't gate the migration — can rename later if a clearer name surfaces.
-2. **Parity test format.** Single fixture file (JSON list of `{sku, expected: {...}}`) consumed by both Python and JS tests. Anyone agree this is fine, or want a different shape (per-language fixtures, generated cross-checks, etc)?
+1. **`description` rename.** Today it plays three roles depending on SKU kind: vestigial (catalog), the discriminator/spec (MISC), marketing copy (LTD). Candidates considered: `display_note`, `variant_subtitle`, `subtitle`, `display_text`.
+
+   *Recommendation*: leave it as `description`. The alternatives all feel less natural and the rename touches every consumer for marginal clarity gain. Document the role-per-kind convention in the schema comment and in this doc, and move on. Doesn't gate the migration — can revisit later if a clearer name surfaces in real use.
 
 Resolved (2026-05-05):
 
-- Length column stays on `cable_skus` as `numeric(5,2)` NULL — NULL for catalog, required for MISC/LTD.
+- Length column stays on `cable_skus` as `numeric(5,2)` NULL — NULL for catalog, required for MISC/LTD, with CHECK constraint enforcing the rule structurally.
 - No `cable_color_patterns` lookup table — apps load `patterns.yaml` directly.
 - No `cable_series` lookup table — apps load per-series YAMLs directly.
 - No `cable_skus_v` view — consumers update first, then migration drops columns (big-bang).
 - SKU parser lives in app code, mirrored Python + JS, parity-tested. No SQL parsing functions.
 - `audio_sync_skus.py` shrinks to its minimum form, stays a CLI loader (not folded into startup).
+- Parity test fixture format: single `tests/sku_fixtures.json` listing `{sku, expected}` pairs (format above), consumed by both Python and JS tests. Real production SKUs included in the fixture so YAML edits that break back-compat surface immediately.
+- Pre-migration parity check (3.5.1) before column drops — resolver output must match existing column values for every row in `cable_skus`, else abort.
+- Length backfill (3.5.2) only for variant SKUs (MISC/LTD); aborts if any text length fails to parse cleanly.
 
 
 ## Implementation notes (2026-04-29)
