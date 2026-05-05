@@ -620,6 +620,23 @@ export default function Index() {
           >
             Inventory
           </button>
+          <a
+            href={`https://${adminPath}/apps/${appHandle}/app/editions`}
+            target="_top"
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#fff',
+              color: '#333',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              textDecoration: 'none',
+              display: 'inline-block',
+            }}
+          >
+            Editions
+          </a>
         </div>
 
         {/* Scan Cable View - Info Only */}
