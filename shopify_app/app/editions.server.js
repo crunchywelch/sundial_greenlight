@@ -42,11 +42,9 @@ function validateCreateInput({ seriesPrefix, slug, lengthFt, description, eventN
 
 /**
  * Create an LTD edition atomically:
- *   1. Insert cable_skus row with sku = `${prefix}-LTD-${slug}`, sourcing
- *      the derivable fields (series, core_cable, braid_material,
- *      connector_type) from the YAML config via the cable-config resolver.
- *      color_pattern keeps its 'Limited Edition' sentinel until Phase 3.5
- *      drops the column.
+ *   1. Insert cable_skus row — minimal columns: sku, length, description.
+ *      Series / core_cable / braid_material / connector_type are derived
+ *      at read time from the SKU + YAML config; not stored.
  *   2. Insert cable_ltd_metadata sidecar.
  * All in one transaction. Returns { sku, series } on success.
  *
@@ -57,13 +55,10 @@ function validateCreateInput({ seriesPrefix, slug, lengthFt, description, eventN
 export async function createLtdEdition({ seriesPrefix, slug, lengthFt, description, eventName, createdBy, notes }) {
   validateCreateInput({ seriesPrefix, slug, lengthFt, description, eventName });
 
-  const seriesData = seriesDataForPrefix(seriesPrefix);
-  if (!seriesData) {
+  const series = seriesForPrefix(seriesPrefix);
+  if (!series) {
     throw new EditionValidationError(`Unknown series prefix '${seriesPrefix}'.`, "seriesPrefix");
   }
-  const defaultConnector = seriesData.connectors?.find((c) => (c.code ?? "") === "")?.display
-    ?? seriesData.connectors?.[0]?.display
-    ?? "";
 
   const sku = `${seriesPrefix}-LTD-${slug}`;
   const len = parseFloat(lengthFt);
@@ -73,10 +68,9 @@ export async function createLtdEdition({ seriesPrefix, slug, lengthFt, descripti
     await client.query("BEGIN");
 
     await client.query(
-      `INSERT INTO cable_skus (sku, series, core_cable, braid_material, color_pattern, length, connector_type, description)
-       VALUES ($1, $2, $3, $4, 'Limited Edition', $5, $6, $7)`,
-      [sku, seriesData.product_line, seriesData.core_cable, seriesData.braid_material,
-       String(len), defaultConnector, description || null]
+      `INSERT INTO cable_skus (sku, length, description)
+       VALUES ($1, $2, $3)`,
+      [sku, len, description || null]
     );
 
     await client.query(
@@ -86,7 +80,7 @@ export async function createLtdEdition({ seriesPrefix, slug, lengthFt, descripti
     );
 
     await client.query("COMMIT");
-    return { sku, series: seriesData.product_line };
+    return { sku, series };
   } catch (e) {
     await client.query("ROLLBACK");
     if (e.code === "23505") {
@@ -109,7 +103,7 @@ export async function createLtdEdition({ seriesPrefix, slug, lengthFt, descripti
 export async function getEdition(sku) {
   const result = await query(
     `SELECT cs.sku, cs.length, cs.description,
-            lm.event_name, lm.active, lm.archived_at, lm.created_by, lm.notes, lm.created_at,
+            lm.event_name, lm.archived_at, lm.created_by, lm.notes, lm.created_at,
             (SELECT COUNT(*) FROM audio_cables ac WHERE ac.sku = cs.sku) AS cable_count
      FROM cable_skus cs
      JOIN cable_ltd_metadata lm ON lm.sku = cs.sku
@@ -136,7 +130,7 @@ export async function getEdition(sku) {
     connector_type: defaultConnector,
     description: r.description,
     event_name: r.event_name,
-    active: r.active,
+    active: r.archived_at === null,
     archived_at: r.archived_at,
     created_by: r.created_by,
     notes: r.notes,
@@ -170,8 +164,7 @@ export async function updateEdition(sku, updates) {
     lmValues.push(updates.notes ? updates.notes.trim() : null);
   }
   if (updates.active != null) {
-    lmUpdates.push(`active = $${lmValues.length + 1}`);
-    lmValues.push(Boolean(updates.active));
+    // archived_at is the source of truth — there's no separate active column.
     lmUpdates.push(`archived_at = ${updates.active ? "NULL" : "CURRENT_TIMESTAMP"}`);
   }
 
@@ -189,10 +182,10 @@ export async function updateEdition(sku, updates) {
     if (!Number.isFinite(len) || len <= 0) {
       throw new EditionValidationError("Length must be a positive number.", "lengthFt");
     }
-    if (String(len) !== existing.length) {
+    if (Number(len) !== Number(existing.length)) {
       if (locked) throw new EditionValidationError("Length is locked once cables are registered.", "lengthFt");
       csUpdates.push(`length = $${csValues.length + 1}`);
-      csValues.push(String(len));
+      csValues.push(len);
     }
   }
 

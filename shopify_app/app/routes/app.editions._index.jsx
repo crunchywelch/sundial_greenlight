@@ -11,17 +11,17 @@ export async function loader({ request }) {
   const filter = url.searchParams.get("filter") || "active"; // active | archived | all
 
   const where = ["cs.sku ~ '-LTD-[A-Z0-9]{4,12}$'"];
-  if (filter === "active") where.push("lm.active = TRUE");
-  else if (filter === "archived") where.push("lm.active = FALSE");
+  if (filter === "active") where.push("lm.archived_at IS NULL");
+  else if (filter === "archived") where.push("lm.archived_at IS NOT NULL");
 
   const result = await query(
     `SELECT cs.sku, cs.length, cs.description,
-            lm.event_name, lm.active, lm.archived_at, lm.created_at,
+            lm.event_name, lm.archived_at, lm.created_at,
             (SELECT COUNT(*) FROM audio_cables ac WHERE ac.sku = cs.sku) AS cable_count
      FROM cable_skus cs
      JOIN cable_ltd_metadata lm ON lm.sku = cs.sku
      WHERE ${where.join(" AND ")}
-     ORDER BY lm.active DESC, lm.created_at DESC`
+     ORDER BY (lm.archived_at IS NULL) DESC, lm.created_at DESC`
   );
 
   const editions = result.rows.map((r) => {
@@ -33,7 +33,7 @@ export async function loader({ request }) {
       length: r.length,
       description: r.description,
       event_name: r.event_name,
-      active: r.active,
+      active: r.archived_at === null,
       archived_at: r.archived_at,
       created_at: r.created_at,
       cable_count: parseInt(r.cable_count, 10),
