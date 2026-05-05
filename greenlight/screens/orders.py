@@ -257,8 +257,10 @@ class CustomerDetailScreen(Screen):
         if assigned_cables:
             cables_text += "\n"
             for cable in assigned_cables[:5]:  # Show first 5
-                # MISC variants have a per-variant custom description; show it
-                if sku_kind(cable['sku']) == 'misc' and cable.get('description'):
+                kind = sku_kind(cable['sku'])
+                if kind == 'ltd' and cable.get('event_name'):
+                    cable_desc = f"{cable['series']} {cable['length']}ft - {cable['event_name']}"
+                elif kind == 'misc' and cable.get('description'):
                     cable_desc = f"{cable['series']} {cable['length']}ft - {cable['description']}"
                 else:
                     cable_desc = f"{cable['series']} {cable['length']}ft {cable['color_pattern']}"
@@ -472,7 +474,10 @@ class UnassignCableScreen(Screen):
         table.add_column("Tested", justify="center", style="yellow")
 
         for i, cable in enumerate(assigned_cables, 1):
-            if sku_kind(cable['sku']) == 'misc' and cable.get('description'):
+            kind = sku_kind(cable['sku'])
+            if kind == 'ltd' and cable.get('event_name'):
+                cable_desc = f"{cable['series']} {cable['length']}ft - {cable['event_name']}"
+            elif kind == 'misc' and cable.get('description'):
                 cable_desc = f"{cable['series']} {cable['length']}ft - {cable['description']}"
             else:
                 cable_desc = f"{cable['series']} {cable['length']}ft {cable['color_pattern']}"
