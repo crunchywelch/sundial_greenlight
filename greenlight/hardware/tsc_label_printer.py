@@ -301,9 +301,12 @@ class TSCLabelPrinter(LabelPrinterInterface):
         # Format connector type for display
         connector_display = self._format_connector_type(connector_type)
 
-        # MISC variant SKUs follow {prefix}-MISC-{seq}; show "Special Baby" branding for these
+        # MISC and LTD variants get distinct line-3 branding instead of color/pattern
         from greenlight.db import sku_kind
-        is_misc = sku_kind(sku) == 'misc'
+        kind = sku_kind(sku)
+        is_misc = kind == 'misc'
+        is_ltd = kind == 'ltd'
+        event_name = data.get('event_name')
 
         # Start TSPL commands
         tspl_commands = []
@@ -382,9 +385,13 @@ class TSCLabelPrinter(LabelPrinterInterface):
             cont_status = "PASS" if continuity_pass else "X"
             tspl_commands.append(f'TEXT {x_qc},{y_qc_con},"1",0,1,1,"CON: {cont_status}"')
 
-        # Line 3: Length and Color/Pattern
+        # Line 3: Length and Color/Pattern (with branding for MISC and LTD variants)
         if is_misc:
             length_text = f"{length}' Special Baby"
+        elif is_ltd and event_name:
+            length_text = f"{length}' {event_name}"
+        elif is_ltd:
+            length_text = f"{length}' Limited Edition"
         else:
             length_text = f"{length}' {color_pattern}"
         tspl_commands.append(f'TEXT {x_left},{y_length},"2",0,1,1,"{length_text}"')

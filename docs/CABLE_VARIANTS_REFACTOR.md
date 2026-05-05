@@ -1,6 +1,6 @@
 # Cable Variants Refactor
 
-**Status:** Phase 1 complete and shipped (2026-04-29). Migration ran on DO host (46 MISC variants promoted, 54 audio_cables rows repointed, 4 placeholder rows deleted). Greenlight TUI smoke-tested. Remix server rebuilt and restarted. Shopify extensions redeployed. Phase 2 (LTD editions) not started.
+**Status:** Phase 1 complete and shipped (2026-04-29). Phase 2 greenlight-side complete on `feat/cable-variants-phase-2-ltd` (2026-04-30) — pending DB migration on DO host + Shopify app CRUD UI work. Migration is non-destructive (just adds `cable_ltd_metadata` table); safe to run while the app is up.
 
 ## Implementation notes (2026-04-29)
 
@@ -300,6 +300,10 @@ WHERE sku IN ('SC-MISC','SP-MISC','SV-MISC','TC-MISC','TV-MISC');  -- expect 0
 
 ## Phase 2 — Add LTD editions
 
+**Design split (decided 2026-04-30):** LTD edition CRUD lives in the Shopify app (Remix), not in the greenlight TUI. Greenlight is read-only on `cable_ltd_metadata` and provides the *picker* used during scan. Rationale: LTD editions are a catalog/product concept, the Shopify app is already the surface for product management, and operators creating an edition for "Phish Summer Tour 2026" are more naturally working in Shopify admin than at a QC station.
+
+This also opens the door (Phase 2.5+) to deprecating `audio_sync_skus.py`'s YAML-driven catalog ingestion entirely and managing all SKUs in the Shopify app — but that's out of scope for Phase 2.
+
 ### Migration SQL
 
 ```sql
@@ -315,57 +319,79 @@ CREATE TABLE cable_ltd_metadata (
 CREATE INDEX idx_ltd_metadata_active ON cable_ltd_metadata(active) WHERE active = TRUE;
 ```
 
-No placeholder rows in `cable_skus` for LTD — every edition gets a real, fully-populated `cable_skus` row. Slug is the SKU suffix; not stored separately.
+No placeholder rows in `cable_skus` for LTD — every edition gets a real, fully-populated `cable_skus` row created by the Shopify app's CRUD UI. Slug is the SKU suffix (`{prefix}-LTD-{slug}`); not stored separately.
 
-### `greenlight/db.py` additions
+### Greenlight (read-only)
 
-```python
-def create_ltd_edition(series_prefix, slug, event_name, length, description, operator, notes=None) -> dict
-def list_ltd_editions(active_only=True, series_prefix=None) -> list[dict]
-def get_ltd_edition(sku) -> dict | None
-def update_ltd_edition_metadata(sku, event_name=None, notes=None) -> bool
-def archive_ltd_edition(sku) -> bool
-def unarchive_ltd_edition(sku) -> bool
+#### `greenlight/db.py`
+
+- Update `sku_kind()` to recognize `{prefix}-LTD-{slug}` → `'ltd'`. Pattern: `parts[-2] == 'LTD' and parts[-1]` matches `^[A-Z0-9]{4,12}$`.
+- Add `list_ltd_editions(active_only=True, series_prefix=None) -> list[dict]` — joins `cable_skus` + `cable_ltd_metadata` + a cable count subquery against `audio_cables`. Powers the picker.
+- Add `get_ltd_edition(sku) -> dict | None` — single edition with metadata + cable count. Used for detail display.
+- Enrich `get_audio_cable`, `get_cables_for_customer`, `get_all_cables`, `get_cables_for_order` to `LEFT JOIN cable_ltd_metadata` and surface `event_name` when present. The LEFT JOIN is appropriate here because the sidecar genuinely exists for some rows and not others — a true "extension" relationship, not a dual-source-of-truth hazard like the old `special_baby_types` join.
+
+No write helpers in greenlight. The Shopify app owns those.
+
+#### `greenlight/screens/cable.py`
+
+- New `LtdEditionPickerScreen` — lists active editions (slug, event name, series, length, cable count) across all series. Selecting one loads the `cable_skus` row as `cable_type` and routes straight to `ScanCableIntakeScreen` (no description prompt — that's already on the edition).
+- Empty-state when there are no active editions: surface a message directing the operator to create one in the Shopify app, and return.
+- Hook: add `[L] Limited Edition` as an extra item on `SeriesSelectionScreen` (Option A from the previous draft — simplest). The picker bypasses the series funnel since the edition encodes the series.
+
+#### Display (cable info panel + label printer)
+
+- `build_cable_info_panel` — when `sku_kind(sku) == 'ltd'`, add a new "Event:" line showing the edition's `event_name` (sourced from the LEFT JOIN added above). Description still displays under the same gating used for MISC.
+- `tsc_label_printer` — for LTD cables, render `event_name` instead of the "Special Baby" branding text used for MISC. Shape: probably "Limited Edition" or the event name itself on the line currently used for color/pattern. Confirm against the existing label layout for fit.
+
+#### Inventory dashboard
+
+Defer for now — `inventory.py` will list LTD variants alongside catalog (since they're just `cable_skus` rows with `kind='ltd'`). A dedicated "Limited Editions" summary panel can come as a small follow-up if you want it.
+
+### Shopify app (separate work, on DO host)
+
+The Shopify app is responsible for LTD edition lifecycle:
+
+1. **CRUD UI** — list / create / edit metadata / archive editions. Lives wherever fits in the existing Remix app structure (e.g., `app/routes/app.editions.*`).
+2. **Atomic write helper** — single transaction that inserts a `cable_skus` row (sku=`{prefix}-LTD-{slug}`, color_pattern='Limited Edition', length, description, series/core_cable/braid_material/connector_type from a representative row in the prefix) AND a `cable_ltd_metadata` row (event_name, created_by, active=true).
+3. **Validation:**
+   - Slug `^[A-Z0-9]{4,12}$`
+   - Slug uniqueness (PK on `cable_skus.sku` enforces this for the full SKU)
+   - Length > 0
+   - Series prefix must exist in `cable_skus` (used as a template)
+4. **Edit lock** — once an edition has registered cables (`SELECT COUNT(*) FROM audio_cables WHERE sku = ?` > 0), reject edits to slug/length/description. Allow `event_name`, `notes`, `active` toggle freely.
+5. **Shopify product creation** — when an LTD edition is created in the CRUD UI, the Shopify app should also create the corresponding Shopify product (so it's available for sale). This is a Shopify-app-side concern; the existing `_create_special_baby_product` helper in greenlight is MISC-only and stays that way.
+
+### Shopify integration (greenlight side)
+
+- `ensure_misc_shopify_product` stays MISC-only. LTD products are created by the Shopify app's CRUD UI, not lazily by greenlight. So the existing `if sku_kind(sku) == 'misc'` branch in cable.py is correct as-is — LTD falls through to `set_inventory_for_sku` (the catalog path), which is what we want since the product is guaranteed to exist.
+- `audio_shopify_inventory_reconcile.py` — the `'-MISC-' in sku` branch stays MISC-only for the same reason. LTD reconcile just sets quantity (no product creation needed).
+- `audio_shopify_sku_sync.py` — already includes all `cable_skus` rows in the comparison; LTD SKUs appear automatically with no special handling.
+
+### Tests
+
+- `test_ltd_scan_flow.py` — insert a `cable_skus` + `cable_ltd_metadata` pair, register a cable, verify `get_audio_cable` surfaces `event_name`, verify `sku_kind('SC-LTD-PHISH26')` returns `'ltd'`.
+- Test `list_ltd_editions(active_only=True)` excludes archived editions, and `series_prefix` filters correctly.
+
+### Phase 2 verification queries
+
+```sql
+-- Every -LTD- SKU has a metadata sidecar
+SELECT cs.sku FROM cable_skus cs
+LEFT JOIN cable_ltd_metadata lm ON cs.sku = lm.sku
+WHERE cs.sku ~ '-LTD-[A-Z0-9]+$' AND lm.sku IS NULL;  -- expect 0
+
+-- And every metadata row has a SKU (FK enforces this, but worth confirming)
+SELECT lm.sku FROM cable_ltd_metadata lm
+LEFT JOIN cable_skus cs ON cs.sku = lm.sku
+WHERE cs.sku IS NULL;  -- expect 0
 ```
 
-`create_ltd_edition`:
-- Validates slug `^[A-Z0-9]{4,12}$`
-- Inserts into `cable_skus` (sku=`{prefix}-LTD-{slug}`, color_pattern='Limited Edition', length, description, etc.)
-- Inserts into `cable_ltd_metadata` (sku, event_name, active=true, created_by=operator)
-- Both inserts in one transaction; errors on slug collision
-
-`list_ltd_editions`:
-- Joins `cable_skus` + `cable_ltd_metadata` + a cable count subquery against `audio_cables`
-
-### New screens in `greenlight/screens/cable.py`
-
-- **`LtdEditionPickerScreen`** — lists active editions (slug, event name, series, length, cable count). Selection loads the cable_skus row → `ScanCableIntakeScreen` directly (no description prompt; that's set on the edition).
-- **`LtdEditionCreateScreen`** — sequential prompts: series → slug (validated, dedup-checked) → event name → length → description (defaults to `f"Limited edition {event_name} — {length}ft"`) → calls `create_ltd_edition`, transitions to scan.
-
-### Hook into scan flow
-
-Two placement options for the LTD entry point. Decide during wiring:
-
-- **Option A** — extra item on `SeriesSelectionScreen` (cable.py:1449): `[L] Limited Edition`, parallel to series choices. Picker shows editions across all series.
-- **Option B** — extra item one level up (peer of "by SKU" / "by attributes"). Better matches operator mental model ("scanning Phish cables" not "scanning Studio Classic"), but requires touching the upstream menu.
-
-### Settings — Manage Limited Editions
-
-In `greenlight/screens/settings.py`:
-
-- Add `"Manage Limited Editions"` to the menu (settings.py:14–20).
-- New `LtdEditionsManagementScreen` — table view of all editions (active + archived) with cable counts. Filter toggle for active-only.
-- New `LtdEditionDetailScreen` — view detail, edit `event_name` + `notes`, archive/unarchive. Show slug/length/description as read-only with note explaining they're locked.
-
-### Shopify integration
-
-- `ensure_dynamic_shopify_product` (renamed in Phase 1) handles both MISC and LTD — same code path; description and length come from `cable_skus`.
-- `audio_shopify_inventory_reconcile.py` — `'-MISC-' in sku` branch widens to also match `'-LTD-'`.
-- For LTD, optionally enrich Shopify product title with event name (e.g. "Studio Classic 10ft — Phish Summer Tour 2026").
-
-### `shopify_app/`
-
-After Phase 1 changes are deployed, LTD editions appear as ordinary `cable_skus` rows. Should "just work," but audit for any place that displays a SKU and might want to surface event name for LTDs.
+**Manual smoke test (after both sides land):**
+- Create an LTD edition via Shopify app, verify `cable_skus` + `cable_ltd_metadata` rows + Shopify product
+- Open greenlight TUI, Register Cables → series → `[L] Limited Edition` → pick the edition → scan a cable
+- Look up the registered cable by serial → verify "Event:" line in cable info panel
+- Archive the edition in Shopify app → verify it disappears from greenlight's picker but lookup still works
+- Verify order fulfillment (if any open orders contain LTD cables) shows event name correctly
 
 ### Tests
 

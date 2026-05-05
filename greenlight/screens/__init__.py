@@ -20,6 +20,7 @@ from greenlight.screens.cable import (
     ColorPatternSelectionScreen,
     MiscVariantPickerScreen,
     MiscVariantCreateScreen,
+    LtdEditionPickerScreen,
     LengthSelectionScreen,
     ConnectorTypeSelectionScreen,
     ScanCableIntakeScreen
@@ -64,6 +65,7 @@ __all__ = [
     'ColorPatternSelectionScreen',
     'MiscVariantPickerScreen',
     'MiscVariantCreateScreen',
+    'LtdEditionPickerScreen',
     'LengthSelectionScreen',
     'ConnectorTypeSelectionScreen',
     'ScanCableIntakeScreen',

@@ -1,7 +1,9 @@
 import logging
+import os
+import re
+
 import psycopg2
 from psycopg2 import pool
-import os
 
 from greenlight.config import DB_CONFIG
 
@@ -95,9 +97,11 @@ def get_audio_cable(serial_number):
                        cs.series,
                        CAST(cs.length AS REAL) as length,
                        cs.color_pattern, cs.connector_type,
-                       cs.core_cable, cs.braid_material
+                       cs.core_cable, cs.braid_material,
+                       lm.event_name
                 FROM audio_cables ac
                 JOIN cable_skus cs ON ac.sku = cs.sku
+                LEFT JOIN cable_ltd_metadata lm ON lm.sku = ac.sku
                 WHERE ac.serial_number = %s
             """, (serial_number,))
             row = cur.fetchone()
@@ -277,17 +281,24 @@ def update_cable_test_results(serial_number, test_passed, resistance_adc=None, c
         pg_pool.putconn(conn)
 
 
+_LTD_SLUG_PATTERN = re.compile(r'^[A-Z0-9]{4,12}$')
+
+
 def sku_kind(sku):
     """Classify a SKU by pattern.
 
-    MISC variants follow {prefix}-MISC-{seq}. Anything else is treated as a
-    standard catalog SKU. (LTD will be added in Phase 2.)
+    MISC variants follow {prefix}-MISC-{seq} (seq numeric).
+    LTD editions follow {prefix}-LTD-{slug} (slug 4-12 chars, A-Z + 0-9).
+    Everything else is treated as a standard catalog SKU.
     """
     if not sku:
         return 'catalog'
     parts = sku.split('-')
-    if len(parts) >= 3 and parts[-2] == 'MISC' and parts[-1].isdigit():
-        return 'misc'
+    if len(parts) >= 3:
+        if parts[-2] == 'MISC' and parts[-1].isdigit():
+            return 'misc'
+        if parts[-2] == 'LTD' and _LTD_SLUG_PATTERN.match(parts[-1]):
+            return 'ltd'
     return 'catalog'
 
 
@@ -449,6 +460,102 @@ def search_misc_variants(series_prefix):
         pg_pool.putconn(conn)
 
 
+def list_ltd_editions(active_only=True, series_prefix=None):
+    """List LTD editions with cable counts (read-only; CRUD lives in shopify_app).
+
+    Args:
+        active_only: If True, exclude archived editions
+        series_prefix: Optional filter (e.g. 'SC' to only show Studio Classic editions)
+
+    Returns:
+        List of dicts with sku, slug, event_name, series, length, description,
+        active, cable_count, created_at.
+    """
+    conn = pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            params = []
+            where_clauses = ["cs.sku ~ '-LTD-[A-Z0-9]{4,12}$'"]
+            if active_only:
+                where_clauses.append("lm.active = TRUE")
+            if series_prefix:
+                where_clauses.append("cs.sku LIKE %s")
+                params.append(f"{series_prefix}-LTD-%")
+
+            where_sql = " AND ".join(where_clauses)
+            cur.execute(f"""
+                SELECT cs.sku, cs.series, cs.length, cs.description,
+                       lm.event_name, lm.active, lm.created_at,
+                       (SELECT COUNT(*) FROM audio_cables ac WHERE ac.sku = cs.sku) AS cable_count
+                FROM cable_skus cs
+                JOIN cable_ltd_metadata lm ON lm.sku = cs.sku
+                WHERE {where_sql}
+                ORDER BY lm.active DESC, lm.created_at DESC
+            """, params)
+            rows = cur.fetchall()
+            return [
+                {
+                    'sku': r[0],
+                    'slug': r[0].rsplit('-', 1)[-1],
+                    'series': r[1],
+                    'length': r[2],
+                    'description': r[3],
+                    'event_name': r[4],
+                    'active': r[5],
+                    'created_at': r[6],
+                    'cable_count': r[7],
+                }
+                for r in rows
+            ]
+    except Exception as e:
+        logger.error("Error listing LTD editions: %s", e)
+        return []
+    finally:
+        pg_pool.putconn(conn)
+
+
+def get_ltd_edition(sku):
+    """Fetch a single LTD edition by SKU (read-only).
+
+    Returns dict with sku, slug, event_name, series, length, description,
+    active, archived_at, created_by, notes, created_at, cable_count — or None.
+    """
+    conn = pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT cs.sku, cs.series, cs.length, cs.description,
+                       lm.event_name, lm.active, lm.archived_at, lm.created_by,
+                       lm.notes, lm.created_at,
+                       (SELECT COUNT(*) FROM audio_cables ac WHERE ac.sku = cs.sku) AS cable_count
+                FROM cable_skus cs
+                JOIN cable_ltd_metadata lm ON lm.sku = cs.sku
+                WHERE cs.sku = %s
+            """, (sku,))
+            row = cur.fetchone()
+            if not row:
+                return None
+            return {
+                'sku': row[0],
+                'slug': row[0].rsplit('-', 1)[-1],
+                'series': row[1],
+                'length': row[2],
+                'description': row[3],
+                'event_name': row[4],
+                'active': row[5],
+                'archived_at': row[6],
+                'created_by': row[7],
+                'notes': row[8],
+                'created_at': row[9],
+                'cable_count': row[10],
+            }
+    except Exception as e:
+        logger.error("Error fetching LTD edition %s: %s", sku, e)
+        return None
+    finally:
+        pg_pool.putconn(conn)
+
+
 def get_available_count_for_sku(sku):
     """Get count of available (passed + unassigned) cables for a SKU.
 
@@ -605,9 +712,11 @@ def get_cables_for_customer(customer_shopify_gid):
                        cs.description,
                        cs.series,
                        CAST(cs.length AS REAL) as length,
-                       cs.color_pattern, cs.connector_type
+                       cs.color_pattern, cs.connector_type,
+                       lm.event_name
                 FROM audio_cables ac
                 JOIN cable_skus cs ON ac.sku = cs.sku
+                LEFT JOIN cable_ltd_metadata lm ON lm.sku = ac.sku
                 WHERE ac.shopify_gid = %s
                 ORDER BY ac.updated_timestamp DESC
             """, (customer_shopify_gid,))
@@ -623,7 +732,8 @@ def get_cables_for_customer(customer_shopify_gid):
                     'series': row[4],
                     'length': row[5],
                     'color_pattern': row[6],
-                    'connector_type': row[7]
+                    'connector_type': row[7],
+                    'event_name': row[8],
                 })
             return cables
     except Exception as e:
@@ -643,9 +753,11 @@ def get_all_cables(limit=100, offset=0):
                        cs.description,
                        cs.series,
                        CAST(cs.length AS REAL) as length,
-                       cs.color_pattern, cs.connector_type
+                       cs.color_pattern, cs.connector_type,
+                       lm.event_name
                 FROM audio_cables ac
                 JOIN cable_skus cs ON ac.sku = cs.sku
+                LEFT JOIN cable_ltd_metadata lm ON lm.sku = ac.sku
                 ORDER BY ac.serial_number DESC
                 LIMIT %s OFFSET %s
             """, (limit, offset))
@@ -666,7 +778,8 @@ def get_all_cables(limit=100, offset=0):
                     'series': row[9],
                     'length': row[10],
                     'color_pattern': row[11],
-                    'connector_type': row[12]
+                    'connector_type': row[12],
+                    'event_name': row[13],
                 })
             return cables
     except Exception as e:
@@ -880,9 +993,11 @@ def get_cables_for_order(order_gid):
                        cs.series,
                        CAST(cs.length AS REAL) as length,
                        cs.color_pattern, cs.connector_type,
-                       cs.description
+                       cs.description,
+                       lm.event_name
                 FROM audio_cables ac
                 JOIN cable_skus cs ON ac.sku = cs.sku
+                LEFT JOIN cable_ltd_metadata lm ON lm.sku = ac.sku
                 WHERE ac.shopify_order_gid = %s
                 ORDER BY ac.updated_timestamp DESC
             """, (order_gid,))
@@ -891,7 +1006,8 @@ def get_cables_for_order(order_gid):
                 {
                     'serial_number': r[0], 'sku': r[1],
                     'series': r[2], 'length': r[3], 'color_pattern': r[4],
-                    'connector_type': r[5], 'description': r[6]
+                    'connector_type': r[5], 'description': r[6],
+                    'event_name': r[7],
                 }
                 for r in rows
             ]

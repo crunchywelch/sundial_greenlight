@@ -169,8 +169,13 @@ class CableScreenBase(Screen):
   Color: {color_pattern}
   Connector: {connector_type}"""
 
+        kind = sku_kind(sku)
+        event_name = cable_record.get("event_name")
+        if kind == 'ltd' and event_name:
+            left += f"\n  [bold magenta]Edition:[/bold magenta] {event_name}"
+
         description = cable_record.get("description")
-        if sku_kind(sku) == 'misc' and description:
+        if kind in ('misc', 'ltd') and description:
             left += f"\n  Description: {description}"
 
         registration_code = cable_record.get("registration_code")
@@ -864,6 +869,10 @@ class CableScreenBase(Screen):
             'connector_type': connector_type,
             'sku': sku,
         }
+        # LTD cables carry their event name through to the label printer
+        event_name = cable_record.get('event_name')
+        if event_name:
+            label_data['event_name'] = event_name
 
         # Add description: per-cable for MISC, SKU pattern description for standard
         if description:
@@ -1461,6 +1470,8 @@ class SeriesSelectionScreen(Screen):
 
         # Create menu items
         menu_items = [series_display.get(s, s) for s in series_options]
+        ltd_choice_idx = len(menu_items)
+        menu_items.append("[L] Limited Edition (LTD)")
         menu_items.append("Back (q)")
 
         rows = [
@@ -1469,7 +1480,7 @@ class SeriesSelectionScreen(Screen):
         ]
 
         self.ui.header(operator)
-        self.ui.layout["body"].update(Panel("Select the cable series", title="Step 1: Series Selection"))
+        self.ui.layout["body"].update(Panel("Select the cable series, or 'L' for a Limited Edition run", title="Step 1: Series Selection"))
         self.ui.layout["footer"].update(Panel("\n".join(rows), title="Available Series"))
         self.ui.render()
 
@@ -1481,8 +1492,12 @@ class SeriesSelectionScreen(Screen):
             sys.exit(0)
 
         # Handle back/quit
-        if choice.lower() == "q" or choice == str(len(series_options) + 1):
+        if choice.lower() == "q" or choice == str(len(menu_items)):
             return ScreenResult(NavigationAction.POP)
+
+        # Handle Limited Edition shortcut
+        if choice.lower() == "l" or choice == str(ltd_choice_idx + 1):
+            return ScreenResult(NavigationAction.REPLACE, LtdEditionPickerScreen, self.context)
 
         # Handle series selection
         try:
@@ -1500,6 +1515,99 @@ class SeriesSelectionScreen(Screen):
         self.ui.console.print("[red]Invalid choice[/red]")
         import time; time.sleep(0.5)
         return ScreenResult(NavigationAction.REPLACE, SeriesSelectionScreen, self.context)
+
+
+class LtdEditionPickerScreen(Screen):
+    """Pick an active LTD edition to scan cables against.
+
+    LTD edition CRUD lives in the Shopify app; this screen is read-only and
+    just lets the operator pick which existing edition they're scanning for.
+    """
+
+    def run(self) -> ScreenResult:
+        operator = self.context.get("operator", "")
+        from greenlight.db import list_ltd_editions
+        editions = list_ltd_editions(active_only=True)
+
+        self.ui.header(operator)
+
+        if not editions:
+            self.ui.layout["body"].update(Panel(
+                "[bold yellow]No active Limited Editions[/bold yellow]\n\n"
+                "Create an LTD edition in the Shopify app first, then come back\n"
+                "to scan cables against it.",
+                title="Limited Edition Picker", border_style="yellow"
+            ))
+            self.ui.layout["footer"].update(Panel(
+                "Press enter or 'q' to go back",
+                title=""
+            ))
+            self.ui.render()
+            try:
+                self.ui.console.input()
+            except KeyboardInterrupt:
+                pass
+            return ScreenResult(NavigationAction.POP)
+
+        # Build the picker list
+        body_lines = [
+            "[bold yellow]Active Limited Editions[/bold yellow]\n"
+        ]
+        for i, ed in enumerate(editions, 1):
+            length_display = _format_length(ed.get("length"))
+            body_lines.append(
+                f"  [green]{i}.[/green] [bold]{ed['slug']}[/bold] — {ed['event_name']}\n"
+                f"     {ed['series']}, {length_display}, {ed['cable_count']} cable{'' if ed['cable_count'] == 1 else 's'} registered"
+            )
+        body_lines.append("")
+        body_lines.append("  [green]Q[/green]. Back")
+
+        self.ui.layout["body"].update(Panel(
+            "\n".join(body_lines), title="Limited Edition Picker"
+        ))
+        self.ui.layout["footer"].update(Panel(
+            "Pick an edition by number, or 'q' to go back",
+            title="Choose"
+        ))
+        self.ui.render()
+
+        try:
+            choice = self.ui.console.input("Choose: ").strip().lower()
+        except KeyboardInterrupt:
+            return ScreenResult(NavigationAction.POP)
+
+        if choice in ('q', ''):
+            return ScreenResult(NavigationAction.POP)
+
+        try:
+            idx = int(choice) - 1
+        except ValueError:
+            self.ui.console.print("[red]Invalid choice[/red]")
+            time.sleep(0.5)
+            return ScreenResult(NavigationAction.REPLACE, LtdEditionPickerScreen, self.context)
+
+        if 0 <= idx < len(editions):
+            selected_sku = editions[idx]['sku']
+            try:
+                cable_type = CableType()
+                cable_type.load(selected_sku)
+            except ValueError as e:
+                self.ui.layout["body"].update(Panel(
+                    f"❌ Error loading SKU {selected_sku}: {e}",
+                    title="Error", style="red"
+                ))
+                self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+                self.ui.render()
+                self.ui.console.input()
+                return ScreenResult(NavigationAction.POP)
+
+            new_context = self.context.copy()
+            new_context["cable_type"] = cable_type
+            return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
+
+        self.ui.console.print("[red]Invalid choice[/red]")
+        time.sleep(0.5)
+        return ScreenResult(NavigationAction.REPLACE, LtdEditionPickerScreen, self.context)
 
 
 class ColorPatternSelectionScreen(Screen):

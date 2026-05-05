@@ -45,6 +45,23 @@ CREATE TABLE IF NOT EXISTS audio_cables (
 
 CREATE INDEX IF NOT EXISTS idx_audio_cables_order_gid ON audio_cables(shopify_order_gid);
 
+-- LTD (Limited Edition) cable metadata sidecar.
+-- One row per LTD edition cable_skus row (sku pattern: {prefix}-LTD-{slug}).
+-- CRUD lives in the Shopify app; greenlight is read-only on this table.
+-- See docs/CABLE_VARIANTS_REFACTOR.md § Phase 2.
+CREATE TABLE IF NOT EXISTS cable_ltd_metadata (
+    sku TEXT PRIMARY KEY REFERENCES cable_skus(sku) ON DELETE CASCADE,
+    event_name TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    archived_at TIMESTAMPTZ,
+    created_by TEXT,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_ltd_metadata_active
+    ON cable_ltd_metadata(active) WHERE active = TRUE;
+
 -- ============================================================================
 -- SEQUENCES
 -- ============================================================================
