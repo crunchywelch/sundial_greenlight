@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "shopify app dev",
     "build": "shopify app build",
-    "deploy": "shopify app deploy"
+    "deploy": "shopify app deploy",
+    "test": "node --test tests/"
   },
   "dependencies": {
     "@preact/signals": "^2.5.1",
@@ -19,6 +20,7 @@
     "@shopify/shopify-app-session-storage-postgresql": "^4.0.20",
     "@shopify/ui-extensions": "2025.10.11",
     "isbot": "^4",
+    "js-yaml": "^4.1.1",
     "mqtt": "^5.15.1",
     "pg": "^8.16.3",
     "preact": "^10.28.1",
