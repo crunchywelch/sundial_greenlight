@@ -111,7 +111,9 @@ class CableScreenBase(Screen):
         cable_operator = cable_record.get("operator", "N/A")
         test_timestamp = cable_record.get("test_timestamp")
         updated_timestamp = cable_record.get("updated_timestamp")
-        is_xlr = 'XLR' in connector_type.upper() or 'vocal' in series.lower()
+        # connector_type is None for MISC/LTD variants (resolver only sets it for catalog).
+        # The series check handles those — vocal series always means XLR.
+        is_xlr = 'XLR' in (connector_type or '').upper() or 'vocal' in (series or '').lower()
 
         # Format test results
         if test_passed is True:
@@ -244,8 +246,9 @@ class CableScreenBase(Screen):
             operator: Operator ID
             cable_record: Cable record from database
         """
-        connector_type = cable_record.get('connector_type', '').upper()
-        series = cable_record.get('series', '').lower()
+        # connector_type is None for MISC/LTD variants; fall back to series check.
+        connector_type = (cable_record.get('connector_type') or '').upper()
+        series = (cable_record.get('series') or '').lower()
         if 'XLR' in connector_type or 'vocal' in series:
             self._run_xlr_cable_test(operator, cable_record)
         else:
