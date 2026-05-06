@@ -1,45 +1,13 @@
 import { json } from "@remix-run/node";
 import { useLoaderData, useSearchParams, useLocation, Link } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
-import { query } from "../db.server";
-import { parseSku } from "../cable-config.server";
+import { listEditions } from "../editions.server";
 
 export async function loader({ request }) {
   await authenticate.admin(request);
-
   const url = new URL(request.url);
-  const filter = url.searchParams.get("filter") || "active"; // active | archived | all
-
-  const where = ["cs.sku ~ '-LTD-[A-Z0-9]{4,12}$'"];
-  if (filter === "active") where.push("lm.archived_at IS NULL");
-  else if (filter === "archived") where.push("lm.archived_at IS NOT NULL");
-
-  const result = await query(
-    `SELECT cs.sku, cs.length, cs.description,
-            lm.event_name, lm.archived_at, lm.created_at,
-            (SELECT COUNT(*) FROM audio_cables ac WHERE ac.sku = cs.sku) AS cable_count
-     FROM cable_skus cs
-     JOIN cable_ltd_metadata lm ON lm.sku = cs.sku
-     WHERE ${where.join(" AND ")}
-     ORDER BY (lm.archived_at IS NULL) DESC, lm.created_at DESC`
-  );
-
-  const editions = result.rows.map((r) => {
-    const parsed = parseSku(r.sku);
-    return {
-      sku: r.sku,
-      slug: parsed.slug ?? r.sku.split("-").slice(-1)[0],
-      series: parsed.series,
-      length: r.length,
-      description: r.description,
-      event_name: r.event_name,
-      active: r.archived_at === null,
-      archived_at: r.archived_at,
-      created_at: r.created_at,
-      cable_count: parseInt(r.cable_count, 10),
-    };
-  });
-
+  const filter = url.searchParams.get("filter") || "active";
+  const editions = await listEditions(filter);
   return json({ editions, filter });
 }
 
@@ -65,8 +33,6 @@ export default function EditionsIndex() {
   const { editions, filter } = useLoaderData();
   const [searchParams] = useSearchParams();
   const location = useLocation();
-  // Preserve current search params (notably `host`) on every Link so the
-  // parent app.jsx loader's authenticate.admin call can resolve in-iframe.
   const linkTo = (pathname, extraParams = {}) => {
     const sp = new URLSearchParams(location.search);
     for (const [k, v] of Object.entries(extraParams)) sp.set(k, v);
@@ -96,15 +62,9 @@ export default function EditionsIndex() {
       </div>
 
       <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
-        <Link to={qs("active")} style={filter === "active" ? TAB_STYLE_ACTIVE : TAB_STYLE_BASE}>
-          Active
-        </Link>
-        <Link to={qs("archived")} style={filter === "archived" ? TAB_STYLE_ACTIVE : TAB_STYLE_BASE}>
-          Archived
-        </Link>
-        <Link to={qs("all")} style={filter === "all" ? TAB_STYLE_ACTIVE : TAB_STYLE_BASE}>
-          All
-        </Link>
+        <Link to={qs("active")} style={filter === "active" ? TAB_STYLE_ACTIVE : TAB_STYLE_BASE}>Active</Link>
+        <Link to={qs("archived")} style={filter === "archived" ? TAB_STYLE_ACTIVE : TAB_STYLE_BASE}>Archived</Link>
+        <Link to={qs("all")} style={filter === "all" ? TAB_STYLE_ACTIVE : TAB_STYLE_BASE}>All</Link>
       </div>
 
       {editions.length === 0 ? (
@@ -116,10 +76,9 @@ export default function EditionsIndex() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
             <thead>
               <tr style={{ backgroundColor: "#f5f5f5" }}>
-                <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #ddd" }}>SKU</th>
-                <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #ddd" }}>Event</th>
+                <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #ddd" }}>Slug</th>
+                <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #ddd" }}>Description</th>
                 <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #ddd" }}>Series</th>
-                <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #ddd" }}>Length</th>
                 <th style={{ padding: "12px", textAlign: "right", borderBottom: "2px solid #ddd" }}>Cables</th>
                 <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #ddd" }}>Status</th>
               </tr>
@@ -129,12 +88,12 @@ export default function EditionsIndex() {
                 <tr key={e.sku} style={{ backgroundColor: e.active ? "#fff" : "#fafafa" }}>
                   <td style={{ padding: "12px", borderBottom: "1px solid #eee", fontWeight: "bold" }}>
                     <Link to={linkTo(`/app/editions/${encodeURIComponent(e.sku)}`)} style={{ color: "#008060", textDecoration: "none" }}>
-                      {e.sku}
+                      {e.slug}
                     </Link>
+                    <div style={{ fontSize: "12px", fontWeight: "normal", color: "#999" }}>{e.sku}</div>
                   </td>
-                  <td style={{ padding: "12px", borderBottom: "1px solid #eee" }}>{e.event_name}</td>
+                  <td style={{ padding: "12px", borderBottom: "1px solid #eee" }}>{e.description}</td>
                   <td style={{ padding: "12px", borderBottom: "1px solid #eee", color: "#666" }}>{e.series}</td>
-                  <td style={{ padding: "12px", borderBottom: "1px solid #eee", color: "#666" }}>{e.length}ft</td>
                   <td style={{ padding: "12px", borderBottom: "1px solid #eee", textAlign: "right", fontWeight: "bold" }}>{e.cable_count}</td>
                   <td style={{ padding: "12px", borderBottom: "1px solid #eee" }}>
                     <span style={{

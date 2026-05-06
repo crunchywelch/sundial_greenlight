@@ -2,7 +2,31 @@ import { json } from "@remix-run/node";
 import { query } from "../db.server.js";
 import { getLastScanEvent } from "../mqtt.server.js";
 import { getActiveGreenlightHosts } from "../mqtt.server.js";
-import { parseSku } from "../cable-config.server.js";
+import {
+  parseGroupSku,
+  parseVariantSku,
+  formatVariantSku,
+  seriesDataForPrefix,
+} from "../cable-config.server.js";
+
+function buildCableDisplay(row) {
+  const parsed = parseGroupSku(row.sku_group);
+  const seriesData = parsed.prefix ? seriesDataForPrefix(parsed.prefix) : null;
+  const connectorDisplay =
+    seriesData?.connectors?.find((c) => (c.code ?? "") === (row.connector_code ?? ""))?.display ?? null;
+  return {
+    sku: formatVariantSku({
+      group_sku: row.sku_group,
+      length: Number(row.length),
+      connector_code: row.connector_code,
+    }),
+    sku_group: row.sku_group,
+    series: parsed.series,
+    color: parsed.pattern_name ?? null,
+    connector_type: connectorDisplay,
+    length: Number(row.length),
+  };
+}
 
 // CORS is handled by nginx for all /api/ routes — no app-level CORS headers needed.
 
@@ -48,7 +72,9 @@ export async function loader({ request }) {
     const result = await query(
       `SELECT
         ac.serial_number,
-        ac.sku,
+        ac.sku_group,
+        ac.length,
+        ac.connector_code,
         ac.test_passed,
         ac.test_timestamp,
         ac.shopify_gid,
@@ -59,18 +85,12 @@ export async function loader({ request }) {
       [orderId]
     );
 
-    const cables = result.rows.map((row) => {
-      const parsed = parseSku(row.sku);
-      return {
-        serial_number: row.serial_number,
-        sku: row.sku,
-        series: parsed.series,
-        color: parsed.pattern_name ?? null,
-        connector_type: parsed.connector_display ?? null,
-        test_date: row.test_timestamp,
-        test_passed: row.test_passed,
-      };
-    });
+    const cables = result.rows.map((row) => ({
+      serial_number: row.serial_number,
+      ...buildCableDisplay(row),
+      test_date: row.test_timestamp,
+      test_passed: row.test_passed,
+    }));
 
     return json({ cables });
   } catch (error) {
@@ -116,7 +136,9 @@ async function handleLookupCable({ serialNumber }) {
   const result = await query(
     `SELECT
       ac.serial_number,
-      ac.sku,
+      ac.sku_group,
+      ac.length,
+      ac.connector_code,
       ac.shopify_gid,
       ac.shopify_order_gid,
       ac.test_passed
@@ -130,14 +152,10 @@ async function handleLookupCable({ serialNumber }) {
   }
 
   const row = result.rows[0];
-  const parsed = parseSku(row.sku);
   return json({
     cable: {
       serial_number: row.serial_number,
-      sku: row.sku,
-      series: parsed.series,
-      color: parsed.pattern_name ?? null,
-      connector_type: parsed.connector_display ?? null,
+      ...buildCableDisplay(row),
       shopify_gid: row.shopify_gid,
       shopify_order_gid: row.shopify_order_gid,
       test_passed: row.test_passed,
@@ -155,53 +173,47 @@ async function handleAssignCable({ serialNumber, orderId, customerId, lineItemSk
 
   // Look up the cable
   const result = await query(
-    `SELECT ac.serial_number, ac.sku, ac.shopify_gid, ac.shopify_order_gid
+    `SELECT ac.serial_number, ac.sku_group, ac.length, ac.connector_code,
+            ac.shopify_gid, ac.shopify_order_gid
      FROM audio_cables ac
      WHERE ac.serial_number = $1`,
     [serialNumber]
   );
 
   if (result.rows.length === 0) {
-    return json(
-      { error: "Cable not found", code: "NOT_FOUND" },
-      { status: 404 }
-    );
+    return json({ error: "Cable not found", code: "NOT_FOUND" }, { status: 404 });
   }
 
   const cable = result.rows[0];
+  const cableVariantSku = formatVariantSku({
+    group_sku: cable.sku_group,
+    length: Number(cable.length),
+    connector_code: cable.connector_code,
+  });
 
-  // Check if already assigned to this order (duplicate scan)
   if (cable.shopify_order_gid === orderId) {
-    return json(
-      { error: "Cable already scanned for this order", code: "DUPLICATE" },
-      { status: 409 }
-    );
+    return json({ error: "Cable already scanned for this order", code: "DUPLICATE" }, { status: 409 });
   }
 
-  // Check if assigned to a different order
   if (cable.shopify_order_gid && cable.shopify_order_gid !== orderId) {
-    return json(
-      { error: "Cable is assigned to a different order", code: "ALREADY_ASSIGNED" },
-      { status: 409 }
-    );
+    return json({ error: "Cable is assigned to a different order", code: "ALREADY_ASSIGNED" }, { status: 409 });
   }
 
-  // Check SKU matches a line item if lineItemSkus provided
+  // Match the cable's derived variant SKU against the order line item SKUs.
   if (lineItemSkus && lineItemSkus.length > 0) {
-    const matches = lineItemSkus.some((sku) => sku === cable.sku);
+    const matches = lineItemSkus.some((sku) => sku === cableVariantSku);
     if (!matches) {
       return json(
         {
-          error: `Cable SKU "${cable.sku}" does not match any line item in this order`,
+          error: `Cable SKU "${cableVariantSku}" does not match any line item in this order`,
           code: "SKU_MISMATCH",
-          cableSku: cable.sku,
+          cableSku: cableVariantSku,
         },
         { status: 422 }
       );
     }
   }
 
-  // Assign the cable to the order and customer
   await query(
     `UPDATE audio_cables
      SET shopify_gid = $1, shopify_order_gid = $2, updated_timestamp = NOW()
@@ -211,7 +223,7 @@ async function handleAssignCable({ serialNumber, orderId, customerId, lineItemSk
 
   return json({
     success: true,
-    cable: { serial_number: serialNumber, sku: cable.sku },
+    cable: { serial_number: serialNumber, sku: cableVariantSku },
   });
 }
 

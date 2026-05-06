@@ -1,13 +1,11 @@
 /**
- * Smoke test for LTD CRUD against the migrated schema.
+ * Smoke test for LTD CRUD against the Phase 4 sku_group schema.
  *
- * Drives editions.server.js end-to-end (createLtdEdition, getEdition,
- * updateEdition archive/unarchive) and verifies the rows look right at
- * each step. Skips the Shopify product-create call (needs admin GraphQL
- * auth) — verify that piece in the browser.
+ * Drives editions.server.js end-to-end: createLtdEdition → getEdition →
+ * updateEdition (description and active toggle). Verifies the sku_group
+ * row has only the minimal columns and that listEditions filters work.
  *
- * Cleans up the test rows on success or failure (cascade FK from
- * cable_ltd_metadata to cable_skus).
+ * Cleans up the test row on success or failure.
  *
  * Usage:
  *   set -a; source .env; set +a
@@ -18,13 +16,16 @@ import {
   createLtdEdition,
   getEdition,
   updateEdition,
+  listEditions,
   EditionConflictError,
+  EditionValidationError,
 } from "../app/editions.server.js";
-import { parseSku } from "../app/cable-config.server.js";
+import { parseGroupSku, parseVariantSku, formatVariantSku } from "../app/cable-config.server.js";
 
-const SMOKE_SKU = "SC-LTD-SMOKE2605";
+const SMOKE_SKU = "SC-LTD-SMOKE2606";
 const SMOKE_PREFIX = "SC";
-const SMOKE_SLUG = "SMOKE2605";
+const SMOKE_SLUG = "SMOKE2606";
+const SMOKE_DESC = "Phase 4 smoke test — auto-cleanup";
 
 let ok = true;
 const failures = [];
@@ -41,132 +42,121 @@ function check(label, cond, detail) {
 }
 
 async function cleanup() {
-  // CASCADE on FK from cable_ltd_metadata to cable_skus, so deleting
-  // cable_skus is enough — but be defensive.
-  await query(`DELETE FROM cable_ltd_metadata WHERE sku = $1`, [SMOKE_SKU]);
-  await query(`DELETE FROM cable_skus WHERE sku = $1`, [SMOKE_SKU]);
+  await query(`DELETE FROM sku_group WHERE sku = $1`, [SMOKE_SKU]);
 }
 
 async function run() {
-  console.log(`\n=== LTD CRUD smoke test against ${process.env.PGDATABASE}@${process.env.PGHOST} ===\n`);
+  console.log(`\n=== Phase 4 LTD CRUD smoke test against ${process.env.PGDATABASE}@${process.env.PGHOST} ===\n`);
 
-  // Pre-clean in case a prior run aborted mid-way
   await cleanup();
 
-  // 1. parseSku derives the right kind/series for the chosen SKU
-  console.log("Step 1: parseSku");
-  const parsed = parseSku(SMOKE_SKU);
-  check(`parseSku → kind=ltd`, parsed.kind === "ltd", `got ${JSON.stringify(parsed)}`);
-  check(`parseSku → series_prefix=SC`, parsed.series_prefix === "SC");
-  check(`parseSku → series=Studio Classic`, parsed.series === "Studio Classic");
-  check(`parseSku → slug=${SMOKE_SLUG}`, parsed.slug === SMOKE_SLUG);
+  // 1. Resolver
+  console.log("Step 1: parseGroupSku / parseVariantSku / formatVariantSku round-trip");
+  const groupParsed = parseGroupSku(SMOKE_SKU);
+  check("parseGroupSku → kind=ltd", groupParsed.kind === "ltd", JSON.stringify(groupParsed));
+  check("parseGroupSku → series=Studio Classic", groupParsed.series === "Studio Classic");
+  check("parseGroupSku → slug matches", groupParsed.slug === SMOKE_SLUG);
 
-  // 2. createLtdEdition writes the minimal row + sidecar
+  const variantParsed = parseVariantSku(SMOKE_SKU);
+  check("parseVariantSku of LTD passes through as group", variantParsed.kind === "ltd" && variantParsed.group_sku === SMOKE_SKU);
+  const formatted = formatVariantSku({ group_sku: SMOKE_SKU });
+  check("formatVariantSku of LTD returns group sku", formatted === SMOKE_SKU);
+
+  const catalogVariant = parseVariantSku("SC-12GL-R");
+  check("parseVariantSku catalog → group SC-GL", catalogVariant.kind === "catalog" && catalogVariant.group_sku === "SC-GL");
+  check("parseVariantSku catalog → length 12", catalogVariant.length === 12);
+  check("parseVariantSku catalog → connector_code -R", catalogVariant.connector_code === "-R");
+  const catalogRoundTrip = formatVariantSku(catalogVariant);
+  check("catalog round-trip SC-12GL-R", catalogRoundTrip === "SC-12GL-R");
+
+  // 2. createLtdEdition writes minimal row
   console.log("\nStep 2: createLtdEdition");
   const created = await createLtdEdition({
     seriesPrefix: SMOKE_PREFIX,
     slug: SMOKE_SLUG,
-    lengthFt: "12",
-    description: "Smoke-test edition (auto-cleanup)",
-    eventName: "Smoke Test 2026",
-    createdBy: "AUTO",
-    notes: "Created and deleted by scripts/smoke-test-ltd.mjs",
+    description: SMOKE_DESC,
   });
   check(`createLtdEdition returned sku=${SMOKE_SKU}`, created.sku === SMOKE_SKU, `got ${created.sku}`);
-  check(`createLtdEdition returned series=Studio Classic`, created.series === "Studio Classic");
+  check("createLtdEdition returned series=Studio Classic", created.series === "Studio Classic");
 
-  // 3. cable_skus row has only the minimal columns populated
-  console.log("\nStep 3: cable_skus row shape");
-  const csRow = await query(`SELECT * FROM cable_skus WHERE sku = $1`, [SMOKE_SKU]);
-  check(`cable_skus row exists`, csRow.rows.length === 1);
-  if (csRow.rows.length === 1) {
-    const r = csRow.rows[0];
+  // 3. sku_group row shape
+  console.log("\nStep 3: sku_group row shape");
+  const sgRow = await query(`SELECT * FROM sku_group WHERE sku = $1`, [SMOKE_SKU]);
+  check("sku_group row exists", sgRow.rows.length === 1);
+  if (sgRow.rows.length === 1) {
+    const r = sgRow.rows[0];
     const cols = Object.keys(r).sort();
-    const expectedCols = ["created_at", "description", "length", "sku", "updated_at"];
-    check(`cable_skus columns = ${expectedCols.join(",")}`,
-      JSON.stringify(cols) === JSON.stringify(expectedCols),
+    const expected = ["archived_at", "description", "sku"];
+    check(`sku_group columns = ${expected.join(",")}`,
+      JSON.stringify(cols) === JSON.stringify(expected),
       `got ${cols.join(",")}`);
-    check(`length stored as 12 (numeric)`, Number(r.length) === 12, `got ${r.length}`);
-    check(`description preserved`, r.description === "Smoke-test edition (auto-cleanup)");
+    check("description preserved", r.description === SMOKE_DESC);
+    check("archived_at NULL on create", r.archived_at === null);
   }
 
-  // 4. cable_ltd_metadata row exists with expected fields, no `active` column
-  console.log("\nStep 4: cable_ltd_metadata row shape");
-  const lmRow = await query(`SELECT * FROM cable_ltd_metadata WHERE sku = $1`, [SMOKE_SKU]);
-  check(`cable_ltd_metadata row exists`, lmRow.rows.length === 1);
-  if (lmRow.rows.length === 1) {
-    const r = lmRow.rows[0];
-    const cols = Object.keys(r).sort();
-    const expectedCols = ["archived_at", "created_at", "created_by", "event_name", "notes", "sku"];
-    check(`cable_ltd_metadata columns = ${expectedCols.join(",")}`,
-      JSON.stringify(cols) === JSON.stringify(expectedCols),
-      `got ${cols.join(",")}`);
-    check(`event_name preserved`, r.event_name === "Smoke Test 2026");
-    check(`created_by preserved`, r.created_by === "AUTO");
-    check(`archived_at NULL on create`, r.archived_at === null);
-  }
-
-  // 5. createLtdEdition is idempotent on conflict
-  console.log("\nStep 5: duplicate slug rejected");
+  // 4. createLtdEdition is idempotent on conflict
+  console.log("\nStep 4: duplicate slug rejected");
   let conflictThrown = false;
   try {
-    await createLtdEdition({
-      seriesPrefix: SMOKE_PREFIX,
-      slug: SMOKE_SLUG,
-      lengthFt: "10",
-      description: "duplicate",
-      eventName: "Should fail",
-    });
+    await createLtdEdition({ seriesPrefix: SMOKE_PREFIX, slug: SMOKE_SLUG, description: "duplicate" });
   } catch (e) {
     conflictThrown = e instanceof EditionConflictError;
   }
-  check(`duplicate insert throws EditionConflictError`, conflictThrown);
+  check("duplicate insert throws EditionConflictError", conflictThrown);
 
-  // 6. getEdition returns the same shape consumers expect (with derived `active`)
-  console.log("\nStep 6: getEdition derives display fields");
+  // 5. Required-field validation
+  console.log("\nStep 5: validation rejects missing fields");
+  let validationThrown = false;
+  try {
+    await createLtdEdition({ seriesPrefix: SMOKE_PREFIX, slug: "BADSLUG", description: "" });
+  } catch (e) {
+    validationThrown = e instanceof EditionValidationError && e.field === "description";
+  }
+  check("missing description throws EditionValidationError", validationThrown);
+
+  // 6. getEdition derives display fields
+  console.log("\nStep 6: getEdition shape");
   const ed = await getEdition(SMOKE_SKU);
-  check(`getEdition returned non-null`, ed !== null);
+  check("getEdition returned non-null", ed !== null);
   if (ed) {
-    check(`series=Studio Classic (derived)`, ed.series === "Studio Classic");
-    check(`color_pattern='Limited Edition' (sentinel)`, ed.color_pattern === "Limited Edition");
-    check(`core_cable=Canare GS-6 (from YAML)`, ed.core_cable === "Canare GS-6");
-    check(`braid_material=Rayon (from YAML)`, ed.braid_material === "Rayon");
-    check(`connector_type=TS–TS (from YAML, em-dash)`, ed.connector_type === "TS–TS",
-      `got ${JSON.stringify(ed.connector_type)}`);
-    check(`length=12 (numeric)`, Number(ed.length) === 12);
-    check(`active=true (derived from archived_at IS NULL)`, ed.active === true);
-    check(`cable_count=0`, ed.cable_count === 0);
-    check(`event_name=Smoke Test 2026`, ed.event_name === "Smoke Test 2026");
+    check("series=Studio Classic (derived)", ed.series === "Studio Classic");
+    check("prefix=SC", ed.prefix === "SC");
     check(`slug=${SMOKE_SLUG}`, ed.slug === SMOKE_SLUG);
+    check(`description=${SMOKE_DESC}`, ed.description === SMOKE_DESC);
+    check("active=true", ed.active === true);
+    check("archived_at=null", ed.archived_at === null);
+    check("cable_count=0", ed.cable_count === 0);
   }
 
-  // 7. updateEdition archive sets archived_at
-  console.log("\nStep 7: updateEdition archive");
+  // 7. listEditions filters
+  console.log("\nStep 7: listEditions filters");
+  const activeList = await listEditions("active");
+  const inActive = activeList.find((e) => e.sku === SMOKE_SKU);
+  check("smoke edition appears in active list", !!inActive);
+
+  // 8. Archive
+  console.log("\nStep 8: updateEdition archive");
   await updateEdition(SMOKE_SKU, { active: false });
   const archived = await getEdition(SMOKE_SKU);
-  check(`active=false after archive`, archived.active === false);
-  check(`archived_at populated`, archived.archived_at !== null);
+  check("active=false after archive", archived.active === false);
+  check("archived_at populated", archived.archived_at !== null);
+  const archivedList = await listEditions("archived");
+  check("smoke edition appears in archived list", !!archivedList.find((e) => e.sku === SMOKE_SKU));
+  const stillActiveList = await listEditions("active");
+  check("smoke edition NOT in active list after archive", !stillActiveList.find((e) => e.sku === SMOKE_SKU));
 
-  // 8. updateEdition unarchive clears archived_at
-  console.log("\nStep 8: updateEdition unarchive");
+  // 9. Unarchive
+  console.log("\nStep 9: updateEdition unarchive");
   await updateEdition(SMOKE_SKU, { active: true });
   const reactivated = await getEdition(SMOKE_SKU);
-  check(`active=true after unarchive`, reactivated.active === true);
-  check(`archived_at cleared`, reactivated.archived_at === null);
+  check("active=true after unarchive", reactivated.active === true);
+  check("archived_at cleared", reactivated.archived_at === null);
 
-  // 9. updateEdition event_name + notes
-  console.log("\nStep 9: updateEdition event_name + notes");
-  await updateEdition(SMOKE_SKU, { eventName: "Smoke Test 2026 (renamed)", notes: "updated" });
-  const renamed = await getEdition(SMOKE_SKU);
-  check(`event_name updated`, renamed.event_name === "Smoke Test 2026 (renamed)");
-  check(`notes updated`, renamed.notes === "updated");
-
-  // 10. updateEdition length+description (allowed since cable_count=0)
-  console.log("\nStep 10: updateEdition length + description (unlocked, no cables)");
-  await updateEdition(SMOKE_SKU, { lengthFt: "15", description: "edited" });
+  // 10. Description edit (allowed since cable_count=0)
+  console.log("\nStep 10: updateEdition description (unlocked)");
+  await updateEdition(SMOKE_SKU, { description: "edited" });
   const edited = await getEdition(SMOKE_SKU);
-  check(`length updated to 15`, Number(edited.length) === 15);
-  check(`description updated`, edited.description === "edited");
+  check("description updated", edited.description === "edited");
 }
 
 async function main() {

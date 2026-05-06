@@ -3,7 +3,7 @@ import { useSubmit, useActionData, useLoaderData } from "@remix-run/react";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { query } from "../db.server";
-import { parseSku } from "../cable-config.server";
+import { parseGroupSku, parseVariantSku, formatVariantSku } from "../cable-config.server";
 
 export async function loader({ request }) {
   const url = new URL(request.url);
@@ -119,23 +119,29 @@ export async function action({ request }) {
     const searchTerm = formData.get("searchTerm");
     try {
       const result = await query(
-        `SELECT ac.serial_number, ac.sku, ac.shopify_gid, cs.length AS variant_length
+        `SELECT ac.serial_number, ac.sku_group, ac.length, ac.connector_code, ac.shopify_gid
          FROM audio_cables ac
-         LEFT JOIN cable_skus cs ON ac.sku = cs.sku
          WHERE ac.serial_number ILIKE $1
          ORDER BY ac.serial_number
          LIMIT 20`,
         [`%${searchTerm}%`]
       );
 
-      // Resolve series + length per row from SKU + YAML; cs.length is only
-      // populated for MISC/LTD variants where the SKU doesn't encode length.
+      // Resolve series + variant SKU per row from sku_group + YAML.
       const cables = result.rows.map((row) => {
-        const parsed = parseSku(row.sku);
+        const parsed = parseGroupSku(row.sku_group);
+        const variantSku = formatVariantSku({
+          group_sku: row.sku_group,
+          length: Number(row.length),
+          connector_code: row.connector_code,
+        });
         return {
-          ...row,
+          serial_number: row.serial_number,
+          shopify_gid: row.shopify_gid,
+          sku: variantSku,
+          sku_group: row.sku_group,
           series: parsed.series,
-          sku_length: parsed.kind === "catalog" ? parsed.length : row.variant_length,
+          sku_length: Number(row.length),
         };
       });
 
@@ -176,29 +182,40 @@ export async function action({ request }) {
 
   if (action === "fetchInventory") {
     try {
-      // Get total cable counts from database grouped by SKU (all cables)
+      // Group cables by (sku_group, length, connector_code) and format the
+      // variant SKU on the way out — matches the per-variant granularity of
+      // Shopify's inventory.
       const totalResult = await query(
-        `SELECT sku, COUNT(*) as count
+        `SELECT sku_group, length, connector_code, COUNT(*) as count
          FROM audio_cables
-         GROUP BY sku
-         ORDER BY sku`
+         GROUP BY sku_group, length, connector_code
+         ORDER BY sku_group, length, connector_code`
       );
       const totalInventory = {};
       for (const row of totalResult.rows) {
-        totalInventory[row.sku] = parseInt(row.count);
+        const variantSku = formatVariantSku({
+          group_sku: row.sku_group,
+          length: Number(row.length),
+          connector_code: row.connector_code,
+        });
+        if (variantSku) totalInventory[variantSku] = parseInt(row.count);
       }
 
-      // Get available cable counts from database grouped by SKU (only unassigned cables)
       const dbResult = await query(
-        `SELECT sku, COUNT(*) as count
+        `SELECT sku_group, length, connector_code, COUNT(*) as count
          FROM audio_cables
          WHERE shopify_gid IS NULL OR shopify_gid = ''
-         GROUP BY sku
-         ORDER BY sku`
+         GROUP BY sku_group, length, connector_code
+         ORDER BY sku_group, length, connector_code`
       );
       const dbInventory = {};
       for (const row of dbResult.rows) {
-        dbInventory[row.sku] = parseInt(row.count);
+        const variantSku = formatVariantSku({
+          group_sku: row.sku_group,
+          length: Number(row.length),
+          connector_code: row.connector_code,
+        });
+        if (variantSku) dbInventory[variantSku] = parseInt(row.count);
       }
 
       // Fetch products from Shopify with their inventory
@@ -263,7 +280,9 @@ export async function action({ request }) {
         cursor = products.pageInfo.endCursor;
       }
 
-      // Combine into comparison data
+      // Combine into comparison data. Each row is a variant SKU; we also
+      // surface the sku_group (parsed back out of the variant) so clicks
+      // can deep-link to the group page.
       const allSkus = new Set([...Object.keys(totalInventory), ...Object.keys(dbInventory), ...Object.keys(shopifyInventory)]);
       const inventory = [];
 
@@ -272,15 +291,17 @@ export async function action({ request }) {
         const dbCount = dbInventory[sku] || 0;
         const shopifyData = shopifyInventory[sku] || { quantity: 0, productTitle: null, variantTitle: null };
         const diff = dbCount - shopifyData.quantity;
+        const parsedVariant = parseVariantSku(sku);
 
         inventory.push({
           sku,
+          sku_group: parsedVariant.kind ? parsedVariant.group_sku : null,
           totalCount,
           dbCount,
           shopifyCount: shopifyData.quantity,
           diff,
           productTitle: shopifyData.productTitle,
-          variantTitle: shopifyData.variantTitle
+          variantTitle: shopifyData.variantTitle,
         });
       }
 
@@ -296,17 +317,24 @@ export async function action({ request }) {
 
   if (action === "syncInventory") {
     try {
-      // Get cable counts from database grouped by SKU (only unassigned cables = available inventory)
+      // Group available cables by (sku_group, length, connector_code) and
+      // format the variant SKU on the way out — matches Shopify's per-variant
+      // inventory granularity.
       const dbResult = await query(
-        `SELECT sku, COUNT(*) as count
+        `SELECT sku_group, length, connector_code, COUNT(*) as count
          FROM audio_cables
          WHERE shopify_gid IS NULL OR shopify_gid = ''
-         GROUP BY sku
-         ORDER BY sku`
+         GROUP BY sku_group, length, connector_code
+         ORDER BY sku_group, length, connector_code`
       );
       const dbInventory = {};
       for (const row of dbResult.rows) {
-        dbInventory[row.sku] = parseInt(row.count);
+        const variantSku = formatVariantSku({
+          group_sku: row.sku_group,
+          length: Number(row.length),
+          connector_code: row.connector_code,
+        });
+        if (variantSku) dbInventory[variantSku] = parseInt(row.count);
       }
 
       // Get the primary location ID
@@ -1091,7 +1119,7 @@ export default function Index() {
                             </td>
                             <td style={{ padding: '12px', borderBottom: '1px solid #eee', textAlign: 'right' }}>
                               <a
-                                href={`https://${adminPath}/apps/${appHandle}/app/cables/${encodeURIComponent(item.sku)}`}
+                                href={item.sku_group ? `https://${adminPath}/apps/${appHandle}/app/cables/${encodeURIComponent(item.sku_group)}` : "#"}
                                 target="_top"
                                 style={{ color: '#008060', textDecoration: 'none', fontWeight: 'bold' }}
                               >

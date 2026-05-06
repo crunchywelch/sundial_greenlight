@@ -2,52 +2,54 @@ import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
 import { query } from "../db.server";
-import { parseSku } from "../cable-config.server";
+import { parseGroupSku, formatVariantSku } from "../cable-config.server";
 
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
-  const { sku } = params;
+  const skuGroup = decodeURIComponent(params.sku);
 
-  // Get counts first
+  // Counts (all cables in this group)
   const countResult = await query(
     `SELECT
       COUNT(*) as total,
       COUNT(*) FILTER (WHERE shopify_gid IS NOT NULL AND shopify_gid != '') as assigned,
       COUNT(*) FILTER (WHERE shopify_gid IS NULL OR shopify_gid = '') as available
     FROM audio_cables
-    WHERE sku = $1`,
-    [sku]
+    WHERE sku_group = $1`,
+    [skuGroup]
   );
   const counts = countResult.rows[0];
 
-  // Fetch only assigned cables with this SKU. Display attrs (series,
-  // color_pattern) come from the resolver — they're identical for every
-  // row (same SKU), so resolve once and apply.
+  // Assigned cables only — show the per-cable variation (length, connector)
   const result = await query(
     `SELECT
       ac.serial_number,
-      ac.sku,
+      ac.sku_group,
+      ac.length,
+      ac.connector_code,
       ac.shopify_gid,
       ac.test_timestamp,
       ac.test_passed
     FROM audio_cables ac
-    WHERE ac.sku = $1 AND ac.shopify_gid IS NOT NULL AND ac.shopify_gid != ''
+    WHERE ac.sku_group = $1 AND ac.shopify_gid IS NOT NULL AND ac.shopify_gid != ''
     ORDER BY ac.serial_number`,
-    [sku]
+    [skuGroup]
   );
 
-  const parsed = parseSku(sku);
+  const parsed = parseGroupSku(skuGroup);
   const cables = result.rows.map((row) => ({
     ...row,
-    series: parsed.series,
-    color_pattern: parsed.pattern_name ?? null,
+    length: Number(row.length),
+    variant_sku: formatVariantSku({
+      group_sku: row.sku_group,
+      length: Number(row.length),
+      connector_code: row.connector_code,
+    }),
   }));
 
-  // Get unique customer IDs to fetch in batch
-  const customerIds = [...new Set(cables.filter(c => c.shopify_gid).map(c => c.shopify_gid))];
+  // Customer enrichment
+  const customerIds = [...new Set(cables.filter((c) => c.shopify_gid).map((c) => c.shopify_gid))];
   const customerMap = {};
-
-  // Fetch customer details for assigned cables
   for (const customerId of customerIds) {
     try {
       const response = await admin.graphql(
@@ -63,56 +65,49 @@ export async function loader({ request, params }) {
         { variables: { id: customerId } }
       );
       const data = await response.json();
-      if (data.data?.customer) {
-        customerMap[customerId] = data.data.customer;
-      }
+      if (data.data?.customer) customerMap[customerId] = data.data.customer;
     } catch (error) {
       console.error(`Error fetching customer ${customerId}:`, error);
     }
   }
 
-  // Attach customer info to cables
-  const cablesWithCustomers = cables.map(cable => ({
+  const cablesWithCustomers = cables.map((cable) => ({
     ...cable,
-    customer: cable.shopify_gid ? customerMap[cable.shopify_gid] || null : null
+    customer: cable.shopify_gid ? customerMap[cable.shopify_gid] || null : null,
+    series: parsed.series,
+    color_pattern: parsed.pattern_name ?? null,
   }));
 
   return json({
-    sku,
+    sku_group: skuGroup,
     cables: cablesWithCustomers,
+    series: parsed.series,
+    color_pattern: parsed.pattern_name ?? null,
     totalCount: parseInt(counts.total),
     assignedCount: parseInt(counts.assigned),
-    availableCount: parseInt(counts.available)
+    availableCount: parseInt(counts.available),
   });
 }
 
-export default function CablesBySku() {
-  const { sku, cables, totalCount, assignedCount, availableCount } = useLoaderData();
+export default function CablesBySkuGroup() {
+  const { sku_group, cables, series, color_pattern, totalCount, assignedCount, availableCount } = useLoaderData();
 
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      {/* Header */}
       <div style={{ marginBottom: '20px' }}>
         <button
           onClick={() => window.history.back()}
-          style={{
-            color: '#008060',
-            textDecoration: 'none',
-            fontSize: '14px',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 0
-          }}
+          style={{ color: '#008060', textDecoration: 'none', fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
         >
           ← Back
         </button>
       </div>
 
       <div style={{ marginBottom: '30px' }}>
-        <h1 style={{ fontSize: '24px', marginBottom: '10px' }}>
-          {sku}
-        </h1>
+        <h1 style={{ fontSize: '24px', marginBottom: '10px' }}>{sku_group}</h1>
+        <div style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
+          {[series, color_pattern].filter(Boolean).join(' · ')}
+        </div>
         <div style={{ fontSize: '16px', color: '#333', display: 'flex', gap: '20px' }}>
           <span><strong>{totalCount}</strong> total</span>
           <span style={{ color: '#008060' }}><strong>{availableCount}</strong> available</span>
@@ -120,10 +115,9 @@ export default function CablesBySku() {
         </div>
       </div>
 
-      {/* Assigned Cables List */}
       {cables.length === 0 ? (
         <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f5f5f5', borderRadius: '8px', color: '#666' }}>
-          No assigned cables for this SKU.
+          No assigned cables in this group.
         </div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
@@ -131,7 +125,7 @@ export default function CablesBySku() {
             <thead>
               <tr style={{ backgroundColor: '#f5f5f5' }}>
                 <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Serial Number</th>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Details</th>
+                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Variant SKU</th>
                 <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Test Status</th>
                 <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Assigned To</th>
               </tr>
@@ -139,15 +133,14 @@ export default function CablesBySku() {
             <tbody>
               {cables.map((cable) => {
                 const isTested = cable.test_passed !== null;
-
                 return (
                   <tr key={cable.serial_number} style={{ backgroundColor: '#fff' }}>
                     <td style={{ padding: '12px', borderBottom: '1px solid #eee', fontWeight: 'bold' }}>
                       {cable.serial_number}
                     </td>
                     <td style={{ padding: '12px', borderBottom: '1px solid #eee', color: '#666' }}>
-                      {[cable.length ? `${cable.length}'` : null, cable.color_pattern, cable.series].filter(Boolean).join(' · ') || '—'}
-                      {cable.description && <div style={{ fontSize: '12px', color: '#999' }}>{cable.description}</div>}
+                      <code>{cable.variant_sku}</code>
+                      <div style={{ fontSize: '12px', color: '#999' }}>{cable.length}ft{cable.connector_code === '-R' ? ' · right angle' : ''}</div>
                     </td>
                     <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
                       <span style={{

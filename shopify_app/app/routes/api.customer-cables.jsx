@@ -1,6 +1,6 @@
 import { json } from "@remix-run/node";
 import { query } from "../db.server.js";
-import { parseSku, seriesDataForPrefix } from "../cable-config.server.js";
+import { parseGroupSku, seriesDataForPrefix, formatVariantSku } from "../cable-config.server.js";
 
 const CABLE_IMAGE_MAP = {
   "goldline": "cable-goldline.png",
@@ -17,7 +17,6 @@ function getCableImageFilename(colorPattern) {
   return CABLE_IMAGE_MAP[(colorPattern || "").toLowerCase()] || DEFAULT_IMAGE;
 }
 
-// This is a public API endpoint that the storefront can call
 export async function loader({ request }) {
   const url = new URL(request.url);
   const customerId = url.searchParams.get("customerId");
@@ -26,14 +25,12 @@ export async function loader({ request }) {
     return json({ error: "Customer ID is required" }, { status: 400 });
   }
 
-  // Accept both raw numeric ID and full GID format
   const gid = customerId.startsWith("gid://")
     ? customerId
     : `gid://shopify/Customer/${customerId}`;
 
   try {
     const cables = await fetchCustomerCables(gid);
-
     return json({ cables });
   } catch (error) {
     console.error("Error fetching customer cables:", error);
@@ -42,37 +39,45 @@ export async function loader({ request }) {
 }
 
 async function fetchCustomerCables(customerId) {
-  // Query the database for cables associated with this customer
-  // The schema uses serial_number as primary key and shopify_gid for customer association
   const result = await query(
     `SELECT
       ac.serial_number,
-      ac.sku,
+      ac.sku_group,
+      ac.length,
+      ac.connector_code,
       ac.test_passed,
       ac.test_timestamp,
       ac.operator,
       ac.shopify_gid,
-      cs.length AS variant_length
+      sg.description
     FROM audio_cables ac
-    LEFT JOIN cable_skus cs ON ac.sku = cs.sku
+    LEFT JOIN sku_group sg ON sg.sku = ac.sku_group
     WHERE ac.shopify_gid = $1
     ORDER BY ac.test_timestamp DESC NULLS LAST`,
     [customerId]
   );
 
   return result.rows.map((row) => {
-    const parsed = parseSku(row.sku);
-    const seriesData = parsed.series_prefix ? seriesDataForPrefix(parsed.series_prefix) : null;
-    const length = parsed.kind === "catalog" ? parsed.length : row.variant_length;
+    const parsed = parseGroupSku(row.sku_group);
+    const seriesData = parsed.prefix ? seriesDataForPrefix(parsed.prefix) : null;
+    const connectorDisplay =
+      seriesData?.connectors?.find((c) => (c.code ?? "") === (row.connector_code ?? ""))?.display ?? null;
+    const variantSku = formatVariantSku({
+      group_sku: row.sku_group,
+      length: Number(row.length),
+      connector_code: row.connector_code,
+    });
     const colorPattern = parsed.pattern_name ?? null;
     return {
       serial_number: row.serial_number,
-      sku: row.sku,
+      sku: variantSku,
+      sku_group: row.sku_group,
       series: parsed.series,
       color: colorPattern,
-      connector_type: parsed.connector_display ?? null,
+      connector_type: connectorDisplay,
       core_cable: seriesData?.core_cable ?? null,
-      length,
+      length: Number(row.length),
+      description: row.description,
       test_date: row.test_timestamp,
       test_passed: row.test_passed,
       test_status: row.test_passed !== null ? "tested" : "not tested",

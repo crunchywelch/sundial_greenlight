@@ -2,7 +2,7 @@ import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
 import { query } from "../db.server";
-import { parseSku, seriesDataForPrefix } from "../cable-config.server";
+import { parseGroupSku, seriesDataForPrefix, formatVariantSku } from "../cable-config.server";
 
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
@@ -33,39 +33,46 @@ export async function loader({ request, params }) {
     console.error("Error fetching customer:", error);
   }
 
-  // Fetch cables from database. Display attrs (series, color, connector,
-  // core_cable, length) are resolved from the SKU + YAML config rather
-  // than read off cable_skus columns. Description and length-for-variants
-  // stay on cable_skus and come through.
+  // Display attrs (series, color, connector, core_cable) come from the
+  // sku_group + YAML resolver. Length and connector_code live on audio_cables.
+  // The user-facing variant SKU is derived via formatVariantSku.
   const result = await query(
     `SELECT
       ac.serial_number,
-      ac.sku,
+      ac.sku_group,
+      ac.length,
+      ac.connector_code,
       ac.test_passed,
       ac.test_timestamp,
       ac.operator,
-      cs.length AS variant_length,
-      cs.description
+      sg.description
     FROM audio_cables ac
-    LEFT JOIN cable_skus cs ON ac.sku = cs.sku
+    LEFT JOIN sku_group sg ON sg.sku = ac.sku_group
     WHERE ac.shopify_gid = $1
     ORDER BY ac.test_timestamp DESC NULLS LAST`,
     [customerId]
   );
 
   const cables = result.rows.map((row) => {
-    const parsed = parseSku(row.sku);
-    const seriesData = parsed.series_prefix ? seriesDataForPrefix(parsed.series_prefix) : null;
-    const length = parsed.kind === "catalog" ? parsed.length : row.variant_length;
+    const parsed = parseGroupSku(row.sku_group);
+    const seriesData = parsed.prefix ? seriesDataForPrefix(parsed.prefix) : null;
+    const connectorDisplay =
+      seriesData?.connectors?.find((c) => (c.code ?? "") === (row.connector_code ?? ""))?.display ?? null;
+    const variantSku = formatVariantSku({
+      group_sku: row.sku_group,
+      length: Number(row.length),
+      connector_code: row.connector_code,
+    });
     return {
       serial_number: row.serial_number,
-      sku: row.sku,
+      sku: variantSku,
+      sku_group: row.sku_group,
       kind: parsed.kind,
       series: parsed.series,
       color: parsed.pattern_name ?? null,
-      connector_type: parsed.connector_display ?? null,
+      connector_type: connectorDisplay,
       core_cable: seriesData?.core_cable ?? null,
-      length,
+      length: Number(row.length),
       description: row.description,
       test_date: row.test_timestamp,
       test_passed: row.test_passed,

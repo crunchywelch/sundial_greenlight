@@ -1,6 +1,6 @@
 import { json } from "@remix-run/node";
 import { query } from "../db.server.js";
-import { parseSku, seriesDataForPrefix } from "../cable-config.server.js";
+import { parseGroupSku, seriesDataForPrefix, formatVariantSku } from "../cable-config.server.js";
 
 // CORS is handled by nginx for all /api/ routes.
 
@@ -13,57 +13,54 @@ export async function loader({ request }) {
     return json({ error: "Registration code is required" }, { status: 400 });
   }
 
-  // Normalize: uppercase and trim
   const normalizedCode = code.trim().toUpperCase();
 
   try {
     const result = await query(
       `SELECT
         ac.serial_number,
-        ac.sku,
+        ac.sku_group,
+        ac.length,
+        ac.connector_code,
         ac.registration_code,
         ac.shopify_gid,
         ac.test_passed,
-        ac.test_timestamp,
-        cs.length AS variant_length
+        ac.test_timestamp
       FROM audio_cables ac
-      LEFT JOIN cable_skus cs ON ac.sku = cs.sku
       WHERE ac.registration_code = $1`,
       [normalizedCode]
     );
 
     if (result.rows.length === 0) {
-      return json(
-        { error: "Invalid registration code", code: "NOT_FOUND" },
-        { status: 404 }
-      );
+      return json({ error: "Invalid registration code", code: "NOT_FOUND" }, { status: 404 });
     }
 
     const row = result.rows[0];
 
-    // Check if already registered to a customer
     if (row.shopify_gid && row.shopify_gid !== "") {
-      return json(
-        { error: "This cable has already been registered", code: "ALREADY_REGISTERED" },
-        { status: 409 }
-      );
+      return json({ error: "This cable has already been registered", code: "ALREADY_REGISTERED" }, { status: 409 });
     }
 
-    // Resolve display attrs from the SKU + YAML config. Length comes from
-    // the SKU for catalog rows; from cable_skus.length for MISC/LTD.
-    const parsed = parseSku(row.sku);
-    const seriesData = parsed.series_prefix ? seriesDataForPrefix(parsed.series_prefix) : null;
-    const length = parsed.kind === "catalog" ? parsed.length : row.variant_length;
+    const parsed = parseGroupSku(row.sku_group);
+    const seriesData = parsed.prefix ? seriesDataForPrefix(parsed.prefix) : null;
+    const connectorDisplay =
+      seriesData?.connectors?.find((c) => (c.code ?? "") === (row.connector_code ?? ""))?.display ?? null;
+    const variantSku = formatVariantSku({
+      group_sku: row.sku_group,
+      length: Number(row.length),
+      connector_code: row.connector_code,
+    });
 
     return json({
       cable: {
         serial_number: row.serial_number,
-        sku: row.sku,
+        sku: variantSku,
+        sku_group: row.sku_group,
         series: parsed.series,
         color: parsed.pattern_name ?? null,
-        connector_type: parsed.connector_display ?? null,
+        connector_type: connectorDisplay,
         core_cable: seriesData?.core_cable ?? null,
-        length,
+        length: Number(row.length),
         test_passed: row.test_passed,
         test_date: row.test_timestamp,
       },
@@ -85,39 +82,28 @@ export async function action({ request }) {
     const { code, customerId, marketingOptIn } = body;
 
     if (!code || !customerId) {
-      return json(
-        { error: "code and customerId are required" },
-        { status: 400 }
-      );
+      return json({ error: "code and customerId are required" }, { status: 400 });
     }
 
     const normalizedCode = code.trim().toUpperCase();
 
-    // Look up the cable and verify it's not already registered
     const lookupResult = await query(
-      `SELECT serial_number, sku, shopify_gid, registration_code
+      `SELECT serial_number, sku_group, shopify_gid, registration_code
        FROM audio_cables
        WHERE registration_code = $1`,
       [normalizedCode]
     );
 
     if (lookupResult.rows.length === 0) {
-      return json(
-        { error: "Invalid registration code", code: "NOT_FOUND" },
-        { status: 404 }
-      );
+      return json({ error: "Invalid registration code", code: "NOT_FOUND" }, { status: 404 });
     }
 
     const cable = lookupResult.rows[0];
 
     if (cable.shopify_gid && cable.shopify_gid !== "") {
-      return json(
-        { error: "This cable has already been registered", code: "ALREADY_REGISTERED" },
-        { status: 409 }
-      );
+      return json({ error: "This cable has already been registered", code: "ALREADY_REGISTERED" }, { status: 409 });
     }
 
-    // Assign the cable to the customer
     await query(
       `UPDATE audio_cables
        SET shopify_gid = $1, updated_timestamp = NOW()
@@ -125,12 +111,10 @@ export async function action({ request }) {
       [customerId, normalizedCode]
     );
 
-    // Handle marketing opt-in via Shopify Admin API if requested
     if (marketingOptIn) {
       try {
         await updateMarketingConsent(customerId);
       } catch (err) {
-        // Don't fail the registration if marketing update fails
         console.error("Failed to update marketing consent:", err);
       }
     }
@@ -139,7 +123,7 @@ export async function action({ request }) {
       success: true,
       cable: {
         serial_number: cable.serial_number,
-        sku: cable.sku,
+        sku_group: cable.sku_group,
       },
     });
   } catch (error) {
@@ -149,11 +133,6 @@ export async function action({ request }) {
 }
 
 async function updateMarketingConsent(customerId) {
-  // Import shopify auth to make admin API calls
-  const { authenticate } = await import("../shopify.server.js");
-
-  // We need an offline session to make admin API calls from a public endpoint.
-  // Use the shop's offline token stored in the session table.
   const { query: dbQuery } = await import("../db.server.js");
   const sessionResult = await dbQuery(
     `SELECT shop, access_token FROM shopify_sessions
@@ -167,7 +146,6 @@ async function updateMarketingConsent(customerId) {
 
   const { shop, access_token } = sessionResult.rows[0];
 
-  // Make a direct GraphQL call to update marketing consent
   const response = await fetch(
     `https://${shop}/admin/api/2025-07/graphql.json`,
     {

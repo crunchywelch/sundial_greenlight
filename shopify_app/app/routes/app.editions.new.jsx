@@ -8,14 +8,10 @@ import {
   EditionConflictError,
 } from "../editions.server";
 import { SLUG_PATTERN } from "../editions-shared";
-import { allPrefixes, seriesForPrefix, seriesDataForPrefix } from "../cable-config.server";
-import { createLtdShopifyProduct } from "../shopify-products.server";
+import { allPrefixes, seriesForPrefix } from "../cable-config.server";
 
 export async function loader({ request }) {
   await authenticate.admin(request);
-  // Series options come from YAML, not from cable_skus. The picker should
-  // show every defined series whether or not catalog rows happen to exist
-  // for it yet.
   const seriesOptions = allPrefixes().map((prefix) => ({
     prefix,
     series: seriesForPrefix(prefix),
@@ -24,73 +20,36 @@ export async function loader({ request }) {
 }
 
 export async function action({ request }) {
-  const { admin } = await authenticate.admin(request);
+  await authenticate.admin(request);
   const form = await request.formData();
   const seriesPrefix = String(form.get("seriesPrefix") || "").trim().toUpperCase();
   const slug = String(form.get("slug") || "").trim().toUpperCase();
-  const lengthFt = String(form.get("lengthFt") || "").trim();
   const description = String(form.get("description") || "").trim();
-  const eventName = String(form.get("eventName") || "").trim();
-  const notes = String(form.get("notes") || "").trim();
-  const createdBy = String(form.get("createdBy") || "").trim();
 
   let created;
   try {
-    created = await createLtdEdition({
-      seriesPrefix,
-      slug,
-      lengthFt,
-      description,
-      eventName,
-      notes,
-      createdBy,
-    });
+    created = await createLtdEdition({ seriesPrefix, slug, description });
   } catch (e) {
     if (e instanceof EditionValidationError || e instanceof EditionConflictError) {
       return json(
-        { error: e.message, field: e.field, values: { seriesPrefix, slug, lengthFt, description, eventName, notes, createdBy } },
+        { error: e.message, field: e.field, values: { seriesPrefix, slug, description } },
         { status: 400 }
       );
     }
     console.error("createLtdEdition failed:", e);
     return json(
-      { error: `Database error: ${e.message}`, values: { seriesPrefix, slug, lengthFt, description, eventName, notes, createdBy } },
+      { error: `Database error: ${e.message}`, values: { seriesPrefix, slug, description } },
       { status: 500 }
     );
   }
 
-  // DB rows committed — try Shopify product creation. On failure, leave a
-  // breadcrumb so the detail page can offer a retry.
-  let shopifyError = null;
-  try {
-    // Resolve the default connector for this series from YAML (used by the
-    // Shopify metafields helper to pick "Microphone Cable" vs "Instrument Cable").
-    const seriesData = seriesDataForPrefix(seriesPrefix);
-    const connectorType = seriesData?.connectors?.find((c) => (c.code ?? "") === "")?.display
-      ?? seriesData?.connectors?.[0]?.display
-      ?? "";
-    await createLtdShopifyProduct(admin, {
-      sku: created.sku,
-      eventName,
-      series: created.series,
-      lengthFt,
-      connectorType,
-      description,
-    });
-  } catch (e) {
-    console.error("createLtdShopifyProduct failed:", e);
-    shopifyError = e.message;
-  }
-
-  // Preserve the embedded-app `host` (and shop) query params on the redirect
-  // so the destination route's authenticate.admin call still resolves.
+  // Preserve embedded-app `host` (and shop) query params on the redirect.
   const reqUrl = new URL(request.url);
   const sp = new URLSearchParams();
   for (const k of ["host", "shop", "embedded", "id_token"]) {
     const v = reqUrl.searchParams.get(k);
     if (v) sp.set(k, v);
   }
-  if (shopifyError) sp.set("shopifyError", shopifyError);
   const search = sp.toString() ? `?${sp.toString()}` : "";
   return redirect(`/app/editions/${encodeURIComponent(created.sku)}${search}`);
 }
@@ -128,6 +87,10 @@ export default function NewEdition() {
         </Link>
       </div>
       <h1 style={{ fontSize: "24px", marginBottom: "20px" }}>New Limited Edition</h1>
+
+      <p style={{ color: "#666", fontSize: "13px", marginBottom: "20px" }}>
+        Editions are tags. Cables registered against this edition carry their own length, connector, and other attributes.
+      </p>
 
       {actionData?.error && (
         <div style={{ padding: "15px", backgroundColor: "#f8d7da", border: "1px solid #f5c6cb", borderRadius: "4px", marginBottom: "20px", color: "#721c24" }}>
@@ -171,59 +134,15 @@ export default function NewEdition() {
         </div>
 
         <div style={fieldStyle}>
-          <label style={labelStyle}>Length (ft)</label>
-          <input
-            name="lengthFt"
-            type="number"
-            step="0.5"
-            min="0.5"
-            defaultValue={v.lengthFt || ""}
-            placeholder="20"
-            style={inputStyle}
-            required
-          />
-        </div>
-
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Event name</label>
-          <input
-            name="eventName"
-            defaultValue={v.eventName || ""}
-            placeholder="Phish Summer Tour 2026"
-            style={inputStyle}
-            required
-          />
-        </div>
-
-        <div style={fieldStyle}>
           <label style={labelStyle}>Description</label>
           <textarea
             name="description"
             defaultValue={v.description || ""}
-            placeholder="Tour-branded color scheme, signed by band"
+            placeholder="Phish Summer Tour 2026"
             style={{ ...inputStyle, minHeight: "80px", fontFamily: "inherit" }}
+            required
           />
-          <div style={helpStyle}>Shown on Shopify product page and on cable detail in greenlight.</div>
-        </div>
-
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Notes (internal)</label>
-          <textarea
-            name="notes"
-            defaultValue={v.notes || ""}
-            placeholder="Any internal context"
-            style={{ ...inputStyle, minHeight: "60px", fontFamily: "inherit" }}
-          />
-        </div>
-
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Created by (initials, optional)</label>
-          <input
-            name="createdBy"
-            defaultValue={v.createdBy || ""}
-            maxLength={8}
-            style={inputStyle}
-          />
+          <div style={helpStyle}>Free text identifying this edition. Shown wherever the edition is referenced.</div>
         </div>
 
         <div style={{ display: "flex", gap: "10px", marginTop: "30px" }}>

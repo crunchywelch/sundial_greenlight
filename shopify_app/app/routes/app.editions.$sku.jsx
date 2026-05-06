@@ -1,38 +1,24 @@
-import { json, redirect } from "@remix-run/node";
-import { Form, Link, useActionData, useLoaderData, useLocation, useNavigation, useSearchParams } from "@remix-run/react";
+import { json } from "@remix-run/node";
+import { Form, Link, useActionData, useLoaderData, useLocation, useNavigation } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
 import {
   getEdition,
   updateEdition,
   EditionValidationError,
 } from "../editions.server";
-import {
-  createLtdShopifyProduct,
-  findVariantBySku,
-  updateProductDescriptionBySku,
-} from "../shopify-products.server";
 
 export async function loader({ request, params }) {
-  const { admin } = await authenticate.admin(request);
+  await authenticate.admin(request);
   const sku = decodeURIComponent(params.sku);
-
   const edition = await getEdition(sku);
   if (!edition) {
     throw new Response("Edition not found", { status: 404 });
   }
-
-  let shopifyProduct = null;
-  try {
-    shopifyProduct = await findVariantBySku(admin, sku);
-  } catch (e) {
-    console.error(`findVariantBySku(${sku}) failed:`, e);
-  }
-
-  return json({ edition, shopifyProduct });
+  return json({ edition });
 }
 
 export async function action({ request, params }) {
-  const { admin } = await authenticate.admin(request);
+  await authenticate.admin(request);
   const sku = decodeURIComponent(params.sku);
   const form = await request.formData();
   const intent = String(form.get("intent") || "");
@@ -41,21 +27,7 @@ export async function action({ request, params }) {
   if (!edition) throw new Response("Edition not found", { status: 404 });
 
   if (intent === "save") {
-    const updates = {
-      eventName: String(form.get("eventName") || ""),
-      notes: String(form.get("notes") || ""),
-    };
-    // Locked fields only included if cable_count == 0
-    if (edition.cable_count === 0) {
-      updates.description = String(form.get("description") || "");
-      updates.lengthFt = String(form.get("lengthFt") || "");
-    }
-
-    let shouldSyncDescription = false;
-    if (updates.description !== undefined && updates.description !== edition.description) {
-      shouldSyncDescription = true;
-    }
-
+    const updates = { description: String(form.get("description") || "") };
     try {
       await updateEdition(sku, updates);
     } catch (e) {
@@ -65,18 +37,7 @@ export async function action({ request, params }) {
       console.error("updateEdition failed:", e);
       return json({ error: `Database error: ${e.message}` }, { status: 500 });
     }
-
-    let shopifyError = null;
-    if (shouldSyncDescription) {
-      try {
-        await updateProductDescriptionBySku(admin, sku, updates.description || "");
-      } catch (e) {
-        console.error("updateProductDescriptionBySku failed:", e);
-        shopifyError = e.message;
-      }
-    }
-
-    return json({ ok: true, shopifyError });
+    return json({ ok: true });
   }
 
   if (intent === "archive" || intent === "unarchive") {
@@ -87,30 +48,6 @@ export async function action({ request, params }) {
       return json({ error: `Database error: ${e.message}` }, { status: 500 });
     }
     return json({ ok: true });
-  }
-
-  if (intent === "createShopifyProduct") {
-    try {
-      await createLtdShopifyProduct(admin, {
-        sku: edition.sku,
-        eventName: edition.event_name,
-        series: edition.series,
-        lengthFt: edition.length,
-        connectorType: edition.connector_type,
-        description: edition.description || "",
-      });
-    } catch (e) {
-      console.error("createLtdShopifyProduct failed:", e);
-      return json({ error: `Shopify error: ${e.message}` }, { status: 500 });
-    }
-    const reqUrl = new URL(request.url);
-    const sp = new URLSearchParams();
-    for (const k of ["host", "shop", "embedded", "id_token"]) {
-      const v = reqUrl.searchParams.get(k);
-      if (v) sp.set(k, v);
-    }
-    const search = sp.toString() ? `?${sp.toString()}` : "";
-    return redirect(`/app/editions/${encodeURIComponent(sku)}${search}`);
   }
 
   return json({ error: `Unknown intent: ${intent}` }, { status: 400 });
@@ -130,14 +67,12 @@ const fieldStyle = { marginBottom: "16px" };
 const helpStyle = { fontSize: "12px", color: "#666", marginTop: "4px" };
 
 export default function EditionDetail() {
-  const { edition, shopifyProduct } = useLoaderData();
+  const { edition } = useLoaderData();
   const actionData = useActionData();
   const navigation = useNavigation();
-  const [searchParams] = useSearchParams();
   const location = useLocation();
   const submitting = navigation.state === "submitting";
   const locked = edition.cable_count > 0;
-  const initialShopifyError = searchParams.get("shopifyError");
   const editionsHref = { pathname: "/app/editions", search: location.search };
 
   return (
@@ -150,9 +85,9 @@ export default function EditionDetail() {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
         <div>
-          <h1 style={{ fontSize: "24px", margin: "0 0 6px" }}>{edition.event_name}</h1>
+          <h1 style={{ fontSize: "24px", margin: "0 0 6px" }}>{edition.slug}</h1>
           <div style={{ fontSize: "14px", color: "#666" }}>
-            <code>{edition.sku}</code> · {edition.series} · {edition.length}ft · {edition.cable_count} cable{edition.cable_count === 1 ? "" : "s"} registered
+            <code>{edition.sku}</code> · {edition.series} · {edition.cable_count} cable{edition.cable_count === 1 ? "" : "s"} registered
           </div>
         </div>
         <span style={{
@@ -170,11 +105,6 @@ export default function EditionDetail() {
       {actionData?.ok && (
         <div style={{ padding: "12px 15px", backgroundColor: "#d4edda", border: "1px solid #c3e6cb", borderRadius: "4px", marginBottom: "20px", color: "#155724" }}>
           Saved.
-          {actionData.shopifyError && (
-            <div style={{ marginTop: "6px", color: "#721c24" }}>
-              Shopify description sync failed: {actionData.shopifyError}
-            </div>
-          )}
         </div>
       )}
 
@@ -184,96 +114,34 @@ export default function EditionDetail() {
         </div>
       )}
 
-      {/* Shopify product status panel */}
-      <div style={{ border: "1px solid #ddd", borderRadius: "8px", padding: "16px", marginBottom: "24px", backgroundColor: "#fff" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <div style={{ fontWeight: "bold", marginBottom: "4px" }}>Shopify product</div>
-            {shopifyProduct ? (
-              <div style={{ fontSize: "13px", color: "#666" }}>
-                Variant <code>{shopifyProduct.variantId}</code>
-              </div>
-            ) : (
-              <div style={{ fontSize: "13px", color: "#bf5000" }}>
-                No Shopify product found for this SKU.
-              </div>
-            )}
-            {initialShopifyError && !shopifyProduct && (
-              <div style={{ fontSize: "13px", color: "#721c24", marginTop: "6px" }}>
-                Last create attempt failed: {initialShopifyError}
-              </div>
-            )}
-          </div>
-          {!shopifyProduct && (
-            <Form method="post">
-              <button
-                type="submit"
-                name="intent"
-                value="createShopifyProduct"
-                disabled={submitting}
-                style={{
-                  padding: "8px 16px",
-                  backgroundColor: "#5c6ac4",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "4px",
-                  fontSize: "14px",
-                  cursor: submitting ? "not-allowed" : "pointer",
-                }}
-              >
-                {submitting ? "Working…" : "Create Shopify product"}
-              </button>
-            </Form>
-          )}
-        </div>
-      </div>
-
-      {/* Edit form */}
       <Form method="post">
         <input type="hidden" name="intent" value="save" />
 
         <div style={fieldStyle}>
-          <label style={labelStyle}>Event name</label>
-          <input name="eventName" defaultValue={edition.event_name} style={inputStyle} required />
-        </div>
-
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Description {locked && <span style={{ color: "#bf5000", fontWeight: "normal" }}>(locked)</span>}</label>
+          <label style={labelStyle}>
+            Description {locked && <span style={{ color: "#bf5000", fontWeight: "normal" }}>(locked)</span>}
+          </label>
           {locked ? (
             <textarea name="description" defaultValue={edition.description || ""} readOnly style={{ ...lockedStyle, minHeight: "80px", fontFamily: "inherit" }} />
           ) : (
-            <textarea name="description" defaultValue={edition.description || ""} style={{ ...inputStyle, minHeight: "80px", fontFamily: "inherit" }} />
+            <textarea name="description" defaultValue={edition.description || ""} required style={{ ...inputStyle, minHeight: "80px", fontFamily: "inherit" }} />
           )}
-          {locked && <div style={helpStyle}>Cannot edit — cables already registered against this SKU.</div>}
-        </div>
-
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Length (ft) {locked && <span style={{ color: "#bf5000", fontWeight: "normal" }}>(locked)</span>}</label>
-          {locked ? (
-            <input name="lengthFt" defaultValue={edition.length} readOnly style={lockedStyle} />
-          ) : (
-            <input name="lengthFt" type="number" step="0.5" min="0.5" defaultValue={edition.length} style={inputStyle} required />
-          )}
-        </div>
-
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Notes (internal)</label>
-          <textarea name="notes" defaultValue={edition.notes || ""} style={{ ...inputStyle, minHeight: "60px", fontFamily: "inherit" }} />
+          {locked && <div style={helpStyle}>Cannot edit — cables already registered against this edition.</div>}
         </div>
 
         <div style={{ display: "flex", gap: "10px", marginTop: "30px" }}>
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || locked}
             style={{
               padding: "10px 24px",
-              backgroundColor: submitting ? "#999" : "#008060",
+              backgroundColor: submitting || locked ? "#999" : "#008060",
               color: "#fff",
               border: "none",
               borderRadius: "4px",
               fontSize: "14px",
               fontWeight: "bold",
-              cursor: submitting ? "not-allowed" : "pointer",
+              cursor: submitting || locked ? "not-allowed" : "pointer",
             }}
           >
             {submitting ? "Saving…" : "Save changes"}
@@ -281,7 +149,6 @@ export default function EditionDetail() {
         </div>
       </Form>
 
-      {/* Archive toggle (separate form so a save doesn't archive) */}
       <div style={{ marginTop: "40px", paddingTop: "20px", borderTop: "1px solid #eee" }}>
         <Form method="post">
           <button
