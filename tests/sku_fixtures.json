@@ -1,10 +1,163 @@
 [
   {
-    "name": "catalog: Studio Classic 12ft Goldline straight",
+    "name": "group catalog: SC Goldline (rayon)",
+    "type": "group",
+    "sku": "SC-GL",
+    "expected": {
+      "kind": "catalog",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "pattern_code": "GL",
+      "pattern_name": "Goldline"
+    }
+  },
+  {
+    "name": "group catalog: SV Pearl White (rayon, XLR series)",
+    "type": "group",
+    "sku": "SV-PW",
+    "expected": {
+      "kind": "catalog",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "pattern_code": "PW",
+      "pattern_name": "Pearl White"
+    }
+  },
+  {
+    "name": "group catalog: TC Houndstooth Putty (cotton)",
+    "type": "group",
+    "sku": "TC-HP",
+    "expected": {
+      "kind": "catalog",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "pattern_code": "HP",
+      "pattern_name": "Houndstooth Putty"
+    }
+  },
+  {
+    "name": "group catalog: TV Bungalow (cotton, XLR series)",
+    "type": "group",
+    "sku": "TV-BU",
+    "expected": {
+      "kind": "catalog",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "pattern_code": "BU",
+      "pattern_name": "Bungalow"
+    }
+  },
+  {
+    "name": "group misc: SC variant 42",
+    "type": "group",
+    "sku": "SC-MISC-42",
+    "expected": {
+      "kind": "misc",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "misc_seq": 42
+    }
+  },
+  {
+    "name": "group ltd: TC Phish edition",
+    "type": "group",
+    "sku": "TC-LTD-PHISH26",
+    "expected": {
+      "kind": "ltd",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "slug": "PHISH26"
+    }
+  },
+  {
+    "name": "group catalog: unknown pattern code (parses, pattern_name null)",
+    "type": "group",
+    "sku": "SC-XX",
+    "expected": {
+      "kind": "catalog",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "pattern_code": "XX",
+      "pattern_name": null
+    }
+  },
+  {
+    "name": "group catalog: unknown prefix (parses, series null)",
+    "type": "group",
+    "sku": "XX-GL",
+    "expected": {
+      "kind": "catalog",
+      "prefix": "XX",
+      "series": null,
+      "pattern_code": "GL",
+      "pattern_name": "Goldline"
+    }
+  },
+  {
+    "name": "group malformed: no structure",
+    "type": "group",
+    "sku": "WHATEVER",
+    "expected": {
+      "kind": null
+    }
+  },
+  {
+    "name": "group malformed: empty string",
+    "type": "group",
+    "sku": "",
+    "expected": {
+      "kind": null
+    }
+  },
+  {
+    "name": "group malformed: MISC with non-numeric seq",
+    "type": "group",
+    "sku": "SC-MISC-AB",
+    "expected": {
+      "kind": null
+    }
+  },
+  {
+    "name": "group malformed: LTD with too-short slug",
+    "type": "group",
+    "sku": "SC-LTD-AB",
+    "expected": {
+      "kind": null
+    }
+  },
+  {
+    "name": "group malformed: LTD with too-long slug",
+    "type": "group",
+    "sku": "SC-LTD-ABCDEFGHIJKLM",
+    "expected": {
+      "kind": null
+    }
+  },
+  {
+    "name": "group malformed: LTD with lowercase",
+    "type": "group",
+    "sku": "SC-LTD-phish26",
+    "expected": {
+      "kind": null
+    }
+  },
+  {
+    "name": "group malformed: catalog with length included (variant shape)",
+    "type": "group",
+    "sku": "SC-12GL",
+    "expected": {
+      "kind": null
+    }
+  },
+
+  {
+    "name": "variant catalog: SC 12ft Goldline straight",
+    "type": "variant",
     "sku": "SC-12GL",
     "expected": {
       "kind": "catalog",
-      "series_prefix": "SC",
+      "group_sku": "SC-GL",
+      "prefix": "SC",
       "series": "Studio Classic",
       "length": 12,
       "pattern_code": "GL",
@@ -14,53 +167,13 @@
     }
   },
   {
-    "name": "catalog: Studio Vocal Classic 3ft Pearl White (XLR-XLR)",
-    "sku": "SV-3PW",
-    "expected": {
-      "kind": "catalog",
-      "series_prefix": "SV",
-      "series": "Studio Vocal Classic",
-      "length": 3,
-      "pattern_code": "PW",
-      "pattern_name": "Pearl White",
-      "connector_code": "",
-      "connector_display": "XLR–XLR"
-    }
-  },
-  {
-    "name": "catalog: Tour Classic 15ft Houndstooth Putty straight",
-    "sku": "TC-15HP",
-    "expected": {
-      "kind": "catalog",
-      "series_prefix": "TC",
-      "series": "Tour Classic",
-      "length": 15,
-      "pattern_code": "HP",
-      "pattern_name": "Houndstooth Putty",
-      "connector_code": "",
-      "connector_display": "TS–TS"
-    }
-  },
-  {
-    "name": "catalog: Tour Vocal Classic 6ft Bungalow (XLR-XLR)",
-    "sku": "TV-6BU",
-    "expected": {
-      "kind": "catalog",
-      "series_prefix": "TV",
-      "series": "Tour Vocal Classic",
-      "length": 6,
-      "pattern_code": "BU",
-      "pattern_name": "Bungalow",
-      "connector_code": "",
-      "connector_display": "XLR–XLR"
-    }
-  },
-  {
-    "name": "catalog: Studio Classic 12ft Goldline right-angle",
+    "name": "variant catalog: SC 12ft Goldline right-angle",
+    "type": "variant",
     "sku": "SC-12GL-R",
     "expected": {
       "kind": "catalog",
-      "series_prefix": "SC",
+      "group_sku": "SC-GL",
+      "prefix": "SC",
       "series": "Studio Classic",
       "length": 12,
       "pattern_code": "GL",
@@ -70,92 +183,127 @@
     }
   },
   {
-    "name": "misc: variant 42 of SC",
-    "sku": "SC-MISC-42",
-    "expected": {
-      "kind": "misc",
-      "series_prefix": "SC",
-      "series": "Studio Classic"
-    }
-  },
-  {
-    "name": "ltd: TC Phish edition",
-    "sku": "TC-LTD-PHISH26",
-    "expected": {
-      "kind": "ltd",
-      "series_prefix": "TC",
-      "series": "Tour Classic",
-      "slug": "PHISH26"
-    }
-  },
-  {
-    "name": "catalog with unknown pattern code (parses, but pattern_name is null)",
-    "sku": "SC-12XX",
+    "name": "variant catalog: SV 3ft Pearl White (XLR-XLR)",
+    "type": "variant",
+    "sku": "SV-3PW",
     "expected": {
       "kind": "catalog",
-      "series_prefix": "SC",
-      "series": "Studio Classic",
-      "length": 12,
-      "pattern_code": "XX",
-      "pattern_name": null,
+      "group_sku": "SV-PW",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "length": 3,
+      "pattern_code": "PW",
+      "pattern_name": "Pearl White",
+      "connector_code": "",
+      "connector_display": "XLR–XLR"
+    }
+  },
+  {
+    "name": "variant catalog: TC 15ft Houndstooth Putty straight",
+    "type": "variant",
+    "sku": "TC-15HP",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "TC-HP",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 15,
+      "pattern_code": "HP",
+      "pattern_name": "Houndstooth Putty",
       "connector_code": "",
       "connector_display": "TS–TS"
     }
   },
   {
-    "name": "catalog with unknown prefix (structural parse OK, but series + connector_display null)",
-    "sku": "XX-12GL",
+    "name": "variant catalog: TV 6ft Bungalow (XLR-XLR)",
+    "type": "variant",
+    "sku": "TV-6BU",
     "expected": {
       "kind": "catalog",
-      "series_prefix": "XX",
-      "series": null,
-      "length": 12,
-      "pattern_code": "GL",
-      "pattern_name": "Goldline",
+      "group_sku": "TV-BU",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 6,
+      "pattern_code": "BU",
+      "pattern_name": "Bungalow",
       "connector_code": "",
-      "connector_display": null
+      "connector_display": "XLR–XLR"
     }
   },
   {
-    "name": "malformed: no structure",
-    "sku": "WHATEVER",
+    "name": "variant misc: passes through as group",
+    "type": "variant",
+    "sku": "SC-MISC-42",
     "expected": {
-      "kind": null
+      "kind": "misc",
+      "group_sku": "SC-MISC-42",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "misc_seq": 42
     }
   },
   {
-    "name": "malformed: empty string",
+    "name": "variant ltd: passes through as group",
+    "type": "variant",
+    "sku": "TC-LTD-PHISH26",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "TC-LTD-PHISH26",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "slug": "PHISH26"
+    }
+  },
+  {
+    "name": "variant malformed: empty",
+    "type": "variant",
     "sku": "",
     "expected": {
       "kind": null
     }
   },
   {
-    "name": "malformed: MISC with non-numeric seq",
-    "sku": "SC-MISC-AB",
+    "name": "variant malformed: no length",
+    "type": "variant",
+    "sku": "SC-GL",
     "expected": {
       "kind": null
     }
   },
+
   {
-    "name": "malformed: LTD with too-short slug (3 chars)",
-    "sku": "SC-LTD-AB",
-    "expected": {
-      "kind": null
-    }
+    "name": "round-trip: SC 12ft Goldline straight",
+    "type": "round_trip",
+    "sku": "SC-12GL"
   },
   {
-    "name": "malformed: LTD with too-long slug (13 chars)",
-    "sku": "SC-LTD-ABCDEFGHIJKLM",
-    "expected": {
-      "kind": null
-    }
+    "name": "round-trip: SC 12ft Goldline right-angle",
+    "type": "round_trip",
+    "sku": "SC-12GL-R"
   },
   {
-    "name": "malformed: LTD with lowercase in slug",
-    "sku": "SC-LTD-phish26",
-    "expected": {
-      "kind": null
-    }
+    "name": "round-trip: SV 3ft Pearl White",
+    "type": "round_trip",
+    "sku": "SV-3PW"
+  },
+  {
+    "name": "round-trip: TC 15ft Houndstooth Putty",
+    "type": "round_trip",
+    "sku": "TC-15HP"
+  },
+  {
+    "name": "round-trip: TV 6ft Bungalow",
+    "type": "round_trip",
+    "sku": "TV-6BU"
+  },
+  {
+    "name": "round-trip: MISC variant",
+    "type": "round_trip",
+    "sku": "SC-MISC-42"
+  },
+  {
+    "name": "round-trip: LTD edition",
+    "type": "round_trip",
+    "sku": "TC-LTD-PHISH26"
   }
 ]
