@@ -286,7 +286,7 @@ class CustomerDetailScreen(Screen):
 
         footer_parts = [
             "[cyan]'o'[/cyan] = orders",
-            "[cyan]'c'[/cyan] = assign cables",
+            "[cyan]'a'[/cyan] = assign cables",
         ]
         if assigned_cables:
             footer_parts.append("[cyan]'u'[/cyan] = unassign cable")
@@ -305,7 +305,7 @@ class CustomerDetailScreen(Screen):
 
         if choice == 'o':
             return ScreenResult(NavigationAction.PUSH, CustomerOrdersScreen, self.context)
-        elif choice == 'c':
+        elif choice == 'a':
             # Check for unfulfilled orders before allowing direct assignment
             orders = shopify_client.get_customer_orders(customer_id, limit=25)
             unfulfilled = [
