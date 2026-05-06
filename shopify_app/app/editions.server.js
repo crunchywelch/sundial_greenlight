@@ -1,19 +1,19 @@
 /**
- * LTD edition CRUD against the post-Phase-4 sku_group schema.
+ * LTD edition CRUD against the Phase 5 sku_group schema.
  *
- * sku_group: just (sku, description, archived_at). No length, no event_name,
- * no notes, no created_by — all pruned in Phase 4. Cables registered against
- * an LTD edition carry their own length and connector_code on audio_cables.
+ * sku_group: just (sku, description, archived_at). LTD groups are
+ * series-agnostic (`LTD-PHISH26`); a single edition can contain cables of
+ * any series. Per-cable variation (prefix, length, connector) lives on
+ * audio_cables.
  *
  * Per-edition Shopify product creation is paused pending a design decision
  * about how LTD editions are sold (single multi-variant product vs. catalog
- * cables tagged with the edition slug). The new-edition action no longer
- * creates a Shopify product automatically.
+ * cables tagged with the edition slug).
  */
 
 import { query } from "./db.server.js";
 import { SLUG_PATTERN, parseLtdSku } from "./editions-shared.js";
-import { seriesForPrefix, parseGroupSku } from "./cable-config.server.js";
+import { parseGroupSku } from "./cable-config.server.js";
 
 // Re-export so existing server-side imports keep working.
 export { SLUG_PATTERN, parseLtdSku };
@@ -33,10 +33,7 @@ export class EditionConflictError extends Error {
   }
 }
 
-function validateCreateInput({ seriesPrefix, slug, description }) {
-  if (!seriesPrefix || !/^[A-Z]+$/.test(seriesPrefix)) {
-    throw new EditionValidationError("Series prefix is required.", "seriesPrefix");
-  }
+function validateCreateInput({ slug, description }) {
   if (!slug || !SLUG_PATTERN.test(slug)) {
     throw new EditionValidationError("Slug must be 4–12 characters, A–Z and 0–9 only.", "slug");
   }
@@ -46,31 +43,26 @@ function validateCreateInput({ seriesPrefix, slug, description }) {
 }
 
 /**
- * Create an LTD edition. Inserts a single sku_group row.
+ * Create an LTD edition. Inserts a single sku_group row with sku=`LTD-{slug}`.
  *
- * Returns { sku, series } on success.
- * Throws EditionValidationError for bad input (including unknown series prefix),
+ * Returns { sku } on success.
+ * Throws EditionValidationError for bad input,
  * EditionConflictError if the slug already exists.
  */
-export async function createLtdEdition({ seriesPrefix, slug, description }) {
-  validateCreateInput({ seriesPrefix, slug, description });
+export async function createLtdEdition({ slug, description }) {
+  validateCreateInput({ slug, description });
 
-  const series = seriesForPrefix(seriesPrefix);
-  if (!series) {
-    throw new EditionValidationError(`Unknown series prefix '${seriesPrefix}'.`, "seriesPrefix");
-  }
-
-  const sku = `${seriesPrefix}-LTD-${slug}`;
+  const sku = `LTD-${slug}`;
 
   try {
     await query(
       `INSERT INTO sku_group (sku, description) VALUES ($1, $2)`,
       [sku, description.trim()]
     );
-    return { sku, series };
+    return { sku };
   } catch (e) {
     if (e.code === "23505") {
-      throw new EditionConflictError(`SKU ${sku} already exists.`);
+      throw new EditionConflictError(`Edition ${sku} already exists.`);
     }
     throw e;
   }
@@ -85,7 +77,7 @@ export async function getEdition(sku) {
     `SELECT sg.sku, sg.description, sg.archived_at,
             (SELECT COUNT(*) FROM audio_cables ac WHERE ac.sku_group = sg.sku) AS cable_count
      FROM sku_group sg
-     WHERE sg.sku = $1 AND sg.sku ~ '-LTD-[A-Z0-9]{4,12}$'`,
+     WHERE sg.sku = $1 AND sg.sku ~ '^LTD-[A-Z0-9]{4,12}$'`,
     [sku]
   );
   if (result.rows.length === 0) return null;
@@ -94,8 +86,6 @@ export async function getEdition(sku) {
   return {
     sku: r.sku,
     slug: parsed.slug ?? null,
-    prefix: parsed.prefix,
-    series: parsed.series,
     description: r.description,
     archived_at: r.archived_at,
     active: r.archived_at === null,
@@ -108,7 +98,7 @@ export async function getEdition(sku) {
  * filter: 'active' | 'archived' | 'all'
  */
 export async function listEditions(filter = "active") {
-  const where = ["sg.sku ~ '-LTD-[A-Z0-9]{4,12}$'"];
+  const where = ["sg.sku ~ '^LTD-[A-Z0-9]{4,12}$'"];
   if (filter === "active") where.push("sg.archived_at IS NULL");
   else if (filter === "archived") where.push("sg.archived_at IS NOT NULL");
 
@@ -125,8 +115,6 @@ export async function listEditions(filter = "active") {
     return {
       sku: r.sku,
       slug: parsed.slug ?? null,
-      prefix: parsed.prefix,
-      series: parsed.series,
       description: r.description,
       archived_at: r.archived_at,
       active: r.archived_at === null,

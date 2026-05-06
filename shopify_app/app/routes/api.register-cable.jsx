@@ -1,6 +1,6 @@
 import { json } from "@remix-run/node";
 import { query } from "../db.server.js";
-import { parseGroupSku, seriesDataForPrefix, formatVariantSku } from "../cable-config.server.js";
+import { parseGroupSku, seriesForPrefix, seriesDataForPrefix, formatVariantSku } from "../cable-config.server.js";
 
 // CORS is handled by nginx for all /api/ routes.
 
@@ -20,6 +20,7 @@ export async function loader({ request }) {
       `SELECT
         ac.serial_number,
         ac.sku_group,
+        ac.prefix,
         ac.length,
         ac.connector_code,
         ac.registration_code,
@@ -42,10 +43,11 @@ export async function loader({ request }) {
     }
 
     const parsed = parseGroupSku(row.sku_group);
-    const seriesData = parsed.prefix ? seriesDataForPrefix(parsed.prefix) : null;
+    const seriesData = seriesDataForPrefix(row.prefix);
     const connectorDisplay =
       seriesData?.connectors?.find((c) => (c.code ?? "") === (row.connector_code ?? ""))?.display ?? null;
     const variantSku = formatVariantSku({
+      prefix: row.prefix,
       group_sku: row.sku_group,
       length: Number(row.length),
       connector_code: row.connector_code,
@@ -56,7 +58,8 @@ export async function loader({ request }) {
         serial_number: row.serial_number,
         sku: variantSku,
         sku_group: row.sku_group,
-        series: parsed.series,
+        prefix: row.prefix,
+        series: seriesForPrefix(row.prefix),
         color: parsed.pattern_name ?? null,
         connector_type: connectorDisplay,
         core_cable: seriesData?.core_cable ?? null,

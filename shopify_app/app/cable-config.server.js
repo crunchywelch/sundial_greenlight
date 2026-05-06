@@ -41,13 +41,20 @@ const SERIES_FILES = [
   "tour_vocal.yaml",
 ];
 
-// Group SKU regexes
+// Group SKU regexes (Phase 5 shape).
+//   catalog: pattern_code only — 'GL', 'SL', 'BU'
+//   ltd:     'LTD-{slug}' — series-agnostic (prefix lives on audio_cables)
+//   misc:    '{prefix}-MISC-{seq}' — still series-scoped (kept untouched)
 const RE_GROUP_MISC = /^([A-Z]{2,3})-MISC-(\d+)$/;
-const RE_GROUP_LTD = /^([A-Z]{2,3})-LTD-([A-Z0-9]{4,12})$/;
-const RE_GROUP_CATALOG = /^([A-Z]{2,3})-([A-Z]{2,3})$/;
+const RE_GROUP_LTD = /^LTD-([A-Z0-9]{4,12})$/;
+const RE_GROUP_CATALOG = /^([A-Z]{2,3})$/;
 
-// Variant SKU regex (catalog only — MISC/LTD variants equal their group)
+// Variant SKU regexes (Phase 5 shape — variants are still series-specific).
+//   catalog: '{prefix}-{length}{pattern}{?-R}' — 'SC-12GL', 'SC-12GL-R'
+//   ltd:     '{prefix}-LTD-{slug}' — 'SC-LTD-PHISH26'
+//   misc:    '{prefix}-MISC-{seq}' — equals the group SKU, untouched
 const RE_VARIANT_CATALOG = /^([A-Z]{2,3})-(\d+)([A-Z]{2,3})(-R)?$/;
+const RE_VARIANT_LTD = /^([A-Z]{2,3})-LTD-([A-Z0-9]{4,12})$/;
 
 function loadPatterns() {
   const path = resolve(PRODUCT_LINES_DIR, "patterns.yaml");
@@ -111,15 +118,16 @@ function connectorDisplay(seriesPrefix, connectorCode) {
 
 /**
  * Parse a sku_group identifier into its structural components + YAML-resolved
- * names.
+ * names. Group SKUs carry less than variant SKUs do — series and connector
+ * details live on audio_cables, not in the group identity.
  *
- * Returns an object with at least `kind`. For parseable group SKUs:
- *   - 'catalog': prefix, series, pattern_code, pattern_name
- *   - 'misc':    prefix, series, misc_seq
- *   - 'ltd':     prefix, series, slug
+ * Returns an object with at least `kind`. Shape per kind:
+ *   - 'catalog': pattern_code, pattern_name. No prefix (lives on the cable).
+ *   - 'misc':    prefix, series, misc_seq. MISC stays series-scoped.
+ *   - 'ltd':     slug. No prefix (LTD editions span series).
  *
- * Unknown prefix or pattern code yields a parsed result with the unknown
- * field's resolved name as null. Truly malformed inputs return { kind: null }.
+ * Unknown pattern code yields kind='catalog' with pattern_name=null. Truly
+ * malformed inputs return { kind: null }.
  */
 export function parseGroupSku(sku) {
   if (!sku || typeof sku !== "string") return { kind: null };
@@ -137,23 +145,16 @@ export function parseGroupSku(sku) {
 
   m = sku.match(RE_GROUP_LTD);
   if (m) {
-    const [, prefix, slug] = m;
-    return {
-      kind: "ltd",
-      prefix,
-      series: seriesForPrefix(prefix),
-      slug,
-    };
+    const [, slug] = m;
+    return { kind: "ltd", slug };
   }
 
   m = sku.match(RE_GROUP_CATALOG);
   if (m) {
-    const [, prefix, patternCode] = m;
+    const [, patternCode] = m;
     const pattern = patternForCode(patternCode);
     return {
       kind: "catalog",
-      prefix,
-      series: seriesForPrefix(prefix),
       pattern_code: patternCode,
       pattern_name: pattern ? (pattern.name ?? null) : null,
     };
@@ -163,19 +164,24 @@ export function parseGroupSku(sku) {
 }
 
 /**
- * Parse a variant SKU string into structural components.
+ * Parse a user-facing variant SKU string into structural components.
  *
- * Catalog variants ('SC-12SL', 'SC-12SL-R') decompose into group_sku, length,
- * pattern_code, connector_code. MISC and LTD variant strings equal their
- * group SKU; this function recognises them and returns kind+group_sku, with
- * length/connector fields absent.
+ * Variant SKUs are series-specific (the customer sees `SC-12GL` or
+ * `SC-LTD-PHISH26`); group SKUs are not (post-Phase-5: `GL`, `LTD-PHISH26`).
+ * parseVariantSku derives the group SKU from the variant on the way back.
+ *
+ * Per-kind result shape:
+ *   - 'catalog': group_sku ('GL'), prefix, series, length, pattern_code,
+ *                pattern_name, connector_code, connector_display
+ *   - 'misc':    group_sku (= sku), prefix, series, misc_seq
+ *   - 'ltd':     group_sku ('LTD-{slug}'), prefix, series, slug
  *
  * Returns { kind: null } on malformed input.
  */
 export function parseVariantSku(sku) {
   if (!sku || typeof sku !== "string") return { kind: null };
 
-  // MISC and LTD variants equal their group SKU
+  // MISC variant SKU equals group SKU (still '{prefix}-MISC-{seq}').
   let m = sku.match(RE_GROUP_MISC);
   if (m) {
     const prefix = m[1];
@@ -188,19 +194,21 @@ export function parseVariantSku(sku) {
     };
   }
 
-  m = sku.match(RE_GROUP_LTD);
+  // LTD variant: '{prefix}-LTD-{slug}'. Group SKU drops the prefix.
+  m = sku.match(RE_VARIANT_LTD);
   if (m) {
     const [, prefix, slug] = m;
     return {
       kind: "ltd",
-      group_sku: sku,
+      group_sku: `LTD-${slug}`,
       prefix,
       series: seriesForPrefix(prefix),
       slug,
     };
   }
 
-  // Catalog variants: 'SC-12SL' or 'SC-12SL-R'
+  // Catalog variant: '{prefix}-{length}{pattern}{?-R}'. Group SKU is
+  // pattern_code only.
   m = sku.match(RE_VARIANT_CATALOG);
   if (m) {
     const [, prefix, lengthStr, patternCode, raSuffix] = m;
@@ -208,7 +216,7 @@ export function parseVariantSku(sku) {
     const pattern = patternForCode(patternCode);
     return {
       kind: "catalog",
-      group_sku: `${prefix}-${patternCode}`,
+      group_sku: patternCode,
       prefix,
       series: seriesForPrefix(prefix),
       length: parseInt(lengthStr, 10),
@@ -225,21 +233,31 @@ export function parseVariantSku(sku) {
 /**
  * Build the user-facing variant SKU string from a sku_group + per-cable attrs.
  *
- * For catalog groups: '{prefix}-{length}{pattern_code}{connector_code}'.
- * For MISC/LTD groups: returns the group SKU verbatim (length/connector_code
- * are properties of the cable but don't appear in the SKU string).
+ * Catalog: '{prefix}-{length}{pattern_code}{connector_code}' — needs prefix
+ *   from audio_cables since the catalog group SKU doesn't carry it.
+ * LTD:     '{prefix}-LTD-{slug}' — same; LTD group SKU is series-agnostic.
+ * MISC:    returns group_sku (which still includes the prefix).
  *
- * Returns null if the group_sku doesn't parse.
+ * Returns null if the inputs are invalid.
  */
-export function formatVariantSku({ group_sku, length, connector_code }) {
+export function formatVariantSku({ prefix, group_sku, length, connector_code }) {
   const parsed = parseGroupSku(group_sku);
   if (parsed.kind === null) return null;
-  if (parsed.kind === "misc" || parsed.kind === "ltd") return group_sku;
 
-  // catalog: need length and pattern_code
-  if (length == null) return null;
+  if (parsed.kind === "misc") {
+    // MISC group SKU carries the prefix and equals the variant SKU.
+    return group_sku;
+  }
+
+  if (parsed.kind === "ltd") {
+    if (!prefix) return null;
+    return `${prefix}-LTD-${parsed.slug}`;
+  }
+
+  // catalog
+  if (!prefix || length == null) return null;
   const cc = connector_code ?? "";
-  return `${parsed.prefix}-${length}${parsed.pattern_code}${cc}`;
+  return `${prefix}-${length}${parsed.pattern_code}${cc}`;
 }
 
 /** Return all known series prefixes (sorted). */

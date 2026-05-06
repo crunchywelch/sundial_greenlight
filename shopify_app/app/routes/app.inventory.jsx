@@ -24,18 +24,21 @@ export async function action({ request }) {
 
   if (intent === "fetch") {
     try {
+      // Group by all four — prefix is now per-cable, so the variant SKU
+      // depends on prefix as well as (sku_group, length, connector_code).
       const totalResult = await query(
-        `SELECT sku_group, length, connector_code, COUNT(*) as count
+        `SELECT sku_group, prefix, length, connector_code, COUNT(*) as count
          FROM audio_cables
-         GROUP BY sku_group, length, connector_code
-         ORDER BY sku_group, length, connector_code`
+         GROUP BY sku_group, prefix, length, connector_code
+         ORDER BY sku_group, prefix, length, connector_code`
       );
-      // Accumulate (+=), not assign. For LTD/MISC groups multiple
-      // (length, connector_code) rows collapse to the same variant SKU
-      // (the group SKU itself), and we want their counts summed.
+      // Accumulate (+=), not assign. For MISC groups (still '{prefix}-MISC-{seq}')
+      // and LTD groups (`LTD-{slug}`), multiple (length, connector_code) rows
+      // collapse to the same variant SKU within a prefix; this loop sums them.
       const totalInventory = {};
       for (const row of totalResult.rows) {
         const variantSku = formatVariantSku({
+          prefix: row.prefix,
           group_sku: row.sku_group,
           length: Number(row.length),
           connector_code: row.connector_code,
@@ -44,15 +47,16 @@ export async function action({ request }) {
       }
 
       const dbResult = await query(
-        `SELECT sku_group, length, connector_code, COUNT(*) as count
+        `SELECT sku_group, prefix, length, connector_code, COUNT(*) as count
          FROM audio_cables
          WHERE shopify_gid IS NULL OR shopify_gid = ''
-         GROUP BY sku_group, length, connector_code
-         ORDER BY sku_group, length, connector_code`
+         GROUP BY sku_group, prefix, length, connector_code
+         ORDER BY sku_group, prefix, length, connector_code`
       );
       const dbInventory = {};
       for (const row of dbResult.rows) {
         const variantSku = formatVariantSku({
+          prefix: row.prefix,
           group_sku: row.sku_group,
           length: Number(row.length),
           connector_code: row.connector_code,
@@ -138,15 +142,16 @@ export async function action({ request }) {
   if (intent === "sync") {
     try {
       const dbResult = await query(
-        `SELECT sku_group, length, connector_code, COUNT(*) as count
+        `SELECT sku_group, prefix, length, connector_code, COUNT(*) as count
          FROM audio_cables
          WHERE shopify_gid IS NULL OR shopify_gid = ''
-         GROUP BY sku_group, length, connector_code
-         ORDER BY sku_group, length, connector_code`
+         GROUP BY sku_group, prefix, length, connector_code
+         ORDER BY sku_group, prefix, length, connector_code`
       );
       const dbInventory = {};
       for (const row of dbResult.rows) {
         const variantSku = formatVariantSku({
+          prefix: row.prefix,
           group_sku: row.sku_group,
           length: Number(row.length),
           connector_code: row.connector_code,

@@ -6,22 +6,25 @@ import {
   parseGroupSku,
   parseVariantSku,
   formatVariantSku,
+  seriesForPrefix,
   seriesDataForPrefix,
 } from "../cable-config.server.js";
 
 function buildCableDisplay(row) {
   const parsed = parseGroupSku(row.sku_group);
-  const seriesData = parsed.prefix ? seriesDataForPrefix(parsed.prefix) : null;
+  const seriesData = seriesDataForPrefix(row.prefix);
   const connectorDisplay =
     seriesData?.connectors?.find((c) => (c.code ?? "") === (row.connector_code ?? ""))?.display ?? null;
   return {
     sku: formatVariantSku({
+      prefix: row.prefix,
       group_sku: row.sku_group,
       length: Number(row.length),
       connector_code: row.connector_code,
     }),
     sku_group: row.sku_group,
-    series: parsed.series,
+    prefix: row.prefix,
+    series: seriesForPrefix(row.prefix),
     color: parsed.pattern_name ?? null,
     connector_type: connectorDisplay,
     length: Number(row.length),
@@ -73,6 +76,7 @@ export async function loader({ request }) {
       `SELECT
         ac.serial_number,
         ac.sku_group,
+        ac.prefix,
         ac.length,
         ac.connector_code,
         ac.test_passed,
@@ -137,6 +141,7 @@ async function handleLookupCable({ serialNumber }) {
     `SELECT
       ac.serial_number,
       ac.sku_group,
+      ac.prefix,
       ac.length,
       ac.connector_code,
       ac.shopify_gid,
@@ -173,7 +178,7 @@ async function handleAssignCable({ serialNumber, orderId, customerId, lineItemSk
 
   // Look up the cable
   const result = await query(
-    `SELECT ac.serial_number, ac.sku_group, ac.length, ac.connector_code,
+    `SELECT ac.serial_number, ac.sku_group, ac.prefix, ac.length, ac.connector_code,
             ac.shopify_gid, ac.shopify_order_gid
      FROM audio_cables ac
      WHERE ac.serial_number = $1`,
@@ -186,6 +191,7 @@ async function handleAssignCable({ serialNumber, orderId, customerId, lineItemSk
 
   const cable = result.rows[0];
   const cableVariantSku = formatVariantSku({
+    prefix: cable.prefix,
     group_sku: cable.sku_group,
     length: Number(cable.length),
     connector_code: cable.connector_code,

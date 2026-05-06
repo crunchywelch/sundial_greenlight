@@ -22,10 +22,9 @@ import {
 } from "../app/editions.server.js";
 import { parseGroupSku, parseVariantSku, formatVariantSku } from "../app/cable-config.server.js";
 
-const SMOKE_SKU = "SC-LTD-SMOKE2606";
-const SMOKE_PREFIX = "SC";
 const SMOKE_SLUG = "SMOKE2606";
-const SMOKE_DESC = "Phase 4 smoke test — auto-cleanup";
+const SMOKE_SKU = `LTD-${SMOKE_SLUG}`;
+const SMOKE_DESC = "Phase 5 smoke test — auto-cleanup";
 
 let ok = true;
 const failures = [];
@@ -46,38 +45,47 @@ async function cleanup() {
 }
 
 async function run() {
-  console.log(`\n=== Phase 4 LTD CRUD smoke test against ${process.env.PGDATABASE}@${process.env.PGHOST} ===\n`);
+  console.log(`\n=== Phase 5 LTD CRUD smoke test against ${process.env.PGDATABASE}@${process.env.PGHOST} ===\n`);
 
   await cleanup();
 
   // 1. Resolver
-  console.log("Step 1: parseGroupSku / parseVariantSku / formatVariantSku round-trip");
+  console.log("Step 1: parseGroupSku / parseVariantSku / formatVariantSku");
   const groupParsed = parseGroupSku(SMOKE_SKU);
-  check("parseGroupSku → kind=ltd", groupParsed.kind === "ltd", JSON.stringify(groupParsed));
-  check("parseGroupSku → series=Studio Classic", groupParsed.series === "Studio Classic");
-  check("parseGroupSku → slug matches", groupParsed.slug === SMOKE_SLUG);
+  check("parseGroupSku LTD → kind=ltd", groupParsed.kind === "ltd", JSON.stringify(groupParsed));
+  check("parseGroupSku LTD → slug matches", groupParsed.slug === SMOKE_SLUG);
+  check("parseGroupSku LTD → no prefix in result", groupParsed.prefix === undefined);
 
-  const variantParsed = parseVariantSku(SMOKE_SKU);
-  check("parseVariantSku of LTD passes through as group", variantParsed.kind === "ltd" && variantParsed.group_sku === SMOKE_SKU);
-  const formatted = formatVariantSku({ group_sku: SMOKE_SKU });
-  check("formatVariantSku of LTD returns group sku", formatted === SMOKE_SKU);
+  const catalogGroupParsed = parseGroupSku("GL");
+  check("parseGroupSku catalog → kind=catalog", catalogGroupParsed.kind === "catalog");
+  check("parseGroupSku catalog → pattern_code=GL", catalogGroupParsed.pattern_code === "GL");
+  check("parseGroupSku catalog → no prefix", catalogGroupParsed.prefix === undefined);
+
+  // LTD variant SKU is series-specific (e.g., SC-LTD-SMOKE2606).
+  const ltdVariantString = `SC-LTD-${SMOKE_SLUG}`;
+  const variantParsed = parseVariantSku(ltdVariantString);
+  check("parseVariantSku LTD → kind=ltd", variantParsed.kind === "ltd");
+  check("parseVariantSku LTD → group_sku drops prefix", variantParsed.group_sku === SMOKE_SKU);
+  check("parseVariantSku LTD → prefix=SC", variantParsed.prefix === "SC");
+  check("parseVariantSku LTD → slug matches", variantParsed.slug === SMOKE_SLUG);
+
+  const formattedLtd = formatVariantSku({ prefix: "SC", group_sku: SMOKE_SKU });
+  check("formatVariantSku LTD → adds prefix", formattedLtd === ltdVariantString);
 
   const catalogVariant = parseVariantSku("SC-12GL-R");
-  check("parseVariantSku catalog → group SC-GL", catalogVariant.kind === "catalog" && catalogVariant.group_sku === "SC-GL");
+  check("parseVariantSku catalog → group_sku=GL (no prefix)", catalogVariant.kind === "catalog" && catalogVariant.group_sku === "GL");
   check("parseVariantSku catalog → length 12", catalogVariant.length === 12);
   check("parseVariantSku catalog → connector_code -R", catalogVariant.connector_code === "-R");
   const catalogRoundTrip = formatVariantSku(catalogVariant);
   check("catalog round-trip SC-12GL-R", catalogRoundTrip === "SC-12GL-R");
 
-  // 2. createLtdEdition writes minimal row
+  // 2. createLtdEdition writes minimal row (slug + description only).
   console.log("\nStep 2: createLtdEdition");
   const created = await createLtdEdition({
-    seriesPrefix: SMOKE_PREFIX,
     slug: SMOKE_SLUG,
     description: SMOKE_DESC,
   });
   check(`createLtdEdition returned sku=${SMOKE_SKU}`, created.sku === SMOKE_SKU, `got ${created.sku}`);
-  check("createLtdEdition returned series=Studio Classic", created.series === "Studio Classic");
 
   // 3. sku_group row shape
   console.log("\nStep 3: sku_group row shape");
@@ -98,7 +106,7 @@ async function run() {
   console.log("\nStep 4: duplicate slug rejected");
   let conflictThrown = false;
   try {
-    await createLtdEdition({ seriesPrefix: SMOKE_PREFIX, slug: SMOKE_SLUG, description: "duplicate" });
+    await createLtdEdition({ slug: SMOKE_SLUG, description: "duplicate" });
   } catch (e) {
     conflictThrown = e instanceof EditionConflictError;
   }
@@ -108,24 +116,23 @@ async function run() {
   console.log("\nStep 5: validation rejects missing fields");
   let validationThrown = false;
   try {
-    await createLtdEdition({ seriesPrefix: SMOKE_PREFIX, slug: "BADSLUG", description: "" });
+    await createLtdEdition({ slug: "BADSLUG", description: "" });
   } catch (e) {
     validationThrown = e instanceof EditionValidationError && e.field === "description";
   }
   check("missing description throws EditionValidationError", validationThrown);
 
-  // 6. getEdition derives display fields
+  // 6. getEdition shape
   console.log("\nStep 6: getEdition shape");
   const ed = await getEdition(SMOKE_SKU);
   check("getEdition returned non-null", ed !== null);
   if (ed) {
-    check("series=Studio Classic (derived)", ed.series === "Studio Classic");
-    check("prefix=SC", ed.prefix === "SC");
     check(`slug=${SMOKE_SLUG}`, ed.slug === SMOKE_SLUG);
     check(`description=${SMOKE_DESC}`, ed.description === SMOKE_DESC);
     check("active=true", ed.active === true);
     check("archived_at=null", ed.archived_at === null);
     check("cable_count=0", ed.cable_count === 0);
+    check("no prefix on edition (LTD spans series)", ed.prefix === undefined);
   }
 
   // 7. listEditions filters

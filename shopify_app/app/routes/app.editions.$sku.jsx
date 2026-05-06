@@ -24,7 +24,7 @@ export async function loader({ request, params }) {
   // and customer enrichment of /app/cables/{sku_group} so the embedded
   // table looks identical to the canonical view.
   const cablesResult = await query(
-    `SELECT serial_number, sku_group, length, connector_code,
+    `SELECT serial_number, sku_group, prefix, length, connector_code,
             shopify_gid, test_passed, test_timestamp
      FROM audio_cables
      WHERE sku_group = $1
@@ -35,12 +35,14 @@ export async function loader({ request, params }) {
   const cables = cablesResult.rows.map((r) => ({
     serial_number: r.serial_number,
     sku_group: r.sku_group,
+    prefix: r.prefix,
     length: Number(r.length),
     connector_code: r.connector_code,
     shopify_gid: r.shopify_gid,
     test_passed: r.test_passed,
     test_timestamp: r.test_timestamp,
     variant_sku: formatVariantSku({
+      prefix: r.prefix,
       group_sku: r.sku_group,
       length: Number(r.length),
       connector_code: r.connector_code,
@@ -142,7 +144,7 @@ export default function EditionDetail() {
         <div>
           <h1 style={{ fontSize: "24px", margin: "0 0 6px" }}>{edition.slug}</h1>
           <div style={{ fontSize: "14px", color: "#666" }}>
-            <code>{edition.sku}</code> · {edition.series} ·{" "}
+            <code>{edition.sku}</code> ·{" "}
             {edition.cable_count > 0 ? (
               <Link to={cablesHref} style={{ color: "#008060", textDecoration: "none" }}>
                 {edition.cable_count} cable{edition.cable_count === 1 ? "" : "s"} registered

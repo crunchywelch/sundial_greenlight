@@ -29,6 +29,7 @@ export async function loader({ request, params }) {
     `SELECT
       ac.serial_number,
       ac.sku_group,
+      ac.prefix,
       ac.length,
       ac.connector_code,
       ac.shopify_gid,
@@ -45,6 +46,7 @@ export async function loader({ request, params }) {
     ...row,
     length: Number(row.length),
     variant_sku: formatVariantSku({
+      prefix: row.prefix,
       group_sku: row.sku_group,
       length: Number(row.length),
       connector_code: row.connector_code,
@@ -75,18 +77,23 @@ export async function loader({ request, params }) {
     }
   }
 
+  // Page-level subtitle. The group identity tells you what kind of cable
+  // you're looking at — for catalog and LTD groups that's pattern/edition,
+  // not series (cables in the group span multiple series).
+  let groupSubtitle = null;
+  if (parsed.kind === "catalog") groupSubtitle = parsed.pattern_name || null;
+  else if (parsed.kind === "ltd") groupSubtitle = `Limited Edition · ${parsed.slug}`;
+  else if (parsed.kind === "misc") groupSubtitle = parsed.series || null;
+
   const cablesWithCustomers = cables.map((cable) => ({
     ...cable,
     customer: cable.shopify_gid ? customerMap[cable.shopify_gid] || null : null,
-    series: parsed.series,
-    color_pattern: parsed.pattern_name ?? null,
   }));
 
   return json({
     sku_group: skuGroup,
     cables: cablesWithCustomers,
-    series: parsed.series,
-    color_pattern: parsed.pattern_name ?? null,
+    groupSubtitle,
     totalCount: parseInt(counts.total),
     assignedCount: parseInt(counts.assigned),
     availableCount: parseInt(counts.available),
@@ -94,7 +101,7 @@ export async function loader({ request, params }) {
 }
 
 export default function CablesBySkuGroup() {
-  const { sku_group, cables, series, color_pattern, totalCount, assignedCount, availableCount } = useLoaderData();
+  const { sku_group, cables, groupSubtitle, totalCount, assignedCount, availableCount } = useLoaderData();
 
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
@@ -109,9 +116,11 @@ export default function CablesBySkuGroup() {
 
       <div style={{ marginBottom: '30px' }}>
         <h1 style={{ fontSize: '24px', marginBottom: '10px' }}>{sku_group}</h1>
-        <div style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
-          {[series, color_pattern].filter(Boolean).join(' · ')}
-        </div>
+        {groupSubtitle && (
+          <div style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
+            {groupSubtitle}
+          </div>
+        )}
         <div style={{ fontSize: '16px', color: '#333', display: 'flex', gap: '20px' }}>
           <span><strong>{totalCount}</strong> total</span>
           <span style={{ color: '#008060' }}><strong>{availableCount}</strong> available</span>

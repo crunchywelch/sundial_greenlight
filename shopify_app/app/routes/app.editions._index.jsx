@@ -78,7 +78,6 @@ export default function EditionsIndex() {
               <tr style={{ backgroundColor: "#f5f5f5" }}>
                 <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #ddd" }}>Slug</th>
                 <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #ddd" }}>Description</th>
-                <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #ddd" }}>Series</th>
                 <th style={{ padding: "12px", textAlign: "right", borderBottom: "2px solid #ddd" }}>Cables</th>
                 <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #ddd" }}>Status</th>
               </tr>
@@ -93,7 +92,6 @@ export default function EditionsIndex() {
                     <div style={{ fontSize: "12px", fontWeight: "normal", color: "#999" }}>{e.sku}</div>
                   </td>
                   <td style={{ padding: "12px", borderBottom: "1px solid #eee" }}>{e.description}</td>
-                  <td style={{ padding: "12px", borderBottom: "1px solid #eee", color: "#666" }}>{e.series}</td>
                   <td style={{ padding: "12px", borderBottom: "1px solid #eee", textAlign: "right", fontWeight: "bold" }}>{e.cable_count}</td>
                   <td style={{ padding: "12px", borderBottom: "1px solid #eee" }}>
                     <span style={{

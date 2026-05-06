@@ -1,6 +1,6 @@
 import { json } from "@remix-run/node";
 import { query } from "../db.server.js";
-import { parseGroupSku, seriesDataForPrefix, formatVariantSku } from "../cable-config.server.js";
+import { parseGroupSku, seriesForPrefix, seriesDataForPrefix, formatVariantSku } from "../cable-config.server.js";
 
 const CABLE_IMAGE_MAP = {
   "goldline": "cable-goldline.png",
@@ -43,6 +43,7 @@ async function fetchCustomerCables(customerId) {
     `SELECT
       ac.serial_number,
       ac.sku_group,
+      ac.prefix,
       ac.length,
       ac.connector_code,
       ac.test_passed,
@@ -59,10 +60,11 @@ async function fetchCustomerCables(customerId) {
 
   return result.rows.map((row) => {
     const parsed = parseGroupSku(row.sku_group);
-    const seriesData = parsed.prefix ? seriesDataForPrefix(parsed.prefix) : null;
+    const seriesData = seriesDataForPrefix(row.prefix);
     const connectorDisplay =
       seriesData?.connectors?.find((c) => (c.code ?? "") === (row.connector_code ?? ""))?.display ?? null;
     const variantSku = formatVariantSku({
+      prefix: row.prefix,
       group_sku: row.sku_group,
       length: Number(row.length),
       connector_code: row.connector_code,
@@ -72,7 +74,8 @@ async function fetchCustomerCables(customerId) {
       serial_number: row.serial_number,
       sku: variantSku,
       sku_group: row.sku_group,
-      series: parsed.series,
+      prefix: row.prefix,
+      series: seriesForPrefix(row.prefix),
       color: colorPattern,
       connector_type: connectorDisplay,
       core_cable: seriesData?.core_cable ?? null,

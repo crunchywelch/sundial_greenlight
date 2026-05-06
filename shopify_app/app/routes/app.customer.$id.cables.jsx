@@ -2,7 +2,7 @@ import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
 import { query } from "../db.server";
-import { parseGroupSku, seriesDataForPrefix, formatVariantSku } from "../cable-config.server";
+import { parseGroupSku, seriesForPrefix, seriesDataForPrefix, formatVariantSku } from "../cable-config.server";
 
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
@@ -40,6 +40,7 @@ export async function loader({ request, params }) {
     `SELECT
       ac.serial_number,
       ac.sku_group,
+      ac.prefix,
       ac.length,
       ac.connector_code,
       ac.test_passed,
@@ -55,10 +56,11 @@ export async function loader({ request, params }) {
 
   const cables = result.rows.map((row) => {
     const parsed = parseGroupSku(row.sku_group);
-    const seriesData = parsed.prefix ? seriesDataForPrefix(parsed.prefix) : null;
+    const seriesData = seriesDataForPrefix(row.prefix);
     const connectorDisplay =
       seriesData?.connectors?.find((c) => (c.code ?? "") === (row.connector_code ?? ""))?.display ?? null;
     const variantSku = formatVariantSku({
+      prefix: row.prefix,
       group_sku: row.sku_group,
       length: Number(row.length),
       connector_code: row.connector_code,
@@ -67,8 +69,9 @@ export async function loader({ request, params }) {
       serial_number: row.serial_number,
       sku: variantSku,
       sku_group: row.sku_group,
+      prefix: row.prefix,
       kind: parsed.kind,
-      series: parsed.series,
+      series: seriesForPrefix(row.prefix),
       color: parsed.pattern_name ?? null,
       connector_type: connectorDisplay,
       core_cable: seriesData?.core_cable ?? null,

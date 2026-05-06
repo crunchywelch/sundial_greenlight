@@ -3,7 +3,7 @@ import { json } from "@remix-run/node";
 import { useActionData, useSubmit } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
 import { query } from "../db.server";
-import { parseGroupSku, formatVariantSku } from "../cable-config.server";
+import { seriesForPrefix, formatVariantSku } from "../cable-config.server";
 import { useScannerEvents } from "../use-scanner-events";
 
 export async function loader({ request }) {
@@ -18,7 +18,7 @@ export async function action({ request }) {
 
   try {
     const result = await query(
-      `SELECT ac.serial_number, ac.sku_group, ac.length, ac.connector_code, ac.shopify_gid
+      `SELECT ac.serial_number, ac.sku_group, ac.prefix, ac.length, ac.connector_code, ac.shopify_gid
        FROM audio_cables ac
        WHERE ac.serial_number ILIKE $1
        ORDER BY ac.serial_number
@@ -26,21 +26,20 @@ export async function action({ request }) {
       [`%${searchTerm}%`]
     );
 
-    const cables = result.rows.map((row) => {
-      const parsed = parseGroupSku(row.sku_group);
-      return {
-        serial_number: row.serial_number,
-        shopify_gid: row.shopify_gid,
-        sku: formatVariantSku({
-          group_sku: row.sku_group,
-          length: Number(row.length),
-          connector_code: row.connector_code,
-        }),
-        sku_group: row.sku_group,
-        series: parsed.series,
-        sku_length: Number(row.length),
-      };
-    });
+    const cables = result.rows.map((row) => ({
+      serial_number: row.serial_number,
+      shopify_gid: row.shopify_gid,
+      sku: formatVariantSku({
+        prefix: row.prefix,
+        group_sku: row.sku_group,
+        length: Number(row.length),
+        connector_code: row.connector_code,
+      }),
+      sku_group: row.sku_group,
+      prefix: row.prefix,
+      series: seriesForPrefix(row.prefix),
+      sku_length: Number(row.length),
+    }));
 
     // Enrich with customer details for assigned cables
     for (const cable of cables) {
