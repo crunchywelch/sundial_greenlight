@@ -394,16 +394,24 @@ def update_cable_description(serial_number, description):
         pg_pool.putconn(conn)
 
 
-def get_or_create_misc_sku(series_prefix, description):
+def get_or_create_misc_sku(series_prefix, description, length):
     """Look up or create a MISC sku_group.
 
-    Dedupes by (series_prefix, description): same description in the same
-    series shares one sku_group row. Length is per-cable (lives on
-    audio_cables) so it's no longer part of group identity.
+    Dedupes by (series_prefix, description, length-of-cables-in-group):
+    each MISC sku_group holds cables of a single length. If an existing
+    group has matching description and at least one cable already of the
+    requested length, reuse it; otherwise create a new group.
+
+    The length is matched against existing cables (audio_cables.length),
+    not stored on sku_group itself — Phase 4 keeps length per-cable on
+    audio_cables. This means a freshly-created group with no cables yet
+    is NOT considered a match (small orphan-group risk if a session is
+    abandoned mid-flow; acceptable, can be pruned).
 
     Args:
         series_prefix: e.g. "SC", "TC"
         description: Free-form group description
+        length: Cable length in feet (numeric); part of dedup key
 
     Returns:
         sku string, or None on error
@@ -412,6 +420,9 @@ def get_or_create_misc_sku(series_prefix, description):
 
     if series_for_prefix(series_prefix) is None:
         logger.error("Unknown series prefix %s — no YAML config", series_prefix)
+        return None
+    if length is None:
+        logger.error("get_or_create_misc_sku called without length")
         return None
 
     conn = pg_pool.getconn()
@@ -423,11 +434,21 @@ def get_or_create_misc_sku(series_prefix, description):
                     (series_prefix,)
                 )
 
+                # Look for a group with matching description that already
+                # holds at least one cable of the requested length.
                 cur.execute("""
-                    SELECT sku FROM sku_group
-                    WHERE sku LIKE %s
-                      AND description = %s
-                """, (f"{series_prefix}-MISC-%", description))
+                    SELECT sg.sku
+                    FROM sku_group sg
+                    WHERE sg.sku LIKE %s
+                      AND sg.description = %s
+                      AND EXISTS (
+                          SELECT 1 FROM audio_cables ac
+                          WHERE ac.sku_group = sg.sku
+                            AND ac.length = %s
+                      )
+                    ORDER BY sg.sku
+                    LIMIT 1
+                """, (f"{series_prefix}-MISC-%", description, length))
                 existing = cur.fetchone()
                 if existing:
                     return existing[0]
@@ -492,17 +513,23 @@ def ensure_catalog_sku_group(series_prefix, pattern_code):
 def search_misc_variants(series_prefix):
     """Return recent MISC groups for a series prefix (for picker UI).
 
+    Each MISC group holds cables of a single length post-Phase-4-rev2; the
+    `length` field returned here is that length (NULL for freshly-created
+    groups with no cables yet, which the picker can hide or label as
+    "empty").
+
     Args:
         series_prefix: e.g. "SC", "TC"
 
     Returns:
-        List of dicts with sku, description, cable_count
+        List of dicts with sku, description, length, cable_count
     """
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT sg.sku, sg.description,
+                       (SELECT MIN(ac.length) FROM audio_cables ac WHERE ac.sku_group = sg.sku) AS length,
                        (SELECT COUNT(*) FROM audio_cables ac WHERE ac.sku_group = sg.sku) AS cable_count
                 FROM sku_group sg
                 WHERE sg.sku LIKE %s
@@ -512,7 +539,12 @@ def search_misc_variants(series_prefix):
             """, (f"{series_prefix}-MISC-%",))
             rows = cur.fetchall()
             return [
-                {'sku': r[0], 'description': r[1], 'cable_count': r[2]}
+                {
+                    'sku': r[0],
+                    'description': r[1],
+                    'length': float(r[2]) if r[2] is not None else None,
+                    'cable_count': r[3],
+                }
                 for r in rows
             ]
     except Exception as e:

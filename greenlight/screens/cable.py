@@ -1742,7 +1742,9 @@ class MiscVariantPickerScreen(Screen):
         for v in existing:
             n_cables = v.get('cable_count', 0)
             cable_word = '' if n_cables == 1 else 's'
-            label = f"{v['sku']}  ({n_cables} cable{cable_word})  {v['description']}"
+            length = v.get('length')
+            length_part = f"{_format_length(length)}, " if length is not None else ""
+            label = f"{v['sku']}  ({length_part}{n_cables} cable{cable_word})  {v['description']}"
             menu_items.append(label)
         menu_items.append("[N] New MISC variant")
         menu_items.append("[Q] Back")
@@ -1782,13 +1784,13 @@ class MiscVariantPickerScreen(Screen):
             return ScreenResult(NavigationAction.REPLACE, MiscVariantPickerScreen, self.context)
 
         if 0 <= idx < len(existing):
-            selected_sku = existing[idx]['sku']
+            selected = existing[idx]
             try:
                 cable_type = CableType()
-                cable_type.load(selected_sku)
+                cable_type.load(selected['sku'])
             except ValueError as e:
                 self.ui.layout["body"].update(Panel(
-                    f"❌ Error loading SKU {selected_sku}: {e}",
+                    f"❌ Error loading SKU {selected['sku']}: {e}",
                     title="Error", style="red"
                 ))
                 self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
@@ -1796,10 +1798,20 @@ class MiscVariantPickerScreen(Screen):
                 self.ui.console.input()
                 return ScreenResult(NavigationAction.POP)
 
+            # MISC groups are single-length; the picker shows that length and
+            # the operator's selection commits to it. Skip the length entry
+            # screen entirely.
+            if selected.get('length') is None:
+                # Empty group (no cables yet) — fall through to the length
+                # prompt so the operator establishes the group's length.
+                new_context = self.context.copy()
+                new_context["cable_type"] = cable_type
+                return ScreenResult(NavigationAction.REPLACE, VariantLengthEntryScreen, new_context)
+
             new_context = self.context.copy()
             new_context["cable_type"] = cable_type
-            # Phase 4: length is per-cable; capture it on the next screen.
-            return ScreenResult(NavigationAction.REPLACE, VariantLengthEntryScreen, new_context)
+            new_context["selected_length"] = selected['length']
+            return ScreenResult(NavigationAction.REPLACE, ConnectorTypeSelectionScreen, new_context)
 
         self.ui.console.print("[red]Invalid choice[/red]")
         time.sleep(0.5)
@@ -1807,10 +1819,11 @@ class MiscVariantPickerScreen(Screen):
 
 
 class MiscVariantCreateScreen(Screen):
-    """Create a new MISC variant: prompt for description.
+    """Create a new MISC variant: prompt for description, then length.
 
-    Phase 4: length is per-cable now (lives on audio_cables), captured on
-    the next screen. Group identity is just (prefix, description).
+    Each MISC sku_group holds cables of a single length, so length is part
+    of group identity (a same-description-different-length combo creates a
+    new group). Operator commits to both up front.
     """
 
     def run(self) -> ScreenResult:
@@ -1829,13 +1842,55 @@ class MiscVariantCreateScreen(Screen):
             self.ui.console.input()
             return ScreenResult(NavigationAction.POP)
 
+        # --- Step 1: description ---
+        description = self._prompt_description(operator, selected_series)
+        if description is None:
+            return ScreenResult(NavigationAction.POP)
+
+        # --- Step 2: length ---
+        length_value = self._prompt_length(operator, selected_series, description)
+        if length_value is None:
+            return ScreenResult(NavigationAction.POP)
+
+        # Resolve or create the MISC sku_group with both keys
+        from greenlight.db import get_or_create_misc_sku
+        new_sku = get_or_create_misc_sku(series_prefix, description, length_value)
+        if not new_sku:
+            self.ui.layout["body"].update(Panel(
+                "❌ Failed to create MISC variant SKU. Check logs.",
+                title="Error", style="red"
+            ))
+            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.render()
+            self.ui.console.input()
+            return ScreenResult(NavigationAction.POP)
+
+        try:
+            cable_type = CableType()
+            cable_type.load(new_sku)
+        except ValueError as e:
+            self.ui.layout["body"].update(Panel(
+                f"❌ Error loading new SKU {new_sku}: {e}",
+                title="Error", style="red"
+            ))
+            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.render()
+            self.ui.console.input()
+            return ScreenResult(NavigationAction.POP)
+
+        new_context = self.context.copy()
+        new_context["cable_type"] = cable_type
+        new_context["selected_length"] = length_value
+        return ScreenResult(NavigationAction.REPLACE, ConnectorTypeSelectionScreen, new_context)
+
+    def _prompt_description(self, operator, selected_series):
         max_desc_len = 90
         prefill_text = None
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(
             f"[bold yellow]New MISC variant — {selected_series}[/bold yellow]\n\n"
-            "[bold cyan]Enter a description for this variant:[/bold cyan]\n"
-            "[dim](Length is per-cable and entered on the next screen — don't include it here)[/dim]\n\n"
+            "[bold cyan]Step 1: enter a description for this variant:[/bold cyan]\n"
+            "[dim](Length is the next step — don't include it here)[/dim]\n\n"
             "Include details like:\n"
             "  • Color/pattern (e.g., 'custom blue/orange')\n"
             "  • Connector types (e.g., 'Neutrik TS-TRS')\n"
@@ -1870,51 +1925,67 @@ class MiscVariantCreateScreen(Screen):
                     readline.set_startup_hook(None)
 
                 if description.lower() == 'q' or not description:
-                    return ScreenResult(NavigationAction.POP)
+                    return None
 
                 if len(description) <= max_desc_len:
-                    break
+                    return description
                 prefill_text = description
         except KeyboardInterrupt:
-            return ScreenResult(NavigationAction.POP)
+            return None
 
-        # Resolve or create the MISC sku_group
-        from greenlight.db import get_or_create_misc_sku
-        new_sku = get_or_create_misc_sku(series_prefix, description)
-        if not new_sku:
-            self.ui.layout["body"].update(Panel(
-                "❌ Failed to create MISC variant SKU. Check logs.",
-                title="Error", style="red"
-            ))
-            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
-            self.ui.render()
-            self.ui.console.input()
-            return ScreenResult(NavigationAction.POP)
+    def _prompt_length(self, operator, selected_series, description):
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(
+            f"[bold yellow]New MISC variant — {selected_series}[/bold yellow]\n"
+            f"[dim]Description: {description}[/dim]\n\n"
+            "[bold cyan]Step 2: enter cable length in feet[/bold cyan]\n"
+            "Examples: 3, 6, 10, 15, 20, 25\n\n"
+            "[dim]A MISC group is single-length: same description with a different length will\n"
+            "create a separate sku_group.[/dim]",
+            title="MISC Variant — Length", border_style="yellow"
+        ))
+        self.ui.layout["footer"].update(Panel(
+            "Enter length in feet (number only) or 'q' to go back",
+            title="Length Entry"
+        ))
+        self.ui.render()
 
         try:
-            cable_type = CableType()
-            cable_type.load(new_sku)
-        except ValueError as e:
+            length_input = self.ui.console.input("Length (ft): ").strip()
+        except KeyboardInterrupt:
+            return None
+
+        if length_input.lower() == 'q' or not length_input:
+            return None
+
+        try:
+            length_value = float(length_input)
+            if length_value <= 0:
+                raise ValueError("must be positive")
+            return length_value
+        except ValueError:
             self.ui.layout["body"].update(Panel(
-                f"❌ Error loading new SKU {new_sku}: {e}",
-                title="Error", style="red"
+                f"❌ Invalid length: {length_input}",
+                title="Invalid Length", style="red"
             ))
-            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.layout["footer"].update(Panel("Press enter to try again", title=""))
             self.ui.render()
             self.ui.console.input()
-            return ScreenResult(NavigationAction.POP)
-
-        new_context = self.context.copy()
-        new_context["cable_type"] = cable_type
-        return ScreenResult(NavigationAction.REPLACE, VariantLengthEntryScreen, new_context)
+            return self._prompt_length(operator, selected_series, description)
 
 
 class VariantLengthEntryScreen(Screen):
-    """Free-form length entry for MISC and LTD cables.
+    """Free-form length entry for LTD cables (and the rare empty MISC group).
 
-    Catalog cables go through LengthSelectionScreen instead (YAML-driven
-    list of standard lengths). Variants can have any length per the
-    operator's input.
+    LTD editions allow per-cable length so each scan goes through here.
+    MISC groups are single-length — MiscVariantCreateScreen captures length
+    upfront, and the picker auto-fills the existing group's length. The one
+    case that still routes here for MISC is selecting an orphan empty group
+    (no cables yet, length unknown) — the operator establishes the length
+    on this screen.
+
+    Catalog cables don't reach this screen — they use LengthSelectionScreen
+    (YAML-driven list of standard lengths).
     """
 
     def run(self) -> ScreenResult:

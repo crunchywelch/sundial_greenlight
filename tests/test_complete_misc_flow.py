@@ -9,21 +9,28 @@ from greenlight.db import (
 )
 
 
+TEST_SERIAL = "TESTFLOW"
+TEST_SERIES_PREFIX = "SC"
+TEST_OPERATOR = "ADW"
+TEST_LENGTH = 12.0
+TEST_DESCRIPTION = "custom blue/orange pattern with Neutrik gold connectors"
+
+
 def test_complete_misc_flow():
-    test_serial = "TESTFLOW"
-    test_series_prefix = "SC"
-    test_operator = "ADW"
-    test_length = 12.0
-    test_description = "custom blue/orange pattern with Neutrik gold connectors"
+    test_serial = TEST_SERIAL
+    test_series_prefix = TEST_SERIES_PREFIX
+    test_operator = TEST_OPERATOR
+    test_length = TEST_LENGTH
+    test_description = TEST_DESCRIPTION
 
     print("=" * 70)
     print("Testing Complete MISC Cable Flow")
     print("=" * 70)
 
-    # Step 1: Resolve a MISC sku_group
+    # Step 1: Resolve a MISC sku_group (length is part of dedup key)
     print(f"\n1. Resolving MISC sku_group for prefix {test_series_prefix}")
     print("-" * 70)
-    misc_sku = get_or_create_misc_sku(test_series_prefix, test_description)
+    misc_sku = get_or_create_misc_sku(test_series_prefix, test_description, test_length)
     if not misc_sku:
         print("   ❌ Failed to resolve MISC sku_group")
         return False
@@ -104,8 +111,15 @@ def cleanup_test_cable():
     try:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM audio_cables WHERE serial_number LIKE 'TESTFLOW%'")
+            cur.execute("""
+                DELETE FROM sku_group sg
+                WHERE sg.description = %s
+                  AND NOT EXISTS (
+                      SELECT 1 FROM audio_cables ac WHERE ac.sku_group = sg.sku
+                  )
+            """, (TEST_DESCRIPTION,))
             conn.commit()
-            print("\n🧹 Cleaned up test cable")
+            print("\n🧹 Cleaned up test cable + sku_group")
     except Exception as e:
         print(f"❌ Cleanup error: {e}")
         conn.rollback()

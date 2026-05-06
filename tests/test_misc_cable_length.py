@@ -10,22 +10,31 @@ from greenlight.db import (
 )
 
 
+TEST_SERIAL = "TEST999"
+TEST_SERIES_PREFIX = "TC"
+TEST_OPERATOR = "ADW"
+TEST_LENGTH = 7.5
+TEST_DESCRIPTION = "dark putty houndstooth with gold connectors instead of nickel"
+
+
 def test_misc_cable_length():
-    test_serial = "TEST999"
-    test_series_prefix = "TC"
-    test_operator = "ADW"
-    test_length = 7.5
-    test_description = "dark putty houndstooth with gold connectors instead of nickel"
+    test_serial = TEST_SERIAL
+    test_series_prefix = TEST_SERIES_PREFIX
+    test_operator = TEST_OPERATOR
+    test_length = TEST_LENGTH
+    test_description = TEST_DESCRIPTION
 
     print("=" * 60)
     print("Testing MISC Cable Length Storage")
     print("=" * 60)
 
-    # Resolve a MISC sku_group (creates a new sku_group row if needed). Phase 4:
-    # length is per-cable, no longer part of group identity.
+    # Resolve a MISC sku_group. Each MISC group holds cables of one length;
+    # the dedup key is (prefix, description, length-of-existing-cables-in-group).
+    # First call (no matching cables yet) → creates a new group.
     print(f"\n1. Resolving MISC sku_group for prefix {test_series_prefix}")
     print(f"   Description: {test_description}")
-    misc_sku = get_or_create_misc_sku(test_series_prefix, test_description)
+    print(f"   Length:      {test_length}")
+    misc_sku = get_or_create_misc_sku(test_series_prefix, test_description, test_length)
     if not misc_sku:
         print("   ❌ Failed to resolve MISC sku_group")
         return False
@@ -78,13 +87,22 @@ def test_misc_cable_length():
 
 
 def cleanup_test_cable():
-    """Remove the test cable (variant SKU is left in cable_skus for dedup)."""
+    """Remove the test cable + the test sku_group it spawned (only if no
+    other cables remain on it — i.e., we won't delete a group that's also
+    in real use)."""
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM audio_cables WHERE serial_number LIKE 'TEST%'")
+            cur.execute("""
+                DELETE FROM sku_group sg
+                WHERE sg.description = %s
+                  AND NOT EXISTS (
+                      SELECT 1 FROM audio_cables ac WHERE ac.sku_group = sg.sku
+                  )
+            """, (TEST_DESCRIPTION,))
             conn.commit()
-            print("\n🧹 Cleaned up test cable")
+            print("\n🧹 Cleaned up test cable + sku_group")
     except Exception as e:
         print(f"❌ Cleanup error: {e}")
         conn.rollback()
