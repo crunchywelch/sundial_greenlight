@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Generate tests/sku_fixtures_prod.json from real prod data (Phase 4).
+"""Generate tests/sku_fixtures_prod.json from real prod data (Phase 5).
 
 Walks both sku_group and audio_cables, emitting:
   - one 'group' fixture per sku_group row (parses sku via parse_group_sku)
-  - one 'variant' fixture per distinct (sku_group, length, connector_code)
-    tuple from audio_cables (variant SKU built via format_variant_sku, then
-    parsed back via parse_variant_sku)
+  - one 'variant' fixture per distinct (sku_group, prefix, length,
+    connector_code) tuple from audio_cables — variant SKU built via
+    format_variant_sku, then parsed back via parse_variant_sku
   - one 'round_trip' fixture per distinct variant SKU, asserting
     format_variant_sku(parse_variant_sku(sku)) == sku
 
@@ -43,12 +43,12 @@ def fetch_groups(conn):
 
 
 def fetch_variant_tuples(conn):
-    """Return distinct (sku_group, length, connector_code) tuples from audio_cables."""
+    """Return distinct (sku_group, prefix, length, connector_code) tuples from audio_cables."""
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT DISTINCT sku_group, length, connector_code
+            SELECT DISTINCT sku_group, prefix, length, connector_code
             FROM audio_cables
-            ORDER BY sku_group, length, connector_code
+            ORDER BY sku_group, prefix, length, connector_code
         """)
         return cur.fetchall()
 
@@ -62,13 +62,14 @@ def build_group_entry(sku):
     }
 
 
-def build_variant_entry(group_sku, length, connector_code):
+def build_variant_entry(group_sku, prefix, length, connector_code):
     # format_variant_sku takes int/float length; DB returns Decimal.
     length_val = float(length) if length is not None else None
     if length_val is not None and length_val.is_integer():
         length_val = int(length_val)
     variant_sku = format_variant_sku(
-        group_sku=group_sku, length=length_val, connector_code=connector_code,
+        group_sku=group_sku, prefix=prefix,
+        length=length_val, connector_code=connector_code,
     )
     return variant_sku, {
         'name': f'prod variant: {variant_sku}',
@@ -116,10 +117,10 @@ def main():
     variant_entries = []
     round_trip_entries = []
     variant_failures = []
-    for group_sku, length, connector_code in variant_tuples:
-        variant_sku, entry = build_variant_entry(group_sku, length, connector_code)
+    for group_sku, prefix, length, connector_code in variant_tuples:
+        variant_sku, entry = build_variant_entry(group_sku, prefix, length, connector_code)
         if variant_sku is None:
-            variant_failures.append((group_sku, length, connector_code))
+            variant_failures.append((group_sku, prefix, length, connector_code))
             continue
         if variant_sku in seen_variants:
             continue
@@ -132,7 +133,7 @@ def main():
 
     print()
     print(f'Group entries:    {len(group_skus)}')
-    print(f'Variant entries:  {len(variant_entries)}  (from {len(variant_tuples)} distinct (group,length,conn) tuples)')
+    print(f'Variant entries:  {len(variant_entries)}  (from {len(variant_tuples)} distinct (group,prefix,length,conn) tuples)')
     print(f'Round-trip:       {len(round_trip_entries)}')
     print(f'Total:            {len(entries)}')
 

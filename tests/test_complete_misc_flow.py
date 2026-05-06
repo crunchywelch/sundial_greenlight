@@ -42,6 +42,7 @@ def test_complete_misc_flow():
     result = register_scanned_cable(
         serial_number=test_serial,
         sku_group=misc_sku,
+        prefix=test_series_prefix,
         length=test_length,
         connector_code='',
         operator=test_operator,

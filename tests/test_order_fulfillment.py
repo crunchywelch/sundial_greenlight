@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Test order fulfillment SKU validation (Phase 4).
+"""Test order fulfillment SKU validation (Phase 5).
 
 assign_cable_to_order computes the user-facing variant SKU from the cable's
-(sku_group, length, connector_code) at validation time and matches it
-against the line item SKU list. This is the trickiest piece of the Phase 4
+(sku_group, prefix, length, connector_code) at validation time and matches
+it against the line item SKU list. This is the trickiest piece of the
 fulfillment path — silently breaking it would mean orders can't be filled
 or cables get assigned to wrong orders.
 
@@ -46,6 +46,7 @@ def setup_test_cable():
     result = register_scanned_cable(
         serial_number=TEST_SERIAL,
         sku_group=resolved['sku_group'],
+        prefix=resolved['prefix'],
         length=resolved['length'],
         connector_code=resolved['connector_code'],
         operator=TEST_OPERATOR,
@@ -58,7 +59,7 @@ def setup_test_cable():
 
 def test_order_fulfillment():
     print("=" * 70)
-    print("Testing Order Fulfillment SKU Validation (Phase 4)")
+    print("Testing Order Fulfillment SKU Validation (Phase 5)")
     print("=" * 70)
 
     formatted_serial = setup_test_cable()

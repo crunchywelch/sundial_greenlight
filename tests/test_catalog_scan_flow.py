@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Test catalog scan flow (Phase 4): exercise resolve_catalog_variant +
-ensure_catalog_sku_group + register_scanned_cable for a catalog combo.
+"""Test catalog scan flow (Phase 5): exercise resolve_catalog_variant +
+register_scanned_cable for a catalog combo.
 
 Walks the same path the screen flow does:
   1. Operator picks (series, pattern, length, connector) from YAML lists.
-  2. resolve_catalog_variant maps these to (sku_group, length, connector_code),
-     auto-seeding the sku_group row if it doesn't exist.
-  3. register_scanned_cable inserts the audio_cables row.
+  2. resolve_catalog_variant maps these to (sku_group, prefix, length,
+     connector_code). Catalog group SKUs are seeded by the Phase 5 migration.
+  3. register_scanned_cable inserts the audio_cables row (prefix lives there).
   4. get_audio_cable returns the enriched record with variant_sku derived.
   5. Looking up by variant SKU also works (parse_variant_sku → sku_group).
 """
@@ -33,7 +33,7 @@ TEST_SERIAL = "TESTCAT1"
 
 def test_catalog_scan_flow():
     print("=" * 70)
-    print("Testing Catalog Scan Flow (Phase 4)")
+    print("Testing Catalog Scan Flow (Phase 5)")
     print("=" * 70)
 
     # Step 1: resolve the (series, pattern, length, connector) tuple
@@ -47,19 +47,23 @@ def test_catalog_scan_flow():
         print("   ❌ resolve_catalog_variant returned None")
         return False
     sku_group = resolved['sku_group']
+    prefix = resolved['prefix']
     length = resolved['length']
     connector_code = resolved['connector_code']
-    print(f"   ✅ sku_group={sku_group}, length={length}, "
+    print(f"   ✅ sku_group={sku_group}, prefix={prefix}, length={length}, "
           f"connector_code={connector_code!r}")
 
-    if sku_group != "SC-GL":
-        print(f"   ❌ Expected sku_group SC-GL, got {sku_group}")
+    if sku_group != "GL":
+        print(f"   ❌ Expected sku_group GL, got {sku_group}")
+        return False
+    if prefix != "SC":
+        print(f"   ❌ Expected prefix SC, got {prefix}")
         return False
     if connector_code != "-R":
         print(f"   ❌ Expected connector_code '-R', got {connector_code!r}")
         return False
 
-    # Step 2: confirm the sku_group row was auto-seeded
+    # Step 2: confirm the sku_group row exists (seeded by Phase 5 migration)
     print(f"\n2. Verifying sku_group row exists")
     print("-" * 70)
     conn = pg_pool.getconn()
@@ -73,17 +77,18 @@ def test_catalog_scan_flow():
         pg_pool.putconn(conn)
 
     if not row:
-        print(f"   ❌ sku_group {sku_group} not in DB after resolve_catalog_variant")
+        print(f"   ❌ sku_group {sku_group} not seeded — Phase 5 migration incomplete?")
         return False
     print(f"   ✅ sku_group row: sku={row[0]}, description={row[1]!r}")
 
     # Step 3: register a cable
     print(f"\n3. Registering cable {TEST_SERIAL} as {sku_group} "
-          f"({length}ft, connector {connector_code!r})")
+          f"(prefix {prefix}, {length}ft, connector {connector_code!r})")
     print("-" * 70)
     result = register_scanned_cable(
         serial_number=TEST_SERIAL,
         sku_group=sku_group,
+        prefix=prefix,
         length=length,
         connector_code=connector_code,
         operator=TEST_OPERATOR,
@@ -137,8 +142,8 @@ def test_catalog_scan_flow():
         print(f"   ❌ parse_variant_sku → group_sku mismatch")
         return False
     rebuilt = format_variant_sku(
-        group_sku=parsed['group_sku'], length=parsed['length'],
-        connector_code=parsed['connector_code'],
+        group_sku=parsed['group_sku'], prefix=parsed['prefix'],
+        length=parsed['length'], connector_code=parsed['connector_code'],
     )
     if rebuilt != expected_variant_sku:
         print(f"   ❌ format_variant_sku round-trip failed: {rebuilt!r}")
@@ -159,6 +164,7 @@ def test_catalog_scan_flow():
     result2 = register_scanned_cable(
         serial_number=TEST_SERIAL,
         sku_group=sku_group,
+        prefix=prefix,
         length=length,
         connector_code=connector_code,
         operator=TEST_OPERATOR,

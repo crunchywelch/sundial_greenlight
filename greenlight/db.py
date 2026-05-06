@@ -1,5 +1,4 @@
 import logging
-import os
 import re
 
 import psycopg2
@@ -37,10 +36,9 @@ def generate_serial_number():
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
-            # Get the next serial number from sequence
             cur.execute("SELECT nextval('audio_cable_serial_seq')")
             serial_num = cur.fetchone()[0]
-            return f"SD{serial_num:06d}"  # Format: SD000001, SD000002, etc.
+            return f"SD{serial_num:06d}"
     except Exception as e:
         logger.error("Error generating serial number: %s", e)
         return None
@@ -53,7 +51,8 @@ def get_audio_cable(serial_number):
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT ac.serial_number, ac.sku_group, ac.length, ac.connector_code,
+                SELECT ac.serial_number, ac.sku_group, ac.prefix,
+                       ac.length, ac.connector_code,
                        ac.resistance_adc, ac.calibration_adc,
                        ac.resistance_adc_p3, ac.calibration_adc_p3, ac.test_passed,
                        ac.operator, ac.arduino_unit_id, ac.notes, ac.test_timestamp,
@@ -97,29 +96,28 @@ def format_serial_number(serial_number):
         "SD123" -> "SD000123"
         "000123" -> "000123" (already formatted)
     """
-    import re
-
-    # Extract prefix (letters) and numeric part
     match = re.match(r'^([A-Za-z]*)(\d+)$', serial_number)
     if match:
         prefix = match.group(1)
         number = match.group(2)
-        # Pad numeric part to 6 digits
         padded_number = number.zfill(6)
         return f"{prefix}{padded_number}"
-
-    # If doesn't match expected pattern, return as-is
     return serial_number
 
-def register_scanned_cable(serial_number, sku_group, length, connector_code,
+def register_scanned_cable(serial_number, sku_group, prefix, length, connector_code,
                            operator=None, update_if_exists=False):
-    """Register a cable with a scanned serial number (Phase 4 intake workflow).
+    """Register a cable with a scanned serial number (Phase 5 intake workflow).
 
     Args:
         serial_number: The serial number from the cable label
-        sku_group: The sku_group identifier (e.g. 'SC-GL', 'SC-MISC-42',
-            'SC-LTD-PHISH26'). For catalog this is `{prefix}-{pattern_code}`;
-            for MISC/LTD this is the unique group SKU.
+        sku_group: The sku_group identifier. Phase 5 group SKU shapes:
+            'GL' (catalog pattern code), 'LTD-PHISH26' (series-agnostic LTD),
+            'SC-MISC-42' (still series-scoped).
+        prefix: Series prefix (e.g. 'SC', 'TC'). Required — lives on
+            audio_cables.prefix so the per-cable variant SKU can be derived
+            even for catalog/LTD groups whose group SKU drops the prefix.
+            For MISC the prefix matches the one inside the group SKU; we
+            still store it explicitly for query simplicity.
         length: Cable length in feet (numeric)
         connector_code: Connector code per the YAML connectors[] list —
             '' for straight, '-R' for right angle (catalog cables); MISC/LTD
@@ -129,6 +127,8 @@ def register_scanned_cable(serial_number, sku_group, length, connector_code,
     """
     if length is None:
         return {'error': 'invalid_length', 'message': 'length is required'}
+    if not prefix:
+        return {'error': 'invalid_prefix', 'message': 'prefix is required'}
     if connector_code is None:
         connector_code = ''
 
@@ -139,7 +139,7 @@ def register_scanned_cable(serial_number, sku_group, length, connector_code,
         with conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT serial_number, sku_group, length, connector_code,
+                    SELECT serial_number, sku_group, prefix, length, connector_code,
                            operator, updated_timestamp, notes
                     FROM audio_cables
                     WHERE serial_number = %s
@@ -154,43 +154,45 @@ def register_scanned_cable(serial_number, sku_group, length, connector_code,
                             'existing_record': {
                                 'serial_number': existing[0],
                                 'sku_group': existing[1],
-                                'length': float(existing[2]) if existing[2] is not None else None,
-                                'connector_code': existing[3],
-                                'operator': existing[4],
-                                'timestamp': existing[5],
-                                'notes': existing[6],
+                                'prefix': existing[2],
+                                'length': float(existing[3]) if existing[3] is not None else None,
+                                'connector_code': existing[4],
+                                'operator': existing[5],
+                                'timestamp': existing[6],
+                                'notes': existing[7],
                             }
                         }
                     cur.execute("""
                         UPDATE audio_cables
                         SET sku_group = %s,
+                            prefix = %s,
                             length = %s,
                             connector_code = %s,
                             operator = %s,
                             updated_timestamp = CURRENT_TIMESTAMP
                         WHERE serial_number = %s
                         RETURNING serial_number, updated_timestamp
-                    """, (sku_group, length, connector_code, operator, formatted_serial))
+                    """, (sku_group, prefix, length, connector_code, operator, formatted_serial))
                     result = cur.fetchone()
                     conn.commit()
                     return {
                         'serial_number': result[0],
                         'timestamp': result[1],
                         'sku_group': sku_group,
+                        'prefix': prefix,
                         'length': float(length),
                         'connector_code': connector_code,
                         'success': True,
                         'updated': True,
                     }
 
-                # Insert new cable record
                 cur.execute("""
                     INSERT INTO audio_cables
-                        (serial_number, sku_group, length, connector_code,
+                        (serial_number, sku_group, prefix, length, connector_code,
                          resistance_adc, operator, arduino_unit_id, notes)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING serial_number, updated_timestamp
-                """, (formatted_serial, sku_group, length, connector_code,
+                """, (formatted_serial, sku_group, prefix, length, connector_code,
                       None, operator, None, 'Scanned intake'))
                 result = cur.fetchone()
                 conn.commit()
@@ -198,6 +200,7 @@ def register_scanned_cable(serial_number, sku_group, length, connector_code,
                     'serial_number': result[0],
                     'timestamp': result[1],
                     'sku_group': sku_group,
+                    'prefix': prefix,
                     'length': float(length),
                     'connector_code': connector_code,
                     'success': True,
@@ -258,16 +261,12 @@ def update_cable_test_results(serial_number, test_passed, resistance_adc=None, c
         pg_pool.putconn(conn)
 
 
-_LTD_SLUG_PATTERN = re.compile(r'^[A-Z0-9]{4,12}$')
-
-
 def sku_kind(sku):
     """Classify a SKU (variant or group) by pattern.
 
-    Tries variant SKU first ('SC-12GL', 'SC-12GL-R'), then group SKU
-    ('SC-GL', 'SC-MISC-42', 'SC-LTD-PHISH26'). Returns 'catalog', 'misc',
-    or 'ltd'. Unrecognized inputs default to 'catalog' (matches the Phase 3
-    permissive behavior for callers that pass arbitrary strings).
+    Tries variant SKU first ('SC-12GL', 'SC-12GL-R', 'SC-12-LTD-PHISH26-R'),
+    then group SKU ('GL', 'LTD-PHISH26', 'SC-MISC-42'). Returns 'catalog',
+    'misc', or 'ltd'. Unrecognized inputs default to 'catalog'.
     """
     from greenlight.cable_config import parse_variant_sku, parse_group_sku
     if not sku:
@@ -280,31 +279,38 @@ def sku_kind(sku):
 
 
 def _enrich_record(record):
-    """Add resolver-derived fields to a cable record dict (Phase 4).
+    """Add resolver-derived fields to a cable record dict (Phase 5).
 
-    Required input key: 'sku_group'. Optional: 'length', 'connector_code',
-    'description', 'archived_at'. Mutates record in place and returns it.
+    Required keys: 'sku_group'. The 'prefix' lives on audio_cables in
+    Phase 5 — supply it on the record dict (the SELECT helpers below all
+    pull `ac.prefix`). Optional: 'length', 'connector_code', 'description',
+    'archived_at'. Mutates record in place and returns it.
 
     Populates from the resolver:
-      - kind, prefix, series
+      - kind, series
       - pattern_code, pattern_name (catalog only; None for MISC/LTD)
       - connector_display (looked up from prefix + connector_code)
       - core_cable, braid_material (series-level from YAML)
       - variant_sku — the user-facing SKU string Shopify uses
+      - slug (LTD only)
 
     """
     from greenlight.cable_config import (
         parse_group_sku, format_variant_sku, series_data_for_prefix,
-        connector_display_for,
+        connector_display_for, series_for_prefix,
     )
     sku_group = record.get('sku_group')
     parsed = parse_group_sku(sku_group)
     kind = parsed.get('kind')
-    prefix = parsed.get('prefix')
+
+    # Phase 5: prefix lives on audio_cables. For MISC the prefix is also
+    # encoded in the group SKU so prefer the column but fall back if missing
+    # (e.g. record built outside the DB layer).
+    prefix = record.get('prefix') or parsed.get('prefix')
+    record['prefix'] = prefix
 
     record['kind'] = kind
-    record['prefix'] = prefix
-    record['series'] = parsed.get('series')
+    record['series'] = series_for_prefix(prefix) if prefix else None
 
     if kind == 'catalog':
         record['pattern_code'] = parsed.get('pattern_code')
@@ -313,6 +319,9 @@ def _enrich_record(record):
         record['pattern_code'] = None
         record['pattern_name'] = None
 
+    if kind == 'ltd':
+        record['slug'] = parsed.get('slug')
+
     # Length lives on audio_cables.length now (NUMERIC(5,2) → Decimal).
     # Coerce to float so consumers see a stable type.
     raw_length = record.get('length')
@@ -320,17 +329,14 @@ def _enrich_record(record):
         try:
             record['length'] = float(raw_length)
         except (TypeError, ValueError):
-            pass  # leave as-is
+            pass
 
-    # Connector display: resolved from prefix + connector_code (the latter
-    # lives on audio_cables for every cable, not just catalog).
     connector_code = record.get('connector_code') or ''
     record['connector_code'] = connector_code
     record['connector_display'] = (
         connector_display_for(prefix, connector_code) if prefix else None
     )
 
-    # Series-level construction (same for every cable in a series)
     series_data = series_data_for_prefix(prefix) if prefix else None
     if series_data:
         record['core_cable'] = series_data.get('core_cable')
@@ -339,11 +345,11 @@ def _enrich_record(record):
         record['core_cable'] = None
         record['braid_material'] = None
 
-    # The user-facing variant SKU — what gets printed on labels and shows in
-    # Shopify. Catalog cables: '{prefix}-{length}{pattern}{connector}'.
-    # MISC/LTD: same as the group SKU.
+    # User-facing variant SKU. Phase 5: prefix kwarg is required for catalog
+    # and LTD (whose group SKU dropped the prefix); MISC ignores it.
     record['variant_sku'] = format_variant_sku(
         group_sku=sku_group,
+        prefix=prefix,
         length=record.get('length'),
         connector_code=connector_code,
     )
@@ -434,8 +440,6 @@ def get_or_create_misc_sku(series_prefix, description, length):
                     (series_prefix,)
                 )
 
-                # Look for a group with matching description that already
-                # holds at least one cable of the requested length.
                 cur.execute("""
                     SELECT sg.sku
                     FROM sku_group sg
@@ -465,45 +469,6 @@ def get_or_create_misc_sku(series_prefix, description, length):
                 return new_sku
     except Exception as e:
         logger.error("Error in get_or_create_misc_sku: %s", e)
-        conn.rollback()
-        return None
-    finally:
-        pg_pool.putconn(conn)
-
-
-def ensure_catalog_sku_group(series_prefix, pattern_code):
-    """Idempotently ensure a catalog sku_group row exists for the combo.
-
-    Phase 4 design: catalog groups self-seed when a cable is registered with
-    a previously-unseen (prefix, pattern_code) combo. The Phase 4 migration
-    seeded the existing 14 combos; this helper handles future additions
-    without requiring a schema migration each time.
-
-    Returns the group sku string ('{prefix}-{pattern_code}'), or None on error.
-    """
-    from greenlight.cable_config import (
-        series_for_prefix, pattern_for_code,
-    )
-    if series_for_prefix(series_prefix) is None:
-        logger.error("Unknown series prefix %s", series_prefix)
-        return None
-    pattern = pattern_for_code(pattern_code)
-    pattern_name = pattern.get('name') if pattern else None
-    sku = f"{series_prefix}-{pattern_code}"
-
-    conn = pg_pool.getconn()
-    try:
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO sku_group (sku, description)
-                    VALUES (%s, %s)
-                    ON CONFLICT (sku) DO NOTHING
-                """, (sku, pattern_name))
-                conn.commit()
-        return sku
-    except Exception as e:
-        logger.error("Error ensuring catalog sku_group %s: %s", sku, e)
         conn.rollback()
         return None
     finally:
@@ -557,24 +522,33 @@ def search_misc_variants(series_prefix):
 def list_ltd_editions(active_only=True, series_prefix=None):
     """List LTD editions with cable counts (read-only; CRUD lives in shopify_app).
 
+    Phase 5: LTD groups are series-agnostic ('LTD-PHISH26'). The series_prefix
+    filter is a per-cable lens — show editions that have at least one cable
+    in the requested series.
+
     Args:
         active_only: If True, exclude archived editions
-        series_prefix: Optional filter (e.g. 'SC' to only show Studio Classic editions)
+        series_prefix: Optional filter — show editions with at least one cable
+            registered under this prefix.
 
     Returns:
-        List of dicts with sku, slug, event_name, series, length, description,
-        active, cable_count, created_at.
+        List of dicts with sku, slug, description, archived_at, active, cable_count.
     """
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
             params = []
-            where_clauses = ["sg.sku ~ '-LTD-[A-Z0-9]{4,12}$'"]
+            where_clauses = ["sg.sku ~ '^LTD-[A-Z0-9]{4,24}$'"]
             if active_only:
                 where_clauses.append("sg.archived_at IS NULL")
             if series_prefix:
-                where_clauses.append("sg.sku LIKE %s")
-                params.append(f"{series_prefix}-LTD-%")
+                where_clauses.append("""
+                    EXISTS (
+                        SELECT 1 FROM audio_cables ac
+                        WHERE ac.sku_group = sg.sku AND ac.prefix = %s
+                    )
+                """)
+                params.append(series_prefix)
 
             where_sql = " AND ".join(where_clauses)
             cur.execute(f"""
@@ -589,8 +563,8 @@ def list_ltd_editions(active_only=True, series_prefix=None):
             for r in rows:
                 results.append({
                     'sku_group': r[0],
-                    'sku': r[0],  # backward-compat alias for callers expecting 'sku'
-                    'slug': r[0].rsplit('-', 1)[-1],
+                    'sku': r[0],
+                    'slug': r[0].split('-', 1)[1],
                     'description': r[1],
                     'archived_at': r[2],
                     'active': r[2] is None,
@@ -608,8 +582,7 @@ def get_ltd_edition(sku):
     """Fetch a single LTD edition by SKU (read-only).
 
     Returns dict with sku_group/sku, slug, description, archived_at, active,
-    cable_count — or None. (Phase 4: cable_ltd_metadata is gone; description
-    on sku_group carries what was previously event_name + notes.)
+    cable_count — or None.
     """
     conn = pg_pool.getconn()
     try:
@@ -626,7 +599,7 @@ def get_ltd_edition(sku):
             return {
                 'sku_group': row[0],
                 'sku': row[0],
-                'slug': row[0].rsplit('-', 1)[-1],
+                'slug': row[0].split('-', 1)[1] if row[0].startswith('LTD-') else row[0].rsplit('-', 1)[-1],
                 'description': row[1],
                 'archived_at': row[2],
                 'active': row[2] is None,
@@ -642,10 +615,11 @@ def get_ltd_edition(sku):
 def get_available_count_for_sku(sku):
     """Get count of available (passed + unassigned) cables for a SKU.
 
-    The input may be either a variant SKU (e.g. 'SC-12GL', 'SC-12GL-R') or a
-    group/MISC/LTD SKU. Catalog variants are split into (sku_group, length,
-    connector_code) for the count; MISC/LTD/group inputs match all cables in
-    that group regardless of length/connector.
+    The input may be either a variant SKU (e.g. 'SC-12GL', 'SC-12GL-R',
+    'SC-12-LTD-PHISH26-R') or a group/MISC/LTD SKU. Catalog and LTD variants
+    are fully qualified — split into (sku_group, prefix, length,
+    connector_code) for the count. Bare group/MISC inputs match all cables
+    in that group regardless of length/connector.
     """
     from greenlight.cable_config import parse_variant_sku
 
@@ -654,18 +628,20 @@ def get_available_count_for_sku(sku):
         with conn.cursor() as cur:
             parsed = parse_variant_sku(sku)
             kind = parsed.get('kind')
-            if kind == 'catalog':
+            if kind in ('catalog', 'ltd'):
                 cur.execute("""
                     SELECT COUNT(*)
                     FROM audio_cables ac
                     WHERE ac.test_passed = TRUE
                       AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
                       AND ac.sku_group = %s
+                      AND ac.prefix = %s
                       AND ac.length = %s
                       AND ac.connector_code = %s
-                """, (parsed['group_sku'], parsed['length'], parsed.get('connector_code') or ''))
+                """, (parsed['group_sku'], parsed['prefix'], parsed['length'],
+                      parsed.get('connector_code') or ''))
             else:
-                # MISC/LTD/group string — count by sku_group
+                # MISC variant SKU == group SKU; or caller passed a bare group SKU
                 cur.execute("""
                     SELECT COUNT(*)
                     FROM audio_cables ac
@@ -685,7 +661,6 @@ def assign_cable_to_customer(serial_number, customer_shopify_gid):
     """Assign a cable to a customer by updating the shopify_gid field"""
     conn = pg_pool.getconn()
     try:
-        # Format serial number
         formatted_serial = format_serial_number(serial_number)
 
         with conn:
@@ -806,7 +781,8 @@ def get_cables_for_customer(customer_shopify_gid):
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT ac.serial_number, ac.sku_group, ac.length, ac.connector_code,
+                SELECT ac.serial_number, ac.sku_group, ac.prefix,
+                       ac.length, ac.connector_code,
                        ac.updated_timestamp, sg.description, sg.archived_at
                 FROM audio_cables ac
                 JOIN sku_group sg ON ac.sku_group = sg.sku
@@ -820,11 +796,12 @@ def get_cables_for_customer(customer_shopify_gid):
                 cables.append(_enrich_record({
                     'serial_number': row[0],
                     'sku_group': row[1],
-                    'length': row[2],
-                    'connector_code': row[3],
-                    'updated_timestamp': row[4],
-                    'description': row[5],
-                    'archived_at': row[6],
+                    'prefix': row[2],
+                    'length': row[3],
+                    'connector_code': row[4],
+                    'updated_timestamp': row[5],
+                    'description': row[6],
+                    'archived_at': row[7],
                 }))
             return cables
     except Exception as e:
@@ -839,7 +816,8 @@ def get_all_cables(limit=100, offset=0):
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT ac.serial_number, ac.sku_group, ac.length, ac.connector_code,
+                SELECT ac.serial_number, ac.sku_group, ac.prefix,
+                       ac.length, ac.connector_code,
                        ac.updated_timestamp, ac.test_timestamp,
                        ac.resistance_adc, ac.test_passed, ac.operator, ac.shopify_gid,
                        sg.description
@@ -855,15 +833,16 @@ def get_all_cables(limit=100, offset=0):
                 cables.append(_enrich_record({
                     'serial_number': row[0],
                     'sku_group': row[1],
-                    'length': row[2],
-                    'connector_code': row[3],
-                    'updated_timestamp': row[4],
-                    'test_timestamp': row[5],
-                    'resistance_adc': row[6],
-                    'test_passed': row[7],
-                    'operator': row[8],
-                    'shopify_gid': row[9],
-                    'description': row[10],
+                    'prefix': row[2],
+                    'length': row[3],
+                    'connector_code': row[4],
+                    'updated_timestamp': row[5],
+                    'test_timestamp': row[6],
+                    'resistance_adc': row[7],
+                    'test_passed': row[8],
+                    'operator': row[9],
+                    'shopify_gid': row[10],
+                    'description': row[11],
                 }))
             return cables
     except Exception as e:
@@ -888,9 +867,10 @@ def get_cable_count():
 def get_available_inventory(series=None):
     """Get count of cables available to sell, grouped by variant.
 
-    Phase 4: rolls up by (sku_group, length, connector_code) since the same
-    sku_group can hold cables of different lengths/connectors. Each row in
-    the result represents a distinct variant the operator can fulfill from.
+    Phase 5: rolls up by (sku_group, prefix, length, connector_code) since the
+    same sku_group can hold cables of multiple prefixes (LTD), lengths, and
+    connectors. Each row in the result represents a distinct variant the
+    operator can fulfill from.
 
     Args:
         series: Optional series filter (e.g., 'Studio Classic', 'Tour Classic')
@@ -903,6 +883,7 @@ def get_available_inventory(series=None):
             query = """
                 SELECT
                     ac.sku_group,
+                    ac.prefix,
                     ac.length,
                     ac.connector_code,
                     sg.description,
@@ -917,11 +898,11 @@ def get_available_inventory(series=None):
                 prefix = prefix_for_series(series)
                 if prefix is None:
                     return []
-                query += " AND ac.sku_group LIKE %s"
-                params.append(f"{prefix}-%")
+                query += " AND ac.prefix = %s"
+                params.append(prefix)
             query += """
-                GROUP BY ac.sku_group, ac.length, ac.connector_code, sg.description
-                ORDER BY ac.sku_group, ac.length, ac.connector_code
+                GROUP BY ac.sku_group, ac.prefix, ac.length, ac.connector_code, sg.description
+                ORDER BY ac.prefix, ac.sku_group, ac.length, ac.connector_code
             """
             cur.execute(query, params)
             rows = cur.fetchall()
@@ -930,11 +911,12 @@ def get_available_inventory(series=None):
             for row in rows:
                 enriched = _enrich_record({
                     'sku_group': row[0],
-                    'length': row[1],
-                    'connector_code': row[2],
-                    'description': row[3],
+                    'prefix': row[1],
+                    'length': row[2],
+                    'connector_code': row[3],
+                    'description': row[4],
                 })
-                enriched['available_count'] = row[4]
+                enriched['available_count'] = row[5]
                 inventory.append(enriched)
             return inventory
     except Exception as e:
@@ -964,7 +946,8 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
         with conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT ac.serial_number, ac.sku_group, ac.length, ac.connector_code,
+                    SELECT ac.serial_number, ac.sku_group, ac.prefix,
+                           ac.length, ac.connector_code,
                            ac.shopify_gid, ac.shopify_order_gid
                     FROM audio_cables ac
                     WHERE ac.serial_number = %s
@@ -977,7 +960,7 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
                         'message': f'Cable with serial number {formatted_serial} not found in database'
                     }
 
-                (cable_serial, sku_group, length, connector_code,
+                (cable_serial, sku_group, prefix, length, connector_code,
                  existing_customer_gid, existing_order_gid) = row
 
                 if existing_order_gid == order_gid:
@@ -1001,13 +984,14 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
                     }
 
                 # SKU validation: compute the user-facing variant SKU from
-                # (sku_group, length, connector_code) and match against the
-                # order's line items (which carry variant SKU strings).
+                # (sku_group, prefix, length, connector_code) and match against
+                # the order's line items (which carry variant SKU strings).
                 length_val = float(length) if length is not None else None
                 if length_val is not None and length_val.is_integer():
                     length_val = int(length_val)
                 variant_sku = format_variant_sku(
-                    group_sku=sku_group, length=length_val, connector_code=connector_code,
+                    group_sku=sku_group, prefix=prefix,
+                    length=length_val, connector_code=connector_code,
                 )
                 if variant_sku not in line_item_skus:
                     return {
@@ -1031,7 +1015,7 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
                     'success': True,
                     'serial_number': result[0],
                     'sku_group': result[1],
-                    'sku': variant_sku,  # backward-compat for callers expecting variant SKU here
+                    'sku': variant_sku,
                 }
     except Exception as e:
         logger.error("Error assigning cable to order: %s", e)
@@ -1082,7 +1066,8 @@ def get_cables_for_order(order_gid):
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT ac.serial_number, ac.sku_group, ac.length, ac.connector_code,
+                SELECT ac.serial_number, ac.sku_group, ac.prefix,
+                       ac.length, ac.connector_code,
                        sg.description
                 FROM audio_cables ac
                 JOIN sku_group sg ON ac.sku_group = sg.sku
@@ -1092,9 +1077,9 @@ def get_cables_for_order(order_gid):
             rows = cur.fetchall()
             return [
                 _enrich_record({
-                    'serial_number': r[0], 'sku_group': r[1],
-                    'length': r[2], 'connector_code': r[3],
-                    'description': r[4],
+                    'serial_number': r[0], 'sku_group': r[1], 'prefix': r[2],
+                    'length': r[3], 'connector_code': r[4],
+                    'description': r[5],
                 })
                 for r in rows
             ]
@@ -1184,7 +1169,6 @@ def batch_assign_registration_codes(serial_numbers):
                                 assigned = True
                                 break
                             else:
-                                # Cable not found or already has a code
                                 cur.execute(
                                     "SELECT registration_code FROM audio_cables WHERE serial_number = %s",
                                     (formatted_serial,)
@@ -1200,11 +1184,10 @@ def batch_assign_registration_codes(serial_numbers):
                                         'serial_number': formatted_serial,
                                         'error': 'Cable not found'
                                     })
-                                assigned = True  # Don't retry
+                                assigned = True
                                 break
                         except Exception as e:
                             if 'unique' in str(e).lower() or 'duplicate' in str(e).lower():
-                                # Code collision, retry with new code
                                 conn.rollback()
                                 continue
                             raise
@@ -1226,7 +1209,7 @@ def batch_assign_registration_codes(serial_numbers):
 def get_sku_stock_summary():
     """Get per-variant cable counts from Postgres.
 
-    Phase 4: groups by (sku_group, length, connector_code) since each
+    Phase 5: groups by (sku_group, prefix, length, connector_code) since each
     distinct variant is a separate "stock unit". Returns dict keyed by the
     user-facing variant SKU (computed via format_variant_sku) → counts.
     Excludes MISC variants from this summary (use get_misc_summary).
@@ -1238,7 +1221,7 @@ def get_sku_stock_summary():
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT
-                    ac.sku_group, ac.length, ac.connector_code,
+                    ac.sku_group, ac.prefix, ac.length, ac.connector_code,
                     COUNT(*) as total,
                     COUNT(*) FILTER (
                         WHERE ac.test_passed = TRUE
@@ -1255,17 +1238,18 @@ def get_sku_stock_summary():
                     ) as untested
                 FROM audio_cables ac
                 WHERE ac.sku_group !~ '-MISC-[0-9]+$'
-                GROUP BY ac.sku_group, ac.length, ac.connector_code
-                ORDER BY ac.sku_group, ac.length, ac.connector_code
+                GROUP BY ac.sku_group, ac.prefix, ac.length, ac.connector_code
+                ORDER BY ac.prefix, ac.sku_group, ac.length, ac.connector_code
             """)
             counts = {}
             for row in cur.fetchall():
-                sku_group, length, connector_code, total, available, sold, failed, untested = row
+                sku_group, prefix, length, connector_code, total, available, sold, failed, untested = row
                 length_val = float(length) if length is not None else None
                 if length_val is not None and length_val.is_integer():
                     length_val = int(length_val)
                 variant_sku = format_variant_sku(
-                    group_sku=sku_group, length=length_val, connector_code=connector_code,
+                    group_sku=sku_group, prefix=prefix,
+                    length=length_val, connector_code=connector_code,
                 )
                 if variant_sku is None:
                     continue
@@ -1295,21 +1279,22 @@ def get_recent_sales(days=90):
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT ac.sku_group, ac.length, ac.connector_code, COUNT(*)
+                SELECT ac.sku_group, ac.prefix, ac.length, ac.connector_code, COUNT(*)
                 FROM audio_cables ac
                 WHERE ac.shopify_gid IS NOT NULL AND ac.shopify_gid != ''
                   AND ac.updated_timestamp >= NOW() - INTERVAL '%s days'
                   AND ac.sku_group !~ '-MISC-[0-9]+$'
-                GROUP BY ac.sku_group, ac.length, ac.connector_code
+                GROUP BY ac.sku_group, ac.prefix, ac.length, ac.connector_code
                 ORDER BY COUNT(*) DESC
             """, (days,))
             sales = {}
-            for sku_group, length, connector_code, count in cur.fetchall():
+            for sku_group, prefix, length, connector_code, count in cur.fetchall():
                 length_val = float(length) if length is not None else None
                 if length_val is not None and length_val.is_integer():
                     length_val = int(length_val)
                 variant_sku = format_variant_sku(
-                    group_sku=sku_group, length=length_val, connector_code=connector_code,
+                    group_sku=sku_group, prefix=prefix,
+                    length=length_val, connector_code=connector_code,
                 )
                 if variant_sku:
                     sales[variant_sku] = count
@@ -1333,7 +1318,7 @@ def get_misc_summary():
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT
-                    SUBSTRING(ac.sku_group FROM '^([A-Z]{2,3})') AS prefix,
+                    ac.prefix,
                     COUNT(*) as total,
                     COUNT(*) FILTER (
                         WHERE ac.test_passed = TRUE
@@ -1344,7 +1329,7 @@ def get_misc_summary():
                     ) as sold
                 FROM audio_cables ac
                 WHERE ac.sku_group ~ '-MISC-[0-9]+$'
-                GROUP BY prefix
+                GROUP BY ac.prefix
             """)
             result = {}
             for prefix, total, available, sold in cur.fetchall():
@@ -1361,8 +1346,8 @@ def get_misc_summary():
 def get_available_series():
     """Get list of product series that have available inventory.
 
-    Returns series names sorted alphabetically. Derives series from SKU prefix
-    via the YAML resolver — the cable_skus.series column goes away in 3.5.
+    Returns series names sorted alphabetically. Derives series from
+    audio_cables.prefix via the YAML resolver.
     """
     from greenlight.cable_config import series_for_prefix
 
@@ -1370,7 +1355,7 @@ def get_available_series():
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT DISTINCT SUBSTRING(ac.sku_group FROM '^([A-Z]{2,3})') AS prefix
+                SELECT DISTINCT ac.prefix
                 FROM audio_cables ac
                 WHERE ac.shopify_gid IS NULL OR ac.shopify_gid = ''
             """)
@@ -1382,5 +1367,3 @@ def get_available_series():
         return []
     finally:
         pg_pool.putconn(conn)
-
-

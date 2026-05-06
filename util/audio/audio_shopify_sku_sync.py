@@ -53,23 +53,24 @@ def get_database_skus() -> Dict[str, Dict[str, str]]:
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
-            # Phase 4: walk distinct (sku_group, length, connector_code) tuples
-            # from audio_cables — each represents a variant Shopify needs to know
-            # about. Plus pull description from sku_group for display.
+            # Phase 5: walk distinct (sku_group, prefix, length, connector_code)
+            # tuples from audio_cables — each represents a variant Shopify needs
+            # to know about. Plus pull description from sku_group for display.
             cur.execute("""
-                SELECT DISTINCT ac.sku_group, ac.length, ac.connector_code, sg.description
+                SELECT DISTINCT ac.sku_group, ac.prefix, ac.length, ac.connector_code, sg.description
                 FROM audio_cables ac
                 JOIN sku_group sg ON ac.sku_group = sg.sku
-                ORDER BY ac.sku_group, ac.length, ac.connector_code
+                ORDER BY ac.sku_group, ac.prefix, ac.length, ac.connector_code
             """)
 
             sku_map = {}
-            for sku_group, length, connector_code, description in cur.fetchall():
+            for sku_group, prefix, length, connector_code, description in cur.fetchall():
                 length_val = float(length) if length is not None else None
                 if length_val is not None and length_val.is_integer():
                     length_val = int(length_val)
                 variant_sku = format_variant_sku(
-                    group_sku=sku_group, length=length_val, connector_code=connector_code,
+                    group_sku=sku_group, prefix=prefix,
+                    length=length_val, connector_code=connector_code,
                 )
                 if not variant_sku:
                     continue

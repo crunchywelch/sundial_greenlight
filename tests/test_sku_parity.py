@@ -67,6 +67,7 @@ def check_entry(entry):
             return {'expected': sku, 'actual': '<parse_variant_sku returned kind=None>'}
         rebuilt = format_variant_sku(
             group_sku=parsed.get('group_sku'),
+            prefix=parsed.get('prefix'),
             length=parsed.get('length'),
             connector_code=parsed.get('connector_code'),
         )

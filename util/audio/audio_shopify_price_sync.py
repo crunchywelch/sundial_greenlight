@@ -88,7 +88,7 @@ def build_special_baby_sku_map(product_lines_dir):
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT DISTINCT ac.sku_group, ac.length, ac.connector_code
+                SELECT DISTINCT ac.sku_group, ac.prefix, ac.length, ac.connector_code
                 FROM audio_cables ac
                 WHERE ac.sku_group ~ '-MISC-[0-9]+$'
             """)
@@ -97,20 +97,20 @@ def build_special_baby_sku_map(product_lines_dir):
         pg_pool.putconn(conn)
 
     sku_map = {}
-    for sku_group, length_decimal, connector_code in rows:
+    for sku_group, prefix, length_decimal, connector_code in rows:
         try:
             length = float(length_decimal)
         except (TypeError, ValueError):
             continue
 
-        prefix = sku_group.split('-')[0]
         line = lines.get(prefix)
         if not line:
             continue
 
         length_for_format = int(length) if length.is_integer() else length
         variant_sku = format_variant_sku(
-            group_sku=sku_group, length=length_for_format, connector_code=connector_code,
+            group_sku=sku_group, prefix=prefix,
+            length=length_for_format, connector_code=connector_code,
         )
         if not variant_sku:
             continue

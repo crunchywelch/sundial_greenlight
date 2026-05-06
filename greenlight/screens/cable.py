@@ -1599,9 +1599,11 @@ class LtdEditionPickerScreen(Screen):
 
         if 0 <= idx < len(editions):
             selected_sku = editions[idx]['sku']
+            # Phase 5: LTD group SKU is series-agnostic ('LTD-PHISH26'), so
+            # CableType needs the prefix passed in from screen context.
             try:
                 cable_type = CableType()
-                cable_type.load(selected_sku)
+                cable_type.load(selected_sku, prefix=series_prefix)
             except ValueError as e:
                 self.ui.layout["body"].update(Panel(
                     f"❌ Error loading SKU {selected_sku}: {e}",
@@ -2208,9 +2210,12 @@ class ConnectorTypeSelectionScreen(Screen):
             self.ui.console.input("")
             return ScreenResult(NavigationAction.POP)
 
+        # Phase 5: catalog group SKU is just a pattern code (e.g. 'GL') with
+        # no prefix. resolve_catalog_variant returns prefix separately; thread
+        # it into CableType so it can resolve series/connectors.
         try:
             new_cable_type = CableType()
-            new_cable_type.load(result['sku_group'])
+            new_cable_type.load(result['sku_group'], prefix=result['prefix'])
         except ValueError as e:
             self.ui.layout["body"].update(Panel(
                 f"Error loading sku_group: {e}", title="Error", style="red",
@@ -2297,7 +2302,8 @@ class ScanCableIntakeScreen(CableScreenBase):
                 from greenlight.cable_config import format_variant_sku
                 length_for_format = int(length) if isinstance(length, float) and length.is_integer() else length
                 variant_sku = format_variant_sku(
-                    group_sku=cable_type.sku_group, length=length_for_format, connector_code=connector_code,
+                    group_sku=cable_type.sku_group, prefix=cable_type.prefix,
+                    length=length_for_format, connector_code=connector_code,
                 ) or cable_type.sku_group
                 scan_info = (
                     f"[bold cyan]Cable Type:[/bold cyan] {cable_type.name()}\n"
@@ -2361,10 +2367,13 @@ class ScanCableIntakeScreen(CableScreenBase):
             # but the SKU itself is locked once a cable has been registered (per design).
             allow_update = self.context.get("re_register", False)
 
-            # Register the cable in database. Phase 4: register_scanned_cable
-            # takes (serial, sku_group, length, connector_code, operator, ...).
+            # Register the cable in database. Phase 5: register_scanned_cable
+            # takes (serial, sku_group, prefix, length, connector_code, ...) —
+            # prefix lives on audio_cables now since catalog/LTD group SKUs
+            # dropped it.
             result = register_scanned_cable(
-                serial_number, cable_type.sku_group, length, connector_code,
+                serial_number, cable_type.sku_group, cable_type.prefix,
+                length, connector_code,
                 operator=operator, update_if_exists=allow_update,
             )
 
@@ -2448,7 +2457,8 @@ class ScanCableIntakeScreen(CableScreenBase):
                             break
                         elif user_choice == 'update':
                             update_result = register_scanned_cable(
-                                serial_number, cable_type.sku_group, length, connector_code,
+                                serial_number, cable_type.sku_group, cable_type.prefix,
+                                length, connector_code,
                                 operator=operator, update_if_exists=True,
                             )
                             if update_result.get('success'):

@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS sku_group (
 -- Partial index for active LTD lookups (matches the `list_ltd_editions`
 -- predicate `archived_at IS NULL AND sku ~ '-LTD-...'`).
 CREATE INDEX IF NOT EXISTS idx_active_ltd ON sku_group(archived_at)
-    WHERE archived_at IS NULL AND sku ~ '-LTD-[A-Z0-9]{4,12}$';
+    WHERE archived_at IS NULL AND sku ~ '^LTD-[A-Z0-9]{4,24}$';
 
 -- audio_cables — production records, one row per physical cable.
 -- length and connector_code are per-cable: the same sku_group can hold

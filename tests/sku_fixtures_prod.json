@@ -1,0 +1,3232 @@
+[
+  {
+    "name": "prod group: BU",
+    "type": "group",
+    "sku": "BU",
+    "expected": {
+      "kind": "catalog",
+      "pattern_code": "BU",
+      "pattern_name": "Bungalow"
+    }
+  },
+  {
+    "name": "prod group: EH",
+    "type": "group",
+    "sku": "EH",
+    "expected": {
+      "kind": "catalog",
+      "pattern_code": "EH",
+      "pattern_name": "Electric Houndstooth"
+    }
+  },
+  {
+    "name": "prod group: GL",
+    "type": "group",
+    "sku": "GL",
+    "expected": {
+      "kind": "catalog",
+      "pattern_code": "GL",
+      "pattern_name": "Goldline"
+    }
+  },
+  {
+    "name": "prod group: HP",
+    "type": "group",
+    "sku": "HP",
+    "expected": {
+      "kind": "catalog",
+      "pattern_code": "HP",
+      "pattern_name": "Houndstooth Putty"
+    }
+  },
+  {
+    "name": "prod group: LTD-GREENRIVER2026",
+    "type": "group",
+    "sku": "LTD-GREENRIVER2026",
+    "expected": {
+      "kind": "ltd",
+      "slug": "GREENRIVER2026"
+    }
+  },
+  {
+    "name": "prod group: LTD-LISTONS2026",
+    "type": "group",
+    "sku": "LTD-LISTONS2026",
+    "expected": {
+      "kind": "ltd",
+      "slug": "LISTONS2026"
+    }
+  },
+  {
+    "name": "prod group: LTD-VINTAGEINTHEVALLEY2026",
+    "type": "group",
+    "sku": "LTD-VINTAGEINTHEVALLEY2026",
+    "expected": {
+      "kind": "ltd",
+      "slug": "VINTAGEINTHEVALLEY2026"
+    }
+  },
+  {
+    "name": "prod group: PW",
+    "type": "group",
+    "sku": "PW",
+    "expected": {
+      "kind": "catalog",
+      "pattern_code": "PW",
+      "pattern_name": "Pearl White"
+    }
+  },
+  {
+    "name": "prod group: RS",
+    "type": "group",
+    "sku": "RS",
+    "expected": {
+      "kind": "catalog",
+      "pattern_code": "RS",
+      "pattern_name": "Road Stripe"
+    }
+  },
+  {
+    "name": "prod group: SC-MISC-1",
+    "type": "group",
+    "sku": "SC-MISC-1",
+    "expected": {
+      "kind": "misc",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "misc_seq": 1
+    }
+  },
+  {
+    "name": "prod group: SC-MISC-19",
+    "type": "group",
+    "sku": "SC-MISC-19",
+    "expected": {
+      "kind": "misc",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "misc_seq": 19
+    }
+  },
+  {
+    "name": "prod group: SC-MISC-2",
+    "type": "group",
+    "sku": "SC-MISC-2",
+    "expected": {
+      "kind": "misc",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "misc_seq": 2
+    }
+  },
+  {
+    "name": "prod group: SC-MISC-21",
+    "type": "group",
+    "sku": "SC-MISC-21",
+    "expected": {
+      "kind": "misc",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "misc_seq": 21
+    }
+  },
+  {
+    "name": "prod group: SC-MISC-4",
+    "type": "group",
+    "sku": "SC-MISC-4",
+    "expected": {
+      "kind": "misc",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "misc_seq": 4
+    }
+  },
+  {
+    "name": "prod group: SC-MISC-44",
+    "type": "group",
+    "sku": "SC-MISC-44",
+    "expected": {
+      "kind": "misc",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "misc_seq": 44
+    }
+  },
+  {
+    "name": "prod group: SL",
+    "type": "group",
+    "sku": "SL",
+    "expected": {
+      "kind": "catalog",
+      "pattern_code": "SL",
+      "pattern_name": "Silverline"
+    }
+  },
+  {
+    "name": "prod group: SV-MISC-22",
+    "type": "group",
+    "sku": "SV-MISC-22",
+    "expected": {
+      "kind": "misc",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "misc_seq": 22
+    }
+  },
+  {
+    "name": "prod group: SV-MISC-47",
+    "type": "group",
+    "sku": "SV-MISC-47",
+    "expected": {
+      "kind": "misc",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "misc_seq": 47
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-10",
+    "type": "group",
+    "sku": "TC-MISC-10",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 10
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-11",
+    "type": "group",
+    "sku": "TC-MISC-11",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 11
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-18",
+    "type": "group",
+    "sku": "TC-MISC-18",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 18
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-20",
+    "type": "group",
+    "sku": "TC-MISC-20",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 20
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-23",
+    "type": "group",
+    "sku": "TC-MISC-23",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 23
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-24",
+    "type": "group",
+    "sku": "TC-MISC-24",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 24
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-25",
+    "type": "group",
+    "sku": "TC-MISC-25",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 25
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-26",
+    "type": "group",
+    "sku": "TC-MISC-26",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 26
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-27",
+    "type": "group",
+    "sku": "TC-MISC-27",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 27
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-28",
+    "type": "group",
+    "sku": "TC-MISC-28",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 28
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-29",
+    "type": "group",
+    "sku": "TC-MISC-29",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 29
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-30",
+    "type": "group",
+    "sku": "TC-MISC-30",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 30
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-31",
+    "type": "group",
+    "sku": "TC-MISC-31",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 31
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-32",
+    "type": "group",
+    "sku": "TC-MISC-32",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 32
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-33",
+    "type": "group",
+    "sku": "TC-MISC-33",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 33
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-34",
+    "type": "group",
+    "sku": "TC-MISC-34",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 34
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-35",
+    "type": "group",
+    "sku": "TC-MISC-35",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 35
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-36",
+    "type": "group",
+    "sku": "TC-MISC-36",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 36
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-37",
+    "type": "group",
+    "sku": "TC-MISC-37",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 37
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-38",
+    "type": "group",
+    "sku": "TC-MISC-38",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 38
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-39",
+    "type": "group",
+    "sku": "TC-MISC-39",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 39
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-41",
+    "type": "group",
+    "sku": "TC-MISC-41",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 41
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-42",
+    "type": "group",
+    "sku": "TC-MISC-42",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 42
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-45",
+    "type": "group",
+    "sku": "TC-MISC-45",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 45
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-46",
+    "type": "group",
+    "sku": "TC-MISC-46",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 46
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-48",
+    "type": "group",
+    "sku": "TC-MISC-48",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 48
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-49",
+    "type": "group",
+    "sku": "TC-MISC-49",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 49
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-5",
+    "type": "group",
+    "sku": "TC-MISC-5",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 5
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-50",
+    "type": "group",
+    "sku": "TC-MISC-50",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 50
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-51",
+    "type": "group",
+    "sku": "TC-MISC-51",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 51
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-52",
+    "type": "group",
+    "sku": "TC-MISC-52",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 52
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-53",
+    "type": "group",
+    "sku": "TC-MISC-53",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 53
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-54",
+    "type": "group",
+    "sku": "TC-MISC-54",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 54
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-55",
+    "type": "group",
+    "sku": "TC-MISC-55",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 55
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-6",
+    "type": "group",
+    "sku": "TC-MISC-6",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 6
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-7",
+    "type": "group",
+    "sku": "TC-MISC-7",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 7
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-8",
+    "type": "group",
+    "sku": "TC-MISC-8",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 8
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-9",
+    "type": "group",
+    "sku": "TC-MISC-9",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 9
+    }
+  },
+  {
+    "name": "prod group: TV-MISC-12",
+    "type": "group",
+    "sku": "TV-MISC-12",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 12
+    }
+  },
+  {
+    "name": "prod group: TV-MISC-13",
+    "type": "group",
+    "sku": "TV-MISC-13",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 13
+    }
+  },
+  {
+    "name": "prod group: TV-MISC-14",
+    "type": "group",
+    "sku": "TV-MISC-14",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 14
+    }
+  },
+  {
+    "name": "prod group: TV-MISC-15",
+    "type": "group",
+    "sku": "TV-MISC-15",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 15
+    }
+  },
+  {
+    "name": "prod group: TV-MISC-16",
+    "type": "group",
+    "sku": "TV-MISC-16",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 16
+    }
+  },
+  {
+    "name": "prod group: TV-MISC-17",
+    "type": "group",
+    "sku": "TV-MISC-17",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 17
+    }
+  },
+  {
+    "name": "prod group: TV-MISC-40",
+    "type": "group",
+    "sku": "TV-MISC-40",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 40
+    }
+  },
+  {
+    "name": "prod group: TV-MISC-43",
+    "type": "group",
+    "sku": "TV-MISC-43",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 43
+    }
+  },
+  {
+    "name": "prod variant: TC-3BU",
+    "type": "variant",
+    "sku": "TC-3BU",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "BU",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 3,
+      "pattern_code": "BU",
+      "pattern_name": "Bungalow",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-3BU-R",
+    "type": "variant",
+    "sku": "TC-3BU-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "BU",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 3,
+      "pattern_code": "BU",
+      "pattern_name": "Bungalow",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-6BU",
+    "type": "variant",
+    "sku": "TC-6BU",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "BU",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 6,
+      "pattern_code": "BU",
+      "pattern_name": "Bungalow",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-6BU-R",
+    "type": "variant",
+    "sku": "TC-6BU-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "BU",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 6,
+      "pattern_code": "BU",
+      "pattern_name": "Bungalow",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-10BU",
+    "type": "variant",
+    "sku": "TC-10BU",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "BU",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 10,
+      "pattern_code": "BU",
+      "pattern_name": "Bungalow",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-10BU-R",
+    "type": "variant",
+    "sku": "TC-10BU-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "BU",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 10,
+      "pattern_code": "BU",
+      "pattern_name": "Bungalow",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-15BU",
+    "type": "variant",
+    "sku": "TC-15BU",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "BU",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 15,
+      "pattern_code": "BU",
+      "pattern_name": "Bungalow",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-20BU",
+    "type": "variant",
+    "sku": "TC-20BU",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "BU",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 20,
+      "pattern_code": "BU",
+      "pattern_name": "Bungalow",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-20BU-R",
+    "type": "variant",
+    "sku": "TC-20BU-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "BU",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 20,
+      "pattern_code": "BU",
+      "pattern_name": "Bungalow",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TV-3BU",
+    "type": "variant",
+    "sku": "TV-3BU",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "BU",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 3,
+      "pattern_code": "BU",
+      "pattern_name": "Bungalow",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TV-10BU",
+    "type": "variant",
+    "sku": "TV-10BU",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "BU",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 10,
+      "pattern_code": "BU",
+      "pattern_name": "Bungalow",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TV-20BU",
+    "type": "variant",
+    "sku": "TV-20BU",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "BU",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 20,
+      "pattern_code": "BU",
+      "pattern_name": "Bungalow",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TC-6EH",
+    "type": "variant",
+    "sku": "TC-6EH",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "EH",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 6,
+      "pattern_code": "EH",
+      "pattern_name": "Electric Houndstooth",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-10EH",
+    "type": "variant",
+    "sku": "TC-10EH",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "EH",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 10,
+      "pattern_code": "EH",
+      "pattern_name": "Electric Houndstooth",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-10EH-R",
+    "type": "variant",
+    "sku": "TC-10EH-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "EH",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 10,
+      "pattern_code": "EH",
+      "pattern_name": "Electric Houndstooth",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-20EH",
+    "type": "variant",
+    "sku": "TC-20EH",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "EH",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 20,
+      "pattern_code": "EH",
+      "pattern_name": "Electric Houndstooth",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-20EH-R",
+    "type": "variant",
+    "sku": "TC-20EH-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "EH",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 20,
+      "pattern_code": "EH",
+      "pattern_name": "Electric Houndstooth",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TV-20EH",
+    "type": "variant",
+    "sku": "TV-20EH",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "EH",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 20,
+      "pattern_code": "EH",
+      "pattern_name": "Electric Houndstooth",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TV-25EH",
+    "type": "variant",
+    "sku": "TV-25EH",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "EH",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 25,
+      "pattern_code": "EH",
+      "pattern_name": "Electric Houndstooth",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: SC-1GL",
+    "type": "variant",
+    "sku": "SC-1GL",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "GL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 1,
+      "pattern_code": "GL",
+      "pattern_name": "Goldline",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-1GL-R",
+    "type": "variant",
+    "sku": "SC-1GL-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "GL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 1,
+      "pattern_code": "GL",
+      "pattern_name": "Goldline",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-3GL",
+    "type": "variant",
+    "sku": "SC-3GL",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "GL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 3,
+      "pattern_code": "GL",
+      "pattern_name": "Goldline",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-3GL-R",
+    "type": "variant",
+    "sku": "SC-3GL-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "GL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 3,
+      "pattern_code": "GL",
+      "pattern_name": "Goldline",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-6GL",
+    "type": "variant",
+    "sku": "SC-6GL",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "GL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 6,
+      "pattern_code": "GL",
+      "pattern_name": "Goldline",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-6GL-R",
+    "type": "variant",
+    "sku": "SC-6GL-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "GL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 6,
+      "pattern_code": "GL",
+      "pattern_name": "Goldline",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-10GL",
+    "type": "variant",
+    "sku": "SC-10GL",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "GL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 10,
+      "pattern_code": "GL",
+      "pattern_name": "Goldline",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-12GL",
+    "type": "variant",
+    "sku": "SC-12GL",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "GL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 12,
+      "pattern_code": "GL",
+      "pattern_name": "Goldline",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-12GL-R",
+    "type": "variant",
+    "sku": "SC-12GL-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "GL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 12,
+      "pattern_code": "GL",
+      "pattern_name": "Goldline",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-20GL",
+    "type": "variant",
+    "sku": "SC-20GL",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "GL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 20,
+      "pattern_code": "GL",
+      "pattern_name": "Goldline",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-20GL-R",
+    "type": "variant",
+    "sku": "SC-20GL-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "GL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 20,
+      "pattern_code": "GL",
+      "pattern_name": "Goldline",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SV-3GL",
+    "type": "variant",
+    "sku": "SV-3GL",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "GL",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "length": 3,
+      "pattern_code": "GL",
+      "pattern_name": "Goldline",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: SV-6GL",
+    "type": "variant",
+    "sku": "SV-6GL",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "GL",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "length": 6,
+      "pattern_code": "GL",
+      "pattern_name": "Goldline",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: SV-10GL",
+    "type": "variant",
+    "sku": "SV-10GL",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "GL",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "length": 10,
+      "pattern_code": "GL",
+      "pattern_name": "Goldline",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: SV-20GL",
+    "type": "variant",
+    "sku": "SV-20GL",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "GL",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "length": 20,
+      "pattern_code": "GL",
+      "pattern_name": "Goldline",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TC-3HP-R",
+    "type": "variant",
+    "sku": "TC-3HP-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "HP",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 3,
+      "pattern_code": "HP",
+      "pattern_name": "Houndstooth Putty",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-6HP",
+    "type": "variant",
+    "sku": "TC-6HP",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "HP",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 6,
+      "pattern_code": "HP",
+      "pattern_name": "Houndstooth Putty",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-10HP",
+    "type": "variant",
+    "sku": "TC-10HP",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "HP",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 10,
+      "pattern_code": "HP",
+      "pattern_name": "Houndstooth Putty",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-10HP-R",
+    "type": "variant",
+    "sku": "TC-10HP-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "HP",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 10,
+      "pattern_code": "HP",
+      "pattern_name": "Houndstooth Putty",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-15HP",
+    "type": "variant",
+    "sku": "TC-15HP",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "HP",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 15,
+      "pattern_code": "HP",
+      "pattern_name": "Houndstooth Putty",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-15HP-R",
+    "type": "variant",
+    "sku": "TC-15HP-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "HP",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 15,
+      "pattern_code": "HP",
+      "pattern_name": "Houndstooth Putty",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-20HP",
+    "type": "variant",
+    "sku": "TC-20HP",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "HP",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 20,
+      "pattern_code": "HP",
+      "pattern_name": "Houndstooth Putty",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-20HP-R",
+    "type": "variant",
+    "sku": "TC-20HP-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "HP",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 20,
+      "pattern_code": "HP",
+      "pattern_name": "Houndstooth Putty",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TV-3HP",
+    "type": "variant",
+    "sku": "TV-3HP",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "HP",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 3,
+      "pattern_code": "HP",
+      "pattern_name": "Houndstooth Putty",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TV-6HP",
+    "type": "variant",
+    "sku": "TV-6HP",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "HP",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 6,
+      "pattern_code": "HP",
+      "pattern_name": "Houndstooth Putty",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TV-10HP",
+    "type": "variant",
+    "sku": "TV-10HP",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "HP",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 10,
+      "pattern_code": "HP",
+      "pattern_name": "Houndstooth Putty",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TV-15HP",
+    "type": "variant",
+    "sku": "TV-15HP",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "HP",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 15,
+      "pattern_code": "HP",
+      "pattern_name": "Houndstooth Putty",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TV-20HP",
+    "type": "variant",
+    "sku": "TV-20HP",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "HP",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 20,
+      "pattern_code": "HP",
+      "pattern_name": "Houndstooth Putty",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TV-25HP",
+    "type": "variant",
+    "sku": "TV-25HP",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "HP",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 25,
+      "pattern_code": "HP",
+      "pattern_name": "Houndstooth Putty",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TC-6-LTD-LISTONS2026",
+    "type": "variant",
+    "sku": "TC-6-LTD-LISTONS2026",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-LISTONS2026",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 6,
+      "slug": "LISTONS2026",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-15-LTD-LISTONS2026",
+    "type": "variant",
+    "sku": "TC-15-LTD-LISTONS2026",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-LISTONS2026",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 15,
+      "slug": "LISTONS2026",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-15-LTD-LISTONS2026-R",
+    "type": "variant",
+    "sku": "TC-15-LTD-LISTONS2026-R",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-LISTONS2026",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 15,
+      "slug": "LISTONS2026",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-1PW",
+    "type": "variant",
+    "sku": "SC-1PW",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "PW",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 1,
+      "pattern_code": "PW",
+      "pattern_name": "Pearl White",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-1PW-R",
+    "type": "variant",
+    "sku": "SC-1PW-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "PW",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 1,
+      "pattern_code": "PW",
+      "pattern_name": "Pearl White",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-3PW",
+    "type": "variant",
+    "sku": "SC-3PW",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "PW",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 3,
+      "pattern_code": "PW",
+      "pattern_name": "Pearl White",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-3PW-R",
+    "type": "variant",
+    "sku": "SC-3PW-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "PW",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 3,
+      "pattern_code": "PW",
+      "pattern_name": "Pearl White",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-6PW",
+    "type": "variant",
+    "sku": "SC-6PW",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "PW",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 6,
+      "pattern_code": "PW",
+      "pattern_name": "Pearl White",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-6PW-R",
+    "type": "variant",
+    "sku": "SC-6PW-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "PW",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 6,
+      "pattern_code": "PW",
+      "pattern_name": "Pearl White",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-12PW",
+    "type": "variant",
+    "sku": "SC-12PW",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "PW",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 12,
+      "pattern_code": "PW",
+      "pattern_name": "Pearl White",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-12PW-R",
+    "type": "variant",
+    "sku": "SC-12PW-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "PW",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 12,
+      "pattern_code": "PW",
+      "pattern_name": "Pearl White",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-20PW",
+    "type": "variant",
+    "sku": "SC-20PW",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "PW",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 20,
+      "pattern_code": "PW",
+      "pattern_name": "Pearl White",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-20PW-R",
+    "type": "variant",
+    "sku": "SC-20PW-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "PW",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 20,
+      "pattern_code": "PW",
+      "pattern_name": "Pearl White",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SV-3PW",
+    "type": "variant",
+    "sku": "SV-3PW",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "PW",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "length": 3,
+      "pattern_code": "PW",
+      "pattern_name": "Pearl White",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: SV-6PW",
+    "type": "variant",
+    "sku": "SV-6PW",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "PW",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "length": 6,
+      "pattern_code": "PW",
+      "pattern_name": "Pearl White",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: SV-20PW",
+    "type": "variant",
+    "sku": "SV-20PW",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "PW",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "length": 20,
+      "pattern_code": "PW",
+      "pattern_name": "Pearl White",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TC-3RS",
+    "type": "variant",
+    "sku": "TC-3RS",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "RS",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 3,
+      "pattern_code": "RS",
+      "pattern_name": "Road Stripe",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-6RS",
+    "type": "variant",
+    "sku": "TC-6RS",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "RS",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 6,
+      "pattern_code": "RS",
+      "pattern_name": "Road Stripe",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-6RS-R",
+    "type": "variant",
+    "sku": "TC-6RS-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "RS",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 6,
+      "pattern_code": "RS",
+      "pattern_name": "Road Stripe",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-10RS",
+    "type": "variant",
+    "sku": "TC-10RS",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "RS",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 10,
+      "pattern_code": "RS",
+      "pattern_name": "Road Stripe",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-10RS-R",
+    "type": "variant",
+    "sku": "TC-10RS-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "RS",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 10,
+      "pattern_code": "RS",
+      "pattern_name": "Road Stripe",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-15RS",
+    "type": "variant",
+    "sku": "TC-15RS",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "RS",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 15,
+      "pattern_code": "RS",
+      "pattern_name": "Road Stripe",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-15RS-R",
+    "type": "variant",
+    "sku": "TC-15RS-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "RS",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 15,
+      "pattern_code": "RS",
+      "pattern_name": "Road Stripe",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-20RS",
+    "type": "variant",
+    "sku": "TC-20RS",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "RS",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 20,
+      "pattern_code": "RS",
+      "pattern_name": "Road Stripe",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-20RS-R",
+    "type": "variant",
+    "sku": "TC-20RS-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "RS",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 20,
+      "pattern_code": "RS",
+      "pattern_name": "Road Stripe",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TV-15RS",
+    "type": "variant",
+    "sku": "TV-15RS",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "RS",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 15,
+      "pattern_code": "RS",
+      "pattern_name": "Road Stripe",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TV-20RS",
+    "type": "variant",
+    "sku": "TV-20RS",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "RS",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 20,
+      "pattern_code": "RS",
+      "pattern_name": "Road Stripe",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: SC-MISC-1",
+    "type": "variant",
+    "sku": "SC-MISC-1",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "SC-MISC-1",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "misc_seq": 1
+    }
+  },
+  {
+    "name": "prod variant: SC-MISC-19",
+    "type": "variant",
+    "sku": "SC-MISC-19",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "SC-MISC-19",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "misc_seq": 19
+    }
+  },
+  {
+    "name": "prod variant: SC-MISC-2",
+    "type": "variant",
+    "sku": "SC-MISC-2",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "SC-MISC-2",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "misc_seq": 2
+    }
+  },
+  {
+    "name": "prod variant: SC-MISC-4",
+    "type": "variant",
+    "sku": "SC-MISC-4",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "SC-MISC-4",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "misc_seq": 4
+    }
+  },
+  {
+    "name": "prod variant: SC-10SL",
+    "type": "variant",
+    "sku": "SC-10SL",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "SL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 10,
+      "pattern_code": "SL",
+      "pattern_name": "Silverline",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-10SL-R",
+    "type": "variant",
+    "sku": "SC-10SL-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "SL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 10,
+      "pattern_code": "SL",
+      "pattern_name": "Silverline",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-12SL",
+    "type": "variant",
+    "sku": "SC-12SL",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "SL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 12,
+      "pattern_code": "SL",
+      "pattern_name": "Silverline",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-12SL-R",
+    "type": "variant",
+    "sku": "SC-12SL-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "SL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 12,
+      "pattern_code": "SL",
+      "pattern_name": "Silverline",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-15SL",
+    "type": "variant",
+    "sku": "SC-15SL",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "SL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 15,
+      "pattern_code": "SL",
+      "pattern_name": "Silverline",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-20SL",
+    "type": "variant",
+    "sku": "SC-20SL",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "SL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 20,
+      "pattern_code": "SL",
+      "pattern_name": "Silverline",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-20SL-R",
+    "type": "variant",
+    "sku": "SC-20SL-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "SL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 20,
+      "pattern_code": "SL",
+      "pattern_name": "Silverline",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SV-20SL",
+    "type": "variant",
+    "sku": "SV-20SL",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "SL",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "length": 20,
+      "pattern_code": "SL",
+      "pattern_name": "Silverline",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: SV-MISC-22",
+    "type": "variant",
+    "sku": "SV-MISC-22",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "SV-MISC-22",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "misc_seq": 22
+    }
+  },
+  {
+    "name": "prod variant: SV-MISC-47",
+    "type": "variant",
+    "sku": "SV-MISC-47",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "SV-MISC-47",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "misc_seq": 47
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-10",
+    "type": "variant",
+    "sku": "TC-MISC-10",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-10",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 10
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-11",
+    "type": "variant",
+    "sku": "TC-MISC-11",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-11",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 11
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-18",
+    "type": "variant",
+    "sku": "TC-MISC-18",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-18",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 18
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-20",
+    "type": "variant",
+    "sku": "TC-MISC-20",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-20",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 20
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-23",
+    "type": "variant",
+    "sku": "TC-MISC-23",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-23",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 23
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-24",
+    "type": "variant",
+    "sku": "TC-MISC-24",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-24",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 24
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-25",
+    "type": "variant",
+    "sku": "TC-MISC-25",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-25",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 25
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-26",
+    "type": "variant",
+    "sku": "TC-MISC-26",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-26",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 26
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-27",
+    "type": "variant",
+    "sku": "TC-MISC-27",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-27",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 27
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-28",
+    "type": "variant",
+    "sku": "TC-MISC-28",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-28",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 28
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-29",
+    "type": "variant",
+    "sku": "TC-MISC-29",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-29",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 29
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-30",
+    "type": "variant",
+    "sku": "TC-MISC-30",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-30",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 30
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-31",
+    "type": "variant",
+    "sku": "TC-MISC-31",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-31",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 31
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-32",
+    "type": "variant",
+    "sku": "TC-MISC-32",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-32",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 32
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-33",
+    "type": "variant",
+    "sku": "TC-MISC-33",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-33",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 33
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-34",
+    "type": "variant",
+    "sku": "TC-MISC-34",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-34",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 34
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-35",
+    "type": "variant",
+    "sku": "TC-MISC-35",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-35",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 35
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-36",
+    "type": "variant",
+    "sku": "TC-MISC-36",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-36",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 36
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-37",
+    "type": "variant",
+    "sku": "TC-MISC-37",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-37",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 37
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-38",
+    "type": "variant",
+    "sku": "TC-MISC-38",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-38",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 38
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-39",
+    "type": "variant",
+    "sku": "TC-MISC-39",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-39",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 39
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-41",
+    "type": "variant",
+    "sku": "TC-MISC-41",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-41",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 41
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-42",
+    "type": "variant",
+    "sku": "TC-MISC-42",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-42",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 42
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-45",
+    "type": "variant",
+    "sku": "TC-MISC-45",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-45",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 45
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-46",
+    "type": "variant",
+    "sku": "TC-MISC-46",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-46",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 46
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-48",
+    "type": "variant",
+    "sku": "TC-MISC-48",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-48",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 48
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-49",
+    "type": "variant",
+    "sku": "TC-MISC-49",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-49",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 49
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-5",
+    "type": "variant",
+    "sku": "TC-MISC-5",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-5",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 5
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-50",
+    "type": "variant",
+    "sku": "TC-MISC-50",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-50",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 50
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-6",
+    "type": "variant",
+    "sku": "TC-MISC-6",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-6",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 6
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-7",
+    "type": "variant",
+    "sku": "TC-MISC-7",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-7",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 7
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-8",
+    "type": "variant",
+    "sku": "TC-MISC-8",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-8",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 8
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-9",
+    "type": "variant",
+    "sku": "TC-MISC-9",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-9",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 9
+    }
+  },
+  {
+    "name": "prod variant: TV-MISC-12",
+    "type": "variant",
+    "sku": "TV-MISC-12",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TV-MISC-12",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 12
+    }
+  },
+  {
+    "name": "prod variant: TV-MISC-13",
+    "type": "variant",
+    "sku": "TV-MISC-13",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TV-MISC-13",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 13
+    }
+  },
+  {
+    "name": "prod variant: TV-MISC-14",
+    "type": "variant",
+    "sku": "TV-MISC-14",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TV-MISC-14",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 14
+    }
+  },
+  {
+    "name": "prod variant: TV-MISC-15",
+    "type": "variant",
+    "sku": "TV-MISC-15",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TV-MISC-15",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 15
+    }
+  },
+  {
+    "name": "prod variant: TV-MISC-16",
+    "type": "variant",
+    "sku": "TV-MISC-16",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TV-MISC-16",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 16
+    }
+  },
+  {
+    "name": "prod variant: TV-MISC-17",
+    "type": "variant",
+    "sku": "TV-MISC-17",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TV-MISC-17",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 17
+    }
+  },
+  {
+    "name": "prod variant: TV-MISC-40",
+    "type": "variant",
+    "sku": "TV-MISC-40",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TV-MISC-40",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 40
+    }
+  },
+  {
+    "name": "prod variant: TV-MISC-43",
+    "type": "variant",
+    "sku": "TV-MISC-43",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TV-MISC-43",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 43
+    }
+  },
+  {
+    "name": "prod round-trip: TC-3BU",
+    "type": "round_trip",
+    "sku": "TC-3BU"
+  },
+  {
+    "name": "prod round-trip: TC-3BU-R",
+    "type": "round_trip",
+    "sku": "TC-3BU-R"
+  },
+  {
+    "name": "prod round-trip: TC-6BU",
+    "type": "round_trip",
+    "sku": "TC-6BU"
+  },
+  {
+    "name": "prod round-trip: TC-6BU-R",
+    "type": "round_trip",
+    "sku": "TC-6BU-R"
+  },
+  {
+    "name": "prod round-trip: TC-10BU",
+    "type": "round_trip",
+    "sku": "TC-10BU"
+  },
+  {
+    "name": "prod round-trip: TC-10BU-R",
+    "type": "round_trip",
+    "sku": "TC-10BU-R"
+  },
+  {
+    "name": "prod round-trip: TC-15BU",
+    "type": "round_trip",
+    "sku": "TC-15BU"
+  },
+  {
+    "name": "prod round-trip: TC-20BU",
+    "type": "round_trip",
+    "sku": "TC-20BU"
+  },
+  {
+    "name": "prod round-trip: TC-20BU-R",
+    "type": "round_trip",
+    "sku": "TC-20BU-R"
+  },
+  {
+    "name": "prod round-trip: TV-3BU",
+    "type": "round_trip",
+    "sku": "TV-3BU"
+  },
+  {
+    "name": "prod round-trip: TV-10BU",
+    "type": "round_trip",
+    "sku": "TV-10BU"
+  },
+  {
+    "name": "prod round-trip: TV-20BU",
+    "type": "round_trip",
+    "sku": "TV-20BU"
+  },
+  {
+    "name": "prod round-trip: TC-6EH",
+    "type": "round_trip",
+    "sku": "TC-6EH"
+  },
+  {
+    "name": "prod round-trip: TC-10EH",
+    "type": "round_trip",
+    "sku": "TC-10EH"
+  },
+  {
+    "name": "prod round-trip: TC-10EH-R",
+    "type": "round_trip",
+    "sku": "TC-10EH-R"
+  },
+  {
+    "name": "prod round-trip: TC-20EH",
+    "type": "round_trip",
+    "sku": "TC-20EH"
+  },
+  {
+    "name": "prod round-trip: TC-20EH-R",
+    "type": "round_trip",
+    "sku": "TC-20EH-R"
+  },
+  {
+    "name": "prod round-trip: TV-20EH",
+    "type": "round_trip",
+    "sku": "TV-20EH"
+  },
+  {
+    "name": "prod round-trip: TV-25EH",
+    "type": "round_trip",
+    "sku": "TV-25EH"
+  },
+  {
+    "name": "prod round-trip: SC-1GL",
+    "type": "round_trip",
+    "sku": "SC-1GL"
+  },
+  {
+    "name": "prod round-trip: SC-1GL-R",
+    "type": "round_trip",
+    "sku": "SC-1GL-R"
+  },
+  {
+    "name": "prod round-trip: SC-3GL",
+    "type": "round_trip",
+    "sku": "SC-3GL"
+  },
+  {
+    "name": "prod round-trip: SC-3GL-R",
+    "type": "round_trip",
+    "sku": "SC-3GL-R"
+  },
+  {
+    "name": "prod round-trip: SC-6GL",
+    "type": "round_trip",
+    "sku": "SC-6GL"
+  },
+  {
+    "name": "prod round-trip: SC-6GL-R",
+    "type": "round_trip",
+    "sku": "SC-6GL-R"
+  },
+  {
+    "name": "prod round-trip: SC-10GL",
+    "type": "round_trip",
+    "sku": "SC-10GL"
+  },
+  {
+    "name": "prod round-trip: SC-12GL",
+    "type": "round_trip",
+    "sku": "SC-12GL"
+  },
+  {
+    "name": "prod round-trip: SC-12GL-R",
+    "type": "round_trip",
+    "sku": "SC-12GL-R"
+  },
+  {
+    "name": "prod round-trip: SC-20GL",
+    "type": "round_trip",
+    "sku": "SC-20GL"
+  },
+  {
+    "name": "prod round-trip: SC-20GL-R",
+    "type": "round_trip",
+    "sku": "SC-20GL-R"
+  },
+  {
+    "name": "prod round-trip: SV-3GL",
+    "type": "round_trip",
+    "sku": "SV-3GL"
+  },
+  {
+    "name": "prod round-trip: SV-6GL",
+    "type": "round_trip",
+    "sku": "SV-6GL"
+  },
+  {
+    "name": "prod round-trip: SV-10GL",
+    "type": "round_trip",
+    "sku": "SV-10GL"
+  },
+  {
+    "name": "prod round-trip: SV-20GL",
+    "type": "round_trip",
+    "sku": "SV-20GL"
+  },
+  {
+    "name": "prod round-trip: TC-3HP-R",
+    "type": "round_trip",
+    "sku": "TC-3HP-R"
+  },
+  {
+    "name": "prod round-trip: TC-6HP",
+    "type": "round_trip",
+    "sku": "TC-6HP"
+  },
+  {
+    "name": "prod round-trip: TC-10HP",
+    "type": "round_trip",
+    "sku": "TC-10HP"
+  },
+  {
+    "name": "prod round-trip: TC-10HP-R",
+    "type": "round_trip",
+    "sku": "TC-10HP-R"
+  },
+  {
+    "name": "prod round-trip: TC-15HP",
+    "type": "round_trip",
+    "sku": "TC-15HP"
+  },
+  {
+    "name": "prod round-trip: TC-15HP-R",
+    "type": "round_trip",
+    "sku": "TC-15HP-R"
+  },
+  {
+    "name": "prod round-trip: TC-20HP",
+    "type": "round_trip",
+    "sku": "TC-20HP"
+  },
+  {
+    "name": "prod round-trip: TC-20HP-R",
+    "type": "round_trip",
+    "sku": "TC-20HP-R"
+  },
+  {
+    "name": "prod round-trip: TV-3HP",
+    "type": "round_trip",
+    "sku": "TV-3HP"
+  },
+  {
+    "name": "prod round-trip: TV-6HP",
+    "type": "round_trip",
+    "sku": "TV-6HP"
+  },
+  {
+    "name": "prod round-trip: TV-10HP",
+    "type": "round_trip",
+    "sku": "TV-10HP"
+  },
+  {
+    "name": "prod round-trip: TV-15HP",
+    "type": "round_trip",
+    "sku": "TV-15HP"
+  },
+  {
+    "name": "prod round-trip: TV-20HP",
+    "type": "round_trip",
+    "sku": "TV-20HP"
+  },
+  {
+    "name": "prod round-trip: TV-25HP",
+    "type": "round_trip",
+    "sku": "TV-25HP"
+  },
+  {
+    "name": "prod round-trip: TC-6-LTD-LISTONS2026",
+    "type": "round_trip",
+    "sku": "TC-6-LTD-LISTONS2026"
+  },
+  {
+    "name": "prod round-trip: TC-15-LTD-LISTONS2026",
+    "type": "round_trip",
+    "sku": "TC-15-LTD-LISTONS2026"
+  },
+  {
+    "name": "prod round-trip: TC-15-LTD-LISTONS2026-R",
+    "type": "round_trip",
+    "sku": "TC-15-LTD-LISTONS2026-R"
+  },
+  {
+    "name": "prod round-trip: SC-1PW",
+    "type": "round_trip",
+    "sku": "SC-1PW"
+  },
+  {
+    "name": "prod round-trip: SC-1PW-R",
+    "type": "round_trip",
+    "sku": "SC-1PW-R"
+  },
+  {
+    "name": "prod round-trip: SC-3PW",
+    "type": "round_trip",
+    "sku": "SC-3PW"
+  },
+  {
+    "name": "prod round-trip: SC-3PW-R",
+    "type": "round_trip",
+    "sku": "SC-3PW-R"
+  },
+  {
+    "name": "prod round-trip: SC-6PW",
+    "type": "round_trip",
+    "sku": "SC-6PW"
+  },
+  {
+    "name": "prod round-trip: SC-6PW-R",
+    "type": "round_trip",
+    "sku": "SC-6PW-R"
+  },
+  {
+    "name": "prod round-trip: SC-12PW",
+    "type": "round_trip",
+    "sku": "SC-12PW"
+  },
+  {
+    "name": "prod round-trip: SC-12PW-R",
+    "type": "round_trip",
+    "sku": "SC-12PW-R"
+  },
+  {
+    "name": "prod round-trip: SC-20PW",
+    "type": "round_trip",
+    "sku": "SC-20PW"
+  },
+  {
+    "name": "prod round-trip: SC-20PW-R",
+    "type": "round_trip",
+    "sku": "SC-20PW-R"
+  },
+  {
+    "name": "prod round-trip: SV-3PW",
+    "type": "round_trip",
+    "sku": "SV-3PW"
+  },
+  {
+    "name": "prod round-trip: SV-6PW",
+    "type": "round_trip",
+    "sku": "SV-6PW"
+  },
+  {
+    "name": "prod round-trip: SV-20PW",
+    "type": "round_trip",
+    "sku": "SV-20PW"
+  },
+  {
+    "name": "prod round-trip: TC-3RS",
+    "type": "round_trip",
+    "sku": "TC-3RS"
+  },
+  {
+    "name": "prod round-trip: TC-6RS",
+    "type": "round_trip",
+    "sku": "TC-6RS"
+  },
+  {
+    "name": "prod round-trip: TC-6RS-R",
+    "type": "round_trip",
+    "sku": "TC-6RS-R"
+  },
+  {
+    "name": "prod round-trip: TC-10RS",
+    "type": "round_trip",
+    "sku": "TC-10RS"
+  },
+  {
+    "name": "prod round-trip: TC-10RS-R",
+    "type": "round_trip",
+    "sku": "TC-10RS-R"
+  },
+  {
+    "name": "prod round-trip: TC-15RS",
+    "type": "round_trip",
+    "sku": "TC-15RS"
+  },
+  {
+    "name": "prod round-trip: TC-15RS-R",
+    "type": "round_trip",
+    "sku": "TC-15RS-R"
+  },
+  {
+    "name": "prod round-trip: TC-20RS",
+    "type": "round_trip",
+    "sku": "TC-20RS"
+  },
+  {
+    "name": "prod round-trip: TC-20RS-R",
+    "type": "round_trip",
+    "sku": "TC-20RS-R"
+  },
+  {
+    "name": "prod round-trip: TV-15RS",
+    "type": "round_trip",
+    "sku": "TV-15RS"
+  },
+  {
+    "name": "prod round-trip: TV-20RS",
+    "type": "round_trip",
+    "sku": "TV-20RS"
+  },
+  {
+    "name": "prod round-trip: SC-MISC-1",
+    "type": "round_trip",
+    "sku": "SC-MISC-1"
+  },
+  {
+    "name": "prod round-trip: SC-MISC-19",
+    "type": "round_trip",
+    "sku": "SC-MISC-19"
+  },
+  {
+    "name": "prod round-trip: SC-MISC-2",
+    "type": "round_trip",
+    "sku": "SC-MISC-2"
+  },
+  {
+    "name": "prod round-trip: SC-MISC-4",
+    "type": "round_trip",
+    "sku": "SC-MISC-4"
+  },
+  {
+    "name": "prod round-trip: SC-10SL",
+    "type": "round_trip",
+    "sku": "SC-10SL"
+  },
+  {
+    "name": "prod round-trip: SC-10SL-R",
+    "type": "round_trip",
+    "sku": "SC-10SL-R"
+  },
+  {
+    "name": "prod round-trip: SC-12SL",
+    "type": "round_trip",
+    "sku": "SC-12SL"
+  },
+  {
+    "name": "prod round-trip: SC-12SL-R",
+    "type": "round_trip",
+    "sku": "SC-12SL-R"
+  },
+  {
+    "name": "prod round-trip: SC-15SL",
+    "type": "round_trip",
+    "sku": "SC-15SL"
+  },
+  {
+    "name": "prod round-trip: SC-20SL",
+    "type": "round_trip",
+    "sku": "SC-20SL"
+  },
+  {
+    "name": "prod round-trip: SC-20SL-R",
+    "type": "round_trip",
+    "sku": "SC-20SL-R"
+  },
+  {
+    "name": "prod round-trip: SV-20SL",
+    "type": "round_trip",
+    "sku": "SV-20SL"
+  },
+  {
+    "name": "prod round-trip: SV-MISC-22",
+    "type": "round_trip",
+    "sku": "SV-MISC-22"
+  },
+  {
+    "name": "prod round-trip: SV-MISC-47",
+    "type": "round_trip",
+    "sku": "SV-MISC-47"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-10",
+    "type": "round_trip",
+    "sku": "TC-MISC-10"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-11",
+    "type": "round_trip",
+    "sku": "TC-MISC-11"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-18",
+    "type": "round_trip",
+    "sku": "TC-MISC-18"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-20",
+    "type": "round_trip",
+    "sku": "TC-MISC-20"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-23",
+    "type": "round_trip",
+    "sku": "TC-MISC-23"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-24",
+    "type": "round_trip",
+    "sku": "TC-MISC-24"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-25",
+    "type": "round_trip",
+    "sku": "TC-MISC-25"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-26",
+    "type": "round_trip",
+    "sku": "TC-MISC-26"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-27",
+    "type": "round_trip",
+    "sku": "TC-MISC-27"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-28",
+    "type": "round_trip",
+    "sku": "TC-MISC-28"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-29",
+    "type": "round_trip",
+    "sku": "TC-MISC-29"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-30",
+    "type": "round_trip",
+    "sku": "TC-MISC-30"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-31",
+    "type": "round_trip",
+    "sku": "TC-MISC-31"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-32",
+    "type": "round_trip",
+    "sku": "TC-MISC-32"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-33",
+    "type": "round_trip",
+    "sku": "TC-MISC-33"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-34",
+    "type": "round_trip",
+    "sku": "TC-MISC-34"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-35",
+    "type": "round_trip",
+    "sku": "TC-MISC-35"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-36",
+    "type": "round_trip",
+    "sku": "TC-MISC-36"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-37",
+    "type": "round_trip",
+    "sku": "TC-MISC-37"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-38",
+    "type": "round_trip",
+    "sku": "TC-MISC-38"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-39",
+    "type": "round_trip",
+    "sku": "TC-MISC-39"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-41",
+    "type": "round_trip",
+    "sku": "TC-MISC-41"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-42",
+    "type": "round_trip",
+    "sku": "TC-MISC-42"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-45",
+    "type": "round_trip",
+    "sku": "TC-MISC-45"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-46",
+    "type": "round_trip",
+    "sku": "TC-MISC-46"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-48",
+    "type": "round_trip",
+    "sku": "TC-MISC-48"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-49",
+    "type": "round_trip",
+    "sku": "TC-MISC-49"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-5",
+    "type": "round_trip",
+    "sku": "TC-MISC-5"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-50",
+    "type": "round_trip",
+    "sku": "TC-MISC-50"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-6",
+    "type": "round_trip",
+    "sku": "TC-MISC-6"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-7",
+    "type": "round_trip",
+    "sku": "TC-MISC-7"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-8",
+    "type": "round_trip",
+    "sku": "TC-MISC-8"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-9",
+    "type": "round_trip",
+    "sku": "TC-MISC-9"
+  },
+  {
+    "name": "prod round-trip: TV-MISC-12",
+    "type": "round_trip",
+    "sku": "TV-MISC-12"
+  },
+  {
+    "name": "prod round-trip: TV-MISC-13",
+    "type": "round_trip",
+    "sku": "TV-MISC-13"
+  },
+  {
+    "name": "prod round-trip: TV-MISC-14",
+    "type": "round_trip",
+    "sku": "TV-MISC-14"
+  },
+  {
+    "name": "prod round-trip: TV-MISC-15",
+    "type": "round_trip",
+    "sku": "TV-MISC-15"
+  },
+  {
+    "name": "prod round-trip: TV-MISC-16",
+    "type": "round_trip",
+    "sku": "TV-MISC-16"
+  },
+  {
+    "name": "prod round-trip: TV-MISC-17",
+    "type": "round_trip",
+    "sku": "TV-MISC-17"
+  },
+  {
+    "name": "prod round-trip: TV-MISC-40",
+    "type": "round_trip",
+    "sku": "TV-MISC-40"
+  },
+  {
+    "name": "prod round-trip: TV-MISC-43",
+    "type": "round_trip",
+    "sku": "TV-MISC-43"
+  }
+]

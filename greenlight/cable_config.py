@@ -5,21 +5,26 @@ helpers to resolve series, patterns, and SKU structure. Mirrors the JS
 resolver in shopify_app/app/cable-config.server.js — both are kept honest
 by tests/sku_fixtures.json.
 
-SKU model (Phase 4):
+SKU model (Phase 5):
 
-  - sku_group: 'SC-SL', 'SC-MISC-42', 'SC-LTD-PHISH26'.
-    What the sku_group table stores and what audio_cables.sku_group references.
-    parse_group_sku() takes one of these.
+  - sku_group identifier: what `sku_group.sku` stores and what
+    `audio_cables.sku_group` references. Series prefix lives on
+    audio_cables.prefix, not in the group SKU (except for MISC groups,
+    which stay series-scoped).
+      catalog: 'GL', 'SL', 'BU', ... (just the pattern code)
+      ltd:     'LTD-PHISH26' (series-agnostic — LTD editions span series)
+      misc:    'SC-MISC-42' (still series-scoped)
 
-  - variant SKU: 'SC-12SL', 'SC-12SL-R', 'SC-MISC-42', 'SC-LTD-PHISH26'.
-    The user-facing string Shopify sees in product variants and order line
-    items. For catalog cables it embeds length and connector; for MISC/LTD
-    it equals the group SKU. parse_variant_sku() takes one of these.
-    format_variant_sku() builds one from (sku_group, length, connector_code).
+  - variant SKU: the user-facing string Shopify sees in product variants
+    and order line items. Always series-specific and fully qualified for
+    catalog and LTD (length and connector embedded):
+      catalog: 'SC-12GL', 'SC-12GL-R'
+      ltd:     'SC-12-LTD-PHISH26', 'SC-12-LTD-PHISH26-R'
+      misc:    'SC-MISC-42' (== group SKU)
 
 This module is read-only on the YAML and does NOT touch the database.
 
-See docs/CABLE_VARIANTS_REFACTOR.md § Phase 4 for design rationale.
+See docs/CABLE_VARIANTS_REFACTOR.md § Phase 5 for design rationale.
 """
 
 import logging
@@ -34,13 +39,18 @@ logger = logging.getLogger(__name__)
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _PRODUCT_LINES_DIR = _REPO_ROOT / "util" / "product_lines"
 
-# Group SKU regexes
+# Group SKU regexes (Phase 5)
 _RE_GROUP_MISC = re.compile(r'^([A-Z]{2,3})-MISC-(\d+)$')
-_RE_GROUP_LTD = re.compile(r'^([A-Z]{2,3})-LTD-([A-Z0-9]{4,12})$')
-_RE_GROUP_CATALOG = re.compile(r'^([A-Z]{2,3})-([A-Z]{2,3})$')
+_RE_GROUP_LTD = re.compile(r'^LTD-([A-Z0-9]{4,24})$')
+_RE_GROUP_CATALOG = re.compile(r'^([A-Z]{2,3})$')
 
-# Variant SKU regex (catalog only — MISC/LTD variants equal their group SKU)
+# Variant SKU regexes (variants are series-specific and fully qualified —
+# they carry length and connector code per-cable for both catalog AND LTD).
+#   catalog: '{prefix}-{length}{pattern}{?-R}' — 'SC-12GL', 'SC-12GL-R'
+#   ltd:     '{prefix}-{length}-LTD-{slug}{?-R}' — 'SC-12-LTD-PHISH26-R'
+#   misc:    '{prefix}-MISC-{seq}' — equals the group SKU, untouched
 _RE_VARIANT_CATALOG = re.compile(r'^([A-Z]{2,3})-(\d+)([A-Z]{2,3})(-R)?$')
+_RE_VARIANT_LTD = re.compile(r'^([A-Z]{2,3})-(\d+)-LTD-([A-Z0-9]{4,24})(-R)?$')
 
 
 def _load_patterns():
@@ -80,7 +90,7 @@ def series_for_prefix(prefix: str) -> Optional[str]:
 
 
 def series_data_for_prefix(prefix: str) -> Optional[dict]:
-    """Return the full series YAML dict for a prefix, or None if unknown."""
+    """Return the full series YAML dict for a prefix, or None."""
     return _SERIES.get(prefix)
 
 
@@ -100,12 +110,7 @@ def prefix_for_series(series_name: str) -> Optional[str]:
 
 
 def connector_display_for(series_prefix: str, connector_code: str) -> Optional[str]:
-    """Look up the connector display string for a series + code, or None.
-
-    Useful for callers that have a (sku_group, connector_code) pair and want
-    the display string — including MISC/LTD cables where the connector code
-    isn't encoded in the variant SKU.
-    """
+    """Look up the connector display string for (series_prefix, connector_code)."""
     s = _SERIES.get(series_prefix)
     if not s:
         return None
@@ -115,20 +120,17 @@ def connector_display_for(series_prefix: str, connector_code: str) -> Optional[s
     return None
 
 
-# Internal alias retained for parse_variant_sku.
-_connector_display = connector_display_for
-
-
 def parse_group_sku(sku: str) -> dict:
-    """Parse a sku_group identifier into structural components + YAML lookups.
+    """Parse a sku_group identifier.
 
-    Returns dict with at least 'kind'. For parseable group SKUs:
-      - 'catalog': prefix, series, pattern_code, pattern_name
+    Group SKUs are series-agnostic for catalog and LTD (Phase 5). Per-kind
+    return shape:
+      - 'catalog': pattern_code, pattern_name
       - 'misc':    prefix, series, misc_seq
-      - 'ltd':     prefix, series, slug
+      - 'ltd':     slug
 
-    Unknown prefix or pattern code yields a parsed result with the unknown
-    field's resolved name None. Truly malformed inputs return {'kind': None}.
+    Unknown pattern code yields kind='catalog' with pattern_name=None. Truly
+    malformed inputs return {'kind': None}.
     """
     if not sku or not isinstance(sku, str):
         return {'kind': None}
@@ -145,22 +147,14 @@ def parse_group_sku(sku: str) -> dict:
 
     m = _RE_GROUP_LTD.match(sku)
     if m:
-        prefix, slug = m.group(1), m.group(2)
-        return {
-            'kind': 'ltd',
-            'prefix': prefix,
-            'series': series_for_prefix(prefix),
-            'slug': slug,
-        }
+        return {'kind': 'ltd', 'slug': m.group(1)}
 
     m = _RE_GROUP_CATALOG.match(sku)
     if m:
-        prefix, pattern_code = m.group(1), m.group(2)
+        pattern_code = m.group(1)
         pattern = pattern_for_code(pattern_code)
         return {
             'kind': 'catalog',
-            'prefix': prefix,
-            'series': series_for_prefix(prefix),
             'pattern_code': pattern_code,
             'pattern_name': pattern.get('name') if pattern else None,
         }
@@ -169,12 +163,14 @@ def parse_group_sku(sku: str) -> dict:
 
 
 def parse_variant_sku(sku: str) -> dict:
-    """Parse a variant SKU string into structural components.
+    """Parse a user-facing variant SKU string.
 
-    Catalog variants ('SC-12SL', 'SC-12SL-R') decompose into group_sku, length,
-    pattern_code, connector_code. MISC and LTD variant strings equal their
-    group SKU; this function recognises them and returns kind+group_sku, with
-    length/connector fields absent.
+    Variant SKUs are always series-specific. Returns group_sku derived from
+    the variant. Per-kind result shape:
+      - 'catalog': group_sku ('GL'), prefix, series, length, pattern_code,
+                   pattern_name, connector_code, connector_display
+      - 'misc':    group_sku (== sku), prefix, series, misc_seq
+      - 'ltd':     group_sku ('LTD-{slug}'), prefix, series, slug
 
     Returns {'kind': None} on malformed input.
     """
@@ -192,15 +188,21 @@ def parse_variant_sku(sku: str) -> dict:
             'misc_seq': int(m.group(2)),
         }
 
-    m = _RE_GROUP_LTD.match(sku)
+    m = _RE_VARIANT_LTD.match(sku)
     if m:
-        prefix, slug = m.group(1), m.group(2)
+        prefix = m.group(1)
+        length = int(m.group(2))
+        slug = m.group(3)
+        connector_code = m.group(4) or ''
         return {
             'kind': 'ltd',
-            'group_sku': sku,
+            'group_sku': f"LTD-{slug}",
             'prefix': prefix,
             'series': series_for_prefix(prefix),
+            'length': length,
             'slug': slug,
+            'connector_code': connector_code,
+            'connector_display': connector_display_for(prefix, connector_code),
         }
 
     m = _RE_VARIANT_CATALOG.match(sku)
@@ -212,44 +214,55 @@ def parse_variant_sku(sku: str) -> dict:
         pattern = pattern_for_code(pattern_code)
         return {
             'kind': 'catalog',
-            'group_sku': f"{prefix}-{pattern_code}",
+            'group_sku': pattern_code,
             'prefix': prefix,
             'series': series_for_prefix(prefix),
             'length': length,
             'pattern_code': pattern_code,
             'pattern_name': pattern.get('name') if pattern else None,
             'connector_code': connector_code,
-            'connector_display': _connector_display(prefix, connector_code),
+            'connector_display': connector_display_for(prefix, connector_code),
         }
 
     return {'kind': None}
 
 
-def format_variant_sku(group_sku=None, length=None, connector_code=None) -> Optional[str]:
-    """Build a user-facing variant SKU string from a sku_group + per-cable attrs.
+def format_variant_sku(group_sku=None, prefix=None, length=None, connector_code=None) -> Optional[str]:
+    """Build a user-facing variant SKU from a group_sku + per-cable attrs.
 
-    For catalog groups: '{prefix}-{length}{pattern_code}{connector_code}'.
-    For MISC/LTD groups: returns the group SKU verbatim (length/connector_code
-    are properties of the cable but don't appear in the SKU string).
+    Catalog: '{prefix}-{length}{pattern_code}{connector_code}' — needs prefix
+      from audio_cables since the catalog group SKU doesn't carry it.
+    LTD:     '{prefix}-{length}-LTD-{slug}{connector_code}' — fully qualified
+      per-cable so a right-angle 12ft Studio Classic in the PHISH26 edition
+      reads as 'SC-12-LTD-PHISH26-R'. Group SKU stays edition-only.
+    MISC:    returns group_sku verbatim (which still includes the prefix).
 
-    Returns None if the group_sku doesn't parse.
+    Returns None if inputs are invalid.
     """
     parsed = parse_group_sku(group_sku)
     kind = parsed.get('kind')
     if kind is None:
         return None
-    if kind in ('misc', 'ltd'):
+
+    if kind == 'misc':
         return group_sku
-    # catalog: need length + pattern_code
-    if length is None:
+
+    def _length_str(val):
+        if isinstance(val, float) and val.is_integer():
+            return str(int(val))
+        return str(val)
+
+    if kind == 'ltd':
+        if not prefix or length is None:
+            return None
+        cc = connector_code or ''
+        return f"{prefix}-{_length_str(length)}-LTD-{parsed['slug']}{cc}"
+
+    # catalog
+    if not prefix or length is None:
         return None
     cc = connector_code or ''
-    # length comes through as int (parsed) or float (Decimal-coerced); cast cleanly.
-    if isinstance(length, float) and length.is_integer():
-        length_str = str(int(length))
-    else:
-        length_str = str(length)
-    return f"{parsed['prefix']}-{length_str}{parsed['pattern_code']}{cc}"
+    return f"{prefix}-{_length_str(length)}{parsed['pattern_code']}{cc}"
 
 
 def all_prefixes() -> list:
