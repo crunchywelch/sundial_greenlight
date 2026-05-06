@@ -20,21 +20,23 @@ def test_complete_misc_flow():
     print("Testing Complete MISC Cable Flow")
     print("=" * 70)
 
-    # Step 1: Resolve a MISC variant SKU
-    print(f"\n1. Resolving MISC variant SKU for prefix {test_series_prefix}")
+    # Step 1: Resolve a MISC sku_group
+    print(f"\n1. Resolving MISC sku_group for prefix {test_series_prefix}")
     print("-" * 70)
-    misc_sku = get_or_create_misc_sku(test_series_prefix, test_description, test_length)
+    misc_sku = get_or_create_misc_sku(test_series_prefix, test_description)
     if not misc_sku:
-        print("   ❌ Failed to resolve MISC SKU")
+        print("   ❌ Failed to resolve MISC sku_group")
         return False
-    print(f"   ✅ Variant SKU: {misc_sku}")
+    print(f"   ✅ sku_group: {misc_sku}")
 
-    # Step 2: Register cable
-    print(f"\n2. Registering cable {test_serial} as {misc_sku}")
+    # Step 2: Register cable with per-cable length and connector
+    print(f"\n2. Registering cable {test_serial} as {misc_sku} ({test_length}ft)")
     print("-" * 70)
     result = register_scanned_cable(
         serial_number=test_serial,
-        cable_sku=misc_sku,
+        sku_group=misc_sku,
+        length=test_length,
+        connector_code='',
         operator=test_operator,
         update_if_exists=True,
     )

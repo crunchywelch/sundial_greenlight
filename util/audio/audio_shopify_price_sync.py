@@ -86,49 +86,60 @@ def build_yaml_sku_map(product_lines_dir):
 
 
 def build_special_baby_sku_map(product_lines_dir):
-    """Build shopify_sku -> {price, cost, weight} for MISC variants.
+    """Build variant_sku -> {price, cost, weight} for MISC cables.
 
-    Reads MISC variants directly from cable_skus and interpolates cost/weight
-    from the matching product line YAML based on length.
+    Phase 4: length lives on audio_cables (not on the sku_group). This walks
+    audio_cables for MISC cables, computes the variant SKU via format_variant_sku
+    (which equals the group SKU for MISC), and interpolates cost/weight per
+    cable length. Multiple cables in the same MISC group with different
+    lengths each get their own per-length pricing — but since variant SKUs
+    are just the group SKU for MISC, the last write wins. In practice, MISC
+    pricing is per-edition; if the same group has cables of multiple lengths,
+    the operator should resolve manually.
     """
+    from greenlight.cable_config import format_variant_sku
+
     product_lines = load_product_lines(product_lines_dir)
 
-    # Index product lines by sku_prefix
     pl_by_prefix = {}
     for pl in product_lines:
         pl_by_prefix[pl['sku_prefix']] = pl
 
-    # Get all MISC variants from cable_skus
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT sku, length
-                FROM cable_skus
-                WHERE sku ~ '-MISC-[0-9]+$'
-                  AND length IS NOT NULL
+                SELECT DISTINCT ac.sku_group, ac.length, ac.connector_code
+                FROM audio_cables ac
+                WHERE ac.sku_group ~ '-MISC-[0-9]+$'
             """)
             rows = cur.fetchall()
     finally:
         pg_pool.putconn(conn)
 
     sku_map = {}
-    for sku, length_text in rows:
+    for sku_group, length_decimal, connector_code in rows:
         try:
-            length = float(length_text)
+            length = float(length_decimal)
         except (TypeError, ValueError):
             continue
 
-        # Derive prefix from sku (e.g. "SC-MISC-42" -> "SC")
-        prefix = sku.split('-')[0]
+        prefix = sku_group.split('-')[0]
         pl = pl_by_prefix.get(prefix)
         if not pl:
+            continue
+
+        length_for_format = int(length) if length.is_integer() else length
+        variant_sku = format_variant_sku(
+            group_sku=sku_group, length=length_for_format, connector_code=connector_code,
+        )
+        if not variant_sku:
             continue
 
         cost = interpolate_cost(pl.get('cost', {}), length)
         weight = interpolate_cost(pl.get('weight', {}), length)
 
-        sku_map[sku] = {
+        sku_map[variant_sku] = {
             'price': float(SPECIAL_BABY_PRICE),
             'cost': cost,
             'weight': weight,

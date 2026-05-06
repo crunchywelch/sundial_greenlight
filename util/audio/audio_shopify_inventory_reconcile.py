@@ -27,23 +27,35 @@ from greenlight.db import get_audio_cable
 
 
 def get_postgres_available_counts():
-    """Get count of available (passed + unassigned) cables per SKU.
+    """Get count of available (passed + unassigned) cables per variant SKU.
 
-    Returns:
-        dict mapping SKU -> count of available cables
+    Phase 4: groups by (sku_group, length, connector_code) since variants
+    are derived. Returns dict keyed by computed variant_sku → count.
     """
+    from greenlight.cable_config import format_variant_sku
+
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT ac.sku, COUNT(*)
+                SELECT ac.sku_group, ac.length, ac.connector_code, COUNT(*)
                 FROM audio_cables ac
                 WHERE ac.test_passed = TRUE
                   AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
-                GROUP BY ac.sku
-                ORDER BY ac.sku
+                GROUP BY ac.sku_group, ac.length, ac.connector_code
+                ORDER BY ac.sku_group, ac.length, ac.connector_code
             """)
-            return {row[0]: row[1] for row in cur.fetchall()}
+            counts = {}
+            for sku_group, length, connector_code, count in cur.fetchall():
+                length_val = float(length) if length is not None else None
+                if length_val is not None and length_val.is_integer():
+                    length_val = int(length_val)
+                variant_sku = format_variant_sku(
+                    group_sku=sku_group, length=length_val, connector_code=connector_code,
+                )
+                if variant_sku:
+                    counts[variant_sku] = count
+            return counts
     finally:
         pg_pool.putconn(conn)
 

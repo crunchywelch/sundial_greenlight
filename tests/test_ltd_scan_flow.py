@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Test LTD scan flow: insert an LTD edition (cable_skus + cable_ltd_metadata),
-register a cable, verify get_audio_cable surfaces event_name, and confirm
+"""Test LTD scan flow (Phase 4): insert an LTD edition into sku_group, register
+a cable against it with length+connector_code on audio_cables, verify
+get_audio_cable surfaces description (event_name equivalent), and confirm
 sku_kind / list_ltd_editions work as expected.
 
-This script directly writes to cable_ltd_metadata to simulate what the
-Shopify app's CRUD UI will do — useful before that UI is built.
+Phase 4 model:
+  - LTD edition is just a sku_group row (sku, description, archived_at).
+    cable_ltd_metadata is gone — description carries event_name.
+  - Each cable carries its own length + connector_code on audio_cables.
 """
 
 import sys
@@ -19,39 +22,30 @@ from greenlight.db import (
 TEST_PREFIX = "SC"
 TEST_SLUG = "TESTPHISH"
 TEST_SKU = f"{TEST_PREFIX}-LTD-{TEST_SLUG}"
-TEST_EVENT_NAME = "Phish Summer Tour Test 2026"
-TEST_LENGTH = 10  # cable_skus.length is now NUMERIC(5,2)
-TEST_DESCRIPTION = "10ft cotton TRS-TRS, custom forest green braid"
+TEST_DESCRIPTION = "Phish Summer Tour Test 2026"
 TEST_OPERATOR = "ADW"
 TEST_SERIAL = "TESTLTD1"
+TEST_LENGTH = 10.0
+TEST_CONNECTOR_CODE = ""  # straight
 
 
 def insert_ltd_edition_directly():
-    """Simulate what the Shopify app's CRUD UI does: insert cable_skus row + sidecar.
+    """Simulate what the Shopify app's CRUD UI does: insert a sku_group row.
 
-    Post-Phase-3.5, cable_skus is just (sku, description, length); series and
-    construction fields come from the YAML resolver at read time. The
-    cable_ltd_metadata sidecar carries event_name and lifecycle state.
+    Phase 4: a single row in sku_group with (sku, description) is the entire
+    LTD edition. Length and connector_code live on audio_cables per-cable.
     """
     conn = pg_pool.getconn()
     try:
         with conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    INSERT INTO cable_skus (sku, description, length)
-                    VALUES (%s, %s, %s)
+                    INSERT INTO sku_group (sku, description)
+                    VALUES (%s, %s)
                     ON CONFLICT (sku) DO UPDATE
                     SET description = EXCLUDED.description,
-                        length = EXCLUDED.length
-                """, (TEST_SKU, TEST_DESCRIPTION, TEST_LENGTH))
-
-                cur.execute("""
-                    INSERT INTO cable_ltd_metadata (sku, event_name, created_by)
-                    VALUES (%s, %s, %s)
-                    ON CONFLICT (sku) DO UPDATE
-                    SET event_name = EXCLUDED.event_name,
                         archived_at = NULL
-                """, (TEST_SKU, TEST_EVENT_NAME, TEST_OPERATOR))
+                """, (TEST_SKU, TEST_DESCRIPTION))
             conn.commit()
     finally:
         pg_pool.putconn(conn)
@@ -59,7 +53,7 @@ def insert_ltd_edition_directly():
 
 def test_ltd_scan_flow():
     print("=" * 70)
-    print("Testing LTD Scan Flow")
+    print("Testing LTD Scan Flow (Phase 4)")
     print("=" * 70)
 
     # Step 1: sku_kind classification
@@ -75,51 +69,52 @@ def test_ltd_scan_flow():
     print("-" * 70)
     try:
         insert_ltd_edition_directly()
-        print(f"   ✅ Inserted edition with event '{TEST_EVENT_NAME}'")
+        print(f"   ✅ Inserted edition with description '{TEST_DESCRIPTION}'")
     except Exception as e:
         print(f"   ❌ Insert failed: {e}")
         return False
 
     # Step 3: list_ltd_editions returns it
-    print(f"\n3. list_ltd_editions() includes the new edition")
+    print("\n3. list_ltd_editions() includes the new edition")
     print("-" * 70)
     editions = list_ltd_editions(active_only=True)
-    found = next((e for e in editions if e['sku'] == TEST_SKU), None)
+    found = next((e for e in editions if e['sku_group'] == TEST_SKU), None)
     if not found:
         print(f"   ❌ {TEST_SKU} not in active editions list")
         return False
-    print(f"   ✅ Found: {found['slug']} — {found['event_name']} ({found['cable_count']} cables)")
+    print(f"   ✅ Found: {found['slug']} — {found['description']} ({found['cable_count']} cables)")
 
-    # series_prefix filter
     sc_editions = list_ltd_editions(active_only=True, series_prefix='SC')
-    if not any(e['sku'] == TEST_SKU for e in sc_editions):
-        print(f"   ❌ series_prefix='SC' filter excluded our SC-prefixed edition")
+    if not any(e['sku_group'] == TEST_SKU for e in sc_editions):
+        print("   ❌ series_prefix='SC' filter excluded our SC-prefixed edition")
         return False
     tc_editions = list_ltd_editions(active_only=True, series_prefix='TC')
-    if any(e['sku'] == TEST_SKU for e in tc_editions):
-        print(f"   ❌ series_prefix='TC' filter incorrectly included our SC edition")
+    if any(e['sku_group'] == TEST_SKU for e in tc_editions):
+        print("   ❌ series_prefix='TC' filter incorrectly included our SC edition")
         return False
-    print(f"   ✅ series_prefix filter excludes/includes correctly")
+    print("   ✅ series_prefix filter excludes/includes correctly")
 
     # Step 4: get_ltd_edition single-record fetch
     print(f"\n4. get_ltd_edition({TEST_SKU})")
     print("-" * 70)
     detail = get_ltd_edition(TEST_SKU)
     if not detail:
-        print(f"   ❌ get_ltd_edition returned None")
+        print("   ❌ get_ltd_edition returned None")
         return False
-    if detail['event_name'] != TEST_EVENT_NAME:
-        print(f"   ❌ event_name mismatch: got {detail['event_name']!r}")
+    if detail['description'] != TEST_DESCRIPTION:
+        print(f"   ❌ description mismatch: got {detail['description']!r}")
         return False
-    print(f"   ✅ Fetched: slug={detail['slug']}, event={detail['event_name']}, "
+    print(f"   ✅ Fetched: slug={detail['slug']}, description={detail['description']}, "
           f"active={detail['active']}, cable_count={detail['cable_count']}")
 
-    # Step 5: register a cable against the LTD SKU
-    print(f"\n5. Registering cable {TEST_SERIAL} as {TEST_SKU}")
+    # Step 5: register a cable with per-cable length + connector
+    print(f"\n5. Registering cable {TEST_SERIAL} as {TEST_SKU} ({TEST_LENGTH}ft, straight)")
     print("-" * 70)
     result = register_scanned_cable(
         serial_number=TEST_SERIAL,
-        cable_sku=TEST_SKU,
+        sku_group=TEST_SKU,
+        length=TEST_LENGTH,
+        connector_code=TEST_CONNECTOR_CODE,
         operator=TEST_OPERATOR,
         update_if_exists=True,
     )
@@ -128,22 +123,28 @@ def test_ltd_scan_flow():
         return False
     print(f"   ✅ Registered: {result['serial_number']}")
 
-    # Step 6: get_audio_cable surfaces event_name from sidecar
-    print(f"\n6. get_audio_cable returns event_name")
+    # Step 6: get_audio_cable returns full enriched record
+    print("\n6. get_audio_cable returns the new cable with description and length")
     print("-" * 70)
     cable = get_audio_cable(result['serial_number'])
     if not cable:
-        print(f"   ❌ Failed to retrieve cable")
+        print("   ❌ Failed to retrieve cable")
         return False
-    if cable.get('event_name') != TEST_EVENT_NAME:
-        print(f"   ❌ event_name mismatch: got {cable.get('event_name')!r}")
+    if cable.get('description') != TEST_DESCRIPTION:
+        print(f"   ❌ description mismatch: got {cable.get('description')!r}")
         return False
-    print(f"   ✅ Cable record includes event_name: {cable['event_name']!r}")
-    print(f"      sku={cable['sku']}, length={cable['length']} ft")
-    print(f"      description={cable.get('description')!r}")
+    if cable.get('length') != TEST_LENGTH:
+        print(f"   ❌ length mismatch: got {cable.get('length')!r}")
+        return False
+    if cable.get('sku_group') != TEST_SKU:
+        print(f"   ❌ sku_group mismatch: got {cable.get('sku_group')!r}")
+        return False
+    print(f"   ✅ Cable record: sku_group={cable['sku_group']}, length={cable['length']}, "
+          f"connector_code={cable['connector_code']!r}")
+    print(f"      description={cable['description']!r}")
 
     # Step 7: cable count incremented
-    print(f"\n7. Cable count on edition incremented")
+    print("\n7. Cable count on edition incremented")
     print("-" * 70)
     detail2 = get_ltd_edition(TEST_SKU)
     if detail2['cable_count'] < 1:
@@ -158,12 +159,12 @@ def test_ltd_scan_flow():
 
 
 def cleanup_test_data():
-    """Remove test cable + LTD edition (cascades from cable_skus delete)."""
+    """Remove the test cable + LTD edition."""
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM audio_cables WHERE serial_number LIKE 'TESTLTD%'")
-            cur.execute("DELETE FROM cable_skus WHERE sku = %s", (TEST_SKU,))
+            cur.execute("DELETE FROM sku_group WHERE sku = %s", (TEST_SKU,))
             conn.commit()
             print("\n🧹 Cleaned up test data")
     except Exception as e:

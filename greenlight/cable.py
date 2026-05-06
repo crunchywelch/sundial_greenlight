@@ -12,11 +12,11 @@ from greenlight.cable_config import (
 
 
 def get_all_skus():
-    """Fetch all SKUs from the database"""
+    """Fetch all sku_group SKUs from the database."""
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT DISTINCT sku FROM cable_skus ORDER BY sku")
+            cur.execute("SELECT DISTINCT sku FROM sku_group ORDER BY sku")
             return [row[0] for row in cur.fetchall()]
     except Exception as e:
         print(f"Error fetching SKUs: {e}")

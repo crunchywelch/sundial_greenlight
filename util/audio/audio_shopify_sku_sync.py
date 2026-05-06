@@ -46,22 +46,46 @@ def get_database_skus() -> Dict[str, Dict[str, str]]:
             }
         }
     """
-    from greenlight.db import _enrich_record
+    from greenlight.cable_config import (
+        format_variant_sku, parse_variant_sku, series_data_for_prefix,
+    )
 
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
+            # Phase 4: walk distinct (sku_group, length, connector_code) tuples
+            # from audio_cables — each represents a variant Shopify needs to know
+            # about. Plus pull description from sku_group for display.
             cur.execute("""
-                SELECT sku, length, description FROM cable_skus ORDER BY sku
+                SELECT DISTINCT ac.sku_group, ac.length, ac.connector_code, sg.description
+                FROM audio_cables ac
+                JOIN sku_group sg ON ac.sku_group = sg.sku
+                ORDER BY ac.sku_group, ac.length, ac.connector_code
             """)
 
             sku_map = {}
-            for sku, length, description in cur.fetchall():
-                sku_map[sku] = _enrich_record({
-                    'sku': sku,
-                    'length': length,
+            for sku_group, length, connector_code, description in cur.fetchall():
+                length_val = float(length) if length is not None else None
+                if length_val is not None and length_val.is_integer():
+                    length_val = int(length_val)
+                variant_sku = format_variant_sku(
+                    group_sku=sku_group, length=length_val, connector_code=connector_code,
+                )
+                if not variant_sku:
+                    continue
+                parsed = parse_variant_sku(variant_sku) or {}
+                series_data = series_data_for_prefix(parsed.get('prefix'))
+                sku_map[variant_sku] = {
+                    'sku': variant_sku,
+                    'sku_group': sku_group,
+                    'series': parsed.get('series'),
+                    'length': length_val,
+                    'pattern_name': parsed.get('pattern_name'),
+                    'connector_display': parsed.get('connector_display'),
+                    'core_cable': series_data.get('core_cable') if series_data else None,
+                    'braid_material': series_data.get('braid_material') if series_data else None,
                     'description': description,
-                })
+                }
             return sku_map
     except Exception as e:
         print(f"❌ Error fetching database SKUs: {e}")
@@ -137,8 +161,8 @@ def main():
                 print(f"   {series} ({len(skus)} SKUs):")
                 for sku_data in sorted(skus, key=lambda x: x['sku'])[:20]:
                     length = sku_data.get('length') or '?'
-                    color = sku_data.get('color_pattern') or sku_data.get('description') or '—'
-                    connector = sku_data.get('connector_type') or '—'
+                    color = sku_data.get('pattern_name') or sku_data.get('description') or '—'
+                    connector = sku_data.get('connector_display') or '—'
                     print(f"      {sku_data['sku']:20} | {str(length):>4}ft | {color:15} | {connector}")
 
                 if len(skus) > 20:

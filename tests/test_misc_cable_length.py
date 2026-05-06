@@ -21,22 +21,24 @@ def test_misc_cable_length():
     print("Testing MISC Cable Length Storage")
     print("=" * 60)
 
-    # Resolve a MISC variant SKU (creates a new cable_skus row if needed)
-    print(f"\n1. Resolving MISC variant SKU for prefix {test_series_prefix}")
-    print(f"   Length: {test_length} ft")
+    # Resolve a MISC sku_group (creates a new sku_group row if needed). Phase 4:
+    # length is per-cable, no longer part of group identity.
+    print(f"\n1. Resolving MISC sku_group for prefix {test_series_prefix}")
     print(f"   Description: {test_description}")
-    misc_sku = get_or_create_misc_sku(test_series_prefix, test_description, test_length)
+    misc_sku = get_or_create_misc_sku(test_series_prefix, test_description)
     if not misc_sku:
-        print("   ❌ Failed to resolve MISC SKU")
+        print("   ❌ Failed to resolve MISC sku_group")
         return False
-    print(f"   ✅ Variant SKU: {misc_sku}")
+    print(f"   ✅ sku_group: {misc_sku}")
     assert sku_kind(misc_sku) == 'misc', f"sku_kind misclassified {misc_sku}"
 
-    # Register a cable against the variant SKU
-    print(f"\n2. Registering cable {test_serial} as {misc_sku}")
+    # Register a cable against the sku_group with per-cable length
+    print(f"\n2. Registering cable {test_serial} as {misc_sku} ({test_length}ft)")
     result = register_scanned_cable(
         serial_number=test_serial,
-        cable_sku=misc_sku,
+        sku_group=misc_sku,
+        length=test_length,
+        connector_code='',
         operator=test_operator,
         update_if_exists=True,
     )

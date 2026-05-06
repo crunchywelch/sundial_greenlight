@@ -1,38 +1,48 @@
--- Greenlight Database Schema
+-- Greenlight Database Schema (Phase 4)
 -- Complete schema definition for audio cable QC and inventory management
 
 -- ============================================================================
 -- TABLES
 -- ============================================================================
 
--- Cable SKUs table - all cable variants (catalog, MISC, LTD).
--- Stores only the irreducible per-SKU state. Series, construction fields,
--- color/pattern, and connector type are derived from the SKU + YAML config
--- (util/product_lines/*.yaml) at read time. See greenlight/cable_config.py
--- and shopify_app/app/cable-config.server.js for the resolver.
+-- sku_group — the kind-of-cable identity table.
+-- One row per group. Group SKU patterns:
+--   catalog: '{prefix}-{pattern_code}'      (e.g. 'SC-GL', 'TC-HP')
+--   misc:    '{prefix}-MISC-{seq}'          (e.g. 'SC-MISC-42')
+--   ltd:     '{prefix}-LTD-{slug}'          (e.g. 'TC-LTD-PHISH26')
 --
--- length is NULL for catalog SKUs (where the length token lives in the SKU
--- string itself, e.g. "SC-12GL" → 12ft) and required for MISC/LTD variants
--- (where the SKU does not encode length). The CHECK constraint enforces
--- this structurally.
+-- Series, construction (core_cable, braid_material), connector options, and
+-- pattern names are derived from the SKU + the YAML config under
+-- util/product_lines/. See greenlight/cable_config.py and
+-- shopify_app/app/cable-config.server.js for the resolver.
 --
--- See docs/CABLE_VARIANTS_REFACTOR.md for the full design rationale.
-CREATE TABLE IF NOT EXISTS cable_skus (
+-- description carries:
+--   catalog: pattern name (e.g. "Goldline") — auto-seeded on first registration
+--   misc:    operator-supplied description ("dark putty houndstooth, gold connectors")
+--   ltd:     event_name + optional notes ("Phish Summer Tour 2026")
+-- archived_at IS NULL for active groups; soft-delete for retired LTD editions
+-- and (eventually) retired catalog patterns.
+--
+-- See docs/CABLE_VARIANTS_REFACTOR.md § Phase 4 for design rationale.
+CREATE TABLE IF NOT EXISTS sku_group (
     sku TEXT PRIMARY KEY,
     description TEXT,
-    length NUMERIC(5,2),
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT length_required_for_variants CHECK (
-        length IS NOT NULL
-        OR NOT (sku ~ '-(MISC-[0-9]+|LTD-[A-Z0-9]{4,12})$')
-    )
+    archived_at TIMESTAMPTZ
 );
 
--- Audio cables table - Production records
+-- Partial index for active LTD lookups (matches the `list_ltd_editions`
+-- predicate `archived_at IS NULL AND sku ~ '-LTD-...'`).
+CREATE INDEX IF NOT EXISTS idx_active_ltd ON sku_group(archived_at)
+    WHERE archived_at IS NULL AND sku ~ '-LTD-[A-Z0-9]{4,12}$';
+
+-- audio_cables — production records, one row per physical cable.
+-- length and connector_code are per-cable: the same sku_group can hold
+-- cables of different lengths (especially for MISC/LTD groups).
 CREATE TABLE IF NOT EXISTS audio_cables (
     serial_number TEXT PRIMARY KEY,
-    sku TEXT NOT NULL,
+    sku_group TEXT NOT NULL,
+    length NUMERIC(5,2) NOT NULL,
+    connector_code TEXT NOT NULL,
     operator TEXT,
     arduino_unit_id INTEGER,
     notes TEXT,
@@ -46,31 +56,15 @@ CREATE TABLE IF NOT EXISTS audio_cables (
     resistance_adc_p3 INTEGER,
     calibration_adc_p3 INTEGER,
     shopify_order_gid TEXT,
-    FOREIGN KEY (sku) REFERENCES cable_skus(sku)
+    FOREIGN KEY (sku_group) REFERENCES sku_group(sku)
 );
 
 CREATE INDEX IF NOT EXISTS idx_audio_cables_order_gid ON audio_cables(shopify_order_gid);
-
--- LTD (Limited Edition) cable metadata sidecar.
--- One row per LTD edition cable_skus row (sku pattern: {prefix}-LTD-{slug}).
--- CRUD lives in the Shopify app; greenlight is read-only on this table.
--- archived_at IS NULL means the edition is active.
-CREATE TABLE IF NOT EXISTS cable_ltd_metadata (
-    sku TEXT PRIMARY KEY REFERENCES cable_skus(sku) ON DELETE CASCADE,
-    event_name TEXT NOT NULL,
-    archived_at TIMESTAMPTZ,
-    created_by TEXT,
-    notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_ltd_metadata_active
-    ON cable_ltd_metadata(archived_at) WHERE archived_at IS NULL;
 
 -- ============================================================================
 -- SEQUENCES
 -- ============================================================================
 
 -- Generates the {seq} portion of MISC variant SKUs ({prefix}-MISC-{seq}).
--- See greenlight.db.get_or_create_misc_sku for usage.
+-- See greenlight.db.get_or_create_misc_sku.
 CREATE SEQUENCE IF NOT EXISTS cable_misc_variant_seq;
