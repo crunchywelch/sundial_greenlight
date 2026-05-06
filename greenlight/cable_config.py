@@ -99,8 +99,13 @@ def prefix_for_series(series_name: str) -> Optional[str]:
     return None
 
 
-def _connector_display(series_prefix: str, connector_code: str) -> Optional[str]:
-    """Look up the connector display string for a series + code, or None."""
+def connector_display_for(series_prefix: str, connector_code: str) -> Optional[str]:
+    """Look up the connector display string for a series + code, or None.
+
+    Useful for callers that have a (sku_group, connector_code) pair and want
+    the display string — including MISC/LTD cables where the connector code
+    isn't encoded in the variant SKU.
+    """
     s = _SERIES.get(series_prefix)
     if not s:
         return None
@@ -108,6 +113,10 @@ def _connector_display(series_prefix: str, connector_code: str) -> Optional[str]
         if (conn.get('code') or '') == connector_code:
             return conn.get('display')
     return None
+
+
+# Internal alias retained for parse_variant_sku.
+_connector_display = connector_display_for
 
 
 def parse_group_sku(sku: str) -> dict:
