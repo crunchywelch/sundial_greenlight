@@ -222,11 +222,19 @@ function OrderFulfillmentBlock() {
     return () => clearInterval(interval);
   }, [lastTimestamp, orderId, assignCable, isReadOnly]);
 
-  // Calculate progress per SKU
+  // Calculate progress per SKU and collect the cables matching each line.
   const skuProgress = lineItems.map((li) => {
-    const scanned = assignedCables.filter((c) => c.sku === li.sku).length;
-    return { ...li, scanned };
+    const matchingCables = assignedCables.filter((c) => c.sku === li.sku);
+    return { ...li, scanned: matchingCables.length, cables: matchingCables };
   });
+
+  // Cables whose current variant SKU doesn't match any line item (e.g. a
+  // cable reclassified after fulfillment so the cable's derived SKU drifted
+  // from the stored line item SKU). Surface them so they're not invisible.
+  const matchedSkus = new Set(lineItems.map((li) => li.sku).filter(Boolean));
+  const unmatchedCables = assignedCables.filter(
+    (c) => !c.sku || !matchedSkus.has(c.sku)
+  );
 
   const totalNeeded = lineItems.reduce((sum, li) => sum + li.quantity, 0);
   const totalScanned = assignedCables.length;
@@ -269,31 +277,60 @@ function OrderFulfillmentBlock() {
 
         <Divider />
 
-        {/* Per-SKU progress */}
+        {/* Line items: in read-only mode, each line shows its assigned
+            serials inline (collapses the redundant Scanned Cables panel).
+            In active fulfillment mode, line items show counts only and the
+            scanned cables get their own panel below for per-cable Remove. */}
         <Text fontWeight="bold">Line Items</Text>
         {skuProgress.map((item, index) => (
-          <InlineStack key={index} gap="base" blockAlignment="center">
-            <Box inlineSize="fill">
-              <Text>
-                {item.title}{item.sku ? ` (${item.sku})` : ""}
-              </Text>
-            </Box>
-            <Badge
-              tone={
-                item.scanned >= item.quantity
-                  ? "success"
-                  : item.scanned > 0
-                  ? "warning"
-                  : "subdued"
-              }
-            >
-              {item.scanned}/{item.quantity}
-            </Badge>
-          </InlineStack>
+          <BlockStack key={index} gap="extraTight">
+            <InlineStack gap="base" blockAlignment="center">
+              <Box inlineSize="fill">
+                <Text>
+                  {item.title}{item.sku ? ` (${item.sku})` : ""}
+                </Text>
+              </Box>
+              <Badge
+                tone={
+                  item.scanned >= item.quantity
+                    ? "success"
+                    : item.scanned > 0
+                    ? "warning"
+                    : "subdued"
+                }
+              >
+                {item.scanned}/{item.quantity}
+              </Badge>
+            </InlineStack>
+            {isReadOnly && item.cables.length > 0 && (
+              <Box paddingInlineStart="large">
+                <Text tone="subdued">
+                  {item.cables.map((c) => `#${c.serial_number}`).join(", ")}
+                </Text>
+              </Box>
+            )}
+          </BlockStack>
         ))}
 
-        {/* Scanned cables list */}
-        {assignedCables.length > 0 && (
+        {/* Cables whose current variant SKU doesn't match any line item
+            (typically: cable reclassified after fulfillment). Surfaced in
+            both modes so they're not invisible. */}
+        {isReadOnly && unmatchedCables.length > 0 && (
+          <>
+            <Divider />
+            <Text fontWeight="bold">Other scanned cables</Text>
+            {unmatchedCables.map((cable) => (
+              <Text key={cable.serial_number} tone="subdued">
+                #{cable.serial_number}{cable.sku ? ` (${cable.sku})` : ""}
+              </Text>
+            ))}
+          </>
+        )}
+
+        {/* Active-fulfillment scanned cables panel: per-cable list with
+            Remove buttons. Hidden in read-only mode (line items panel
+            above covers the same data). */}
+        {!isReadOnly && assignedCables.length > 0 && (
           <>
             <Divider />
             <InlineStack gap="base" blockAlignment="center">
@@ -302,7 +339,7 @@ function OrderFulfillmentBlock() {
                   Scanned Cables ({assignedCables.length})
                 </Text>
               </Box>
-              {!isReadOnly && assignedCables.length > 5 && (
+              {assignedCables.length > 5 && (
                 <Button
                   kind="plain"
                   onPress={() => setShowAllScanned(!showAllScanned)}
@@ -311,47 +348,28 @@ function OrderFulfillmentBlock() {
                 </Button>
               )}
             </InlineStack>
-            {isReadOnly ? (
-              // Read-only: grouped by SKU, one line per group
-              Object.entries(
-                assignedCables.reduce((acc, c) => {
-                  const key = c.sku || "(no sku)";
-                  if (!acc[key]) acc[key] = [];
-                  acc[key].push(c);
-                  return acc;
-                }, {})
-              ).map(([sku, cables]) => (
-                <Text key={sku}>
-                  <Text fontWeight="bold">{sku}</Text>
-                  {` (${cables.length}): `}
-                  {cables.map((c) => `#${c.serial_number}`).join(", ")}
-                </Text>
-              ))
-            ) : (
-              // Active: last 5 (or all if expanded), with Remove buttons
-              (showAllScanned ? assignedCables : assignedCables.slice(0, 5)).map((cable) => (
-                <InlineStack
-                  key={cable.serial_number}
-                  gap="base"
-                  blockAlignment="center"
+            {(showAllScanned ? assignedCables : assignedCables.slice(0, 5)).map((cable) => (
+              <InlineStack
+                key={cable.serial_number}
+                gap="base"
+                blockAlignment="center"
+              >
+                <Box inlineSize="fill">
+                  <Text>
+                    <Text fontWeight="bold">#{cable.serial_number}</Text>
+                    {" - "}
+                    {cable.series || ""}{cable.color ? ` ${cable.color}` : ""}{cable.sku ? ` (${cable.sku})` : ""}
+                  </Text>
+                </Box>
+                <Button
+                  kind="plain"
+                  tone="critical"
+                  onPress={() => unassignCable(cable.serial_number)}
                 >
-                  <Box inlineSize="fill">
-                    <Text>
-                      <Text fontWeight="bold">#{cable.serial_number}</Text>
-                      {" - "}
-                      {cable.series || ""}{cable.color ? ` ${cable.color}` : ""}{cable.sku ? ` (${cable.sku})` : ""}
-                    </Text>
-                  </Box>
-                  <Button
-                    kind="plain"
-                    tone="critical"
-                    onPress={() => unassignCable(cable.serial_number)}
-                  >
-                    Remove
-                  </Button>
-                </InlineStack>
-              ))
-            )}
+                  Remove
+                </Button>
+              </InlineStack>
+            ))}
           </>
         )}
       </BlockStack>
