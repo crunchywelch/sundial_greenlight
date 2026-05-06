@@ -277,17 +277,28 @@ function OrderFulfillmentBlock() {
 
         <Divider />
 
-        {/* Line items: in read-only mode, each line shows its assigned
-            serials inline (collapses the redundant Scanned Cables panel).
-            In active fulfillment mode, line items show counts only and the
-            scanned cables get their own panel below for per-cable Remove. */}
+        {/* Line items. Read-only collapses each line to a single row:
+            serials first (the operator's primary lookup key), then the
+            title/SKU, then the scanned/qty badge. Active fulfillment shows
+            per-line counts only — the scanned cables get their own panel
+            below where per-cable Remove buttons live. */}
         <Text fontWeight="bold">Line Items</Text>
-        {skuProgress.map((item, index) => (
-          <BlockStack key={index} gap="extraTight">
-            <InlineStack gap="base" blockAlignment="center">
+        {skuProgress.map((item, index) => {
+          const serials = item.cables.map((c) => `#${c.serial_number}`).join(", ");
+          const titleAndSku = `${item.title}${item.sku ? ` (${item.sku})` : ""}`;
+          return (
+            <InlineStack key={index} gap="base" blockAlignment="center">
               <Box inlineSize="fill">
                 <Text>
-                  {item.title}{item.sku ? ` (${item.sku})` : ""}
+                  {isReadOnly && serials && (
+                    <>
+                      <Text fontWeight="bold">{serials}</Text>
+                      {" — "}
+                    </>
+                  )}
+                  <Text tone={isReadOnly && serials ? "subdued" : undefined}>
+                    {titleAndSku}
+                  </Text>
                 </Text>
               </Box>
               <Badge
@@ -302,26 +313,19 @@ function OrderFulfillmentBlock() {
                 {item.scanned}/{item.quantity}
               </Badge>
             </InlineStack>
-            {isReadOnly && item.cables.length > 0 && (
-              <Box paddingInlineStart="large">
-                <Text tone="subdued">
-                  {item.cables.map((c) => `#${c.serial_number}`).join(", ")}
-                </Text>
-              </Box>
-            )}
-          </BlockStack>
-        ))}
+          );
+        })}
 
         {/* Cables whose current variant SKU doesn't match any line item
-            (typically: cable reclassified after fulfillment). Surfaced in
-            both modes so they're not invisible. */}
+            (typically: cable reclassified after fulfillment). One line each. */}
         {isReadOnly && unmatchedCables.length > 0 && (
           <>
             <Divider />
             <Text fontWeight="bold">Other scanned cables</Text>
             {unmatchedCables.map((cable) => (
-              <Text key={cable.serial_number} tone="subdued">
-                #{cable.serial_number}{cable.sku ? ` (${cable.sku})` : ""}
+              <Text key={cable.serial_number}>
+                <Text fontWeight="bold">#{cable.serial_number}</Text>
+                {cable.sku ? <Text tone="subdued">{` — ${cable.sku}`}</Text> : null}
               </Text>
             ))}
           </>

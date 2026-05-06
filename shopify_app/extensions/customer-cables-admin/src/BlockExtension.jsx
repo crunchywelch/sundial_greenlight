@@ -6,7 +6,6 @@ import {
   BlockStack,
   Text,
   Box,
-  Divider,
   Badge,
   InlineStack,
   Link,
@@ -14,18 +13,6 @@ import {
 
 const TARGET = "admin.customer-details.block.render";
 const MAX_DISPLAY = 3;
-
-// Get length from data or derive from SKU (e.g., SC-12PW -> 12)
-function getCableLength(cable) {
-  if (cable.length) return `${cable.length}'`;
-
-  // Parse length from SKU - number after first dash (skip MISC variants like SC-MISC-42)
-  if (cable.sku && !/-MISC-\d+$/.test(cable.sku)) {
-    const match = cable.sku.match(/-(\d+)/);
-    if (match) return `${match[1]}'`;
-  }
-  return null;
-}
 
 export default reactExtension(TARGET, () => <CustomerCablesBlock />);
 
@@ -99,45 +86,27 @@ function CustomerCablesBlock() {
 
   return (
     <AdminBlock title={`Cables (${cables.length})`}>
-      <BlockStack gap="base">
-        {displayCables.map((cable, index) => {
-          const length = getCableLength(cable);
-          const desc = [length, cable.color, cable.series].filter(Boolean).join(" ")
-            + (cable.sku?.endsWith("-R") ? ", right angle" : "");
-          const testedDate = cable.test_date
-            ? `Tested: ${new Date(cable.test_date).toLocaleDateString()}`
-            : "Not tested";
-
-          return (
-            <Box key={cable.serial_number}>
-              {index > 0 && <Divider />}
-              <BlockStack gap="extraTight" paddingBlock="base">
-                <InlineStack gap="base" blockAlignment="center">
-                  <Text>
-                    <Text fontWeight="bold">#{cable.serial_number}</Text>
-                    {cable.sku ? ` (${cable.sku})` : ""}
-                  </Text>
-                  {cable.test_date ? (
-                    <Badge tone="success">Tested {new Date(cable.test_date).toLocaleDateString()}</Badge>
-                  ) : (
-                    <Badge tone="warning">Not Tested</Badge>
-                  )}
-                </InlineStack>
-                {desc && (
-                  <Text tone="subdued" size="small">{desc}</Text>
-                )}
-              </BlockStack>
+      <BlockStack gap="extraTight">
+        {displayCables.map((cable) => (
+          <InlineStack key={cable.serial_number} gap="base" blockAlignment="center">
+            <Box inlineSize="fill">
+              <Text>
+                <Text fontWeight="bold">#{cable.serial_number}</Text>
+                {cable.sku ? <Text tone="subdued">{` — ${cable.sku}`}</Text> : null}
+              </Text>
             </Box>
-          );
-        })}
+            {cable.test_date ? (
+              <Badge tone="success">{`Tested ${new Date(cable.test_date).toLocaleDateString()}`}</Badge>
+            ) : (
+              <Badge tone="warning">Not Tested</Badge>
+            )}
+          </InlineStack>
+        ))}
 
         {hasMore && (
-          <>
-            <Divider />
-            <Link href={`shopify:admin/apps/greenlight-2/app/customer/${numericId}/cables`}>
-              View all {cables.length} cables →
-            </Link>
-          </>
+          <Link href={`shopify:admin/apps/greenlight-2/app/customer/${numericId}/cables`}>
+            View all {cables.length} cables →
+          </Link>
         )}
       </BlockStack>
     </AdminBlock>
