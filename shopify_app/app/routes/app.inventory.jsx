@@ -112,9 +112,20 @@ export async function action({ request }) {
         cursor = products.pageInfo.endCursor;
       }
 
-      const allSkus = new Set([...Object.keys(totalInventory), ...Object.keys(dbInventory), ...Object.keys(shopifyInventory)]);
+      // Defensive merge filter: LTD shouldn't appear in inventory at all.
+      // The DB queries already filter LTD out; this catches LTD-shaped
+      // Shopify variants (e.g., a leftover product from earlier testing)
+      // that'd otherwise sneak in via shopifyInventory.
+      const isLtdSku = (s) => /(^|-)LTD-/.test(s);
+
+      const allSkus = new Set([
+        ...Object.keys(totalInventory),
+        ...Object.keys(dbInventory),
+        ...Object.keys(shopifyInventory),
+      ]);
       const inventory = [];
       for (const sku of allSkus) {
+        if (isLtdSku(sku)) continue;
         const totalCount = totalInventory[sku] || 0;
         const dbCount = dbInventory[sku] || 0;
         const shopifyData = shopifyInventory[sku] || { quantity: 0, productTitle: null, variantTitle: null, productNumericId: null };
