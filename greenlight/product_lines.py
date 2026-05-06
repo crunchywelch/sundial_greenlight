@@ -23,7 +23,14 @@ LOW_STOCK_THRESHOLD = 2
 def load_yaml_skus():
     """Load all defined SKUs from YAML product line files.
 
-    Returns dict: sku_prefix -> {name, lengths, connectors, patterns, pricing, cost}
+    Post-2026-05-06 layout:
+      cable_lines.yaml         — runtime: sku_prefix, product_line, lengths,
+                                 connectors, braid_material
+      patterns.yaml            — runtime: pattern catalog
+      back_office/pricing.yaml — back-office: cost + pricing per series
+      back_office/weights.yaml — back-office: per-length finished weights
+
+    Returns dict: sku_prefix -> {name, lengths, connectors, patterns, pricing, cost, weight}
     """
     patterns_path = PRODUCT_LINES_DIR / "patterns.yaml"
     with open(patterns_path) as f:
@@ -33,25 +40,41 @@ def load_yaml_skus():
     for p in patterns_data["patterns"]:
         patterns_by_fabric[p["fabric_type"].lower()].append(p)
 
-    lines = {}
-    for yaml_file in sorted(PRODUCT_LINES_DIR.glob("*.yaml")):
-        if yaml_file.name in ("patterns.yaml", "materials.yaml"):
-            continue
-        with open(yaml_file) as f:
-            data = yaml.safe_load(f)
+    cable_lines_path = PRODUCT_LINES_DIR / "cable_lines.yaml"
+    with open(cable_lines_path) as f:
+        cable_lines_data = yaml.safe_load(f) or {}
 
-        prefix = data["sku_prefix"]
+    pricing_path = PRODUCT_LINES_DIR / "back_office" / "pricing.yaml"
+    pricing_by_prefix = {}
+    if pricing_path.exists():
+        with open(pricing_path) as f:
+            pricing_data = yaml.safe_load(f) or {}
+        pricing_by_prefix = pricing_data.get("series", {}) or {}
+
+    weights_path = PRODUCT_LINES_DIR / "back_office" / "weights.yaml"
+    weights_by_prefix = {}
+    if weights_path.exists():
+        with open(weights_path) as f:
+            weights_data = yaml.safe_load(f) or {}
+        weights_by_prefix = weights_data.get("series", {}) or {}
+
+    lines = {}
+    for data in cable_lines_data.get("series", []):
+        prefix = data.get("sku_prefix")
+        if not prefix:
+            continue
         fabric = data.get("braid_material", "").lower()
         line_patterns = patterns_by_fabric.get(fabric, [])
 
+        back_office = pricing_by_prefix.get(prefix, {}) or {}
         lines[prefix] = {
             "name": data["product_line"],
             "lengths": data["lengths"],
             "connectors": data.get("connectors", [{"code": "", "display": ""}]),
             "patterns": line_patterns,
-            "pricing": data.get("pricing", {}),
-            "cost": data.get("cost", {}),
-            "weight": data.get("weight", {}),
+            "pricing": back_office.get("pricing", {}) or {},
+            "cost": back_office.get("cost", {}) or {},
+            "weight": weights_by_prefix.get(prefix, {}) or {},
         }
     return lines
 

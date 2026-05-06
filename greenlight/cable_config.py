@@ -61,21 +61,24 @@ def _load_patterns():
 
 
 def _load_series():
-    series_files = ['studio_classic.yaml', 'studio_vocal.yaml',
-                    'tour_classic.yaml', 'tour_vocal.yaml']
+    """Load every series spec from cable_lines.yaml, keyed by sku_prefix.
+
+    Single-file layout (post-2026-05-06 reorg): cable_lines.yaml has a top-
+    level `series:` list of dicts, each with sku_prefix / product_line /
+    core_cable / braid_material / lengths / connectors. Cost / pricing /
+    weight tables now live under back_office/ and are NOT loaded here —
+    they're back-office data, read only by util/audio scripts.
+    """
+    path = _PRODUCT_LINES_DIR / "cable_lines.yaml"
+    with open(path) as f:
+        data = yaml.safe_load(f) or {}
     by_prefix = {}
-    for fname in series_files:
-        path = _PRODUCT_LINES_DIR / fname
-        if not path.exists():
-            logger.warning("Series YAML missing: %s", path)
-            continue
-        with open(path) as f:
-            data = yaml.safe_load(f)
-        prefix = data.get('sku_prefix')
+    for s in data.get('series', []):
+        prefix = s.get('sku_prefix')
         if not prefix:
-            logger.warning("Series YAML %s has no sku_prefix; skipping", fname)
+            logger.warning("cable_lines.yaml entry missing sku_prefix; skipping: %r", s)
             continue
-        by_prefix[prefix] = data
+        by_prefix[prefix] = s
     return by_prefix
 
 
