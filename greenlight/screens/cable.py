@@ -1475,10 +1475,10 @@ class SeriesSelectionScreen(Screen):
             "Tour Vocal Classic": "Cotton XLR (Tour Vocal Classic)",
         }
 
-        # Create menu items
+        # Create menu items — series only. Special Baby (MISC) and Limited
+        # Edition (LTD) live one step deeper, alongside the standard patterns
+        # for the chosen series.
         menu_items = [series_display.get(s, s) for s in series_options]
-        ltd_choice_idx = len(menu_items)
-        menu_items.append("[L] Limited Edition (LTD)")
         menu_items.append("Back (q)")
 
         rows = [
@@ -1487,7 +1487,7 @@ class SeriesSelectionScreen(Screen):
         ]
 
         self.ui.header(operator)
-        self.ui.layout["body"].update(Panel("Select the cable series, or 'L' for a Limited Edition run", title="Step 1: Series Selection"))
+        self.ui.layout["body"].update(Panel("Select the cable series", title="Step 1: Series Selection"))
         self.ui.layout["footer"].update(Panel("\n".join(rows), title="Available Series"))
         self.ui.render()
 
@@ -1501,10 +1501,6 @@ class SeriesSelectionScreen(Screen):
         # Handle back/quit
         if choice.lower() == "q" or choice == str(len(menu_items)):
             return ScreenResult(NavigationAction.POP)
-
-        # Handle Limited Edition shortcut
-        if choice.lower() == "l" or choice == str(ltd_choice_idx + 1):
-            return ScreenResult(NavigationAction.REPLACE, LtdEditionPickerScreen, self.context)
 
         # Handle series selection
         try:
@@ -1533,14 +1529,21 @@ class LtdEditionPickerScreen(Screen):
 
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
+        selected_series = self.context.get("selected_series")
         from greenlight.db import list_ltd_editions
-        editions = list_ltd_editions(active_only=True)
+        from greenlight.cable_config import prefix_for_series
+
+        # When invoked after a series has been chosen, filter to just that
+        # series' editions. Otherwise show all active editions.
+        series_prefix = prefix_for_series(selected_series) if selected_series else None
+        editions = list_ltd_editions(active_only=True, series_prefix=series_prefix)
 
         self.ui.header(operator)
 
         if not editions:
+            scope = f" for {selected_series}" if selected_series else ""
             self.ui.layout["body"].update(Panel(
-                "[bold yellow]No active Limited Editions[/bold yellow]\n\n"
+                f"[bold yellow]No active Limited Editions{scope}[/bold yellow]\n\n"
                 "Create an LTD edition in the Shopify app first, then come back\n"
                 "to scan cables against it.",
                 title="Limited Edition Picker", border_style="yellow"
@@ -1617,13 +1620,15 @@ class LtdEditionPickerScreen(Screen):
         return ScreenResult(NavigationAction.REPLACE, LtdEditionPickerScreen, self.context)
 
 
+SPECIAL_BABY_OPTION = "Special Baby (MISC)"
+LIMITED_EDITION_OPTION = "Limited Edition (LTD)"
+
+
 class ColorPatternSelectionScreen(Screen):
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
         selected_series = self.context.get("selected_series")
         color_options = get_distinct_color_patterns(selected_series)
-        # Sort Miscellaneous to end of list (before Back)
-        color_options.sort(key=lambda c: (c.lower() == 'miscellaneous', c))
 
         if not color_options:
             self.ui.header(operator)
@@ -1633,8 +1638,13 @@ class ColorPatternSelectionScreen(Screen):
             self.ui.console.input("Press enter to continue...")
             return ScreenResult(NavigationAction.POP)
 
-        # Create menu items
-        menu_items = [f"{color}" for color in color_options]
+        # Append specialty entries after the standard patterns. They route to
+        # different downstream screens but live alongside the patterns from
+        # the operator's perspective — the choice is "what kind of cable am
+        # I scanning today?"
+        menu_items = list(color_options)
+        menu_items.append(SPECIAL_BABY_OPTION)
+        menu_items.append(LIMITED_EDITION_OPTION)
         menu_items.append("Back (q)")
 
         rows = [
@@ -1653,21 +1663,22 @@ class ColorPatternSelectionScreen(Screen):
         if choice.lower() == "q" or choice == str(len(menu_items)):
             return ScreenResult(NavigationAction.POP)
 
-        # Handle color selection
+        # Handle selection
         try:
             choice_idx = int(choice) - 1
-            if 0 <= choice_idx < len(color_options):
-                selected_color = color_options[choice_idx]
-                new_context = self.context.copy()
-                new_context["selected_color_pattern"] = selected_color
+            if not (0 <= choice_idx < len(menu_items) - 1):
+                raise ValueError
+            selected = menu_items[choice_idx]
+            new_context = self.context.copy()
 
-                # Check if this is a MISC/Miscellaneous cable
-                if selected_color.lower() in ['misc', 'miscellaneous']:
-                    # Go to MISC variant picker (existing variants + new variant option)
-                    return ScreenResult(NavigationAction.REPLACE, MiscVariantPickerScreen, new_context)
-                else:
-                    # Normal flow - go to length selection
-                    return ScreenResult(NavigationAction.REPLACE, LengthSelectionScreen, new_context)
+            if selected == SPECIAL_BABY_OPTION:
+                return ScreenResult(NavigationAction.REPLACE, MiscVariantPickerScreen, new_context)
+            if selected == LIMITED_EDITION_OPTION:
+                return ScreenResult(NavigationAction.REPLACE, LtdEditionPickerScreen, new_context)
+
+            # Standard pattern → length selection
+            new_context["selected_color_pattern"] = selected
+            return ScreenResult(NavigationAction.REPLACE, LengthSelectionScreen, new_context)
         except ValueError:
             pass
 
