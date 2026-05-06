@@ -30,6 +30,9 @@ export async function action({ request }) {
          GROUP BY sku_group, length, connector_code
          ORDER BY sku_group, length, connector_code`
       );
+      // Accumulate (+=), not assign. For LTD/MISC groups multiple
+      // (length, connector_code) rows collapse to the same variant SKU
+      // (the group SKU itself), and we want their counts summed.
       const totalInventory = {};
       for (const row of totalResult.rows) {
         const variantSku = formatVariantSku({
@@ -37,7 +40,7 @@ export async function action({ request }) {
           length: Number(row.length),
           connector_code: row.connector_code,
         });
-        if (variantSku) totalInventory[variantSku] = parseInt(row.count);
+        if (variantSku) totalInventory[variantSku] = (totalInventory[variantSku] || 0) + parseInt(row.count);
       }
 
       const dbResult = await query(
@@ -54,7 +57,7 @@ export async function action({ request }) {
           length: Number(row.length),
           connector_code: row.connector_code,
         });
-        if (variantSku) dbInventory[variantSku] = parseInt(row.count);
+        if (variantSku) dbInventory[variantSku] = (dbInventory[variantSku] || 0) + parseInt(row.count);
       }
 
       const shopifyInventory = {};
@@ -148,7 +151,7 @@ export async function action({ request }) {
           length: Number(row.length),
           connector_code: row.connector_code,
         });
-        if (variantSku) dbInventory[variantSku] = parseInt(row.count);
+        if (variantSku) dbInventory[variantSku] = (dbInventory[variantSku] || 0) + parseInt(row.count);
       }
 
       const locationResponse = await admin.graphql(`{ locations(first: 1) { edges { node { id } } } }`);
