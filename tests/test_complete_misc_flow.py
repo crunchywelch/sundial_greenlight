@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, '/home/welch/projects/sundial_greenlight')
 
 from greenlight.db import (
-    register_scanned_cable, get_audio_cable, get_or_create_misc_sku, pg_pool, sku_kind,
+    register_scanned_cable, get_audio_cable, get_or_create_misc_sku, pg_pool,
 )
 
 
@@ -58,7 +58,8 @@ def test_complete_misc_flow():
 
     print(f"   ✅ Retrieved successfully")
     print(f"\n   Serial:      {cable['serial_number']}")
-    print(f"   SKU:         {cable['sku']}")
+    print(f"   variant_sku: {cable['variant_sku']}")
+    print(f"   sku_group:   {cable['sku_group']}")
     print(f"   Series:      {cable['series']}")
     print(f"   Length:      {cable['length']} ft")
     print(f"   Description: {cable.get('description')}")
@@ -70,18 +71,18 @@ def test_complete_misc_flow():
     display = (
         f"  Series: {cable['series']}\n"
         f"  Length: {cable['length']} ft\n"
-        f"  Color: {cable['color_pattern']}\n"
-        f"  Connector: {cable['connector_type']}"
+        f"  Pattern: {cable.get('pattern_name')}\n"
+        f"  Connector: {cable.get('connector_display')}"
     )
 
-    if sku_kind(cable['sku']) == 'misc' and cable.get('description'):
+    if cable.get('kind') in ('misc', 'ltd') and cable.get('description'):
         display += f"\n  Description: {cable['description']}"
 
     print(display)
 
     length_correct = cable['length'] == test_length
     description_correct = cable.get('description') == test_description
-    misc_recognized = sku_kind(cable['sku']) == 'misc'
+    misc_recognized = cable.get('kind') == 'misc'
 
     print(f"\n   Length correct:      {'✅' if length_correct else '❌'} ({cable['length']} ft)")
     print(f"   Description correct: {'✅' if description_correct else '❌'}")

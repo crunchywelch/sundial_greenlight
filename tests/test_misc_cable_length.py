@@ -55,7 +55,8 @@ def test_misc_cable_length():
         return False
 
     print(f"   Serial:      {cable_record.get('serial_number')}")
-    print(f"   SKU:         {cable_record.get('sku')}")
+    print(f"   variant_sku: {cable_record.get('variant_sku')}")
+    print(f"   sku_group:   {cable_record.get('sku_group')}")
     print(f"   Series:      {cable_record.get('series')}")
     print(f"   Length:      {cable_record.get('length')} ft")
     print(f"   Description: {cable_record.get('description')}")

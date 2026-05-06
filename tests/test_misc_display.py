@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Test script to verify MISC cable description display"""
+"""Test script to verify MISC cable description display (Phase 4 shape)."""
 
 import sys
 sys.path.insert(0, '/home/welch/projects/sundial_greenlight')
 
-from greenlight.db import get_audio_cable, get_cables_for_customer, sku_kind
+from greenlight.db import get_audio_cable, get_cables_for_customer
+
 
 def test_misc_cable_display():
     """Test that MISC cable descriptions are properly displayed"""
@@ -23,49 +24,49 @@ def test_misc_cable_display():
         return False
 
     print(f"Serial Number: {cable['serial_number']}")
-    print(f"SKU: {cable['sku']}")
-    print(f"Series: {cable['series']}")
-    print(f"Length: {cable['length']} ft")
-    print(f"Color Pattern: {cable['color_pattern']}")
-    print(f"Description: {cable.get('description', 'N/A')}")
+    print(f"variant_sku:   {cable['variant_sku']}")
+    print(f"sku_group:     {cable['sku_group']}")
+    print(f"Kind:          {cable['kind']}")
+    print(f"Series:        {cable['series']}")
+    print(f"Length:        {cable['length']} ft")
+    print(f"Pattern Name:  {cable.get('pattern_name')}")
+    print(f"Description:   {cable.get('description', 'N/A')}")
 
-    # Verify it's a MISC cable with description
-    is_misc = sku_kind(cable['sku']) == 'misc'
+    is_misc = cable.get('kind') == 'misc'
     has_description = bool(cable.get('description'))
 
     if is_misc and has_description:
-        print(f"✅ MISC cable has description")
+        print("✅ MISC cable has description")
     elif not is_misc:
-        print(f"⚠️  Not a MISC cable (SKU: {cable['sku']})")
+        print(f"⚠️  Not a MISC cable (sku_group: {cable['sku_group']})")
         return False
     else:
-        print(f"❌ MISC cable missing description")
+        print("❌ MISC cable missing description")
         return False
 
     # Test 2: Simulate how it displays in the cable info screen
     print("\n2. Testing cable info display formatting")
     print("-" * 70)
 
-    # This is how it's shown in show_cable_info
     serial_number = cable['serial_number']
-    sku = cable['sku']
+    variant_sku = cable['variant_sku']
     series = cable['series']
     length = cable['length']
-    color_pattern = cable['color_pattern']
-    connector_type = cable['connector_type']
+    pattern_name = cable.get('pattern_name')
+    connector_display = cable.get('connector_display')
     description = cable.get('description')
 
     cable_info = f"""Serial Number: {serial_number}
-SKU: {sku}
+SKU: {variant_sku}
 
 Cable Details:
   Series: {series}
-  Length: {length} ft
-  Color: {color_pattern}
-  Connector: {connector_type}"""
-
-    # Add description for MISC cables
-    if sku_kind(sku) == 'misc' and description:
+  Length: {length} ft"""
+    if pattern_name:
+        cable_info += f"\n  Color: {pattern_name}"
+    if connector_display:
+        cable_info += f"\n  Connector: {connector_display}"
+    if cable.get('kind') in ('misc', 'ltd') and description:
         cable_info += f"\n  Description: {description}"
 
     print(cable_info)
@@ -86,14 +87,12 @@ Cable Details:
         cables = get_cables_for_customer(customer_gid)
 
         if cables:
-            # Find our test cable
             test_cable = next((c for c in cables if c['serial_number'] == '000009'), None)
             if test_cable:
-                # This is how it's shown in orders.py
-                if sku_kind(test_cable['sku']) == 'misc' and test_cable.get('description'):
+                if test_cable.get('kind') in ('misc', 'ltd') and test_cable.get('description'):
                     cable_desc = f"{test_cable['series']} {test_cable['length']}ft - {test_cable['description']}"
                 else:
-                    cable_desc = f"{test_cable['series']} {test_cable['length']}ft {test_cable['color_pattern']}"
+                    cable_desc = f"{test_cable['series']} {test_cable['length']}ft {test_cable.get('pattern_name') or ''}".rstrip()
 
                 print(f"Display: {test_cable['serial_number']} - {cable_desc}")
 
@@ -113,6 +112,7 @@ Cable Details:
     print("✅ ALL TESTS PASSED - MISC cable descriptions display correctly!")
     print("=" * 70)
     return True
+
 
 if __name__ == "__main__":
     try:

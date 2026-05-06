@@ -292,11 +292,6 @@ def _enrich_record(record):
       - core_cable, braid_material (series-level from YAML)
       - variant_sku — the user-facing SKU string Shopify uses
 
-    Backward-compat aliases (deprecated; new code should use the canonical
-    fields above):
-      - sku ← variant_sku           (for display callers)
-      - color_pattern ← pattern_name
-      - connector_type ← connector_display
     """
     from greenlight.cable_config import (
         parse_group_sku, format_variant_sku, series_data_for_prefix,
@@ -352,11 +347,6 @@ def _enrich_record(record):
         length=record.get('length'),
         connector_code=connector_code,
     )
-
-    # Backward-compat aliases
-    record['sku'] = record['variant_sku']
-    record['color_pattern'] = record['pattern_name']
-    record['connector_type'] = record['connector_display']
 
     return record
 
@@ -1362,30 +1352,3 @@ def get_available_series():
         pg_pool.putconn(conn)
 
 
-def init_db():
-    conn = pg_pool.getconn()
-    with conn.cursor() as cur:
-        cur.execute("""
-                DO $$
-                BEGIN
-                    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'cable_type') THEN
-                        CREATE TYPE cable_type AS ENUM ('TS', 'TRS', 'XLR');
-                    END IF;
-                END$$;
-            """)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS audio_cables (
-                id SERIAL PRIMARY KEY,
-                cable_type cable_type NOT NULL,
-                serial TEXT UNIQUE NOT NULL,
-                resistance_adc INTEGER,
-                operator TEXT,
-                source_node TEXT,
-                label_version TEXT,
-                notes TEXT,
-                timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-if __name__ == "__main__":
-    init_pg_schema()

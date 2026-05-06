@@ -5,7 +5,6 @@ from rich.table import Table
 from greenlight.screen_manager import Screen, ScreenResult, NavigationAction
 from greenlight import shopify_client
 from greenlight import db
-from greenlight.db import sku_kind
 
 
 class FulfillOrdersScreen(Screen):
@@ -257,14 +256,12 @@ class CustomerDetailScreen(Screen):
         if assigned_cables:
             cables_text += "\n"
             for cable in assigned_cables[:5]:  # Show first 5
-                kind = sku_kind(cable['sku'])
-                if kind == 'ltd' and cable.get('event_name'):
-                    cable_desc = f"{cable['series']} {cable['length']}ft - {cable['event_name']}"
-                elif kind == 'misc' and cable.get('description'):
+                kind = cable.get('kind')
+                if kind in ('misc', 'ltd') and cable.get('description'):
                     cable_desc = f"{cable['series']} {cable['length']}ft - {cable['description']}"
                 else:
-                    cable_desc = f"{cable['series']} {cable['length']}ft {cable['color_pattern']}"
-                cables_text += f"\n  • {cable['serial_number']} - {cable_desc}"
+                    cable_desc = f"{cable['series']} {cable['length']}ft {cable.get('pattern_name') or ''}"
+                cables_text += f"\n  • {cable['serial_number']} - {cable_desc.rstrip()}"
 
             if len(assigned_cables) > 5:
                 cables_text += f"\n  • ... and {len(assigned_cables) - 5} more"
@@ -474,13 +471,11 @@ class UnassignCableScreen(Screen):
         table.add_column("Tested", justify="center", style="yellow")
 
         for i, cable in enumerate(assigned_cables, 1):
-            kind = sku_kind(cable['sku'])
-            if kind == 'ltd' and cable.get('event_name'):
-                cable_desc = f"{cable['series']} {cable['length']}ft - {cable['event_name']}"
-            elif kind == 'misc' and cable.get('description'):
+            kind = cable.get('kind')
+            if kind in ('misc', 'ltd') and cable.get('description'):
                 cable_desc = f"{cable['series']} {cable['length']}ft - {cable['description']}"
             else:
-                cable_desc = f"{cable['series']} {cable['length']}ft {cable['color_pattern']}"
+                cable_desc = f"{cable['series']} {cable['length']}ft {cable.get('pattern_name') or ''}".rstrip()
             tested = "[green]Yes[/green]" if cable.get('test_passed') else "[dim]No[/dim]"
             table.add_row(str(i), cable['serial_number'], cable_desc, tested)
 
@@ -759,8 +754,9 @@ class OrderFulfillScanScreen(Screen):
         existing_order_cables = db.get_cables_for_order(order_id)
         existing_skus_scanned = {}
         for cable in existing_order_cables:
-            sku = cable['sku']
-            existing_skus_scanned[sku] = existing_skus_scanned.get(sku, 0) + 1
+            # Match against line item SKUs (Shopify line items use variant SKU strings)
+            variant_sku = cable['variant_sku']
+            existing_skus_scanned[variant_sku] = existing_skus_scanned.get(variant_sku, 0) + 1
 
         # Build progress table
         progress_table = Table(show_header=True, header_style="bold cyan", expand=True)

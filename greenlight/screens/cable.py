@@ -15,7 +15,7 @@ from greenlight.cable import (
     get_distinct_color_patterns, get_distinct_lengths, get_distinct_connector_types,
     resolve_catalog_variant,
 )
-from greenlight.db import get_audio_cable, register_scanned_cable, format_serial_number, update_cable_test_results, sku_kind
+from greenlight.db import get_audio_cable, register_scanned_cable, format_serial_number, update_cable_test_results
 from rich.table import Table
 import time
 
@@ -98,11 +98,11 @@ class CableScreenBase(Screen):
     def build_cable_info_panel(self, cable_record):
         """Build the cable information panel in two-column layout"""
         serial_number = cable_record.get("serial_number", "N/A")
-        sku = cable_record.get("sku", "N/A")
+        variant_sku = cable_record.get("variant_sku", "N/A")
         series = cable_record.get("series", "N/A")
         length = cable_record.get("length", "N/A")
-        color_pattern = cable_record.get("color_pattern", "N/A")
-        connector_type = cable_record.get("connector_type", "N/A")
+        pattern_name = cable_record.get("pattern_name")
+        connector_display = cable_record.get("connector_display")
         resistance_adc = cable_record.get("resistance_adc")
         calibration_adc = cable_record.get("calibration_adc")
         resistance_adc_p3 = cable_record.get("resistance_adc_p3")
@@ -111,9 +111,7 @@ class CableScreenBase(Screen):
         cable_operator = cable_record.get("operator", "N/A")
         test_timestamp = cable_record.get("test_timestamp")
         updated_timestamp = cable_record.get("updated_timestamp")
-        # connector_type is None for MISC/LTD variants (resolver only sets it for catalog).
-        # The series check handles those — vocal series always means XLR.
-        is_xlr = 'XLR' in (connector_type or '').upper() or 'vocal' in (series or '').lower()
+        is_xlr = 'XLR' in (connector_display or '').upper() or 'vocal' in (series or '').lower()
 
         # Format test results
         if test_passed is True:
@@ -162,27 +160,26 @@ class CableScreenBase(Screen):
 
         # -- Left column: cable identity --
         left = f"""[bold yellow]Serial:[/bold yellow] {serial_number}
-[bold yellow]SKU:[/bold yellow] {sku}
+[bold yellow]SKU:[/bold yellow] {variant_sku}
 [bold yellow]Registered:[/bold yellow] {updated_timestamp_str}
 
 [bold cyan]Cable Details:[/bold cyan]
   Series: {series}
   Length: {length} ft"""
 
-        # Color and connector are catalog-only (resolver returns None for MISC/LTD).
-        if color_pattern:
-            left += f"\n  Color: {color_pattern}"
-        if connector_type:
-            left += f"\n  Connector: {connector_type}"
+        # pattern_name is catalog-only (None for MISC/LTD); connector_display
+        # is set for any known prefix.
+        if pattern_name:
+            left += f"\n  Color: {pattern_name}"
+        if connector_display:
+            left += f"\n  Connector: {connector_display}"
 
-        kind = sku_kind(sku)
-        event_name = cable_record.get("event_name")
-        if kind == 'ltd' and event_name:
-            left += f"\n  [bold magenta]Edition:[/bold magenta] {event_name}"
-
+        kind = cable_record.get("kind")
         description = cable_record.get("description")
         if kind in ('misc', 'ltd') and description:
-            left += f"\n  Description: {description}"
+            label = "Edition" if kind == 'ltd' else "Description"
+            color = "[bold magenta]" if kind == 'ltd' else ""
+            left += f"\n  {color}{label}:[/bold magenta] {description}" if color else f"\n  {label}: {description}"
 
         registration_code = cable_record.get("registration_code")
         if registration_code:
@@ -246,10 +243,10 @@ class CableScreenBase(Screen):
             operator: Operator ID
             cable_record: Cable record from database
         """
-        # connector_type is None for MISC/LTD variants; fall back to series check.
-        connector_type = (cable_record.get('connector_type') or '').upper()
+        # connector_display can be None for unknown prefixes; fall back to series check.
+        connector_display = (cable_record.get('connector_display') or '').upper()
         series = (cable_record.get('series') or '').lower()
-        if 'XLR' in connector_type or 'vocal' in series:
+        if 'XLR' in connector_display or 'vocal' in series:
             self._run_xlr_cable_test(operator, cable_record)
         else:
             self._run_ts_cable_test(operator, cable_record)
@@ -271,7 +268,7 @@ class CableScreenBase(Screen):
             return
 
         serial_number = cable_record.get('serial_number')
-        sku = cable_record.get('sku')
+        sku = cable_record.get('variant_sku')
 
         # Keep cable info in body
         cable_info_panel = self.build_cable_info_panel(cable_record)
@@ -364,14 +361,14 @@ class CableScreenBase(Screen):
         if all_passed:
             try:
                 from greenlight.db import get_available_count_for_sku
-                sku = cable_record['sku']
-                count = get_available_count_for_sku(sku)
-                if sku_kind(sku) == 'misc':
+                variant_sku = cable_record['variant_sku']
+                count = get_available_count_for_sku(variant_sku)
+                if cable_record.get('kind') == 'misc':
                     from greenlight.shopify_client import ensure_misc_shopify_product
                     success, err = ensure_misc_shopify_product(cable_record, quantity=count)
                 else:
                     from greenlight.shopify_client import set_inventory_for_sku
-                    success, err = set_inventory_for_sku(sku, count)
+                    success, err = set_inventory_for_sku(variant_sku, count)
                 if success:
                     saved_status += f" | [green]Shopify={count}[/green]"
                 else:
@@ -409,7 +406,7 @@ class CableScreenBase(Screen):
 
         serial_number = cable_record.get('serial_number')
         series = cable_record.get('series') or ''
-        is_misc = sku_kind(cable_record.get('sku', '')) == 'misc'
+        is_misc = cable_record.get('kind') == 'misc'
         is_touring = series.startswith("Tour") and not is_misc
 
         # Keep cable info in body
@@ -552,14 +549,14 @@ class CableScreenBase(Screen):
         if all_passed:
             try:
                 from greenlight.db import get_available_count_for_sku
-                sku = cable_record['sku']
-                count = get_available_count_for_sku(sku)
+                variant_sku = cable_record['variant_sku']
+                count = get_available_count_for_sku(variant_sku)
                 if is_misc:
                     from greenlight.shopify_client import ensure_misc_shopify_product
                     success, err = ensure_misc_shopify_product(cable_record, quantity=count)
                 else:
                     from greenlight.shopify_client import set_inventory_for_sku
-                    success, err = set_inventory_for_sku(sku, count)
+                    success, err = set_inventory_for_sku(variant_sku, count)
                 if success:
                     saved_status += f" | [green]Shopify={count}[/green]"
                 else:
@@ -858,32 +855,30 @@ class CableScreenBase(Screen):
             return
 
         serial_number = cable_record.get('serial_number')
-        sku = cable_record.get('sku')
+        variant_sku = cable_record.get('variant_sku')
         series = cable_record.get('series')
         length = cable_record.get('length')
-        color_pattern = cable_record.get('color_pattern')
-        connector_type = cable_record.get('connector_type')
+        pattern_name = cable_record.get('pattern_name')
+        connector_display = cable_record.get('connector_display')
         description = cable_record.get('description')
         test_passed = cable_record.get('test_passed')
         cable_operator = cable_record.get('operator')
 
-        # Prepare label data
+        # Prepare label data — printer expects sku/color_pattern/connector_type
+        # as its fixed input contract. Source from the canonical resolver-derived
+        # cable_record fields above.
         label_data = {
             'serial_number': serial_number,
             'series': series,
             'length': length,
-            'color_pattern': color_pattern,
-            'connector_type': connector_type,
-            'sku': sku,
+            'color_pattern': pattern_name,
+            'connector_type': connector_display,
+            'sku': variant_sku,
         }
-        # LTD cables carry their event name through to the label printer.
-        # Phase 4 folded cable_ltd_metadata.event_name into sku_group.description,
-        # so for LTD cables the description IS the event name.
-        event_name = cable_record.get('event_name')
-        if not event_name and cable_record.get('kind') == 'ltd':
-            event_name = description
-        if event_name:
-            label_data['event_name'] = event_name
+        # LTD cables: description is the event_name post-Phase-4 (cable_ltd_metadata
+        # was folded into sku_group.description).
+        if cable_record.get('kind') == 'ltd' and description:
+            label_data['event_name'] = description
 
         # Add description: per-cable for MISC, SKU pattern description for standard
         if description:
@@ -986,7 +981,7 @@ class CableScreenBase(Screen):
         """
         serial_number = cable_record.get('serial_number')
         current_desc = cable_record.get('description', '')
-        is_misc_variant = sku_kind(cable_record.get('sku', '')) == 'misc'
+        is_misc_variant = cable_record.get('kind') == 'misc'
 
         self.ui.console.clear()
         self.ui.header(operator)
@@ -1039,10 +1034,9 @@ class CableScreenBase(Screen):
                     if updated:
                         # Update Shopify description for MISC variants (catalog SKUs use
                         # their own marketing copy from the product line, don't overwrite)
-                        sku = updated.get('sku')
-                        if sku and sku_kind(sku) == 'misc':
+                        if updated.get('kind') == 'misc' and updated.get('variant_sku'):
                             from greenlight.shopify_client import update_shopify_product_description
-                            success, err = update_shopify_product_description(sku, new_desc)
+                            success, err = update_shopify_product_description(updated['variant_sku'], new_desc)
                             if not success:
                                 logger.warning(f"Shopify description update failed: {err}")
                         return updated
@@ -1141,7 +1135,7 @@ class CableScreenBase(Screen):
             printer_available = label_printer.is_ready() if label_printer else False
 
             cable_tested = cable_record.get('test_passed') is True
-            is_misc = sku_kind(cable_record.get('sku', '')) == 'misc'
+            is_misc = cable_record.get('kind') == 'misc'
             is_assigned = bool(cable_record.get('shopify_gid'))
 
             # Build footer options based on mode and hardware
@@ -1191,7 +1185,7 @@ class CableScreenBase(Screen):
                     self.context["return_to_cable_serial"] = cable_record['serial_number']
                     new_context = self.context.copy()
                     new_context["assign_cable_serial"] = cable_record['serial_number']
-                    new_context["assign_cable_sku"] = cable_record['sku']
+                    new_context["assign_cable_sku"] = cable_record['variant_sku']
                     return {'action': 'navigate', 'screen_result': ScreenResult(NavigationAction.PUSH, CustomerLookupScreen, new_context)}
 
                 elif choice_lower == 'u' and mode == 'lookup' and is_assigned:
