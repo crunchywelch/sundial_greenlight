@@ -421,12 +421,18 @@ export async function action({ request }) {
         cursor = variants.pageInfo.endCursor;
       }
 
-      // Sync inventory for each SKU
+      // Sync inventory for every Shopify variant we recognise (matches one
+      // of our cable SKU shapes). Iterating Shopify-side rather than DB-side
+      // is what catches "everything sold out" — those variants have no row
+      // in dbInventory, so a DB-keyed loop would skip them and leave Shopify
+      // with stale stock.
       const results = [];
-      const skusToSync = Object.keys(dbInventory);
+      const skusToSync = Object.keys(variantsBySku).filter(
+        (sku) => parseVariantSku(sku).kind !== null
+      );
 
       for (const sku of skusToSync) {
-        const dbCount = dbInventory[sku];
+        const dbCount = dbInventory[sku] ?? 0;
         const variantInfo = variantsBySku[sku];
 
         if (!variantInfo) {
@@ -533,10 +539,27 @@ export default function Index() {
   const [scannerActive, setScannerActive] = useState(false);
   const [cableInputFocused, setCableInputFocused] = useState(false);
 
+  // Inventory is held in local state so a Sync action's response (which
+  // returns syncResults but no inventory) doesn't blow away the table.
+  const [inventory, setInventory] = useState([]);
+  useEffect(() => {
+    if (actionData?.inventory) setInventory(actionData.inventory);
+  }, [actionData?.inventory]);
+
   const customers = actionData?.customers || [];
   const cables = actionData?.cables || [];
-  const inventory = actionData?.inventory || [];
   const syncResults = actionData?.syncResults || null;
+
+  // After a successful sync, re-fetch inventory so the table reflects the
+  // new Shopify quantities.
+  useEffect(() => {
+    if (!syncResults) return;
+    const fd = new FormData();
+    fd.append("action", "fetchInventory");
+    submit(fd, { method: "post" });
+    // syncResults is the trigger; submit/setView are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncResults]);
 
   // Listen for scanner events (only when cable search input is focused)
   const scannerEnabled = (view === "scan" || view === "assign") && cableInputFocused;
