@@ -77,7 +77,7 @@ export async function getEdition(sku) {
     `SELECT sg.sku, sg.description, sg.archived_at,
             (SELECT COUNT(*) FROM audio_cables ac WHERE ac.sku_group = sg.sku) AS cable_count
      FROM sku_group sg
-     WHERE sg.sku = $1 AND sg.sku ~ '^LTD-[A-Z0-9]{4,12}$'`,
+     WHERE sg.sku = $1 AND sg.sku ~ '^LTD-[A-Z0-9]{4,24}$'`,
     [sku]
   );
   if (result.rows.length === 0) return null;
@@ -98,7 +98,7 @@ export async function getEdition(sku) {
  * filter: 'active' | 'archived' | 'all'
  */
 export async function listEditions(filter = "active") {
-  const where = ["sg.sku ~ '^LTD-[A-Z0-9]{4,12}$'"];
+  const where = ["sg.sku ~ '^LTD-[A-Z0-9]{4,24}$'"];
   if (filter === "active") where.push("sg.archived_at IS NULL");
   else if (filter === "archived") where.push("sg.archived_at IS NOT NULL");
 

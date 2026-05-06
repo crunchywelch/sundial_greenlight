@@ -46,7 +46,7 @@ const SERIES_FILES = [
 //   ltd:     'LTD-{slug}' — series-agnostic (prefix lives on audio_cables)
 //   misc:    '{prefix}-MISC-{seq}' — still series-scoped (kept untouched)
 const RE_GROUP_MISC = /^([A-Z]{2,3})-MISC-(\d+)$/;
-const RE_GROUP_LTD = /^LTD-([A-Z0-9]{4,12})$/;
+const RE_GROUP_LTD = /^LTD-([A-Z0-9]{4,24})$/;
 const RE_GROUP_CATALOG = /^([A-Z]{2,3})$/;
 
 // Variant SKU regexes (Phase 5 shape — variants are still series-specific).
@@ -54,7 +54,7 @@ const RE_GROUP_CATALOG = /^([A-Z]{2,3})$/;
 //   ltd:     '{prefix}-LTD-{slug}' — 'SC-LTD-PHISH26'
 //   misc:    '{prefix}-MISC-{seq}' — equals the group SKU, untouched
 const RE_VARIANT_CATALOG = /^([A-Z]{2,3})-(\d+)([A-Z]{2,3})(-R)?$/;
-const RE_VARIANT_LTD = /^([A-Z]{2,3})-LTD-([A-Z0-9]{4,12})$/;
+const RE_VARIANT_LTD = /^([A-Z]{2,3})-LTD-([A-Z0-9]{4,24})$/;
 
 function loadPatterns() {
   const path = resolve(PRODUCT_LINES_DIR, "patterns.yaml");

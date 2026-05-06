@@ -102,11 +102,20 @@
     }
   },
   {
-    "name": "group malformed: LTD with too-long slug",
+    "name": "group malformed: LTD with too-long slug (25 chars)",
     "type": "group",
-    "sku": "LTD-ABCDEFGHIJKLM",
+    "sku": "LTD-ABCDEFGHIJKLMNOPQRSTUVWXY",
     "expected": {
       "kind": null
+    }
+  },
+  {
+    "name": "group ltd: max-length slug (24 chars)",
+    "type": "group",
+    "sku": "LTD-VINTAGEINTHEVALLEY2026",
+    "expected": {
+      "kind": "ltd",
+      "slug": "VINTAGEINTHEVALLEY2026"
     }
   },
   {

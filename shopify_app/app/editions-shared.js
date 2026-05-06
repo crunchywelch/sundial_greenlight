@@ -5,11 +5,11 @@
  * gets stripped from the client bundle.
  */
 
-export const SLUG_PATTERN = /^[A-Z0-9]{4,12}$/;
+export const SLUG_PATTERN = /^[A-Z0-9]{4,24}$/;
 
 /** Parse an LTD SKU into { prefix, slug } or null if it doesn't match. */
 export function parseLtdSku(sku) {
-  const m = sku && sku.match(/^([A-Z]+)-LTD-([A-Z0-9]{4,12})$/);
+  const m = sku && sku.match(/^([A-Z]+)-LTD-([A-Z0-9]{4,24})$/);
   if (!m) return null;
   return { prefix: m[1], slug: m[2] };
 }
