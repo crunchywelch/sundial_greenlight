@@ -141,14 +141,19 @@ def _pattern_code_for_name(name, fabric_type=None):
     return None
 
 
-def find_cable_by_attributes(series, color_pattern, length, connector_type):
-    """Find the catalog SKU matching (series, color_pattern, length, connector).
+def resolve_catalog_variant(series, color_pattern, length, connector_type):
+    """Resolve catalog screen selections to a (sku_group, length, connector_code) tuple.
 
-    Constructs the SKU from YAML lookups (prefix from series, code from
-    pattern_name, code from connector display string) and verifies it exists
-    in cable_skus before returning it. Returns None if any lookup fails or
-    the SKU isn't registered.
+    Catalog scan flow: operator picks series → pattern → length → connector,
+    we map those back to YAML codes, ensure the sku_group row exists (auto-
+    seeded on first encounter post-Phase-4), and return the tuple the
+    register_scanned_cable call needs.
+
+    Returns dict with sku_group, length (numeric), connector_code, or None
+    if any lookup fails.
     """
+    from greenlight.db import ensure_catalog_sku_group
+
     prefix = prefix_for_series(series)
     if prefix is None:
         return None
@@ -166,119 +171,126 @@ def find_cable_by_attributes(series, color_pattern, length, connector_type):
     if connector_code is None:
         return None
 
-    # Length comes in as a string like '12' or '06' from the screens.
-    sku = f"{prefix}-{length}{pattern_code}{connector_code}"
-
-    # Confirm the SKU exists in cable_skus (audio_sync_skus generates the
-    # full cartesian, but a missing combination would be a config gap).
-    conn = pg_pool.getconn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM cable_skus WHERE sku = %s LIMIT 1", (sku,))
-            if cur.fetchone():
-                return sku
-            return None
-    except Exception as e:
-        print(f"Error verifying cable SKU: {e}")
+    sku_group = ensure_catalog_sku_group(prefix, pattern_code)
+    if sku_group is None:
         return None
-    finally:
-        pg_pool.putconn(conn)
+
+    # Length comes in as a string like '12' or '06' from the screens.
+    try:
+        length_num = float(length)
+    except (TypeError, ValueError):
+        return None
+
+    return {
+        'sku_group': sku_group,
+        'length': length_num,
+        'connector_code': connector_code,
+    }
+
 
 class CableType:
-    def __init__(self, sku=None, **kwargs):
-        self.sku = None
+    """Represents a sku_group — the kind-of-cable identity.
+
+    Phase 4: length and connector_code are per-cable attributes (lives on
+    audio_cables), NOT on CableType. Pickers and creation flows resolve to
+    a sku_group; the screen layer carries length+connector_code separately
+    in the navigation context until register_scanned_cable is called.
+    """
+
+    def __init__(self, sku_group=None, **kwargs):
+        self.sku_group = None
+        self.kind = None
+        self.prefix = None
         self.series = None
-        self.price = None
+        self.pattern_code = None
+        self.pattern_name = None
         self.core_cable = None
         self.braid_material = None
-        self.color_pattern = None
-        self.length = None
-        self.connector_type = None
         self.description = None
 
-        if sku:
-            self.load(sku)
+        # Backward-compat hint: if a positional arg is passed, treat it as the
+        # sku_group identifier and load.
+        if sku_group:
+            self.load(sku_group)
+
+    @property
+    def sku(self):
+        """Backward-compat alias for sku_group. Existing display callers expect
+        cable_type.sku to be the identifier they picked."""
+        return self.sku_group
+
+    @property
+    def color_pattern(self):
+        """Backward-compat alias for pattern_name (catalog only; None for variants)."""
+        return self.pattern_name
 
     def __repr__(self):
-        if self.sku:
-            return f"<CableType {self.sku} - {self.name()}>"
+        if self.sku_group:
+            return f"<CableType {self.sku_group} - {self.name()}>"
         return "<CableType (not loaded)>"
 
     def name(self):
         if not self.series:
             return "Not loaded"
+        if self.kind == 'catalog' and self.pattern_name:
+            return f"{self.series} {self.pattern_name}"
+        if self.description:
+            return f"{self.series} — {self.description}"
+        return self.series
 
-        # Catalog cables: "Series LengthFt ColorPattern (RA)"
-        # MISC/LTD: color_pattern/connector_type are None (kind-driven shape).
-        # Fall back to "Series LengthFt — description" for those.
-        if self.color_pattern:
-            base = f"{self.series} {self.length}ft {self.color_pattern}"
-            if self.connector_type and self.connector_type.startswith("RA"):
-                base += " (RA)"
-            return base
+    def is_loaded(self):
+        return self.sku_group is not None
 
-        suffix = self.description or 'variant'
-        return f"{self.series} {self.length}ft — {suffix}"
+    def load(self, sku_group):
+        """Load a sku_group by its identifier.
 
-    def load(self, sku):
-        """Load cable data by SKU.
-
-        Reads the minimal columns from cable_skus (sku, description, length)
-        and resolves series/core_cable/braid_material/color_pattern/connector_type
-        via the YAML resolver. After Phase 3.5 drops the soon-to-die columns,
-        this function is the only place that needs to change to keep the
-        public attribute surface (.series, .color_pattern, etc.) stable.
+        Reads (sku, description, archived_at) from sku_group and resolves the
+        rest via the YAML resolver (kind, prefix, series, pattern_name,
+        core_cable, braid_material).
         """
-        from greenlight.db import _enrich_record
-
+        from greenlight.cable_config import (
+            parse_group_sku, series_data_for_prefix,
+        )
         conn = pg_pool.getconn()
         try:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT sku, description, length FROM cable_skus WHERE sku = %s",
-                    (sku,),
+                    "SELECT sku, description, archived_at FROM sku_group WHERE sku = %s",
+                    (sku_group,),
                 )
                 row = cur.fetchone()
                 if not row:
-                    raise ValueError(f"SKU {sku} not found.")
+                    raise ValueError(f"sku_group {sku_group} not found.")
 
-                record = _enrich_record({
-                    'sku': row[0],
-                    'description': row[1],
-                    'length': row[2],
-                })
+                self.sku_group = row[0]
+                self.description = row[1]
+                self.archived_at = row[2]
 
-                self.sku = record['sku']
-                self.series = record.get('series')
-                self.price = None  # not stored on cable_skus; not used by callers today
-                self.core_cable = record.get('core_cable')
-                self.braid_material = record.get('braid_material')
-                self.color_pattern = record.get('color_pattern')
-                self.length = record.get('length')
-                self.connector_type = record.get('connector_type')
-                self.description = record.get('description')
+                parsed = parse_group_sku(self.sku_group)
+                self.kind = parsed.get('kind')
+                self.prefix = parsed.get('prefix')
+                self.series = parsed.get('series')
+                self.pattern_code = parsed.get('pattern_code')
+                self.pattern_name = parsed.get('pattern_name')
+
+                series_data = series_data_for_prefix(self.prefix) if self.prefix else None
+                if series_data:
+                    self.core_cable = series_data.get('core_cable')
+                    self.braid_material = series_data.get('braid_material')
+                else:
+                    self.core_cable = None
+                    self.braid_material = None
         finally:
             pg_pool.putconn(conn)
-    
-    def is_loaded(self):
-        """Check if cable data has been loaded"""
-        return self.sku is not None
-    
-    def get_display_info(self):
-        """Get formatted display information for UI"""
-        if not self.is_loaded():
-            return "No cable selected"
-        
-        return f"""SKU: {self.sku}
-Name: {self.name()}
 
-Series: {self.series}
-Length: {self.length} ft
-Color: {self.color_pattern}
-Connector: {self.connector_type}
-Core Cable: {self.core_cable}
-Braid Material: {self.braid_material}
-Description: {self.description}"""
+
+# Backward-compat shim: old name still imported in some places.
+def find_cable_by_attributes(series, color_pattern, length, connector_type):
+    """Deprecated. Use resolve_catalog_variant — Phase 4 returns a
+    (sku_group, length, connector_code) tuple instead of a single SKU."""
+    result = resolve_catalog_variant(series, color_pattern, length, connector_type)
+    return result['sku_group'] if result else None
+
 
 class cableUI:
     def __init__(self, ui_base):

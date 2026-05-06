@@ -13,7 +13,7 @@ from greenlight.config import APP_NAME, EXIT_MESSAGE
 from greenlight.cable import (
     CableType, get_all_skus, filter_skus, get_distinct_series,
     get_distinct_color_patterns, get_distinct_lengths, get_distinct_connector_types,
-    find_cable_by_attributes
+    resolve_catalog_variant,
 )
 from greenlight.db import get_audio_cable, register_scanned_cable, format_serial_number, update_cable_test_results, sku_kind
 from rich.table import Table
@@ -876,8 +876,12 @@ class CableScreenBase(Screen):
             'connector_type': connector_type,
             'sku': sku,
         }
-        # LTD cables carry their event name through to the label printer
+        # LTD cables carry their event name through to the label printer.
+        # Phase 4 folded cable_ltd_metadata.event_name into sku_group.description,
+        # so for LTD cables the description IS the event name.
         event_name = cable_record.get('event_name')
+        if not event_name and cable_record.get('kind') == 'ltd':
+            event_name = description
         if event_name:
             label_data['event_name'] = event_name
 
@@ -1559,15 +1563,18 @@ class LtdEditionPickerScreen(Screen):
                 pass
             return ScreenResult(NavigationAction.POP)
 
-        # Build the picker list
+        # Build the picker list. Phase 4: an LTD edition is just a sku_group +
+        # description. Length is per-cable now, captured on the next screen.
         body_lines = [
             "[bold yellow]Active Limited Editions[/bold yellow]\n"
         ]
         for i, ed in enumerate(editions, 1):
-            length_display = _format_length(ed.get("length"))
+            description = ed.get('description') or ed.get('event_name') or '—'
+            n_cables = ed.get('cable_count', 0)
+            cable_word = '' if n_cables == 1 else 's'
             body_lines.append(
-                f"  [green]{i}.[/green] [bold]{ed['slug']}[/bold] — {ed['event_name']}\n"
-                f"     {ed['series']}, {length_display}, {ed['cable_count']} cable{'' if ed['cable_count'] == 1 else 's'} registered"
+                f"  [green]{i}.[/green] [bold]{ed['slug']}[/bold] — {description}\n"
+                f"     {n_cables} cable{cable_word} registered"
             )
         body_lines.append("")
         body_lines.append("  [green]Q[/green]. Back")
@@ -1613,7 +1620,8 @@ class LtdEditionPickerScreen(Screen):
 
             new_context = self.context.copy()
             new_context["cable_type"] = cable_type
-            return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
+            # LTD/MISC variants need length + connector entered per-cable.
+            return ScreenResult(NavigationAction.REPLACE, VariantLengthEntryScreen, new_context)
 
         self.ui.console.print("[red]Invalid choice[/red]")
         time.sleep(0.5)
@@ -1738,8 +1746,9 @@ class MiscVariantPickerScreen(Screen):
 
         menu_items = []
         for v in existing:
-            length_display = _format_length(v.get("length"))
-            label = f"{v['sku']}  ({length_display})  {v['description']}"
+            n_cables = v.get('cable_count', 0)
+            cable_word = '' if n_cables == 1 else 's'
+            label = f"{v['sku']}  ({n_cables} cable{cable_word})  {v['description']}"
             menu_items.append(label)
         menu_items.append("[N] New MISC variant")
         menu_items.append("[Q] Back")
@@ -1795,7 +1804,8 @@ class MiscVariantPickerScreen(Screen):
 
             new_context = self.context.copy()
             new_context["cable_type"] = cable_type
-            return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
+            # Phase 4: length is per-cable; capture it on the next screen.
+            return ScreenResult(NavigationAction.REPLACE, VariantLengthEntryScreen, new_context)
 
         self.ui.console.print("[red]Invalid choice[/red]")
         time.sleep(0.5)
@@ -1803,7 +1813,11 @@ class MiscVariantPickerScreen(Screen):
 
 
 class MiscVariantCreateScreen(Screen):
-    """Create a new MISC variant: prompt for length and description."""
+    """Create a new MISC variant: prompt for description.
+
+    Phase 4: length is per-cable now (lives on audio_cables), captured on
+    the next screen. Group identity is just (prefix, description).
+    """
 
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
@@ -1821,51 +1835,13 @@ class MiscVariantCreateScreen(Screen):
             self.ui.console.input()
             return ScreenResult(NavigationAction.POP)
 
-        # --- Step 1: length ---
-        self.ui.header(operator)
-        self.ui.layout["body"].update(Panel(
-            f"[bold yellow]New MISC variant — {selected_series}[/bold yellow]\n\n"
-            "[bold cyan]Enter cable length in feet:[/bold cyan]\n"
-            "Examples: 3, 6, 10, 15, 20, 25",
-            title="MISC Variant — Length", border_style="yellow"
-        ))
-        self.ui.layout["footer"].update(Panel(
-            "Enter length in feet (number only) or 'q' to go back",
-            title="Length Entry"
-        ))
-        self.ui.render()
-
-        try:
-            length_input = self.ui.console.input("Length (ft): ").strip()
-        except KeyboardInterrupt:
-            return ScreenResult(NavigationAction.POP)
-
-        if length_input.lower() == 'q' or not length_input:
-            return ScreenResult(NavigationAction.POP)
-
-        try:
-            length_value = float(length_input)
-            if length_value <= 0:
-                raise ValueError("must be positive")
-        except ValueError:
-            self.ui.layout["body"].update(Panel(
-                f"❌ Invalid length: {length_input}",
-                title="Invalid Length", style="red"
-            ))
-            self.ui.layout["footer"].update(Panel("Press enter to try again", title=""))
-            self.ui.render()
-            self.ui.console.input()
-            return ScreenResult(NavigationAction.REPLACE, MiscVariantCreateScreen, self.context)
-
-        # --- Step 2: description ---
         max_desc_len = 90
         prefill_text = None
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(
-            f"[bold yellow]New MISC variant — {selected_series}[/bold yellow]\n"
-            f"Length: [bold green]{_format_length(length_value)}[/bold green]\n\n"
+            f"[bold yellow]New MISC variant — {selected_series}[/bold yellow]\n\n"
             "[bold cyan]Enter a description for this variant:[/bold cyan]\n"
-            "[dim](Length is stored separately — don't include it here)[/dim]\n\n"
+            "[dim](Length is per-cable and entered on the next screen — don't include it here)[/dim]\n\n"
             "Include details like:\n"
             "  • Color/pattern (e.g., 'custom blue/orange')\n"
             "  • Connector types (e.g., 'Neutrik TS-TRS')\n"
@@ -1908,9 +1884,9 @@ class MiscVariantCreateScreen(Screen):
         except KeyboardInterrupt:
             return ScreenResult(NavigationAction.POP)
 
-        # --- Resolve / create the SKU ---
+        # Resolve or create the MISC sku_group
         from greenlight.db import get_or_create_misc_sku
-        new_sku = get_or_create_misc_sku(series_prefix, description, length_value)
+        new_sku = get_or_create_misc_sku(series_prefix, description)
         if not new_sku:
             self.ui.layout["body"].update(Panel(
                 "❌ Failed to create MISC variant SKU. Check logs.",
@@ -1936,7 +1912,65 @@ class MiscVariantCreateScreen(Screen):
 
         new_context = self.context.copy()
         new_context["cable_type"] = cable_type
-        return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
+        return ScreenResult(NavigationAction.REPLACE, VariantLengthEntryScreen, new_context)
+
+
+class VariantLengthEntryScreen(Screen):
+    """Free-form length entry for MISC and LTD cables.
+
+    Catalog cables go through LengthSelectionScreen instead (YAML-driven
+    list of standard lengths). Variants can have any length per the
+    operator's input.
+    """
+
+    def run(self) -> ScreenResult:
+        operator = self.context.get("operator", "")
+        cable_type = self.context.get("cable_type")
+        if cable_type is None or not cable_type.is_loaded():
+            return ScreenResult(NavigationAction.POP)
+
+        scope = cable_type.name()
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(
+            f"[bold yellow]Enter cable length — {scope}[/bold yellow]\n\n"
+            "[bold cyan]Length in feet[/bold cyan]\n"
+            "Examples: 3, 6, 10, 15, 20, 25\n\n"
+            "[dim]This length is stored on this specific cable only.[/dim]",
+            title="Variant — Length", border_style="yellow"
+        ))
+        self.ui.layout["footer"].update(Panel(
+            "Enter length in feet (number only) or 'q' to go back",
+            title="Length Entry"
+        ))
+        self.ui.render()
+
+        try:
+            length_input = self.ui.console.input("Length (ft): ").strip()
+        except KeyboardInterrupt:
+            return ScreenResult(NavigationAction.POP)
+
+        if length_input.lower() == 'q' or not length_input:
+            return ScreenResult(NavigationAction.POP)
+
+        try:
+            length_value = float(length_input)
+            if length_value <= 0:
+                raise ValueError("must be positive")
+        except ValueError:
+            self.ui.layout["body"].update(Panel(
+                f"❌ Invalid length: {length_input}",
+                title="Invalid Length", style="red"
+            ))
+            self.ui.layout["footer"].update(Panel("Press enter to try again", title=""))
+            self.ui.render()
+            self.ui.console.input()
+            return ScreenResult(NavigationAction.REPLACE, VariantLengthEntryScreen, self.context)
+
+        new_context = self.context.copy()
+        new_context["selected_length"] = length_value
+        # Reuse ConnectorTypeSelectionScreen for the connector pick — it
+        # detects the variant flow via cable_type in context.
+        return ScreenResult(NavigationAction.REPLACE, ConnectorTypeSelectionScreen, new_context)
 
 
 class LengthSelectionScreen(Screen):
@@ -1981,20 +2015,8 @@ class LengthSelectionScreen(Screen):
                 selected_length = length_options[choice_idx]
                 new_context = self.context.copy()
                 new_context["selected_length"] = selected_length
-
-                # If there's only one connector type, skip the connector selection screen
-                connector_options = get_distinct_connector_types(selected_series, selected_color, selected_length)
-                if len(connector_options) == 1:
-                    sku = find_cable_by_attributes(selected_series, selected_color, selected_length, connector_options[0])
-                    if sku:
-                        try:
-                            cable_type = CableType()
-                            cable_type.load(sku)
-                            new_context["cable_type"] = cable_type
-                            return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
-                        except ValueError:
-                            pass  # Fall through to connector selection screen
-
+                # Always go through connector selection — it handles the
+                # auto-skip case for single-connector series internally.
                 return ScreenResult(NavigationAction.REPLACE, ConnectorTypeSelectionScreen, new_context)
         except ValueError:
             pass
@@ -2006,83 +2028,137 @@ class LengthSelectionScreen(Screen):
 
 
 class ConnectorTypeSelectionScreen(Screen):
-    def run(self) -> ScreenResult:
-        operator = self.context.get("operator", "")
-        selected_series = self.context.get("selected_series")
-        selected_color = self.context.get("selected_color_pattern")
-        selected_length = self.context.get("selected_length")
-        connector_options = get_distinct_connector_types(selected_series, selected_color, selected_length)
-        # Put straight connectors (TS-TS, XLR-XLR) before right-angle (RA-)
-        connector_options.sort(key=lambda c: (c.upper().startswith('RA'), c))
+    """Pick a connector type. Handles both catalog and variant (MISC/LTD) flows.
 
-        if not connector_options:
+    Catalog: came via series → pattern → length, no cable_type in context.
+        Resolves (sku_group, length, connector_code) via resolve_catalog_variant
+        at exit and routes to scan.
+
+    Variant (MISC/LTD): came via picker → length entry, cable_type already in
+        context. Just captures connector_code and routes to scan.
+    """
+
+    def run(self) -> ScreenResult:
+        from greenlight.cable_config import (
+            series_data_for_prefix, prefix_for_series, connector_display_for,
+        )
+        operator = self.context.get("operator", "")
+        selected_length = self.context.get("selected_length")
+        cable_type = self.context.get("cable_type")
+        is_variant_flow = cable_type is not None and cable_type.is_loaded()
+
+        # Determine the prefix to use for the connector list.
+        if is_variant_flow:
+            prefix = cable_type.prefix
+            series_label = cable_type.series or prefix
+            color_label = None
+        else:
+            selected_series = self.context.get("selected_series")
+            selected_color = self.context.get("selected_color_pattern")
+            prefix = prefix_for_series(selected_series)
+            series_label = selected_series
+            color_label = selected_color
+
+        series_data = series_data_for_prefix(prefix) if prefix else None
+        connectors = (series_data or {}).get('connectors') or []
+        # Sort straight (code='') before right-angle (code='-R')
+        connectors = sorted(connectors, key=lambda c: ((c.get('code') or '').startswith('-R'), c.get('display') or ''))
+
+        if not connectors:
             self.ui.header(operator)
-            self.ui.layout["body"].update(Panel(f"No connector types found for the selected attributes", title="Error", style="red"))
+            self.ui.layout["body"].update(Panel(
+                "No connector types found for the selected series",
+                title="Error", style="red"
+            ))
             self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
             self.ui.render()
             self.ui.console.input("Press enter to continue...")
             return ScreenResult(NavigationAction.POP)
 
-        # Create menu items
-        menu_items = [f"{connector}" for connector in connector_options]
-        menu_items.append("Back (q)")
+        # Auto-skip if there's only one connector option (e.g. vocal series).
+        if len(connectors) == 1:
+            return self._finish(connectors[0], cable_type, is_variant_flow)
 
-        rows = [
-            f"[green]{i + 1}.[/green] {name}"
-            for i, name in enumerate(menu_items)
-        ]
+        menu_items = [c.get('display') or '?' for c in connectors]
+        menu_items.append("Back (q)")
+        rows = [f"[green]{i + 1}.[/green] {name}" for i, name in enumerate(menu_items)]
+
+        body_lines = [f"Series: {series_label}"]
+        if color_label:
+            body_lines.append(f"Color: {color_label}")
+        body_lines.append(f"Length: {selected_length} ft")
+        body_lines.append("Select connector type")
 
         self.ui.header(operator)
-        self.ui.layout["body"].update(Panel(f"Series: {selected_series}\nColor: {selected_color}\nLength: {selected_length} ft\nSelect connector type", title="Step 4: Connector Selection"))
+        self.ui.layout["body"].update(Panel(
+            "\n".join(body_lines), title="Step 4: Connector Selection"
+        ))
         self.ui.layout["footer"].update(Panel("\n".join(rows), title="Available Connectors"))
         self.ui.render()
 
         choice = self.ui.console.input("Choose: ")
-
-        # Handle back/quit
         if choice.lower() == "q" or choice == str(len(menu_items)):
             return ScreenResult(NavigationAction.POP)
 
-        # Handle connector selection
         try:
             choice_idx = int(choice) - 1
-            if 0 <= choice_idx < len(connector_options):
-                selected_connector = connector_options[choice_idx]
-
-                # Find the actual cable SKU
-                sku = find_cable_by_attributes(selected_series, selected_color, selected_length, selected_connector)
-
-                if sku:
-                    # Load the cable and go directly to scanning
-                    try:
-                        cable_type = CableType()
-                        cable_type.load(sku)
-
-                        # Store cable type in context
-                        new_context = self.context.copy()
-                        new_context["cable_type"] = cable_type
-
-                        # Go directly to scanning screen without pause
-                        return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
-                    except ValueError as e:
-                        self.ui.layout["body"].update(Panel(f"Error loading cable: {str(e)}", title="Error", style="red"))
-                        self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
-                        self.ui.render()
-                        self.ui.console.input("")
-                        return ScreenResult(NavigationAction.POP)
-                else:
-                    self.ui.layout["body"].update(Panel("No cable found with the selected attributes", title="Error", style="red"))
-                    self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
-                    self.ui.render()
-                    self.ui.console.input("")
-                    return ScreenResult(NavigationAction.POP)
+            if 0 <= choice_idx < len(connectors):
+                return self._finish(connectors[choice_idx], cable_type, is_variant_flow)
         except ValueError:
             pass
 
-        # Invalid choice - brief feedback, then re-display
         self.ui.console.print("[red]Invalid choice[/red]")
-        import time; time.sleep(0.5)
+        time.sleep(0.5)
         return ScreenResult(NavigationAction.REPLACE, ConnectorTypeSelectionScreen, self.context)
+
+    def _finish(self, connector_dict, cable_type, is_variant_flow):
+        """Capture the chosen connector and route to scan. Resolves the
+        sku_group at exit for catalog flow."""
+        connector_code = connector_dict.get('code') or ''
+        connector_display = connector_dict.get('display') or ''
+        new_context = self.context.copy()
+        new_context['selected_connector'] = connector_display
+        new_context['connector_code'] = connector_code
+
+        if is_variant_flow:
+            # MISC/LTD: cable_type already in context (the sku_group). Just
+            # carry the connector_code through.
+            return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
+
+        # Catalog: resolve to (sku_group, length, connector_code) and load
+        # the CableType from sku_group.
+        selected_series = self.context.get("selected_series")
+        selected_color = self.context.get("selected_color_pattern")
+        selected_length = self.context.get("selected_length")
+        result = resolve_catalog_variant(
+            selected_series, selected_color, selected_length, connector_display,
+        )
+        if not result:
+            self.ui.layout["body"].update(Panel(
+                "Could not resolve a SKU for the selected attributes",
+                title="Error", style="red",
+            ))
+            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.render()
+            self.ui.console.input("")
+            return ScreenResult(NavigationAction.POP)
+
+        try:
+            new_cable_type = CableType()
+            new_cable_type.load(result['sku_group'])
+        except ValueError as e:
+            self.ui.layout["body"].update(Panel(
+                f"Error loading sku_group: {e}", title="Error", style="red",
+            ))
+            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.render()
+            self.ui.console.input("")
+            return ScreenResult(NavigationAction.POP)
+
+        new_context['cable_type'] = new_cable_type
+        new_context['selected_length'] = result['length']
+        new_context['connector_code'] = result['connector_code']
+        return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
 
 
 # ============================================================================
@@ -2096,6 +2172,8 @@ class ScanCableIntakeScreen(CableScreenBase):
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
         cable_type = self.context.get("cable_type")
+        length = self.context.get("selected_length")
+        connector_code = self.context.get("connector_code")
 
         if not cable_type or not cable_type.is_loaded():
             self.ui.header(operator)
@@ -2105,14 +2183,28 @@ class ScanCableIntakeScreen(CableScreenBase):
             self.ui.console.input("Press enter to continue...")
             return ScreenResult(NavigationAction.POP)
 
-        return self.scan_cables_loop(operator, cable_type)
+        if length is None or connector_code is None:
+            self.ui.header(operator)
+            self.ui.layout["body"].update(Panel(
+                "Cable length and connector are required before scanning. "
+                "Go back and complete the selection.",
+                title="Missing variant attrs", style="red",
+            ))
+            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.render()
+            self.ui.console.input("Press enter to continue...")
+            return ScreenResult(NavigationAction.POP)
 
-    def scan_cables_loop(self, operator, cable_type):
-        """Main scanning loop for registering multiple cables
+        return self.scan_cables_loop(operator, cable_type, length, connector_code)
+
+    def scan_cables_loop(self, operator, cable_type, length, connector_code):
+        """Main scanning loop for registering multiple cables.
 
         Args:
             operator: Operator ID
-            cable_type: CableType object (already resolved to a real variant SKU)
+            cable_type: CableType object (sku_group + display attrs)
+            length: per-cable length in feet (numeric)
+            connector_code: per-cable connector ('' or '-R')
         """
         scanned_count = 0
         scanned_serials = []
@@ -2137,11 +2229,20 @@ class ScanCableIntakeScreen(CableScreenBase):
                 # Show current status
                 self.ui.header(operator)
 
+                from greenlight.cable_config import format_variant_sku
+                length_for_format = int(length) if isinstance(length, float) and length.is_integer() else length
+                variant_sku = format_variant_sku(
+                    group_sku=cable_type.sku_group, length=length_for_format, connector_code=connector_code,
+                ) or cable_type.sku_group
                 scan_info = (
                     f"[bold cyan]Cable Type:[/bold cyan] {cable_type.name()}\n"
-                    f"[bold cyan]SKU:[/bold cyan] {cable_type.sku}\n"
+                    f"[bold cyan]SKU:[/bold cyan] {variant_sku}\n"
+                    f"[bold cyan]Length:[/bold cyan] {_format_length(length)}"
                 )
-                if sku_kind(cable_type.sku) == 'misc' and cable_type.description:
+                if connector_code == '-R':
+                    scan_info += "  [dim](right-angle)[/dim]"
+                scan_info += "\n"
+                if cable_type.kind in ('misc', 'ltd') and cable_type.description:
                     scan_info += f"[bold cyan]Description:[/bold cyan] {cable_type.description}\n"
                 scan_info += f"\n[bold yellow]Scanned:[/bold yellow] {scanned_count} cable{'s' if scanned_count != 1 else ''}"
                 if scanned_serials:
@@ -2195,9 +2296,12 @@ class ScanCableIntakeScreen(CableScreenBase):
             # but the SKU itself is locked once a cable has been registered (per design).
             allow_update = self.context.get("re_register", False)
 
-            # Register the cable in database (note: formatted_serial is already formatted in register_scanned_cable)
-            result = register_scanned_cable(serial_number, cable_type.sku, operator,
-                                          update_if_exists=allow_update)
+            # Register the cable in database. Phase 4: register_scanned_cable
+            # takes (serial, sku_group, length, connector_code, operator, ...).
+            result = register_scanned_cable(
+                serial_number, cable_type.sku_group, length, connector_code,
+                operator=operator, update_if_exists=allow_update,
+            )
 
             if result.get('success'):
                 # Successfully registered or updated
@@ -2278,9 +2382,10 @@ class ScanCableIntakeScreen(CableScreenBase):
                             # User wants to quit scanning
                             break
                         elif user_choice == 'update':
-                            # User chose to update - retry with update flag
-                            update_result = register_scanned_cable(serial_number, cable_type.sku, operator,
-                                                                  update_if_exists=True)
+                            update_result = register_scanned_cable(
+                                serial_number, cable_type.sku_group, length, connector_code,
+                                operator=operator, update_if_exists=True,
+                            )
                             if update_result.get('success'):
                                 scanned_count += 1
                                 saved_serial = update_result['serial_number']
@@ -2317,7 +2422,7 @@ class ScanCableIntakeScreen(CableScreenBase):
             'quit' - User wants to quit scanning
         """
         existing_serial = existing_record.get('serial_number', 'Unknown')
-        existing_sku = existing_record.get('sku', 'Unknown')
+        existing_sku = existing_record.get('sku_group') or existing_record.get('sku', 'Unknown')
         existing_operator = existing_record.get('operator', 'Unknown')
         existing_timestamp = existing_record.get('timestamp', 'Unknown')
         existing_notes = existing_record.get('notes', '')
@@ -2338,7 +2443,7 @@ class ScanCableIntakeScreen(CableScreenBase):
             f"  Registered: {timestamp_str}\n"
             f"  Notes: {existing_notes}\n\n"
             f"[bold]New Cable Type:[/bold]\n"
-            f"  SKU: {cable_type.sku}\n"
+            f"  Group: {cable_type.sku_group}\n"
             f"  Name: {cable_type.name()}\n\n"
             f"Do you want to update this record with the new cable type?",
             title="⚠️  Duplicate Serial Number",
