@@ -408,7 +408,7 @@ class CableScreenBase(Screen):
             return
 
         serial_number = cable_record.get('serial_number')
-        series = cable_record.get('series', '')
+        series = cable_record.get('series') or ''
         is_misc = sku_kind(cable_record.get('sku', '')) == 'misc'
         is_touring = series.startswith("Tour") and not is_misc
 

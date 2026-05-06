@@ -41,11 +41,13 @@ class WholesaleBatchScreen(Screen):
                 table.add_column("Cable", width=30)
 
                 for i, cable in enumerate(batch, 1):
-                    name = cable.get('series', '')
-                    length = cable.get('length', '')
+                    # `or ''` covers both missing keys and explicit None (resolver
+                    # returns None for color_pattern on MISC/LTD variants).
+                    name = cable.get('series') or ''
+                    length = cable.get('length') or ''
                     if isinstance(length, (int, float)):
                         length = str(int(length)) if length == int(length) else str(length)
-                    color = cable.get('color_pattern', '')
+                    color = cable.get('color_pattern') or ''
                     cable_name = f"{name} {length}' {color}".strip()
                     table.add_row(str(i), cable.get('serial_number', ''), cable.get('sku', ''), cable_name)
 

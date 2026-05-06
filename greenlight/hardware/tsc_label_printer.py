@@ -760,12 +760,14 @@ class TSCLabelPrinter(LabelPrinterInterface):
         Returns:
             TSPL commands as bytes
         """
-        serial_number = data.get('serial_number', '')
-        sku = data.get('sku', '')
-        series = data.get('series', '')
-        length = data.get('length', '')
-        color_pattern = data.get('color_pattern', '')
-        connector_type = data.get('connector_type', '')
+        # `or ''` covers both missing keys and explicit None — resolver returns
+        # None for color_pattern / connector_type on MISC/LTD variants.
+        serial_number = data.get('serial_number') or ''
+        sku = data.get('sku') or ''
+        series = data.get('series') or ''
+        length = data.get('length') or ''
+        color_pattern = data.get('color_pattern') or ''
+        connector_type = data.get('connector_type') or ''
 
         # Format length (database returns float)
         if isinstance(length, (int, float)):
