@@ -61,16 +61,23 @@ async function run() {
   check("parseGroupSku catalog → pattern_code=GL", catalogGroupParsed.pattern_code === "GL");
   check("parseGroupSku catalog → no prefix", catalogGroupParsed.prefix === undefined);
 
-  // LTD variant SKU is series-specific (e.g., SC-LTD-SMOKE2606).
-  const ltdVariantString = `SC-LTD-${SMOKE_SLUG}`;
+  // LTD variant SKU is fully qualified per cable (prefix, length, connector).
+  const ltdVariantString = `SC-12-LTD-${SMOKE_SLUG}-R`;
   const variantParsed = parseVariantSku(ltdVariantString);
   check("parseVariantSku LTD → kind=ltd", variantParsed.kind === "ltd");
-  check("parseVariantSku LTD → group_sku drops prefix", variantParsed.group_sku === SMOKE_SKU);
+  check("parseVariantSku LTD → group_sku is tag-only", variantParsed.group_sku === SMOKE_SKU);
   check("parseVariantSku LTD → prefix=SC", variantParsed.prefix === "SC");
+  check("parseVariantSku LTD → length=12", variantParsed.length === 12);
+  check("parseVariantSku LTD → connector_code=-R", variantParsed.connector_code === "-R");
   check("parseVariantSku LTD → slug matches", variantParsed.slug === SMOKE_SLUG);
 
-  const formattedLtd = formatVariantSku({ prefix: "SC", group_sku: SMOKE_SKU });
-  check("formatVariantSku LTD → adds prefix", formattedLtd === ltdVariantString);
+  const formattedLtd = formatVariantSku({
+    prefix: "SC",
+    group_sku: SMOKE_SKU,
+    length: 12,
+    connector_code: "-R",
+  });
+  check("formatVariantSku LTD → fully qualified round-trip", formattedLtd === ltdVariantString);
 
   const catalogVariant = parseVariantSku("SC-12GL-R");
   check("parseVariantSku catalog → group_sku=GL (no prefix)", catalogVariant.kind === "catalog" && catalogVariant.group_sku === "GL");

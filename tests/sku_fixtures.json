@@ -236,27 +236,63 @@
     }
   },
   {
-    "name": "variant ltd: SC Phish edition (group sku drops prefix)",
+    "name": "variant ltd: SC 12ft Phish edition straight",
     "type": "variant",
-    "sku": "SC-LTD-PHISH26",
+    "sku": "SC-12-LTD-PHISH26",
     "expected": {
       "kind": "ltd",
       "group_sku": "LTD-PHISH26",
       "prefix": "SC",
       "series": "Studio Classic",
-      "slug": "PHISH26"
+      "length": 12,
+      "slug": "PHISH26",
+      "connector_code": "",
+      "connector_display": "TS–TS"
     }
   },
   {
-    "name": "variant ltd: TC Phish edition (same group, different prefix)",
+    "name": "variant ltd: SC 12ft Phish edition right-angle",
     "type": "variant",
-    "sku": "TC-LTD-PHISH26",
+    "sku": "SC-12-LTD-PHISH26-R",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-PHISH26",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 12,
+      "slug": "PHISH26",
+      "connector_code": "-R",
+      "connector_display": "RA–TS"
+    }
+  },
+  {
+    "name": "variant ltd: TC 15ft same edition (different prefix + length)",
+    "type": "variant",
+    "sku": "TC-15-LTD-PHISH26",
     "expected": {
       "kind": "ltd",
       "group_sku": "LTD-PHISH26",
       "prefix": "TC",
       "series": "Tour Classic",
-      "slug": "PHISH26"
+      "length": 15,
+      "slug": "PHISH26",
+      "connector_code": "",
+      "connector_display": "TS–TS"
+    }
+  },
+  {
+    "name": "variant ltd: SV XLR edition cable",
+    "type": "variant",
+    "sku": "SV-3-LTD-VINTAGEINTHEVALLEY2026",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-VINTAGEINTHEVALLEY2026",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "length": 3,
+      "slug": "VINTAGEINTHEVALLEY2026",
+      "connector_code": "",
+      "connector_display": "XLR–XLR"
     }
   },
   {
@@ -307,13 +343,23 @@
     "sku": "SC-MISC-42"
   },
   {
-    "name": "round-trip: LTD edition (SC)",
+    "name": "round-trip: LTD SC 12ft straight",
     "type": "round_trip",
-    "sku": "SC-LTD-PHISH26"
+    "sku": "SC-12-LTD-PHISH26"
   },
   {
-    "name": "round-trip: LTD edition (TC)",
+    "name": "round-trip: LTD SC 12ft right-angle",
     "type": "round_trip",
-    "sku": "TC-LTD-PHISH26"
+    "sku": "SC-12-LTD-PHISH26-R"
+  },
+  {
+    "name": "round-trip: LTD TC 15ft straight",
+    "type": "round_trip",
+    "sku": "TC-15-LTD-PHISH26"
+  },
+  {
+    "name": "round-trip: LTD long slug",
+    "type": "round_trip",
+    "sku": "SV-3-LTD-VINTAGEINTHEVALLEY2026"
   }
 ]

@@ -49,12 +49,15 @@ const RE_GROUP_MISC = /^([A-Z]{2,3})-MISC-(\d+)$/;
 const RE_GROUP_LTD = /^LTD-([A-Z0-9]{4,24})$/;
 const RE_GROUP_CATALOG = /^([A-Z]{2,3})$/;
 
-// Variant SKU regexes (Phase 5 shape — variants are still series-specific).
+// Variant SKU regexes (variants are series-specific and fully qualified).
 //   catalog: '{prefix}-{length}{pattern}{?-R}' — 'SC-12GL', 'SC-12GL-R'
-//   ltd:     '{prefix}-LTD-{slug}' — 'SC-LTD-PHISH26'
+//   ltd:     '{prefix}-{length}-LTD-{slug}{?-R}' — 'SC-12-LTD-PHISH26-R'
 //   misc:    '{prefix}-MISC-{seq}' — equals the group SKU, untouched
+//
+// The dash before LTD prevents ambiguity with catalog: 'SC-12LTD' would
+// otherwise parse as catalog with pattern_code='LTD'.
 const RE_VARIANT_CATALOG = /^([A-Z]{2,3})-(\d+)([A-Z]{2,3})(-R)?$/;
-const RE_VARIANT_LTD = /^([A-Z]{2,3})-LTD-([A-Z0-9]{4,24})$/;
+const RE_VARIANT_LTD = /^([A-Z]{2,3})-(\d+)-LTD-([A-Z0-9]{4,24})(-R)?$/;
 
 function loadPatterns() {
   const path = resolve(PRODUCT_LINES_DIR, "patterns.yaml");
@@ -194,16 +197,22 @@ export function parseVariantSku(sku) {
     };
   }
 
-  // LTD variant: '{prefix}-LTD-{slug}'. Group SKU drops the prefix.
+  // LTD variant: '{prefix}-{length}-LTD-{slug}{?-R}'. Group SKU is
+  // edition-only (no prefix, no length, no connector — those live on
+  // audio_cables and surface in the variant SKU instead).
   m = sku.match(RE_VARIANT_LTD);
   if (m) {
-    const [, prefix, slug] = m;
+    const [, prefix, lengthStr, slug, raSuffix] = m;
+    const connectorCode = raSuffix ?? "";
     return {
       kind: "ltd",
       group_sku: `LTD-${slug}`,
       prefix,
       series: seriesForPrefix(prefix),
+      length: parseInt(lengthStr, 10),
       slug,
+      connector_code: connectorCode,
+      connector_display: connectorDisplay(prefix, connectorCode),
     };
   }
 
@@ -235,7 +244,9 @@ export function parseVariantSku(sku) {
  *
  * Catalog: '{prefix}-{length}{pattern_code}{connector_code}' — needs prefix
  *   from audio_cables since the catalog group SKU doesn't carry it.
- * LTD:     '{prefix}-LTD-{slug}' — same; LTD group SKU is series-agnostic.
+ * LTD:     '{prefix}-{length}-LTD-{slug}{connector_code}' — fully qualified
+ *   per-cable so a right-angle 12ft Studio Classic in the PHISH26 edition
+ *   reads as 'SC-12-LTD-PHISH26-R'. The group SKU remains tag-only.
  * MISC:    returns group_sku (which still includes the prefix).
  *
  * Returns null if the inputs are invalid.
@@ -250,8 +261,9 @@ export function formatVariantSku({ prefix, group_sku, length, connector_code }) 
   }
 
   if (parsed.kind === "ltd") {
-    if (!prefix) return null;
-    return `${prefix}-LTD-${parsed.slug}`;
+    if (!prefix || length == null) return null;
+    const cc = connector_code ?? "";
+    return `${prefix}-${length}-LTD-${parsed.slug}${cc}`;
   }
 
   // catalog

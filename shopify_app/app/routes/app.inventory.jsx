@@ -29,6 +29,7 @@ export async function action({ request }) {
       const totalResult = await query(
         `SELECT sku_group, prefix, length, connector_code, COUNT(*) as count
          FROM audio_cables
+         WHERE sku_group !~ '^LTD-'
          GROUP BY sku_group, prefix, length, connector_code
          ORDER BY sku_group, prefix, length, connector_code`
       );
@@ -49,7 +50,7 @@ export async function action({ request }) {
       const dbResult = await query(
         `SELECT sku_group, prefix, length, connector_code, COUNT(*) as count
          FROM audio_cables
-         WHERE shopify_gid IS NULL OR shopify_gid = ''
+         WHERE (shopify_gid IS NULL OR shopify_gid = '') AND sku_group !~ '^LTD-'
          GROUP BY sku_group, prefix, length, connector_code
          ORDER BY sku_group, prefix, length, connector_code`
       );
@@ -144,7 +145,7 @@ export async function action({ request }) {
       const dbResult = await query(
         `SELECT sku_group, prefix, length, connector_code, COUNT(*) as count
          FROM audio_cables
-         WHERE shopify_gid IS NULL OR shopify_gid = ''
+         WHERE (shopify_gid IS NULL OR shopify_gid = '') AND sku_group !~ '^LTD-'
          GROUP BY sku_group, prefix, length, connector_code
          ORDER BY sku_group, prefix, length, connector_code`
       );
@@ -201,12 +202,14 @@ export async function action({ request }) {
         cursor = variants.pageInfo.endCursor;
       }
 
-      // Iterate Shopify-side variants we recognise (catalog/MISC/LTD shapes)
-      // and reconcile to dbCount, defaulting to 0 for sold-out variants.
+      // Iterate Shopify-side catalog and MISC variants and reconcile to
+      // dbCount, defaulting to 0 for sold-out variants. LTD groups are
+      // merch-only — not website inventory — so we skip them entirely.
       const results = [];
-      const skusToSync = Object.keys(variantsBySku).filter(
-        (sku) => parseVariantSku(sku).kind !== null
-      );
+      const skusToSync = Object.keys(variantsBySku).filter((sku) => {
+        const kind = parseVariantSku(sku).kind;
+        return kind !== null && kind !== "ltd";
+      });
 
       for (const sku of skusToSync) {
         const dbCount = dbInventory[sku] ?? 0;
