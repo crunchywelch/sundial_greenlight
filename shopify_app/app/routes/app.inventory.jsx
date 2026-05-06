@@ -262,6 +262,16 @@ export default function Inventory() {
   // the most recent action's payload.
   const [inventory, setInventory] = useState([]);
   const [syncResults, setSyncResults] = useState(null);
+  const [filter, setFilter] = useState("");
+
+  const filterLower = filter.trim().toLowerCase();
+  const filteredInventory = filterLower
+    ? inventory.filter((item) =>
+        item.sku.toLowerCase().includes(filterLower) ||
+        (item.productTitle || "").toLowerCase().includes(filterLower) ||
+        (item.variantTitle || "").toLowerCase().includes(filterLower)
+      )
+    : inventory;
 
   useEffect(() => {
     if (actionData?.inventory) setInventory(actionData.inventory);
@@ -366,6 +376,29 @@ export default function Inventory() {
         {inventory.length === 0 ? (
           <div style={{ padding: "40px", textAlign: "center", color: "#666" }}>Loading inventory data...</div>
         ) : (
+          <>
+            <div style={{ marginBottom: "12px", display: "flex", gap: "10px", alignItems: "center" }}>
+              <input
+                type="text"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Filter by SKU or product…"
+                style={{ flex: 1, padding: "8px 10px", border: "1px solid #ccc", borderRadius: "4px", fontSize: "14px" }}
+              />
+              {filter && (
+                <button
+                  onClick={() => setFilter("")}
+                  style={{ padding: "8px 12px", backgroundColor: "#fff", border: "1px solid #ddd", borderRadius: "4px", fontSize: "14px", cursor: "pointer" }}
+                >
+                  Clear
+                </button>
+              )}
+              <span style={{ fontSize: "13px", color: "#666", whiteSpace: "nowrap" }}>
+                {filterLower
+                  ? `${filteredInventory.length} of ${inventory.length}`
+                  : `${inventory.length} variants`}
+              </span>
+            </div>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
               <thead>
@@ -379,7 +412,7 @@ export default function Inventory() {
                 </tr>
               </thead>
               <tbody>
-                {inventory.map((item) => {
+                {filteredInventory.map((item) => {
                   const diffColor = item.diff > 0 ? "#008060" : item.diff < 0 ? "#d72c0d" : "#666";
                   const rowBg = item.diff !== 0 ? "#fffbeb" : "#fff";
                   return (
@@ -423,12 +456,19 @@ export default function Inventory() {
               </tbody>
             </table>
 
+            {filterLower && filteredInventory.length === 0 && (
+              <div style={{ padding: "20px", textAlign: "center", color: "#666", fontSize: "14px" }}>
+                No variants match "{filter}".
+              </div>
+            )}
+
             <div style={{ marginTop: "20px", padding: "15px", backgroundColor: "#f5f5f5", borderRadius: "4px", fontSize: "13px", color: "#666" }}>
               <strong>Legend:</strong> Total = all cables in DB. Available = unassigned cables. Difference = Available − Shopify.
               <span style={{ color: "#008060", marginLeft: "10px" }}>+Positive</span> means more available than Shopify shows.
               <span style={{ color: "#d72c0d", marginLeft: "10px" }}>−Negative</span> means less available than Shopify shows.
             </div>
           </div>
+          </>
         )}
       </div>
     </div>

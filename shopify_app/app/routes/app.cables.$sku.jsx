@@ -20,7 +20,10 @@ export async function loader({ request, params }) {
   );
   const counts = countResult.rows[0];
 
-  // Assigned cables only — show the per-cable variation (length, connector)
+  // Every cable in this group — assigned and available alike. Per-cable
+  // variation (length, connector) and assignment status are surfaced so
+  // this page works as the canonical "show me everything in SC-LTD-PHISH26"
+  // view as well as the historical "who has cables in this group" view.
   const result = await query(
     `SELECT
       ac.serial_number,
@@ -31,8 +34,8 @@ export async function loader({ request, params }) {
       ac.test_timestamp,
       ac.test_passed
     FROM audio_cables ac
-    WHERE ac.sku_group = $1 AND ac.shopify_gid IS NOT NULL AND ac.shopify_gid != ''
-    ORDER BY ac.serial_number`,
+    WHERE ac.sku_group = $1
+    ORDER BY (ac.shopify_gid IS NOT NULL AND ac.shopify_gid != '') DESC, ac.serial_number`,
     [skuGroup]
   );
 
@@ -117,7 +120,7 @@ export default function CablesBySkuGroup() {
 
       {cables.length === 0 ? (
         <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f5f5f5', borderRadius: '8px', color: '#666' }}>
-          No assigned cables in this group.
+          No cables registered in this group.
         </div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
@@ -162,8 +165,10 @@ export default function CablesBySkuGroup() {
                           </div>
                           <div style={{ fontSize: '12px', color: '#666' }}>{cable.customer.email}</div>
                         </div>
-                      ) : (
+                      ) : cable.shopify_gid ? (
                         <span style={{ color: '#999' }}>Unknown</span>
+                      ) : (
+                        <span style={{ color: '#008060', fontStyle: 'italic' }}>Available</span>
                       )}
                     </td>
                   </tr>

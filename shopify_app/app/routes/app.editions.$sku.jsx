@@ -1,11 +1,14 @@
 import { json } from "@remix-run/node";
 import { Form, Link, useActionData, useLoaderData, useLocation, useNavigation } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
+import { query } from "../db.server";
 import {
   getEdition,
   updateEdition,
   EditionValidationError,
 } from "../editions.server";
+
+const CABLE_PREVIEW_LIMIT = 10;
 
 export async function loader({ request, params }) {
   await authenticate.admin(request);
@@ -14,7 +17,29 @@ export async function loader({ request, params }) {
   if (!edition) {
     throw new Response("Edition not found", { status: 404 });
   }
-  return json({ edition });
+
+  // Pull a preview of the cables in this edition. Per-cable variation
+  // (length, connector) actually matters to inspect since editions can
+  // span multiple sizes. Limit + "view all" link, canonical full list
+  // lives at /app/cables/{sku_group}.
+  const cablesResult = await query(
+    `SELECT serial_number, length, connector_code, shopify_gid, test_passed, test_timestamp
+     FROM audio_cables
+     WHERE sku_group = $1
+     ORDER BY test_timestamp DESC NULLS LAST, serial_number
+     LIMIT $2`,
+    [sku, CABLE_PREVIEW_LIMIT]
+  );
+  const cables = cablesResult.rows.map((r) => ({
+    serial_number: r.serial_number,
+    length: Number(r.length),
+    connector_code: r.connector_code,
+    assigned: !!(r.shopify_gid && r.shopify_gid !== ""),
+    test_passed: r.test_passed,
+    tested: r.test_passed !== null,
+  }));
+
+  return json({ edition, cables, cablePreviewLimit: CABLE_PREVIEW_LIMIT });
 }
 
 export async function action({ request, params }) {
@@ -65,12 +90,14 @@ const labelStyle = { display: "block", marginBottom: "5px", fontSize: "14px", fo
 const fieldStyle = { marginBottom: "16px" };
 
 export default function EditionDetail() {
-  const { edition } = useLoaderData();
+  const { edition, cables, cablePreviewLimit } = useLoaderData();
   const actionData = useActionData();
   const navigation = useNavigation();
   const location = useLocation();
   const submitting = navigation.state === "submitting";
   const editionsHref = { pathname: "/app/editions", search: location.search };
+  const cablesHref = { pathname: `/app/cables/${encodeURIComponent(edition.sku)}`, search: location.search };
+  const hasMoreCables = edition.cable_count > cables.length;
 
   return (
     <div style={{ padding: "20px", maxWidth: "720px", margin: "0 auto", fontFamily: "system-ui, -apple-system, sans-serif" }}>
@@ -84,7 +111,14 @@ export default function EditionDetail() {
         <div>
           <h1 style={{ fontSize: "24px", margin: "0 0 6px" }}>{edition.slug}</h1>
           <div style={{ fontSize: "14px", color: "#666" }}>
-            <code>{edition.sku}</code> · {edition.series} · {edition.cable_count} cable{edition.cable_count === 1 ? "" : "s"} registered
+            <code>{edition.sku}</code> · {edition.series} ·{" "}
+            {edition.cable_count > 0 ? (
+              <Link to={cablesHref} style={{ color: "#008060", textDecoration: "none" }}>
+                {edition.cable_count} cable{edition.cable_count === 1 ? "" : "s"} registered
+              </Link>
+            ) : (
+              <>0 cables registered</>
+            )}
           </div>
         </div>
         <span style={{
@@ -143,6 +177,70 @@ export default function EditionDetail() {
           </button>
         </div>
       </Form>
+
+      {/* Cables in this edition. Compact preview; full list at /app/cables/{sku}. */}
+      {cables.length > 0 && (
+        <div style={{ marginTop: "40px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "10px" }}>
+            <h2 style={{ fontSize: "16px", margin: 0 }}>Registered cables</h2>
+            {hasMoreCables && (
+              <Link to={cablesHref} style={{ color: "#008060", textDecoration: "none", fontSize: "13px" }}>
+                View all {edition.cable_count} →
+              </Link>
+            )}
+          </div>
+          <div style={{ border: "1px solid #eee", borderRadius: "4px", overflow: "hidden" }}>
+            {cables.map((cable, i) => (
+              <div
+                key={cable.serial_number}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "10px 12px",
+                  borderBottom: i < cables.length - 1 ? "1px solid #eee" : "none",
+                  fontSize: "13px",
+                }}
+              >
+                <span style={{ fontWeight: "bold", flex: "0 0 auto" }}>#{cable.serial_number}</span>
+                <span style={{ color: "#666", flex: "1 1 auto" }}>
+                  {cable.length}ft{cable.connector_code === "-R" ? ", right angle" : ""}
+                </span>
+                {cable.tested && (
+                  <span style={{
+                    padding: "2px 6px",
+                    borderRadius: "10px",
+                    fontSize: "11px",
+                    fontWeight: "bold",
+                    backgroundColor: cable.test_passed ? "#d4edda" : "#f8d7da",
+                    color: cable.test_passed ? "#155724" : "#721c24",
+                  }}>
+                    {cable.test_passed ? "Pass" : "Fail"}
+                  </span>
+                )}
+                <span style={{
+                  padding: "2px 6px",
+                  borderRadius: "10px",
+                  fontSize: "11px",
+                  fontWeight: "bold",
+                  backgroundColor: cable.assigned ? "#e8f5ff" : "#fff3cd",
+                  color: cable.assigned ? "#0050b3" : "#856404",
+                }}>
+                  {cable.assigned ? "Assigned" : "Available"}
+                </span>
+              </div>
+            ))}
+          </div>
+          {hasMoreCables && (
+            <div style={{ marginTop: "8px", fontSize: "12px", color: "#666" }}>
+              Showing {cables.length} of {edition.cable_count}.{" "}
+              <Link to={cablesHref} style={{ color: "#008060", textDecoration: "none" }}>
+                See all on the cables page →
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ marginTop: "40px", paddingTop: "20px", borderTop: "1px solid #eee" }}>
         <Form method="post">
