@@ -111,22 +111,21 @@ function MyCablesPage() {
 }
 
 function formatLength(cable) {
-  if (cable.length) {
-    const ft = parseFloat(cable.length);
-    if (ft < 1) return `${Math.round(ft * 12)} in`;
-    return `${ft} ft`;
-  }
-  if (cable.sku && !/-MISC-\d+$/.test(cable.sku)) {
-    const match = cable.sku.match(/-(\d+)/);
-    if (match) return `${match[1]} ft`;
-  }
-  return null;
+  if (cable.length == null) return null;
+  const ft = parseFloat(cable.length);
+  if (ft < 1) return `${Math.round(ft * 12)} in`;
+  return `${ft} ft`;
 }
 
 function CableItem({ cable, showDivider }) {
-  const title = [cable.series, cable.color, cable.connector_type]
-    .filter(Boolean)
-    .join(" — ");
+  // For LTD and MISC cables, the description carries the meaningful
+  // identifier (LTD edition name; MISC variant discriminator) — lead with
+  // it. Catalog cables have a pattern color which is already in the title.
+  const titleParts =
+    cable.kind === "ltd" || cable.kind === "misc"
+      ? [cable.description, cable.series, cable.connector_type]
+      : [cable.series, cable.color, cable.connector_type];
+  const title = titleParts.filter(Boolean).join(" — ");
   const length = formatLength(cable);
 
   return (

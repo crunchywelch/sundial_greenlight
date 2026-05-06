@@ -75,6 +75,7 @@ async function fetchCustomerCables(customerId) {
       sku: variantSku,
       sku_group: row.sku_group,
       prefix: row.prefix,
+      kind: parsed.kind,
       series: seriesForPrefix(row.prefix),
       color: colorPattern,
       connector_type: connectorDisplay,

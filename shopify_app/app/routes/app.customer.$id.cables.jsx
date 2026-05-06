@@ -158,7 +158,7 @@ export default function CustomerCables() {
                     <div style={{ fontSize: '14px', color: '#666' }}>
                       {cable.sku}
                     </div>
-                    {cable.kind === "misc" && cable.description && (
+                    {(cable.kind === "misc" || cable.kind === "ltd") && cable.description && (
                       <div style={{ fontSize: '13px', color: '#888', marginTop: '2px' }}>
                         {cable.description}
                       </div>

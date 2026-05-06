@@ -12,11 +12,10 @@
  */
 
 import { query } from "./db.server.js";
-import { SLUG_PATTERN, parseLtdSku } from "./editions-shared.js";
+import { SLUG_PATTERN } from "./editions-shared.js";
 import { parseGroupSku } from "./cable-config.server.js";
 
-// Re-export so existing server-side imports keep working.
-export { SLUG_PATTERN, parseLtdSku };
+export { SLUG_PATTERN };
 
 export class EditionValidationError extends Error {
   constructor(message, field) {
