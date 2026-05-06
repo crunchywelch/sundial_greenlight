@@ -98,12 +98,12 @@ export default function NewEdition() {
             value={slugLive}
             onChange={(e) => setSlugLive(e.target.value)}
             placeholder="PHISH26"
-            maxLength={12}
+            maxLength={24}
             style={{ ...inputStyle, textTransform: "uppercase", borderColor: slugValid ? "#ccc" : "#d72c0d" }}
             required
           />
           <div style={helpStyle}>
-            4–12 characters, A–Z and 0–9 only. New edition will be <code>LTD-{slugLive.toUpperCase() || "SLUG"}</code>.
+            4–24 characters, A–Z and 0–9 only. New edition will be <code>LTD-{slugLive.toUpperCase() || "SLUG"}</code>.
           </div>
         </div>
 

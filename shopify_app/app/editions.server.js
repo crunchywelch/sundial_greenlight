@@ -35,7 +35,7 @@ export class EditionConflictError extends Error {
 
 function validateCreateInput({ slug, description }) {
   if (!slug || !SLUG_PATTERN.test(slug)) {
-    throw new EditionValidationError("Slug must be 4–12 characters, A–Z and 0–9 only.", "slug");
+    throw new EditionValidationError("Slug must be 4–24 characters, A–Z and 0–9 only.", "slug");
   }
   if (!description || !description.trim()) {
     throw new EditionValidationError("Description is required.", "description");
