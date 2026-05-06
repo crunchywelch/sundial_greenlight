@@ -1,6 +1,6 @@
 # Cable Variants Refactor
 
-**Status:** Phase 1 complete and shipped (2026-04-29). Phase 2 greenlight-side complete on main (bd2ee938, 2026-04-30); migration applied to prod DB (2026-05-05). **Phase 2 Shopify CRUD work paused** in favor of Phase 3 schema cleanup, decided 2026-05-05 after the LTD CRUD work surfaced longstanding sprawl in `cable_skus` (kind sentinels stuffed into `color_pattern`, `length` stored as text, `series`/`core_cable`/`braid_material`/`connector_type` denormalized per row when they're really per-prefix or per-SKU-derivable). Phase 2 LTD CRUD (the Shopify app routes + helpers) lands as-is for now and will be simplified once Phase 3 cleans up the underlying shape. No data is in `cable_ltd_metadata` yet so the cleanup window is open.
+**Status:** Phase 1 complete and shipped (2026-04-29). Phase 2 greenlight-side complete on main (bd2ee938, 2026-04-30); migration applied to prod DB (2026-05-05). Phase 2 Shopify CRUD work landed and was incrementally migrated through Phase 3.4–3.6. **Phase 3 superseded by Phase 4 (2026-05-06)** — Phase 3 was a "less-bad intermediate state" and surfaced the actual structural problem: `cable_skus` was conflating sku-group identity with variant SKU identity. Phase 4 splits them properly: `sku_group` table holds groups, `audio_cables` carries length/connector, variant SKU strings are derived. See Phase 4 section below.
 
 **Phase 3 readiness (2026-05-05 evening):** DO-side recon complete; Pi-side recon complete (added below); schema invariants, length backfill plan, pre-migration verification, and parity-test fixture format all incorporated. Ready for the user's final review before execution.
 
@@ -188,6 +188,246 @@ Resolved (2026-05-05):
 - Parity test fixture format: single `tests/sku_fixtures.json` listing `{sku, expected}` pairs (format above), consumed by both Python and JS tests. Real production SKUs included in the fixture so YAML edits that break back-compat surface immediately.
 - Pre-migration parity check (3.5.1) before column drops — resolver output must match existing column values for every row in `cable_skus`, else abort.
 - Length backfill (3.5.2) only for variant SKUs (MISC/LTD); aborts if any text length fails to parse cleanly.
+
+
+## Phase 4 — sku_group redesign (2026-05-06)
+
+**Status:** Phase 3 successfully landed but surfaced the actual structural problem: `cable_skus` was conflating two concerns — "what kind of cable is this" (a group/reference) and "what's the canonical product SKU" (a per-variant identity). The kind-sentinels-as-color_pattern, length-on-cable_skus, and per-edition Shopify products that we kept fighting were all symptoms of that conflation. Phase 4 splits them properly.
+
+**Status (2026-05-06):** Plan landed; LTD CRUD work paused mid-Phase 3.6, both apps still on the Phase 3.5 schema. Pi-side Phase 3.6 cleanup was *not* started, so nothing to undo. DO-side Phase 3.6 dropped column writes; those rewrite again under Phase 4 but to a much simpler shape.
+
+### Design principle
+
+`cable_skus` becomes a description table for *sku groups* — the smallest set that uniquely identifies "this kind of cable." Length, connector, and any other per-cable variation moves to `audio_cables`. The user-facing variant SKU string (what Shopify sees, what's printed on labels, what customers use) is **derived** from `(sku_group, length, connector_code)` at read time.
+
+This means:
+- Catalog "products" collapse from ~135 rows (per-variant) to ~24 rows (per group: series × pattern).
+- LTD/MISC are no longer "special cases" — they're just sku_groups whose SKUs match different patterns (`-LTD-`, `-MISC-`).
+- Each cable's actual length and connector are properties of the cable, not encoded in a SKU template.
+- Shopify is **unaffected**: variant SKU strings (`SC-12GL`, `SC-12GL-R`) keep their existing format. The change is purely how we store and query internally.
+
+### Final shapes
+
+```
+sku_group (
+  sku          TEXT PK,           -- 'SC-SL', 'SC-MISC-42', 'SC-LTD-PHISH26'
+  description  TEXT,              -- free text (LTD event name, MISC discriminator, optional pattern desc for catalog)
+  archived_at  TIMESTAMPTZ        -- soft-delete, primarily for LTD; future-proof for retired catalog patterns
+)
+
+audio_cables (
+  serial_number   TEXT PK,
+  sku_group       TEXT NOT NULL FK to sku_group(sku),
+  length          NUMERIC(5,2),
+  connector_code  TEXT,                  -- '' (straight) or '-R' (right angle); extensible
+  -- ... existing operator/test/customer/order columns unchanged
+)
+```
+
+`cable_ltd_metadata` is dropped — LTD-specific data folds into `sku_group` (only `description` and `archived_at` remain after the user pruned event_name/notes/created_by as unused).
+
+### Naming
+
+Rename ripples through:
+- Table: `cable_skus` → `sku_group` (singular, matches one row)
+- FK column on audio_cables: `sku` → `sku_group`
+- In code/JSON: `cable.sku` (group identifier) → `cable.sku_group`. The user-facing variant SKU string becomes `cable.variant_sku` (computed). Two distinct names — no more conflation.
+
+### Resolver shape
+
+`shopify_app/app/cable-config.server.js` and `greenlight/cable_config.py` gain three exports:
+
+- `parseGroupSku(s) → { kind: 'catalog'|'misc'|'ltd'|null, prefix, pattern_code|misc_seq|slug }` — for `sku_group.sku` parsing.
+- `parseVariantSku(s) → { kind, group_sku, prefix, length, pattern_code, connector_code }` — for variant SKU strings (Shopify line items, label scans). Catalog only; MISC/LTD don't have a separate variant string (group sku == variant sku for those).
+- `formatVariantSku({ group_sku, length, connector_code }) → string` — inverse of parseVariantSku for catalog. For MISC/LTD just returns `group_sku`.
+
+`parseSku` from Phase 3 is removed (callers move to one of the three above).
+
+Round-trip identity: `formatVariantSku(parseVariantSku(s)) === s` for all valid catalog variant SKUs. Enforced in the parity test.
+
+### Fixture extension
+
+`tests/sku_fixtures.json` grows a `type` discriminator on each entry:
+
+```json
+[
+  {"name": "...", "type": "group", "sku": "SC-SL", "expected": {"kind": "catalog", "prefix": "SC", "pattern_code": "SL"}},
+  {"name": "...", "type": "variant", "sku": "SC-15SL-R", "expected": {"kind": "catalog", "group_sku": "SC-SL", "prefix": "SC", "length": 15, "pattern_code": "SL", "connector_code": "-R"}},
+  {"name": "...", "type": "round_trip", "sku": "SC-15SL-R"}
+]
+```
+
+Tests dispatch on `type`. Round-trip fixtures verify `formatVariantSku(parseVariantSku(sku)) === sku`. The prod-SKU expansion (`generate_sku_fixtures.py`) regenerates against the new resolver.
+
+### Migration
+
+Single transaction. Sequence:
+
+```sql
+BEGIN;
+
+-- 1. Add new columns to audio_cables (nullable during transition)
+ALTER TABLE audio_cables
+  ADD COLUMN length NUMERIC(5,2),
+  ADD COLUMN connector_code TEXT;
+
+-- 2. Backfill audio_cables.length and connector_code from each cable's existing sku
+--    Catalog: parse from the SKU string itself
+--    MISC/LTD: copy from cable_skus.length (added in Phase 3.5)
+UPDATE audio_cables ac
+SET length = parse_catalog_length(ac.sku),
+    connector_code = CASE WHEN ac.sku ~ '-R$' THEN '-R' ELSE '' END
+WHERE ac.sku ~ '^[A-Z]{2,3}-\d+[A-Z]{2,3}(-R)?$';
+
+UPDATE audio_cables ac
+SET length = cs.length,
+    connector_code = ''  -- variants are always straight today
+FROM cable_skus cs
+WHERE ac.sku = cs.sku
+  AND ac.sku ~ '-(MISC-|LTD-)';
+
+-- 3. Verify: every row got length and connector_code
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM audio_cables WHERE length IS NULL OR connector_code IS NULL) THEN
+    RAISE EXCEPTION 'Backfill incomplete: some audio_cables still NULL';
+  END IF;
+END $$;
+
+-- 4. Add new "group" cable_skus rows. Generated from YAML at migration time (see step 4a).
+--    Idempotent: ON CONFLICT DO NOTHING (LTD groups created via app may already exist).
+INSERT INTO cable_skus (sku, description) VALUES
+  ('SC-GL', 'Goldline'),
+  ('SC-SL', 'Silverline'),
+  -- ... full catalog group set, ~24 rows
+ON CONFLICT (sku) DO NOTHING;
+
+-- 4a. Drop the existing length+description on cable_skus and replace with the
+--     consolidated description (which for LTD = old event_name, for MISC = old description).
+--     (DDL changes batched in step 7.)
+
+-- 5. Repoint audio_cables.sku to the new group SKUs
+UPDATE audio_cables
+SET sku = REGEXP_REPLACE(sku, '^([A-Z]{2,3})-\d+([A-Z]{2,3})(-R)?$', '\1-\2')
+WHERE sku ~ '^[A-Z]{2,3}-\d+[A-Z]{2,3}(-R)?$';
+
+-- 6. Drop the now-orphaned per-variant catalog rows
+DELETE FROM cable_skus
+WHERE sku ~ '^[A-Z]{2,3}-\d+[A-Z]{2,3}(-R)?$';
+
+-- 7. cable_skus → sku_group: collapse columns, fold cable_ltd_metadata in
+ALTER TABLE cable_skus DROP CONSTRAINT length_required_for_variants;
+ALTER TABLE cable_skus DROP COLUMN length;
+ALTER TABLE cable_skus DROP COLUMN created_at;
+ALTER TABLE cable_skus DROP COLUMN updated_at;
+
+-- Fold cable_ltd_metadata description-equivalent into cable_skus.description
+-- (event_name takes priority; existing description appended only if both present)
+UPDATE cable_skus cs
+SET description = lm.event_name || COALESCE(' — ' || cs.description, '')
+FROM cable_ltd_metadata lm
+WHERE cs.sku = lm.sku;
+
+-- archived_at moves over from cable_ltd_metadata
+ALTER TABLE cable_skus ADD COLUMN archived_at TIMESTAMPTZ;
+UPDATE cable_skus cs
+SET archived_at = lm.archived_at
+FROM cable_ltd_metadata lm
+WHERE cs.sku = lm.sku;
+
+DROP TABLE cable_ltd_metadata;
+
+-- 8. Rename audio_cables.sku → audio_cables.sku_group
+ALTER TABLE audio_cables RENAME COLUMN sku TO sku_group;
+-- (FK constraint name auto-updates; index too)
+
+-- 9. NOT NULL on the new audio_cables columns
+ALTER TABLE audio_cables ALTER COLUMN length SET NOT NULL;
+ALTER TABLE audio_cables ALTER COLUMN connector_code SET NOT NULL;
+
+-- 10. Rename cable_skus → sku_group
+ALTER TABLE cable_skus RENAME TO sku_group;
+
+-- 11. Partial index for active LTD lookups (replaces idx_ltd_metadata_active)
+CREATE INDEX idx_active_ltd ON sku_group(archived_at)
+  WHERE archived_at IS NULL AND sku ~ '-LTD-[A-Z0-9]{4,12}$';
+
+COMMIT;
+```
+
+`parse_catalog_length` is a temporary helper function (or inline `SUBSTRING ... FOR ... ::numeric`) defined at the start of the migration and dropped after.
+
+### Pre-migration parity check
+
+Before the SQL transaction begins, run a script (Python or JS) that:
+1. SELECTs every `audio_cables.sku` and every `cable_skus.sku` from prod
+2. Parses each via the new resolver (`parseGroupSku` for cable_skus, `parseVariantSku` for audio_cables.sku catalog rows)
+3. Reports anything that fails to parse
+4. Verifies the derived (group_sku, length, connector_code) tuples for every audio_cable round-trip back to the original SKU via formatVariantSku
+5. Exits non-zero on any miss
+
+If clean, run the migration.
+
+### audio_sync_skus.py
+
+Goes away. The ~24 catalog group rows are seeded as part of the migration (step 4 above), generated by a script that reads the YAML at migration-prep time. New patterns added later require either a small SQL migration to seed the row, or self-seed via INSERT-ON-CONFLICT-DO-NOTHING when a cable is registered with a new combo.
+
+### Phase 4 consumer touch list
+
+DO-side (JS):
+
+| File | What changes |
+|---|---|
+| `shopify_app/app/cable-config.server.js` | Add parseGroupSku, parseVariantSku, formatVariantSku. Drop parseSku. |
+| `shopify_app/app/editions.server.js` | createLtdEdition INSERT: `(sku, description)` only. updateEdition: drop length/description-on-cable_skus paths since length now lives on audio_cables (LTD edition no longer carries length). getEdition: drop length, drop derivation of core_cable/braid_material/connector_type (those don't apply to a group row). |
+| `shopify_app/app/routes/app.editions._index.jsx` | List drops length column. Read from sku_group. |
+| `shopify_app/app/routes/app.editions.$sku.jsx` | Detail drops length field, drops connector_type-related Shopify product helper inputs. |
+| `shopify_app/app/routes/app.editions.new.jsx` | Form: just slug + description. Drops series, length, eventName, notes, createdBy fields. (Series picker still exists since the slug needs a prefix to form the full sku.) |
+| `shopify_app/app/routes/api.register-cable.jsx` | Read `audio_cables.sku_group, length, connector_code`; resolve via resolver. |
+| `shopify_app/app/routes/api.customer-cables.jsx` | Same. |
+| `shopify_app/app/routes/api.order-fulfillment.jsx` | Three sites — same shape. Order line item SKU lookup uses parseVariantSku to resolve to (sku_group, length, connector_code) for the cable match. |
+| `shopify_app/app/routes/app._index.jsx` | searchCable + inventory queries: read sku_group + length + connector_code; group by sku_group for inventory rollup. |
+| `shopify_app/app/routes/app.cables.$sku.jsx` | Now keyed by group sku, not variant sku. URL becomes `/app/cables/SC-SL`. Page shows all cables in the group with their lengths/connectors. |
+| `shopify_app/app/routes/app.customer.$id.cables.jsx` | Display variant_sku (computed). |
+| `shopify_app/extensions/customer-cables-account/src/FullPage.jsx` | Consume variant_sku from API (no shape change client-side). |
+| `shopify_app/extensions/customer-cables-admin/src/BlockExtension.jsx` | Same. |
+| `shopify_app/app/shopify-products.server.js` | LTD product creation: rethink. An LTD edition doesn't have a single length anymore. Either no per-edition Shopify product (sell as catalog with edition tag), or a single product with multiple variants (one per length) created on demand. Defer the design decision to a Phase 4 sub-step; current code creates an unbought per-edition product, which becomes wrong but isn't actively broken. |
+
+Pi-side (Python — pi-Claude handles after DO is done):
+
+| Path | What changes |
+|---|---|
+| `greenlight/cable_config.py` | Mirror the three resolver functions. |
+| `greenlight/db.py` | get_audio_cable / list_ltd_editions / get_ltd_edition / get_cables_for_customer / get_all_cables / get_cables_for_order / get_misc_summary / get_or_create_misc_sku — all queries change shape (sku_group, no JOIN to cable_ltd_metadata). |
+| `greenlight/cable.py` | CableType class becomes a thin wrapper around (sku_group, length, connector_code). |
+| `greenlight/screens/cable.py` | LtdEditionPickerScreen drops length display (only shows sku + description). Registration flow needs LTD path that prompts for length+connector AFTER picking the edition. |
+| `greenlight/screens/orders.py` | Display variant_sku derived from cable. |
+| `greenlight/hardware/tsc_label_printer.py` | Length comes from cable, not sku_group. |
+| `util/audio/audio_sync_skus.py` | Delete. |
+| `util/audio/generate_sku_fixtures.py` | Update to emit both group and variant fixtures. |
+| `util/audio/audio_shopify_sku_sync.py` | Restructure: walk sku_group + audio_cables to compute the set of variant SKUs that should exist in Shopify. |
+| `util/audio/audio_shopify_inventory_reconcile.py` | Group by (sku_group, length, connector_code) for inventory roll-ups. |
+| `util/audio/audio_shopify_price_sync.py` | Read length from audio_cables, not cable_skus. |
+
+### Order of operations
+
+1. **Plan landed** (this commit).
+2. **Resolver + fixture** — DO writes the JS resolver with the three new functions and extends `tests/sku_fixtures.json`. Synthetic-only at first; pi-Claude regenerates the prod fixture later.
+3. **Pre-migration parity script** — DO writes; runs against prod read-only. Exits 0 means safe to migrate.
+4. **Migration SQL + dry-run on dev DB** — DO writes; tests against dev (which is still on the Phase 3 schema) by first applying Phase 3.5 then Phase 4. Verifies the migration is reversible-via-restore-only but otherwise clean.
+5. **Run migration on prod** — DO drives. Pre-migration parity check, backup, migration SQL, post-migration verification.
+6. **Update DO-side JS consumers** — list above.
+7. **Smoke test** — DO updates `smoke-test-ltd.mjs` to exercise the new code path.
+8. **Hand off to pi-Claude** — pi catches up on the Python side. Once both apps are on the new code, system is end-to-end on Phase 4.
+9. **Per-edition Shopify product question** — defer until pi-Claude lands and we know how editions actually get sold. Current code creates a per-edition product; the new model wants either no per-edition product or a multi-variant one.
+
+### What stays from Phase 3
+
+- The JS resolver pattern + fixture file structure
+- The parity test mechanism
+- The "YAML is canonical, no DB lookup tables" decision
+- The big-bang consumer migration approach
+- The pre-migration parity check pattern (sharpens slightly to round-trip via formatVariantSku)
 
 
 ## Implementation notes (2026-04-29)
