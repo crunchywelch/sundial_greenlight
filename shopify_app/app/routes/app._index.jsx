@@ -264,13 +264,16 @@ export async function action({ request }) {
 
         for (const edge of products.edges) {
           const product = edge.node;
+          // Extract numeric id from 'gid://shopify/Product/12345' for admin URL.
+          const productNumericId = product.id?.split("/").pop() || null;
           for (const variantEdge of product.variants.edges) {
             const variant = variantEdge.node;
             if (variant.sku) {
               shopifyInventory[variant.sku] = {
                 quantity: variant.inventoryQuantity,
                 productTitle: product.title,
-                variantTitle: variant.title
+                variantTitle: variant.title,
+                productNumericId,
               };
             }
           }
@@ -289,7 +292,7 @@ export async function action({ request }) {
       for (const sku of allSkus) {
         const totalCount = totalInventory[sku] || 0;
         const dbCount = dbInventory[sku] || 0;
-        const shopifyData = shopifyInventory[sku] || { quantity: 0, productTitle: null, variantTitle: null };
+        const shopifyData = shopifyInventory[sku] || { quantity: 0, productTitle: null, variantTitle: null, productNumericId: null };
         const diff = dbCount - shopifyData.quantity;
         const parsedVariant = parseVariantSku(sku);
 
@@ -302,6 +305,7 @@ export async function action({ request }) {
           diff,
           productTitle: shopifyData.productTitle,
           variantTitle: shopifyData.variantTitle,
+          productNumericId: shopifyData.productNumericId,
         });
       }
 
@@ -1109,7 +1113,17 @@ export default function Index() {
                         return (
                           <tr key={item.sku} style={{ backgroundColor: rowBg }}>
                             <td style={{ padding: '12px', borderBottom: '1px solid #eee', fontWeight: 'bold' }}>
-                              {item.sku}
+                              {item.productNumericId ? (
+                                <a
+                                  href={`https://${adminPath}/products/${item.productNumericId}`}
+                                  target="_top"
+                                  style={{ color: '#008060', textDecoration: 'none' }}
+                                >
+                                  {item.sku}
+                                </a>
+                              ) : (
+                                item.sku
+                              )}
                             </td>
                             <td style={{ padding: '12px', borderBottom: '1px solid #eee', color: '#666' }}>
                               {item.productTitle || '—'}
