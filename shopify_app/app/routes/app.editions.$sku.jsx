@@ -61,10 +61,8 @@ const inputStyle = {
   fontSize: "14px",
   boxSizing: "border-box",
 };
-const lockedStyle = { ...inputStyle, backgroundColor: "#f5f5f5", color: "#666" };
 const labelStyle = { display: "block", marginBottom: "5px", fontSize: "14px", fontWeight: "bold" };
 const fieldStyle = { marginBottom: "16px" };
-const helpStyle = { fontSize: "12px", color: "#666", marginTop: "4px" };
 
 export default function EditionDetail() {
   const { edition } = useLoaderData();
@@ -72,7 +70,6 @@ export default function EditionDetail() {
   const navigation = useNavigation();
   const location = useLocation();
   const submitting = navigation.state === "submitting";
-  const locked = edition.cable_count > 0;
   const editionsHref = { pathname: "/app/editions", search: location.search };
 
   return (
@@ -118,30 +115,28 @@ export default function EditionDetail() {
         <input type="hidden" name="intent" value="save" />
 
         <div style={fieldStyle}>
-          <label style={labelStyle}>
-            Description {locked && <span style={{ color: "#bf5000", fontWeight: "normal" }}>(locked)</span>}
-          </label>
-          {locked ? (
-            <textarea name="description" defaultValue={edition.description || ""} readOnly style={{ ...lockedStyle, minHeight: "80px", fontFamily: "inherit" }} />
-          ) : (
-            <textarea name="description" defaultValue={edition.description || ""} required style={{ ...inputStyle, minHeight: "80px", fontFamily: "inherit" }} />
-          )}
-          {locked && <div style={helpStyle}>Cannot edit — cables already registered against this edition.</div>}
+          <label style={labelStyle}>Description</label>
+          <textarea
+            name="description"
+            defaultValue={edition.description || ""}
+            required
+            style={{ ...inputStyle, minHeight: "80px", fontFamily: "inherit" }}
+          />
         </div>
 
         <div style={{ display: "flex", gap: "10px", marginTop: "30px" }}>
           <button
             type="submit"
-            disabled={submitting || locked}
+            disabled={submitting}
             style={{
               padding: "10px 24px",
-              backgroundColor: submitting || locked ? "#999" : "#008060",
+              backgroundColor: submitting ? "#999" : "#008060",
               color: "#fff",
               border: "none",
               borderRadius: "4px",
               fontSize: "14px",
               fontWeight: "bold",
-              cursor: submitting || locked ? "not-allowed" : "pointer",
+              cursor: submitting ? "not-allowed" : "pointer",
             }}
           >
             {submitting ? "Saving…" : "Save changes"}

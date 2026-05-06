@@ -137,13 +137,15 @@ export async function listEditions(filter = "active") {
 
 /**
  * Update an edition. Editable fields: description, active.
- * description is locked once any cables are registered against the edition.
+ *
+ * Slug is part of the SKU (primary key) and isn't editable — there's no
+ * UI for it. Description stays editable regardless of how many cables
+ * are registered against the edition.
  */
 export async function updateEdition(sku, updates) {
   const existing = await getEdition(sku);
   if (!existing) throw new EditionValidationError(`Edition ${sku} not found.`, "sku");
 
-  const locked = existing.cable_count > 0;
   const updateClauses = [];
   const values = [];
 
@@ -151,9 +153,6 @@ export async function updateEdition(sku, updates) {
     const next = (updates.description ?? "").trim();
     const prev = (existing.description ?? "").trim();
     if (next !== prev) {
-      if (locked) {
-        throw new EditionValidationError("Description is locked once cables are registered.", "description");
-      }
       if (!next) {
         throw new EditionValidationError("Description is required.", "description");
       }
