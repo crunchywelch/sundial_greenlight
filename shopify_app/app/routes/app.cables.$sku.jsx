@@ -3,6 +3,7 @@ import { useLoaderData } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
 import { query } from "../db.server";
 import { parseGroupSku, formatVariantSku } from "../cable-config.server";
+import { CableTable } from "../components/CableTable";
 
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
@@ -123,60 +124,7 @@ export default function CablesBySkuGroup() {
           No cables registered in this group.
         </div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f5f5f5' }}>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Serial Number</th>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Variant SKU</th>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Test Status</th>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Assigned To</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cables.map((cable) => {
-                const isTested = cable.test_passed !== null;
-                return (
-                  <tr key={cable.serial_number} style={{ backgroundColor: '#fff' }}>
-                    <td style={{ padding: '12px', borderBottom: '1px solid #eee', fontWeight: 'bold' }}>
-                      {cable.serial_number}
-                    </td>
-                    <td style={{ padding: '12px', borderBottom: '1px solid #eee', color: '#666' }}>
-                      <code>{cable.variant_sku}</code>
-                      <div style={{ fontSize: '12px', color: '#999' }}>{cable.length}ft{cable.connector_code === '-R' ? ' · right angle' : ''}</div>
-                    </td>
-                    <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
-                      <span style={{
-                        padding: '4px 8px',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: 'bold',
-                        backgroundColor: isTested ? '#d4edda' : '#fff3cd',
-                        color: isTested ? '#155724' : '#856404',
-                      }}>
-                        {isTested ? 'Tested' : 'Not Tested'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
-                      {cable.customer ? (
-                        <div>
-                          <div style={{ fontWeight: 'bold' }}>
-                            {cable.customer.firstName} {cable.customer.lastName}
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#666' }}>{cable.customer.email}</div>
-                        </div>
-                      ) : cable.shopify_gid ? (
-                        <span style={{ color: '#999' }}>Unknown</span>
-                      ) : (
-                        <span style={{ color: '#008060', fontStyle: 'italic' }}>Available</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <CableTable cables={cables} />
       )}
     </div>
   );
