@@ -34,12 +34,11 @@ const __dirname = dirname(__filename);
 
 const PRODUCT_LINES_DIR = resolve(__dirname, "..", "..", "util", "product_lines");
 
-const SERIES_FILES = [
-  "studio_classic.yaml",
-  "studio_vocal.yaml",
-  "tour_classic.yaml",
-  "tour_vocal.yaml",
-];
+// App-runtime YAML files. Cost / pricing / weight tables live under
+// back_office/ and are intentionally NOT loaded here — they're back-office
+// data consumed only by util/audio sync scripts.
+const PATTERNS_FILE = "patterns.yaml";
+const CABLE_LINES_FILE = "cable_lines.yaml";
 
 // Group SKU regexes (Phase 5 shape).
 //   catalog: pattern_code only — 'GL', 'SL', 'BU'
@@ -60,7 +59,7 @@ const RE_VARIANT_CATALOG = /^([A-Z]{2,3})-(\d+)([A-Z]{2,3})(-R)?$/;
 const RE_VARIANT_LTD = /^([A-Z]{2,3})-(\d+)-LTD-([A-Z0-9]{4,24})(-R)?$/;
 
 function loadPatterns() {
-  const path = resolve(PRODUCT_LINES_DIR, "patterns.yaml");
+  const path = resolve(PRODUCT_LINES_DIR, PATTERNS_FILE);
   const data = yaml.load(readFileSync(path, "utf8"));
   const byCode = {};
   for (const p of data?.patterns || []) byCode[p.code] = p;
@@ -68,22 +67,15 @@ function loadPatterns() {
 }
 
 function loadSeries() {
+  const path = resolve(PRODUCT_LINES_DIR, CABLE_LINES_FILE);
+  const data = yaml.load(readFileSync(path, "utf8"));
   const byPrefix = {};
-  for (const fname of SERIES_FILES) {
-    const path = resolve(PRODUCT_LINES_DIR, fname);
-    let data;
-    try {
-      data = yaml.load(readFileSync(path, "utf8"));
-    } catch (e) {
-      console.warn(`Series YAML missing or unreadable: ${path} (${e.message})`);
+  for (const s of data?.series || []) {
+    if (!s.sku_prefix) {
+      console.warn(`cable_lines.yaml entry missing sku_prefix; skipping`, s);
       continue;
     }
-    const prefix = data?.sku_prefix;
-    if (!prefix) {
-      console.warn(`Series YAML ${fname} has no sku_prefix; skipping`);
-      continue;
-    }
-    byPrefix[prefix] = data;
+    byPrefix[s.sku_prefix] = s;
   }
   return byPrefix;
 }

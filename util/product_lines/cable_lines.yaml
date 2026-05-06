@@ -1,0 +1,62 @@
+# =============================================================================
+# cable_lines.yaml — APP RUNTIME CONFIG
+# =============================================================================
+#
+# This file is loaded at application startup by both:
+#   - greenlight (greenlight/cable_config.py)
+#   - the Shopify Remix app (shopify_app/app/cable-config.server.js)
+#
+# Editing it changes how cables are *registered, displayed, and identified*
+# in the live system. A typo or accidental key removal can break:
+#   - the registration screen pickers (lengths, connectors)
+#   - the resolver's series_for_prefix / connector_display_for lookups
+#   - label printer output
+#   - customer-facing cable details on storefront and admin
+#
+# Edit with care. Run `npm test` (shopify_app/) and the greenlight test
+# suite after changes to catch obvious breakage.
+#
+# Cost / pricing / weight tables LIVE ELSEWHERE — see back_office/. Those
+# are read by util/audio scripts that sync to Shopify, never by the apps.
+# =============================================================================
+
+series:
+  - sku_prefix: SC
+    product_line: Studio Classic
+    core_cable: Canare GS-6
+    braid_material: Rayon
+    lengths: [1, 3, 6, 10, 12, 15, 20]
+    connectors:
+      - code: ""        # Straight mono 1/4" plugs
+        display: TS–TS
+      - code: "-R"      # Right angle mono 1/4" plug
+        display: RA–TS
+
+  - sku_prefix: SV
+    product_line: Studio Vocal Classic
+    core_cable: Canare L-4E6S
+    braid_material: Rayon
+    lengths: [1, 3, 6, 10, 12, 15, 20]
+    connectors:
+      - code: ""        # Standard XLR connectors
+        display: XLR–XLR
+
+  - sku_prefix: TC
+    product_line: Tour Classic
+    core_cable: Canare GS-6
+    braid_material: Cotton
+    lengths: [3, 6, 10, 15, 20, 25]
+    connectors:
+      - code: ""        # Straight mono 1/4" plugs
+        display: TS–TS
+      - code: "-R"      # Right angle mono 1/4" plug
+        display: RA–TS
+
+  - sku_prefix: TV
+    product_line: Tour Vocal Classic
+    core_cable: Canare L-4E6S
+    braid_material: Cotton
+    lengths: [3, 6, 10, 15, 20, 25]
+    connectors:
+      - code: ""        # Standard XLR connectors
+        display: XLR–XLR

@@ -1,0 +1,47 @@
+# =============================================================================
+# weights.yaml — BACK OFFICE ONLY
+# =============================================================================
+#
+# Per-length finished-product weights (in ounces) for catalog cables. NOT
+# read by greenlight or the Shopify Remix app at runtime. Consumed only by
+# util/audio scripts that sync weights to Shopify product variants.
+#
+# For MISC variants (Special Baby) the weight is computed at product-create
+# time from `materials.yaml` (cable_per_foot + connector weights). That
+# calculation lives in greenlight/shopify_client.py and reads materials.yaml
+# directly — see materials.yaml's header for context.
+# =============================================================================
+
+series:
+  SC:
+    1: 2.5
+    3: 3.5
+    6: 6.5
+    10: 7.5
+    12: 8.5
+    20: 13
+
+  SV:
+    1: 3
+    3: 4
+    6: 7
+    10: 8
+    12: 9
+    15: 10.5
+    20: 13.5
+
+  TC:
+    3: 3.5
+    6: 6.5
+    10: 7.5
+    15: 9.5
+    20: 13
+    25: 15
+
+  TV:
+    3: 4.5
+    6: 7
+    10: 8
+    15: 9.5
+    20: 13.5
+    25: 15

@@ -1,0 +1,99 @@
+# =============================================================================
+# pricing.yaml — BACK OFFICE ONLY
+# =============================================================================
+#
+# This file is NOT read by greenlight or the Shopify Remix app at runtime.
+# It is consumed only by util/audio scripts that sync prices and costs
+# to Shopify (audio_shopify_price_sync.py).
+#
+# Editing this file does NOT change anything in the running system until
+# the sync script is run. Shopify is the canonical price store once data
+# has been pushed to it.
+#
+# Cost keys with an 'R' suffix (e.g., '1R', '3R') are right-angle variants
+# of that length; bare numeric keys are straight. Pricing keys are length
+# only — straight and right-angle currently sell for the same price within
+# a series.
+# =============================================================================
+
+series:
+  SC:
+    cost:
+      1: 9.22
+      1R: 11.21
+      3: 10.78
+      3R: 12.77
+      6: 13.12
+      6R: 15.11
+      10: 16.24
+      10R: 18.23
+      12: 17.80
+      12R: 19.79
+      15: 20.14
+      15R: 22.13
+      20: 24.04
+      20R: 26.03
+    pricing:
+      1: 49.00
+      3: 59.00
+      6: 69.00
+      10: 79.00
+      12: 89.00
+      15: 89.00
+      20: 99.00
+
+  SV:
+    cost:
+      1: 9.04
+      3: 10.13
+      6: 11.76
+      10: 13.94
+      12: 15.03
+      15: 16.66
+      20: 19.38
+    pricing:
+      1: 49.00
+      3: 59.00
+      6: 69.00
+      10: 79.00
+      12: 89.00
+      15: 89.00
+      20: 99.00
+
+  TC:
+    cost:
+      3: 9.80
+      3R: 11.64
+      6: 11.99
+      6R: 13.83
+      10: 14.92
+      10R: 16.76
+      15: 18.58
+      15R: 20.42
+      20: 22.24
+      20R: 24.08
+      25: 25.90
+      25R: 27.74
+    pricing:
+      3: 59.00
+      6: 69.00
+      10: 79.00
+      15: 89.00
+      20: 99.00
+      25: 109.00
+
+  TV:
+    cost:
+      3: 7.51
+      6: 9.00
+      10: 10.98
+      15: 13.47
+      20: 15.95
+      25: 18.43
+    pricing:
+      3: 59.00
+      6: 69.00
+      10: 79.00
+      15: 89.00
+      20: 99.00
+      25: 109.00

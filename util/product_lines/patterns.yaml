@@ -1,11 +1,22 @@
-# Cable Color Patterns and Fabric Types
+# =============================================================================
+# patterns.yaml — APP RUNTIME CONFIG
+# =============================================================================
 #
-# This file defines all available color patterns with their:
-# - SKU code (2-3 letter code used in product SKUs)
-# - Fabric type (rayon or cotton)
-# - Description (generic description of the pattern/color)
+# Loaded at application startup by both greenlight and the Shopify Remix
+# app. Defines every available color pattern with its 2-3 letter SKU code,
+# display name, fabric_type (filters which series can use it), and a
+# generic description.
 #
-# Product lines will reference these patterns based on matching fabric type.
+# Editing this file changes how cables are *displayed and identified* in
+# the live system. A typo or removed pattern code can break the resolver's
+# pattern_for_code lookup, leaving cables registered against that code
+# with pattern_name=null in displays. Adding a new pattern code does NOT
+# automatically seed a sku_group row in the DB — that requires a small
+# follow-up migration.
+#
+# Edit with care. Run `npm test` (shopify_app/) and the greenlight test
+# suite after changes.
+# =============================================================================
 
 patterns:
   # ========================================

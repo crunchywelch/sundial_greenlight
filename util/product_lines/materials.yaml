@@ -1,10 +1,21 @@
-# Component Weights for Cable Weight Calculation
+# =============================================================================
+# materials.yaml — APP RUNTIME (narrow path)
+# =============================================================================
 #
-# Weight formula: cable_weight_per_foot * length + connector_a + connector_b
-# All weights in ounces.
+# Loaded by greenlight/shopify_client.py specifically when creating a
+# Shopify product for a MISC ("Special Baby") variant — the weight of a
+# new MISC product is computed from this file at create time, since
+# back_office/weights.yaml only covers catalog (predefined) lengths.
 #
-# Core cables are the inner wire before braiding/termination.
-# Connector weights include the connector body, solder, and heat shrink.
+# Editing changes the computed weight passed to Shopify for newly-created
+# MISC products. Existing products are unaffected (their weight is already
+# stored in Shopify). Numbers in ounces.
+#
+# Weight formula: cable_per_foot * length_ft + connector_a + connector_b
+#
+# Core cables are the inner wire before braiding/termination. Connector
+# weights include the connector body, solder, and heat shrink.
+# =============================================================================
 
 cable_per_foot:
   GS-6: 0.6      # Canare GS-6 (instrument)
