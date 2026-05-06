@@ -599,7 +599,7 @@ def get_ltd_edition(sku):
             return {
                 'sku_group': row[0],
                 'sku': row[0],
-                'slug': row[0].split('-', 1)[1] if row[0].startswith('LTD-') else row[0].rsplit('-', 1)[-1],
+                'slug': row[0].split('-', 1)[1],
                 'description': row[1],
                 'archived_at': row[2],
                 'active': row[2] is None,

@@ -172,7 +172,7 @@ def fix_mismatches():
                     cur.execute("""
                         SELECT serial_number
                         FROM audio_cables
-                        WHERE sku = %s AND test_passed = TRUE
+                        WHERE sku_group = %s AND test_passed = TRUE
                         LIMIT 1
                     """, (sku,))
                     row = cur.fetchone()

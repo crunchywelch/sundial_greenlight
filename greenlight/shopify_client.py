@@ -1465,9 +1465,11 @@ def ensure_misc_shopify_product(cable_record: Dict[str, Any], quantity: int = 1)
     if not description:
         return False, "MISC cable has no description — cannot create Shopify product"
 
-    shopify_sku = cable_record.get("sku")
+    # MISC variant SKU equals the group SKU; either key works on a record
+    # produced by db._enrich_record (which sets variant_sku).
+    shopify_sku = cable_record.get("variant_sku") or cable_record.get("sku_group")
     if not shopify_sku:
-        return False, "Cable record has no sku"
+        return False, "Cable record has no variant_sku / sku_group"
 
     # Check if product already exists
     existing = _find_variant_by_sku(shopify_sku)

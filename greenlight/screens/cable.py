@@ -880,11 +880,8 @@ class CableScreenBase(Screen):
         if cable_record.get('kind') == 'ltd' and description:
             label_data['event_name'] = description
 
-        # Add description: per-cable for MISC, SKU pattern description for standard
         if description:
             label_data['description'] = description
-        elif cable_record.get('sku_description'):
-            label_data['description'] = cable_record['sku_description']
 
         # Add test results if cable has been tested and passed
         if test_passed is True:
@@ -917,11 +914,11 @@ class CableScreenBase(Screen):
             return
 
         serial_number = cable_record.get('serial_number', '')
-        sku = cable_record.get('sku', '')
+        sku = cable_record.get('variant_sku') or cable_record.get('sku_group') or ''
         series = cable_record.get('series', '')
         length = cable_record.get('length', '')
-        color_pattern = cable_record.get('color_pattern', '')
-        connector_type = cable_record.get('connector_type', '')
+        color_pattern = cable_record.get('pattern_name') or ''
+        connector_type = cable_record.get('connector_display') or ''
 
         print_job = PrintJob(
             template="barcode_label",
