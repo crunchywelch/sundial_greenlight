@@ -257,12 +257,19 @@ export default function Inventory() {
   const actionData = useActionData();
   const { adminPath, appHandle } = useLoaderData();
 
+  // Both held in local state so a Sync followed by an auto-fetch (or vice
+  // versa) doesn't blow away the other panel — actionData only ever holds
+  // the most recent action's payload.
   const [inventory, setInventory] = useState([]);
+  const [syncResults, setSyncResults] = useState(null);
+
   useEffect(() => {
     if (actionData?.inventory) setInventory(actionData.inventory);
   }, [actionData?.inventory]);
 
-  const syncResults = actionData?.syncResults || null;
+  useEffect(() => {
+    if (actionData?.syncResults) setSyncResults(actionData.syncResults);
+  }, [actionData?.syncResults]);
 
   // Auto-fetch on mount.
   useEffect(() => {
@@ -273,13 +280,15 @@ export default function Inventory() {
   }, []);
 
   // After a sync, re-fetch so the table shows the new Shopify quantities.
+  // The sync results banner stays visible (it's in local state) until the
+  // user dismisses it or runs another sync.
   useEffect(() => {
-    if (!syncResults) return;
+    if (!actionData?.syncResults) return;
     const fd = new FormData();
     fd.append("intent", "fetch");
     submit(fd, { method: "post" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [syncResults]);
+  }, [actionData?.syncResults]);
 
   return (
     <div style={{ padding: "0 20px 20px", maxWidth: "1200px", margin: "0 auto", fontFamily: "system-ui, -apple-system, sans-serif" }}>
@@ -315,7 +324,25 @@ export default function Inventory() {
         </div>
 
         {syncResults && (
-          <div style={{ marginBottom: "20px", padding: "15px", backgroundColor: "#f0f9ff", border: "1px solid #b3d9ff", borderRadius: "4px" }}>
+          <div style={{ marginBottom: "20px", padding: "15px", backgroundColor: "#f0f9ff", border: "1px solid #b3d9ff", borderRadius: "4px", position: "relative" }}>
+            <button
+              onClick={() => setSyncResults(null)}
+              aria-label="Dismiss"
+              style={{
+                position: "absolute",
+                top: "8px",
+                right: "8px",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "18px",
+                color: "#666",
+                padding: "4px 8px",
+                lineHeight: 1,
+              }}
+            >
+              ×
+            </button>
             <div style={{ fontWeight: "bold", marginBottom: "10px" }}>Sync Complete</div>
             <div style={{ display: "flex", gap: "20px", flexWrap: "wrap", fontSize: "14px" }}>
               <span style={{ color: "#008060" }}>Synced: {syncResults.synced}</span>
