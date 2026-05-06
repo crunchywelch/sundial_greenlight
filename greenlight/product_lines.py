@@ -51,6 +51,7 @@ def load_yaml_skus():
             "patterns": line_patterns,
             "pricing": data.get("pricing", {}),
             "cost": data.get("cost", {}),
+            "weight": data.get("weight", {}),
         }
     return lines
 

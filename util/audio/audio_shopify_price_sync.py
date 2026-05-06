@@ -23,15 +23,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from greenlight.log import setup_logging
 setup_logging()
 
-from util.audio.audio_sync_skus import (
-    load_product_lines,
-    load_patterns,
-    get_patterns_for_fabric_type,
-    generate_sku_code,
-)
 import shopify
 from greenlight.shopify_client import get_shopify_session, close_shopify_session, SPECIAL_BABY_PRICE
-from greenlight.product_lines import interpolate_cost
+from greenlight.product_lines import interpolate_cost, load_yaml_skus, build_sku, get_cost
 from greenlight.db import pg_pool
 
 WEIGHT_UNIT = "OUNCES"
@@ -45,37 +39,26 @@ _PREFIX_MAP = {
 }
 
 
-def build_yaml_sku_map(product_lines_dir):
-    """Build SKU -> {price, cost, weight} from YAML product line files."""
-    patterns_file = product_lines_dir / 'patterns.yaml'
-    patterns = load_patterns(patterns_file)
-    product_lines = load_product_lines(product_lines_dir)
+def build_yaml_sku_map(product_lines_dir=None):
+    """Build variant SKU -> {price, cost, weight} from YAML product line files.
+
+    product_lines_dir kept as a positional arg for backwards compat with the
+    main() call site, but is unused — greenlight.product_lines.load_yaml_skus
+    resolves the directory itself.
+    """
+    lines = load_yaml_skus()
 
     sku_map = {}
-    for pl in product_lines:
-        prefix = pl['sku_prefix']
-        include_color = pl.get('include_color_in_sku', True)
-        matching_patterns = get_patterns_for_fabric_type(patterns, pl['braid_material'])
-        connectors = pl.get('connectors', [])
-
-        pricing = pl.get('pricing', {})
-        cost_data = pl.get('cost', {})
-        weight_data = pl.get('weight', {})
-
-        for length in pl['lengths']:
+    for prefix, line in lines.items():
+        pricing = line.get('pricing', {})
+        weight_data = line.get('weight', {})  # may not be present in all lines
+        for length in line['lengths']:
             price = pricing.get(length)
             weight = weight_data.get(length)
-
-            for pattern in matching_patterns:
-                for connector in connectors:
-                    sku = generate_sku_code(prefix, length, pattern['code'],
-                                           connector['code'], include_color)
-
-                    # Cost may have R suffix for right-angle connectors
-                    is_right_angle = connector['code'] == '-R'
-                    cost_key = f"{int(length)}R" if is_right_angle else length
-                    cost = cost_data.get(cost_key)
-
+            for pattern in line['patterns']:
+                for connector in line['connectors']:
+                    sku = build_sku(prefix, length, pattern['code'], connector.get('code', ''))
+                    cost = get_cost(line, length, connector.get('code', ''))
                     sku_map[sku] = {
                         'price': float(price) if price is not None else None,
                         'cost': float(cost) if cost is not None else None,
@@ -99,11 +82,7 @@ def build_special_baby_sku_map(product_lines_dir):
     """
     from greenlight.cable_config import format_variant_sku
 
-    product_lines = load_product_lines(product_lines_dir)
-
-    pl_by_prefix = {}
-    for pl in product_lines:
-        pl_by_prefix[pl['sku_prefix']] = pl
+    lines = load_yaml_skus()  # prefix -> {pricing, cost, weight, ...}
 
     conn = pg_pool.getconn()
     try:
@@ -125,8 +104,8 @@ def build_special_baby_sku_map(product_lines_dir):
             continue
 
         prefix = sku_group.split('-')[0]
-        pl = pl_by_prefix.get(prefix)
-        if not pl:
+        line = lines.get(prefix)
+        if not line:
             continue
 
         length_for_format = int(length) if length.is_integer() else length
@@ -136,8 +115,8 @@ def build_special_baby_sku_map(product_lines_dir):
         if not variant_sku:
             continue
 
-        cost = interpolate_cost(pl.get('cost', {}), length)
-        weight = interpolate_cost(pl.get('weight', {}), length)
+        cost = interpolate_cost(line.get('cost', {}), length)
+        weight = interpolate_cost(line.get('weight', {}), length)
 
         sku_map[variant_sku] = {
             'price': float(SPECIAL_BABY_PRICE),
