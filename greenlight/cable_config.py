@@ -33,8 +33,29 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
+from jsonschema import Draft7Validator
+
+from greenlight.cable_config_schemas import CABLE_LINES_SCHEMA, PATTERNS_SCHEMA
 
 logger = logging.getLogger(__name__)
+
+
+def _validate(data, schema, file_label):
+    """Validate parsed YAML against a schema; collect every error and raise.
+
+    Mirrors the JS allErrors=true behavior — if patterns.yaml has 5 typos,
+    the operator sees all 5 at once instead of one fix-and-rerun cycle per
+    typo. Throws ValueError with a multi-line message.
+    """
+    validator = Draft7Validator(schema)
+    errors = sorted(validator.iter_errors(data), key=lambda e: list(e.absolute_path))
+    if not errors:
+        return
+    lines = []
+    for e in errors:
+        path = "/" + "/".join(str(p) for p in e.absolute_path) if e.absolute_path else "(root)"
+        lines.append(f"  - {path} {e.message}")
+    raise ValueError(f"Invalid {file_label}:\n" + "\n".join(lines))
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _PRODUCT_LINES_DIR = _REPO_ROOT / "util" / "product_lines"
@@ -57,7 +78,8 @@ def _load_patterns():
     path = _PRODUCT_LINES_DIR / "patterns.yaml"
     with open(path) as f:
         data = yaml.safe_load(f)
-    return {p['code']: p for p in data.get('patterns', [])}
+    _validate(data, PATTERNS_SCHEMA, "patterns.yaml")
+    return {p['code']: p for p in data['patterns']}
 
 
 def _load_series():
@@ -72,14 +94,8 @@ def _load_series():
     path = _PRODUCT_LINES_DIR / "cable_lines.yaml"
     with open(path) as f:
         data = yaml.safe_load(f) or {}
-    by_prefix = {}
-    for s in data.get('series', []):
-        prefix = s.get('sku_prefix')
-        if not prefix:
-            logger.warning("cable_lines.yaml entry missing sku_prefix; skipping: %r", s)
-            continue
-        by_prefix[prefix] = s
-    return by_prefix
+    _validate(data, CABLE_LINES_SCHEMA, "cable_lines.yaml")
+    return {s['sku_prefix']: s for s in data['series']}
 
 
 _PATTERNS = _load_patterns()
