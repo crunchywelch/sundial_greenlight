@@ -28,9 +28,25 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import yaml from "js-yaml";
+import Ajv from "ajv";
+import { PATTERNS_SCHEMA, CABLE_LINES_SCHEMA } from "./cable-config-schemas.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Strict mode off — we want allErrors so a malformed YAML reports every
+// issue at once, not just the first.
+const ajv = new Ajv({ allErrors: true, strict: false });
+const validatePatterns = ajv.compile(PATTERNS_SCHEMA);
+const validateCableLines = ajv.compile(CABLE_LINES_SCHEMA);
+
+function validate(data, validator, fileLabel) {
+  if (validator(data)) return;
+  const errors = (validator.errors || [])
+    .map((e) => `  - ${e.instancePath || "(root)"} ${e.message}`)
+    .join("\n");
+  throw new Error(`Invalid ${fileLabel}:\n${errors}`);
+}
 
 const PRODUCT_LINES_DIR = resolve(__dirname, "..", "..", "util", "product_lines");
 
@@ -61,22 +77,18 @@ const RE_VARIANT_LTD = /^([A-Z]{2,3})-(\d+)-LTD-([A-Z0-9]{4,24})(-R)?$/;
 function loadPatterns() {
   const path = resolve(PRODUCT_LINES_DIR, PATTERNS_FILE);
   const data = yaml.load(readFileSync(path, "utf8"));
+  validate(data, validatePatterns, PATTERNS_FILE);
   const byCode = {};
-  for (const p of data?.patterns || []) byCode[p.code] = p;
+  for (const p of data.patterns) byCode[p.code] = p;
   return byCode;
 }
 
 function loadSeries() {
   const path = resolve(PRODUCT_LINES_DIR, CABLE_LINES_FILE);
   const data = yaml.load(readFileSync(path, "utf8"));
+  validate(data, validateCableLines, CABLE_LINES_FILE);
   const byPrefix = {};
-  for (const s of data?.series || []) {
-    if (!s.sku_prefix) {
-      console.warn(`cable_lines.yaml entry missing sku_prefix; skipping`, s);
-      continue;
-    }
-    byPrefix[s.sku_prefix] = s;
-  }
+  for (const s of data.series) byPrefix[s.sku_prefix] = s;
   return byPrefix;
 }
 
