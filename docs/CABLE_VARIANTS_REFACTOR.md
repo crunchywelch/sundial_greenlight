@@ -228,10 +228,6 @@ Carry these forward but no urgent forcing function:
    merch-table inventory rather than website inventory, which mostly
    resolves the LTD side; revisit if/when website selling of LTD comes up.
 
-2. **YAML schema validation at load time** — flagged during Phase 6.
-   Cheap defensive measure (ajv/jsonschema) that catches typos before
-   they hit production reads. Not yet implemented.
-
 ## Sequence numbers / sequences in use
 
 - `cable_misc_variant_seq` — generates the `{seq}` portion of MISC group
