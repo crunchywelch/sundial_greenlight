@@ -8,8 +8,6 @@ Phase 5 model:
   - LTD group SKU is series-agnostic: 'LTD-{slug}' (no prefix).
   - Per-cable prefix lives on audio_cables.prefix; the variant SKU is
     '{prefix}-LTD-{slug}'.
-  - list_ltd_editions(series_prefix=...) filters to editions with at least
-    one cable in that series.
 """
 
 import sys
@@ -124,22 +122,8 @@ def test_ltd_scan_flow():
         return False
     print(f"   ✅ Registered: {result['serial_number']}")
 
-    # Step 6: series_prefix filter — Phase 5 returns editions with at least
-    # one cable in that series.
-    print("\n6. list_ltd_editions(series_prefix=...) filter (post-cable-registration)")
-    print("-" * 70)
-    sc_editions = list_ltd_editions(active_only=True, series_prefix='SC')
-    if not any(e['sku_group'] == TEST_SKU for e in sc_editions):
-        print("   ❌ series_prefix='SC' should include our edition (cable registered under SC)")
-        return False
-    tc_editions = list_ltd_editions(active_only=True, series_prefix='TC')
-    if any(e['sku_group'] == TEST_SKU for e in tc_editions):
-        print("   ❌ series_prefix='TC' incorrectly included our SC-only edition")
-        return False
-    print("   ✅ series_prefix filter excludes/includes correctly")
-
-    # Step 7: get_audio_cable returns full enriched record
-    print("\n7. get_audio_cable returns the new cable with description, length, variant_sku")
+    # Step 6: get_audio_cable returns full enriched record
+    print("\n6. get_audio_cable returns the new cable with description, length, variant_sku")
     print("-" * 70)
     cable = get_audio_cable(result['serial_number'])
     if not cable:
@@ -165,8 +149,8 @@ def test_ltd_scan_flow():
           f"length={cable['length']}, variant_sku={cable['variant_sku']}")
     print(f"      description={cable['description']!r}")
 
-    # Step 8: cable count incremented
-    print("\n8. Cable count on edition incremented")
+    # Step 7: cable count incremented
+    print("\n7. Cable count on edition incremented")
     print("-" * 70)
     detail2 = get_ltd_edition(TEST_SKU)
     if detail2['cable_count'] < 1:
@@ -174,8 +158,8 @@ def test_ltd_scan_flow():
         return False
     print(f"   ✅ cable_count = {detail2['cable_count']}")
 
-    # Step 9: format_variant_sku round-trips via the resolver
-    print("\n9. format_variant_sku(prefix=, group_sku=, length=, connector_code=) round-trip")
+    # Step 8: format_variant_sku round-trips via the resolver
+    print("\n8. format_variant_sku(prefix=, group_sku=, length=, connector_code=) round-trip")
     print("-" * 70)
     rebuilt = format_variant_sku(
         group_sku=TEST_SKU, prefix=TEST_PREFIX,

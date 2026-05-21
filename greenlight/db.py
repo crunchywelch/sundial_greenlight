@@ -519,17 +519,14 @@ def search_misc_variants(series_prefix):
         pg_pool.putconn(conn)
 
 
-def list_ltd_editions(active_only=True, series_prefix=None):
+def list_ltd_editions(active_only=True):
     """List LTD editions with cable counts (read-only; CRUD lives in shopify_app).
 
-    Phase 5: LTD groups are series-agnostic ('LTD-PHISH26'). The series_prefix
-    filter is a per-cable lens — show editions that have at least one cable
-    in the requested series.
+    Phase 5: LTD groups are series-agnostic ('LTD-PHISH26'); any series prefix
+    can be attached at per-cable registration time.
 
     Args:
         active_only: If True, exclude archived editions
-        series_prefix: Optional filter — show editions with at least one cable
-            registered under this prefix.
 
     Returns:
         List of dicts with sku, slug, description, archived_at, active, cable_count.
@@ -537,18 +534,9 @@ def list_ltd_editions(active_only=True, series_prefix=None):
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
-            params = []
             where_clauses = ["sg.sku ~ '^LTD-[A-Z0-9]{4,24}$'"]
             if active_only:
                 where_clauses.append("sg.archived_at IS NULL")
-            if series_prefix:
-                where_clauses.append("""
-                    EXISTS (
-                        SELECT 1 FROM audio_cables ac
-                        WHERE ac.sku_group = sg.sku AND ac.prefix = %s
-                    )
-                """)
-                params.append(series_prefix)
 
             where_sql = " AND ".join(where_clauses)
             cur.execute(f"""
@@ -557,7 +545,7 @@ def list_ltd_editions(active_only=True, series_prefix=None):
                 FROM sku_group sg
                 WHERE {where_sql}
                 ORDER BY (sg.archived_at IS NULL) DESC, sg.sku
-            """, params)
+            """)
             rows = cur.fetchall()
             results = []
             for r in rows:

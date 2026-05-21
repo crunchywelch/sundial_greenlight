@@ -1528,17 +1528,17 @@ class LtdEditionPickerScreen(Screen):
         from greenlight.db import list_ltd_editions
         from greenlight.cable_config import prefix_for_series
 
-        # When invoked after a series has been chosen, filter to just that
-        # series' editions. Otherwise show all active editions.
+        # LTD editions are series-agnostic (Phase 5): the series picked
+        # earlier in the flow only drives the per-cable prefix attached at
+        # registration. Show every active edition here.
         series_prefix = prefix_for_series(selected_series) if selected_series else None
-        editions = list_ltd_editions(active_only=True, series_prefix=series_prefix)
+        editions = list_ltd_editions(active_only=True)
 
         self.ui.header(operator)
 
         if not editions:
-            scope = f" for {selected_series}" if selected_series else ""
             self.ui.layout["body"].update(Panel(
-                f"[bold yellow]No active Limited Editions{scope}[/bold yellow]\n\n"
+                "[bold yellow]No active Limited Editions[/bold yellow]\n\n"
                 "Create an LTD edition in the Shopify app first, then come back\n"
                 "to scan cables against it.",
                 title="Limited Edition Picker", border_style="yellow"
