@@ -101,22 +101,24 @@ class CustomerSearchResultsScreen(Screen):
         table = Table(show_header=True, header_style="bold cyan")
         table.add_column("#", style="green", width=3)
         table.add_column("Name", style="white")
+        table.add_column("Band", style="magenta")
         table.add_column("Email", style="dim")
         table.add_column("Orders", justify="right", style="yellow")
         table.add_column("Total Spent", justify="right", style="green")
 
         for i, customer in enumerate(customers, 1):
-            name = customer.get("displayName") or "N/A"
-            email = customer.get("email") or "N/A"
-            num_orders = str(customer.get("numberOfOrders") or 0)
+            name = customer.get("displayName") or ""
+            band = shopify_client.get_band_company(customer) or ""
+            email = customer.get("email") or ""
+
+            num_orders_raw = customer.get("numberOfOrders") or 0
+            num_orders = str(num_orders_raw) if int(num_orders_raw) else ""
 
             amount_spent = customer.get("amountSpent") or {}
-            if amount_spent and amount_spent.get("amount"):
-                spent = f"${float(amount_spent['amount']):.2f}"
-            else:
-                spent = "$0.00"
+            amount = float(amount_spent.get("amount") or 0)
+            spent = f"${amount:.2f}" if amount else ""
 
-            table.add_row(str(i), name, email, num_orders, spent)
+            table.add_row(str(i), name, band, email, num_orders, spent)
 
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(
@@ -178,44 +180,56 @@ class CustomerDetailScreen(Screen):
             return self.assign_cable_and_return(operator, customer, assign_cable_serial)
 
         # Build customer info display
-        name = customer.get("displayName") or "N/A"
-        email = customer.get("email") or "N/A"
+        name = customer.get("displayName") or "(no name)"
+        band_company = shopify_client.get_band_company(customer)
+        email = customer.get("email")
 
         # Try to get phone from customer level, then from address
-        phone = customer.get("phone")
         address = customer.get("defaultAddress")
-        if not phone and address:
-            phone = address.get("phone")
-        phone = phone or "N/A"
+        phone = customer.get("phone") or (address.get("phone") if address else None)
 
         # Convert numberOfOrders to int (Shopify returns it as string)
-        num_orders_raw = customer.get("numberOfOrders") or 0
-        num_orders = int(num_orders_raw) if num_orders_raw else 0
+        num_orders = int(customer.get("numberOfOrders") or 0)
 
-        amount_spent = customer.get("amountSpent", {})
-        if amount_spent and amount_spent.get("amount"):
-            spent = f"${float(amount_spent['amount']):.2f} {amount_spent.get('currencyCode', 'USD')}"
-        else:
-            spent = "$0.00"
+        amount_spent = customer.get("amountSpent") or {}
+        amount = float(amount_spent.get("amount") or 0)
+        spent = (
+            f"${amount:.2f} {amount_spent.get('currencyCode', 'USD')}"
+            if amount else None
+        )
 
-        # Format address for display
+        # Show just city, state — full address isn't needed and country-only is noise
+        location = ""
         if address:
-            addr_lines = [
-                address.get("address1") or "",
-                address.get("address2") or "",
-                f"{address.get('city') or ''}, {address.get('province') or ''} {address.get('zip') or ''}",
-                address.get("country") or ""
-            ]
-            address_text = "\n".join([line for line in addr_lines if line and line.strip()])
-        else:
-            address_text = "No address on file"
+            location = ", ".join(
+                p for p in (address.get("city"), address.get("province")) if p
+            )
 
         # Fetch most recent order and assigned cables
         customer_id = customer.get("id", "")
         recent_orders = shopify_client.get_customer_orders(customer_id, limit=1)
         assigned_cables = db.get_cables_for_customer(customer_id)
 
-        last_order_text = ""
+        # Build sections, skipping empty ones
+        sections = []
+
+        contact_lines = [f"[bold cyan]Name:[/bold cyan] {name}"]
+        if band_company:
+            contact_lines.append(f"[bold cyan]Band:[/bold cyan] {band_company}")
+        if email:
+            contact_lines.append(f"[bold cyan]Email:[/bold cyan] {email}")
+        if phone:
+            contact_lines.append(f"[bold cyan]Phone:[/bold cyan] {phone}")
+        if location:
+            contact_lines.append(f"[bold cyan]Location:[/bold cyan] {location}")
+        sections.append("\n".join(contact_lines))
+
+        if num_orders > 0:
+            order_lines = [f"[bold yellow]Order Count:[/bold yellow] {num_orders}"]
+            if spent:
+                order_lines.append(f"[bold yellow]Total Spent:[/bold yellow] {spent}")
+            sections.append("\n".join(order_lines))
+
         if recent_orders:
             order = recent_orders[0]
             order_name = order.get("name") or "N/A"
@@ -228,58 +242,41 @@ class CustomerDetailScreen(Screen):
 
             line_items = (order.get("lineItems") or {}).get("edges") or []
             items_summary = []
-            for item_edge in line_items[:3]:  # Show first 3 items
+            for item_edge in line_items[:3]:
                 item = item_edge.get("node") or {}
                 title = item.get("title") or "Unknown"
                 qty = item.get("quantity") or 0
                 items_summary.append(f"  • {title} (x{qty})")
-
             if len(line_items) > 3:
                 items_summary.append(f"  • ... and {len(line_items) - 3} more items")
 
-            last_order_text = f"""
-[bold magenta]Last Order:[/bold magenta] {order_name} - {order_date}
-[bold magenta]Status:[/bold magenta] {order_status} / {order_financial}
-[bold magenta]Total:[/bold magenta] {order_total}
-[bold magenta]Items:[/bold magenta]
-{chr(10).join(items_summary) if items_summary else "  No items"}
-"""
-        else:
-            # No orders returned - but check if customer has orders
-            if num_orders > 0:
-                last_order_text = f"\n[dim]Customer has {num_orders} order(s) but they are not accessible via API[/dim]\n[dim](May be from a different sales channel or restricted status)[/dim]"
+            last_order = (
+                f"[bold magenta]Last Order:[/bold magenta] {order_name} - {order_date}\n"
+                f"[bold magenta]Status:[/bold magenta] {order_status} / {order_financial}\n"
+                f"[bold magenta]Total:[/bold magenta] {order_total}"
+            )
+            if items_summary:
+                last_order += "\n[bold magenta]Items:[/bold magenta]\n" + "\n".join(items_summary)
+            sections.append(last_order)
+        elif num_orders > 0:
+            sections.append(
+                f"[dim]Customer has {num_orders} order(s) but they are not accessible via API[/dim]"
+            )
+
+        # Assigned cables — always show the count
+        cables_text = f"[bold magenta]Assigned Cables:[/bold magenta] {len(assigned_cables)}"
+        for cable in assigned_cables[:5]:
+            kind = cable.get('kind')
+            if kind in ('misc', 'ltd') and cable.get('description'):
+                cable_desc = f"{cable['series']} {cable['length']}ft - {cable['description']}"
             else:
-                last_order_text = "\n[dim]No orders yet[/dim]"
+                cable_desc = f"{cable['series']} {cable['length']}ft {cable.get('pattern_name') or ''}"
+            cables_text += f"\n  • {cable['serial_number']} - {cable_desc.rstrip()}"
+        if len(assigned_cables) > 5:
+            cables_text += f"\n  • ... and {len(assigned_cables) - 5} more"
+        sections.append(cables_text)
 
-        # Format assigned cables display
-        cables_text = f"\n[bold magenta]Assigned Cables:[/bold magenta] {len(assigned_cables)}"
-        if assigned_cables:
-            cables_text += "\n"
-            for cable in assigned_cables[:5]:  # Show first 5
-                kind = cable.get('kind')
-                if kind in ('misc', 'ltd') and cable.get('description'):
-                    cable_desc = f"{cable['series']} {cable['length']}ft - {cable['description']}"
-                else:
-                    cable_desc = f"{cable['series']} {cable['length']}ft {cable.get('pattern_name') or ''}"
-                cables_text += f"\n  • {cable['serial_number']} - {cable_desc.rstrip()}"
-
-            if len(assigned_cables) > 5:
-                cables_text += f"\n  • ... and {len(assigned_cables) - 5} more"
-        else:
-            cables_text += "\n  [dim]No cables assigned yet[/dim]"
-
-        customer_info = f"""[bold cyan]Name:[/bold cyan] {name}
-[bold cyan]Email:[/bold cyan] {email}
-[bold cyan]Phone:[/bold cyan] {phone}
-
-[bold yellow]Order Count:[/bold yellow] {num_orders}
-[bold yellow]Total Spent:[/bold yellow] {spent}
-
-[bold green]Address:[/bold green]
-{address_text}
-{last_order_text}
-{cables_text}
-"""
+        customer_info = "\n\n".join(sections)
 
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(customer_info, title="Customer Details"))

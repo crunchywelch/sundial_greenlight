@@ -268,6 +268,20 @@ def get_wire_shopify_session():
     return session
 
 
+def get_band_company(customer: Optional[Dict[str, Any]]) -> Optional[str]:
+    """Return the custom.band_company metafield value for a customer, or None."""
+    if not customer:
+        return None
+    field = customer.get("bandCompany")
+    if not field:
+        return None
+    value = field.get("value")
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
+
+
 def get_customer_by_id(customer_id: str) -> Optional[Dict[str, Any]]:
     """
     Look up a customer by their Shopify ID (numeric ID or GID)
@@ -313,6 +327,9 @@ def get_customer_by_id(customer_id: str) -> Optional[Dict[str, Any]]:
                 amountSpent {
                     amount
                     currencyCode
+                }
+                bandCompany: metafield(namespace: "custom", key: "band_company") {
+                    value
                 }
             }
         }
@@ -381,6 +398,9 @@ def search_customers_by_name(name: str, limit: int = 100) -> list[Dict[str, Any]
                         amountSpent {
                             amount
                             currencyCode
+                        }
+                        bandCompany: metafield(namespace: "custom", key: "band_company") {
+                            value
                         }
                     }
                 }
@@ -452,6 +472,9 @@ def get_customer_by_email(email: str) -> Optional[Dict[str, Any]]:
                         amountSpent {
                             amount
                             currencyCode
+                        }
+                        bandCompany: metafield(namespace: "custom", key: "band_company") {
+                            value
                         }
                     }
                 }

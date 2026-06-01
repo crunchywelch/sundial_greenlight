@@ -203,20 +203,21 @@ class CableScreenBase(Screen):
             customer = shopify_client.get_customer_by_id(customer_numeric_id)
 
             if customer:
-                customer_name = customer.get("displayName") or "N/A"
-                customer_email = customer.get("email") or "N/A"
-                customer_phone = customer.get("phone")
+                customer_name = customer.get("displayName") or "(no name)"
+                customer_email = customer.get("email")
                 address = customer.get("defaultAddress")
-                if not customer_phone and address:
-                    customer_phone = address.get("phone")
-                customer_phone = customer_phone or "N/A"
+                customer_phone = customer.get("phone") or (address.get("phone") if address else None)
+                band_company = shopify_client.get_band_company(customer)
 
-                right += f"""
+                assigned_lines = [f"  {customer_name}"]
+                if band_company:
+                    assigned_lines.append(f"  [magenta]{band_company}[/magenta]")
+                if customer_email:
+                    assigned_lines.append(f"  {customer_email}")
+                if customer_phone:
+                    assigned_lines.append(f"  {customer_phone}")
 
-[bold magenta]✅ Assigned To:[/bold magenta]
-  {customer_name}
-  {customer_email}
-  {customer_phone}"""
+                right += "\n\n[bold magenta]✅ Assigned To:[/bold magenta]\n" + "\n".join(assigned_lines)
             else:
                 right += f"""
 
