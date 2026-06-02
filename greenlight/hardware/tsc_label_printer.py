@@ -355,14 +355,12 @@ class TSCLabelPrinter(LabelPrinterInterface):
         y_qc_op = 130     # QC operator
 
         # X positions (from left, in dots)
-        # Label is 3" wide = ~609 dots
-        # Increase left margin from 10 to 20 dots
+        # Label is 3" wide = ~609 dots; printable area cuts off near x≈556.
         x_left = 20
-        # For right-aligned text, calculate based on estimated text width
-        # Font "2" is approximately 12 dots wide per character at normal scale
-        # SKU is typically 6-8 characters, so reserve ~100 dots
-        # Label width is ~609 dots, so position SKU to prevent cutoff
-        x_sku = 450  # SKU position (adjusted to prevent cutoff)
+        # Serial number and SKU sit on the top-right. Shifted further left
+        # than the QC column so long LTD SKUs like 'TV-25-LTD-GREENRIVER2026'
+        # don't run off the edge. AUDIO logo on line 1 ends around x≈270.
+        x_id = 340
         x_qc = 420   # QC results column on right side
 
         # Line 1: SUNDIAL [wire] AUDIO and serial number + SKU
@@ -372,9 +370,9 @@ class TSCLabelPrinter(LabelPrinterInterface):
         tspl_commands.append('__WIRE_LOGO__')  # Placeholder
         tspl_commands.append(f'TEXT {x_left + 190},{y_brand},"3",0,1,1,"AUDIO"')
         if serial_number:
-            tspl_commands.append(f'TEXT {x_qc},{y_serial},"2",0,1,1,"#{serial_number}"')
+            tspl_commands.append(f'TEXT {x_id},{y_serial},"2",0,1,1,"#{serial_number}"')
         # SKU under serial number
-        tspl_commands.append(f'TEXT {x_qc},{y_sku_right},"1",0,1,1,"{sku}"')
+        tspl_commands.append(f'TEXT {x_id},{y_sku_right},"1",0,1,1,"{sku}"')
 
         # Add small decorative line under brand
         tspl_commands.append(f'BAR {x_left},{y_brand + 28},300,2')
