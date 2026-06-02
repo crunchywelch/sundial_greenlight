@@ -1,10 +1,17 @@
 """Order fulfillment screens: Customer lookup, order processing, and cable assignment"""
+import time
+
 from rich.panel import Panel
 from rich.table import Table
 
 from greenlight.screen_manager import Screen, ScreenResult, NavigationAction
 from greenlight import shopify_client
 from greenlight import db
+
+# How long to display a transient error before auto-returning to the scan loop.
+# Blocking on console.input() here would freeze the scanner queue (MQTT scans
+# get dropped by the next clear_queue), so we use a brief sleep instead.
+ERROR_DISPLAY_SEC = 1.5
 
 
 class FulfillOrdersScreen(Screen):
@@ -412,12 +419,12 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                         return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
                     else:
                         self.ui.layout["body"].update(Panel(
-                            f"[red]❌ Error reassigning cable: {reassign_result.get('message', 'Unknown error')}[/red]\n\n[dim]Press enter to return[/dim]",
+                            f"[red]❌ Error reassigning cable: {reassign_result.get('message', 'Unknown error')}[/red]",
                             title="Error"
                         ))
                         self.ui.layout["footer"].update(Panel("", title=""))
                         self.ui.render()
-                        self.ui.console.input()
+                        time.sleep(ERROR_DISPLAY_SEC)
 
                         from greenlight.screens.cable import ScanCableLookupScreen
                         return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
@@ -429,12 +436,12 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
 
             else:
                 # Other error
-                error_display = f"[red]❌ Assignment Error[/red]\n\n{error_msg}\n\n[dim]Press enter to return[/dim]"
+                error_display = f"[red]❌ Assignment Error[/red]\n\n{error_msg}"
 
                 self.ui.layout["body"].update(Panel(error_display, title="Assignment Failed"))
                 self.ui.layout["footer"].update(Panel("", title=""))
                 self.ui.render()
-                self.ui.console.input()
+                time.sleep(ERROR_DISPLAY_SEC)
 
                 # Pop back to cable scan screen
                 from greenlight.screens.cable import ScanCableLookupScreen
@@ -819,12 +826,12 @@ class OrderFulfillScanScreen(Screen):
         valid, err_msg = validate_serial_number(serial_input)
         if not valid:
             self.ui.layout["body"].update(Panel(
-                f"[red]❌ Invalid serial number: {err_msg}[/red]\n\n[dim]Press enter to continue[/dim]",
+                f"[red]❌ Invalid serial number: {err_msg}[/red]",
                 title=f"Fulfill Order {order_name}"
             ))
             self.ui.layout["footer"].update(Panel("", title=""))
             self.ui.render()
-            self.ui.console.input()
+            time.sleep(ERROR_DISPLAY_SEC)
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
         formatted_serial = format_serial_number(serial_input)
@@ -845,35 +852,32 @@ class OrderFulfillScanScreen(Screen):
 
         if error_type == 'not_found':
             self.ui.layout["body"].update(Panel(
-                f"[red]❌ Cable {formatted_serial} not found in database[/red]\n\n"
-                f"[dim]Press enter to continue scanning[/dim]",
+                f"[red]❌ Cable {formatted_serial} not found in database[/red]",
                 title=f"Fulfill Order {order_name}"
             ))
             self.ui.layout["footer"].update(Panel("", title=""))
             self.ui.render()
-            self.ui.console.input()
+            time.sleep(ERROR_DISPLAY_SEC)
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
         elif error_type == 'duplicate':
             self.ui.layout["body"].update(Panel(
-                f"[yellow]⚠️  Cable {formatted_serial} is already scanned for this order[/yellow]\n\n"
-                f"[dim]Press enter to continue scanning[/dim]",
+                f"[yellow]⚠️  Cable {formatted_serial} is already scanned for this order[/yellow]",
                 title=f"Fulfill Order {order_name}"
             ))
             self.ui.layout["footer"].update(Panel("", title=""))
             self.ui.render()
-            self.ui.console.input()
+            time.sleep(ERROR_DISPLAY_SEC)
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
         elif error_type == 'already_assigned_order':
             self.ui.layout["body"].update(Panel(
-                f"[red]❌ Cable {formatted_serial} is assigned to a different order[/red]\n\n"
-                f"[dim]Press enter to continue scanning[/dim]",
+                f"[red]❌ Cable {formatted_serial} is assigned to a different order[/red]",
                 title=f"Fulfill Order {order_name}"
             ))
             self.ui.layout["footer"].update(Panel("", title=""))
             self.ui.render()
-            self.ui.console.input()
+            time.sleep(ERROR_DISPLAY_SEC)
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
         elif error_type == 'assigned_no_order':
@@ -913,13 +917,12 @@ class OrderFulfillScanScreen(Screen):
                     cable_sku = cable_record.get('sku', '')
                     if cable_sku not in line_item_skus:
                         self.ui.layout["body"].update(Panel(
-                            f"[red]❌ SKU mismatch: cable is {cable_sku}, not in order[/red]\n\n"
-                            f"[dim]Press enter to continue scanning[/dim]",
+                            f"[red]❌ SKU mismatch: cable is {cable_sku}, not in order[/red]",
                             title=f"Fulfill Order {order_name}"
                         ))
                         self.ui.layout["footer"].update(Panel("", title=""))
                         self.ui.render()
-                        self.ui.console.input()
+                        time.sleep(ERROR_DISPLAY_SEC)
                         return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
                 override_result = db.force_assign_cable_to_order(formatted_serial, customer_gid, order_id)
@@ -929,13 +932,12 @@ class OrderFulfillScanScreen(Screen):
                     return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, new_context)
                 else:
                     self.ui.layout["body"].update(Panel(
-                        f"[red]❌ Error: {override_result.get('message', 'Unknown')}[/red]\n\n"
-                        f"[dim]Press enter to continue[/dim]",
+                        f"[red]❌ Error: {override_result.get('message', 'Unknown')}[/red]",
                         title=f"Fulfill Order {order_name}"
                     ))
                     self.ui.layout["footer"].update(Panel("", title=""))
                     self.ui.render()
-                    self.ui.console.input()
+                    time.sleep(ERROR_DISPLAY_SEC)
 
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
@@ -944,25 +946,23 @@ class OrderFulfillScanScreen(Screen):
             self.ui.layout["body"].update(Panel(
                 f"[red]❌ SKU mismatch![/red]\n\n"
                 f"Cable SKU: [yellow]{cable_sku}[/yellow]\n"
-                f"Order expects: {', '.join(line_item_skus)}\n\n"
-                f"[dim]Press enter to continue scanning[/dim]",
+                f"Order expects: {', '.join(line_item_skus)}",
                 title=f"Fulfill Order {order_name}"
             ))
             self.ui.layout["footer"].update(Panel("", title=""))
             self.ui.render()
-            self.ui.console.input()
+            time.sleep(ERROR_DISPLAY_SEC)
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
         else:
             # Generic error
             self.ui.layout["body"].update(Panel(
-                f"[red]❌ Error: {result.get('message', 'Unknown error')}[/red]\n\n"
-                f"[dim]Press enter to continue scanning[/dim]",
+                f"[red]❌ Error: {result.get('message', 'Unknown error')}[/red]",
                 title=f"Fulfill Order {order_name}"
             ))
             self.ui.layout["footer"].update(Panel("", title=""))
             self.ui.render()
-            self.ui.console.input()
+            time.sleep(ERROR_DISPLAY_SEC)
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
 
@@ -1044,12 +1044,12 @@ class AssignCablesScreen(Screen):
             error_msg = result.get('message')
 
             if error_type == 'not_found':
-                error_display = f"[red]❌ Cable not found[/red]\n\n{error_msg}\n\n[dim]Press enter to try again[/dim]"
+                error_display = f"[red]❌ Cable not found[/red]\n\n{error_msg}"
 
                 self.ui.layout["body"].update(Panel(error_display, title="Cable Assignment"))
                 self.ui.layout["footer"].update(Panel("", title=""))
                 self.ui.render()
-                self.ui.console.input()
+                time.sleep(ERROR_DISPLAY_SEC)
 
                 # Continue scanning
                 return ScreenResult(NavigationAction.REPLACE, AssignCablesScreen, self.context)
@@ -1111,18 +1111,16 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                             title="Success"
                         ))
                         self.ui.render()
-
-                        import time
                         time.sleep(1)
 
                         return ScreenResult(NavigationAction.REPLACE, AssignCablesScreen, new_context)
                     else:
                         self.ui.layout["body"].update(Panel(
-                            f"[red]❌ Error reassigning cable: {reassign_result.get('message', 'Unknown error')}[/red]\n\n[dim]Press enter to continue[/dim]",
+                            f"[red]❌ Error reassigning cable: {reassign_result.get('message', 'Unknown error')}[/red]",
                             title="Error"
                         ))
                         self.ui.render()
-                        self.ui.console.input()
+                        time.sleep(ERROR_DISPLAY_SEC)
 
                         return ScreenResult(NavigationAction.REPLACE, AssignCablesScreen, self.context)
 
@@ -1135,12 +1133,12 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                     return ScreenResult(NavigationAction.REPLACE, AssignCablesScreen, self.context)
 
             else:
-                error_display = f"[red]❌ Error[/red]\n\n{error_msg}\n\n[dim]Press enter to try again[/dim]"
+                error_display = f"[red]❌ Error[/red]\n\n{error_msg}"
 
                 self.ui.layout["body"].update(Panel(error_display, title="Cable Assignment"))
                 self.ui.layout["footer"].update(Panel("", title=""))
                 self.ui.render()
-                self.ui.console.input()
+                time.sleep(ERROR_DISPLAY_SEC)
 
                 # Continue scanning
                 return ScreenResult(NavigationAction.REPLACE, AssignCablesScreen, self.context)
