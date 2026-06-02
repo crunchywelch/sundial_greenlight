@@ -309,7 +309,6 @@ class TSCLabelPrinter(LabelPrinterInterface):
         kind = sku_kind(sku)
         is_misc = kind == 'misc'
         is_ltd = kind == 'ltd'
-        event_name = data.get('event_name')
 
         # Start TSPL commands
         tspl_commands = []
@@ -391,8 +390,6 @@ class TSCLabelPrinter(LabelPrinterInterface):
         # Line 3: Length and Color/Pattern (with branding for MISC and LTD variants)
         if is_misc:
             length_text = f"{length}' Special Baby"
-        elif is_ltd and event_name:
-            length_text = f"{length}' {event_name}"
         elif is_ltd:
             length_text = f"{length}' Limited Edition"
         else:

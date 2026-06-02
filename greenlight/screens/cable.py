@@ -358,13 +358,15 @@ class CableScreenBase(Screen):
             logger.error(f"Failed to save test results: {e}")
             saved_status = " | [red]Save failed[/red]"
 
-        # Set Shopify inventory to match Postgres available count (best-effort; reconcile tool catches drift)
-        if all_passed:
+        # Set Shopify inventory to match Postgres available count (best-effort; reconcile tool catches drift).
+        # LTD cables aren't sold via Shopify so they have no product to sync.
+        kind = cable_record.get('kind')
+        if all_passed and kind != 'ltd':
             try:
                 from greenlight.db import get_available_count_for_sku
                 variant_sku = cable_record['variant_sku']
                 count = get_available_count_for_sku(variant_sku)
-                if cable_record.get('kind') == 'misc':
+                if kind == 'misc':
                     from greenlight.shopify_client import ensure_misc_shopify_product
                     success, err = ensure_misc_shopify_product(cable_record, quantity=count)
                 else:
@@ -408,6 +410,7 @@ class CableScreenBase(Screen):
         serial_number = cable_record.get('serial_number')
         series = cable_record.get('series') or ''
         is_misc = cable_record.get('kind') == 'misc'
+        is_ltd = cable_record.get('kind') == 'ltd'
         is_touring = series.startswith("Tour") and not is_misc
 
         # Keep cable info in body
@@ -546,8 +549,9 @@ class CableScreenBase(Screen):
             logger.error(f"Failed to save test results: {e}")
             saved_status = " | [red]Save failed[/red]"
 
-        # Set Shopify inventory to match Postgres available count (best-effort; reconcile tool catches drift)
-        if all_passed:
+        # Set Shopify inventory to match Postgres available count (best-effort; reconcile tool catches drift).
+        # LTD cables aren't sold via Shopify so they have no product to sync.
+        if all_passed and not is_ltd:
             try:
                 from greenlight.db import get_available_count_for_sku
                 variant_sku = cable_record['variant_sku']
@@ -876,11 +880,6 @@ class CableScreenBase(Screen):
             'connector_type': connector_display,
             'sku': variant_sku,
         }
-        # LTD cables: description is the event_name post-Phase-4 (cable_ltd_metadata
-        # was folded into sku_group.description).
-        if cable_record.get('kind') == 'ltd' and description:
-            label_data['event_name'] = description
-
         if description:
             label_data['description'] = description
 
