@@ -600,6 +600,56 @@ def get_ltd_edition(sku):
         pg_pool.putconn(conn)
 
 
+def get_cables_for_ltd_sku(ltd_group_sku):
+    """Get every cable registered under an LTD group SKU, assigned or not.
+
+    Unlike get_cables_for_customer, this returns all states: each record
+    carries shopify_gid (the assigned customer, or None/'' if unassigned)
+    and test_passed so callers can show assignment and QC status.
+
+    Args:
+        ltd_group_sku: LTD group SKU, e.g. 'LTD-PHISH26'
+
+    Returns:
+        List of enriched cable dicts ordered by serial number.
+    """
+    conn = pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT ac.serial_number, ac.sku_group, ac.prefix,
+                       ac.length, ac.connector_code,
+                       ac.updated_timestamp, ac.shopify_gid, ac.test_passed,
+                       sg.description, sg.archived_at
+                FROM audio_cables ac
+                JOIN sku_group sg ON ac.sku_group = sg.sku
+                WHERE ac.sku_group = %s
+                ORDER BY ac.serial_number
+            """, (ltd_group_sku,))
+            rows = cur.fetchall()
+
+            cables = []
+            for row in rows:
+                cables.append(_enrich_record({
+                    'serial_number': row[0],
+                    'sku_group': row[1],
+                    'prefix': row[2],
+                    'length': row[3],
+                    'connector_code': row[4],
+                    'updated_timestamp': row[5],
+                    'shopify_gid': row[6],
+                    'test_passed': row[7],
+                    'description': row[8],
+                    'archived_at': row[9],
+                }))
+            return cables
+    except Exception as e:
+        logger.error("Error fetching cables for LTD sku %s: %s", ltd_group_sku, e)
+        return []
+    finally:
+        pg_pool.putconn(conn)
+
+
 def get_available_count_for_sku(sku):
     """Get count of available (passed + unassigned) cables for a SKU.
 

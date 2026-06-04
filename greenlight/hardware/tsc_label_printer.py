@@ -844,12 +844,16 @@ class TSCLabelPrinter(LabelPrinterInterface):
             data: Dictionary with:
                 - lines: list[str] — text lines to print
                 - title: str (optional) — bold header line
+                - scale: int (optional) — font size multiplier (default 1)
 
         Returns:
             TSPL commands as bytes
         """
         lines = data.get('lines', [])
         title = data.get('title', '')
+        # Font size multiplier applied to both width and height. Line spacing
+        # scales with it so larger text doesn't overlap.
+        scale = max(1, int(data.get('scale', 1) or 1))
 
         tspl_commands = []
         tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
@@ -867,8 +871,8 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         if title:
             # Bold title using font "4" (larger)
-            tspl_commands.append(f'TEXT {x},{y},"4",0,1,1,"{title}"')
-            y += 35
+            tspl_commands.append(f'TEXT {x},{y},"4",0,{scale},{scale},"{title}"')
+            y += 35 * scale
             # Decorative line under title
             tspl_commands.append(f'BAR {x},{y},560,2')
             y += 15
@@ -877,8 +881,8 @@ class TSCLabelPrinter(LabelPrinterInterface):
         for line in lines:
             # Escape quotes in text
             safe_line = line.replace('"', "'")
-            tspl_commands.append(f'TEXT {x},{y},"3",0,1,1,"{safe_line}"')
-            y += 30
+            tspl_commands.append(f'TEXT {x},{y},"3",0,{scale},{scale},"{safe_line}"')
+            y += 30 * scale
 
         tspl_commands.append("PRINT 1,1")
         tspl_commands.append("")

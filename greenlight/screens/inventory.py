@@ -9,7 +9,11 @@ from rich.columns import Columns
 from rich.console import Group
 
 from greenlight.screen_manager import Screen, ScreenResult, NavigationAction
-from greenlight.db import get_sku_stock_summary, get_recent_sales, get_misc_summary
+from greenlight.db import (
+    get_sku_stock_summary, get_recent_sales, get_misc_summary,
+    list_ltd_editions, get_cables_for_ltd_sku,
+)
+from greenlight import shopify_client
 from greenlight.product_lines import (
     PREFIX_MAP, LOW_STOCK_THRESHOLD,
     load_yaml_skus, build_sku, get_cost,
@@ -126,6 +130,7 @@ class InventoryDashboardScreen(Screen):
             "[green]1.[/green] Studio (Rayon)   "
             "[green]2.[/green] Tour (Cotton)   "
             "[green]s.[/green] Suggestions   "
+            "[green]l.[/green] LTD Editions   "
             "[green]q.[/green] Back"
         )
 
@@ -146,6 +151,8 @@ class InventoryDashboardScreen(Screen):
             return ScreenResult(NavigationAction.PUSH, SeriesHeatmapScreen, ctx)
         elif choice == "s":
             return ScreenResult(NavigationAction.PUSH, ProductionSuggestionsScreen, self.context)
+        elif choice == "l":
+            return ScreenResult(NavigationAction.PUSH, LTDEditionListScreen, self.context)
         elif choice == "q":
             return ScreenResult(NavigationAction.POP)
 
@@ -248,7 +255,7 @@ class SeriesHeatmapScreen(Screen):
         )
         self.ui.render()
 
-        self.ui.console.input("Choose: ")
+        self.ui.wait_back()
         return ScreenResult(NavigationAction.POP)
 
 
@@ -360,5 +367,160 @@ class ProductionSuggestionsScreen(Screen):
         )
         self.ui.render()
 
-        self.ui.console.input("Choose: ")
+        self.ui.wait_back()
         return ScreenResult(NavigationAction.POP)
+
+
+class LTDEditionListScreen(Screen):
+    """List LTD editions; pick one to see its cables and assignments."""
+
+    def run(self) -> ScreenResult:
+        operator = self.context.get("operator", "")
+        # Show every edition (including archived) — viewing past runs and who
+        # owns those cables is a legitimate reason to be here.
+        editions = list_ltd_editions(active_only=False)
+
+        table = Table(title="LTD Editions", show_header=True, header_style="bold cyan",
+                      padding=(0, 1))
+        table.add_column("#", justify="right", style="green", width=3)
+        table.add_column("Edition", width=28)
+        table.add_column("SKU", width=20)
+        table.add_column("Cables", justify="right", width=7)
+        table.add_column("Status", width=10)
+
+        for idx, ed in enumerate(editions, 1):
+            ed_name = ed.get("description") or ed["slug"]
+            status = "[green]active[/green]" if ed["active"] else "[dim]archived[/dim]"
+            row_style = None if ed["active"] else "dim"
+            table.add_row(
+                str(idx), ed_name, ed["sku"], str(ed["cable_count"]), status,
+                style=row_style,
+            )
+
+        if not editions:
+            table.add_row("", "[dim]No LTD editions found[/dim]", "", "", "")
+
+        self.ui.header(operator)
+        self.ui.layout["body"].update(table)
+        self.ui.layout["footer"].update(
+            Panel("Enter a [green]number[/green] to view cables   "
+                  "[green]q.[/green] Back", title="Options")
+        )
+        self.ui.render()
+
+        choice = self.ui.console.input("Choose: ").strip().lower()
+        if choice in ("q", ""):
+            return ScreenResult(NavigationAction.POP)
+
+        if choice.isdigit():
+            n = int(choice)
+            if 1 <= n <= len(editions):
+                ctx = self.context.copy()
+                ctx["ltd_edition"] = editions[n - 1]
+                return ScreenResult(NavigationAction.PUSH, LTDEditionCablesScreen, ctx)
+
+        return ScreenResult(NavigationAction.REPLACE, LTDEditionListScreen, self.context)
+
+
+class LTDEditionCablesScreen(Screen):
+    """Show all cables of one LTD edition and who each is assigned to."""
+
+    def run(self) -> ScreenResult:
+        operator = self.context.get("operator", "")
+        edition = self.context.get("ltd_edition", {})
+        sku = edition.get("sku", "")
+        name = edition.get("description") or edition.get("slug") or sku
+
+        cables = get_cables_for_ltd_sku(sku)
+
+        # Cache customer lookups — an edition often has several cables going to
+        # the same person, and each lookup is a Shopify API round-trip. Names
+        # resolve lazily, so only the cables on the current page are fetched.
+        name_cache = {}
+
+        def resolve_customer(gid):
+            if not gid:
+                return "[dim]— unassigned[/dim]"
+            if gid not in name_cache:
+                customer = shopify_client.get_customer_by_id(gid)
+                name_cache[gid] = (customer or {}).get("displayName") or "[red]Unknown[/red]"
+            return name_cache[gid]
+
+        assigned_count = sum(1 for c in cables if c.get("shopify_gid"))
+
+        def build_page(page_cables, page_index, total_pages):
+            title = f"LTD — {name}"
+            if total_pages > 1:
+                title += f"  (page {page_index + 1}/{total_pages})"
+            table = Table(title=title, show_header=True, header_style="bold cyan",
+                          padding=(0, 1))
+            # '#' is the per-page row number used by the assign prompt below.
+            table.add_column("#", justify="right", style="green", width=3)
+            table.add_column("Serial", width=12)
+            table.add_column("Variant SKU", width=20)
+            table.add_column("QC", justify="center", width=4)
+            table.add_column("Assigned To", width=26)
+
+            if not cables:
+                table.add_row("", "[dim]No cables registered for this edition[/dim]", "", "", "")
+                return table
+
+            for i, cable in enumerate(page_cables, 1):
+                test_passed = cable.get("test_passed")
+                if test_passed is True:
+                    qc = "[green]✓[/green]"
+                elif test_passed is False:
+                    qc = "[red]✗[/red]"
+                else:
+                    qc = "[dim]-[/dim]"
+                table.add_row(
+                    str(i),
+                    cable.get("serial_number") or "",
+                    cable.get("variant_sku") or "",
+                    qc,
+                    resolve_customer(cable.get("shopify_gid")),
+                )
+            return table
+
+        self.ui.header(operator)
+        hint = f"[cyan]{len(cables)}[/cyan] cable(s), [cyan]{assigned_count}[/cyan] assigned"
+        actions = {"a": "Assign cable"} if cables else None
+        # Resume on whatever page we were on before an assignment round-trip, so
+        # assigning several cables off a later page doesn't bounce back to page 1.
+        start_page = self.context.get("ltd_page", 0)
+        result = self.ui.paginate(cables, build_page, footer_hint=hint,
+                                  actions=actions, start_page=start_page)
+
+        if not result:
+            return ScreenResult(NavigationAction.POP)
+
+        # 'a' pressed — pick which cable on the page in view to assign, then
+        # hand off to the existing customer-lookup flow. assign_return_to brings
+        # the flow back here (instead of the cable scan screen) when it's done,
+        # and ltd_page makes it re-open on the same page.
+        page_cables = result["page_items"]
+        self.context["ltd_page"] = result["page"]
+        self.ui.layout["footer"].update(Panel(
+            "Enter the [green]#[/green] of the cable to assign "
+            "(or [green]Enter[/green] to cancel)",
+            title="Assign Cable",
+        ))
+        self.ui.render()
+        try:
+            choice = self.ui.console.input("Assign #: ").strip()
+        except KeyboardInterrupt:
+            choice = ""
+
+        if choice.isdigit():
+            idx = int(choice) - 1
+            if 0 <= idx < len(page_cables):
+                cable = page_cables[idx]
+                ctx = self.context.copy()
+                ctx["assign_cable_serial"] = cable.get("serial_number")
+                ctx["assign_cable_sku"] = cable.get("variant_sku")
+                ctx["assign_return_to"] = LTDEditionCablesScreen
+                from greenlight.screens.orders import CustomerLookupScreen
+                return ScreenResult(NavigationAction.PUSH, CustomerLookupScreen, ctx)
+
+        # Cancelled or invalid number — redraw, staying on the same page.
+        return ScreenResult(NavigationAction.REPLACE, LTDEditionCablesScreen, self.context)

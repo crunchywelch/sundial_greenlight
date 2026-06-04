@@ -5,6 +5,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from greenlight.screen_manager import Screen, ScreenResult, NavigationAction
+from greenlight.screens.cable import CableScreenBase
 from greenlight import shopify_client
 from greenlight import db
 
@@ -12,6 +13,21 @@ from greenlight import db
 # Blocking on console.input() here would freeze the scanner queue (MQTT scans
 # get dropped by the next clear_queue), so we use a brief sleep instead.
 ERROR_DISPLAY_SEC = 1.5
+
+
+def _assign_pop_target(context):
+    """Resolve the screen the cable-assignment flow should pop back to.
+
+    Assignment is usually started from the cable scan screen, so that's the
+    default. Callers that start it from elsewhere (e.g. the LTD inventory
+    listing) put their own screen class in context['assign_return_to'] so the
+    flow returns there instead of unwinding the whole stack.
+    """
+    target = context.get("assign_return_to")
+    if target is not None:
+        return target
+    from greenlight.screens.cable import ScanCableLookupScreen
+    return ScanCableLookupScreen
 
 
 class FulfillOrdersScreen(Screen):
@@ -143,16 +159,14 @@ class CustomerSearchResultsScreen(Screen):
         try:
             choice = self.ui.console.input("Choice: ").strip().lower()
         except KeyboardInterrupt:
-            from greenlight.screens.cable import ScanCableLookupScreen
-            return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+            return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
 
         # Auto-select if only one result and user pressed Enter
         if choice == '' and len(customers) == 1:
             choice = '1'
 
         if choice == 'q':
-            from greenlight.screens.cable import ScanCableLookupScreen
-            return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+            return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
         elif choice == 'n':
             return ScreenResult(NavigationAction.REPLACE, CustomerLookupScreen, self.context)
         elif choice.isdigit():
@@ -294,6 +308,7 @@ class CustomerDetailScreen(Screen):
         ]
         if assigned_cables:
             footer_parts.append("[cyan]'u'[/cyan] = unassign cable")
+            footer_parts.append("[cyan]'p'[/cyan] = print all labels")
         footer_parts.extend([
             "[cyan]'f'[/cyan] = fulfill order",
             "[cyan]Enter[/cyan] = back",
@@ -331,6 +346,8 @@ class CustomerDetailScreen(Screen):
             new_context = self.context.copy()
             new_context["assigned_cables"] = assigned_cables
             return ScreenResult(NavigationAction.PUSH, UnassignCableScreen, new_context)
+        elif choice == 'p' and assigned_cables:
+            return ScreenResult(NavigationAction.PUSH, PrintCustomerLabelsScreen, self.context)
         elif choice == 'f':
             return ScreenResult(NavigationAction.PUSH, OrderSelectionScreen, self.context)
         elif choice == '':
@@ -362,8 +379,7 @@ class CustomerDetailScreen(Screen):
 
         if result.get('success'):
             # Pop back to cable info screen (it will show the assignment)
-            from greenlight.screens.cable import ScanCableLookupScreen
-            return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+            return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
         else:
             # Error occurred
             error_type = result.get('error')
@@ -401,8 +417,7 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                 try:
                     choice = self.ui.console.input("").strip().lower()
                 except KeyboardInterrupt:
-                    from greenlight.screens.cable import ScanCableLookupScreen
-                    return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+                    return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
 
                 if choice == 'y' or choice == 'yes':
                     # Force reassignment
@@ -415,8 +430,7 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                     reassign_result = db.force_reassign_cable(cable_serial, customer_gid)
 
                     if reassign_result.get('success'):
-                        from greenlight.screens.cable import ScanCableLookupScreen
-                        return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+                        return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
                     else:
                         self.ui.layout["body"].update(Panel(
                             f"[red]❌ Error reassigning cable: {reassign_result.get('message', 'Unknown error')}[/red]",
@@ -426,13 +440,11 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                         self.ui.render()
                         time.sleep(ERROR_DISPLAY_SEC)
 
-                        from greenlight.screens.cable import ScanCableLookupScreen
-                        return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+                        return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
 
                 else:
                     # Cancel or go back to scanning
-                    from greenlight.screens.cable import ScanCableLookupScreen
-                    return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+                    return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
 
             else:
                 # Other error
@@ -444,8 +456,89 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                 time.sleep(ERROR_DISPLAY_SEC)
 
                 # Pop back to cable scan screen
-                from greenlight.screens.cable import ScanCableLookupScreen
-                return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+                return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
+
+
+class PrintCustomerLabelsScreen(CableScreenBase):
+    """Print labels for every cable assigned to a customer."""
+    def run(self) -> ScreenResult:
+        operator = self.context.get("operator", "")
+        customer = self.context.get("selected_customer", {})
+        customer_id = customer.get("id", "")
+        customer_name = customer.get("displayName") or "Customer"
+
+        cables = db.get_cables_for_customer(customer_id)
+
+        self.ui.header(operator)
+
+        if not cables:
+            self.ui.layout["body"].update(
+                Panel("No cables assigned to this customer.", title="Print Labels")
+            )
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
+            self.ui.render()
+            try:
+                self.ui.wait_back()
+            except KeyboardInterrupt:
+                pass
+            return ScreenResult(NavigationAction.POP)
+
+        from greenlight.hardware.interfaces import hardware_manager
+        if not hardware_manager.get_label_printer():
+            self.ui.layout["body"].update(
+                Panel("No label printer available.", title="Print Labels")
+            )
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
+            self.ui.render()
+            try:
+                self.ui.wait_back()
+            except KeyboardInterrupt:
+                pass
+            return ScreenResult(NavigationAction.POP)
+
+        # Confirm before sending a batch of labels to the printer
+        self.ui.layout["body"].update(Panel(
+            f"Print labels for [bold]{len(cables)}[/bold] cable(s) "
+            f"assigned to {customer_name}?",
+            title="Print Labels",
+        ))
+        self.ui.layout["footer"].update(
+            Panel("[green]Enter[/green] = print | [red]'q'[/red] = cancel", title="")
+        )
+        self.ui.render()
+        try:
+            confirm = self.ui.console.input("Choice: ").strip().lower()
+        except KeyboardInterrupt:
+            confirm = 'q'
+        if confirm == 'q':
+            return ScreenResult(NavigationAction.POP)
+
+        printed = 0
+        failed = []
+        for i, cable in enumerate(cables, 1):
+            serial = cable.get('serial_number')
+            self.ui.layout["body"].update(Panel(
+                f"Printing label {i} of {len(cables)}: {serial}",
+                title="Printing Labels",
+            ))
+            self.ui.layout["footer"].update(Panel("", title=""))
+            self.ui.render()
+            if self.print_label_for_cable(operator, cable):
+                printed += 1
+            else:
+                failed.append(serial)
+
+        summary = f"[green]Printed {printed} of {len(cables)} label(s) for {customer_name}.[/green]"
+        if failed:
+            summary += "\n[red]Failed:[/red] " + ", ".join(failed)
+        self.ui.layout["body"].update(Panel(summary, title="Print Labels"))
+        self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
+        self.ui.render()
+        try:
+            self.ui.wait_back()
+        except KeyboardInterrupt:
+            pass
+        return ScreenResult(NavigationAction.POP)
 
 
 class UnassignCableScreen(Screen):
@@ -462,9 +555,9 @@ class UnassignCableScreen(Screen):
                 "[dim]No cables assigned to this customer[/dim]",
                 title="Unassign Cable"
             ))
-            self.ui.layout["footer"].update(Panel("[cyan]Press Enter to go back[/cyan]", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input()
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         # Build cable list table
@@ -537,19 +630,17 @@ class UnassignCableScreen(Screen):
 
         if result.get('success'):
             self.ui.layout["body"].update(Panel(
-                f"[green]Cable {serial} unassigned from {customer_name}[/green]\n\n"
-                f"[dim]Press Enter to continue[/dim]",
+                f"[green]Cable {serial} unassigned from {customer_name}[/green]",
                 title="Unassigned"
             ))
         else:
             self.ui.layout["body"].update(Panel(
-                f"[red]Error: {result.get('message', 'Unknown error')}[/red]\n\n"
-                f"[dim]Press Enter to continue[/dim]",
+                f"[red]Error: {result.get('message', 'Unknown error')}[/red]",
                 title="Error"
             ))
-        self.ui.layout["footer"].update(Panel("", title=""))
+        self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
         self.ui.render()
-        self.ui.console.input()
+        self.ui.wait_back()
 
         # Refresh the assigned cables list and go back to customer detail
         return ScreenResult(NavigationAction.POP)
@@ -575,12 +666,12 @@ class CustomerOrdersScreen(Screen):
 
         if not orders:
             self.ui.layout["body"].update(Panel(
-                "[dim]No orders found for this customer[/dim]\n\n[cyan]Press enter to go back[/cyan]",
+                "[dim]No orders found for this customer[/dim]",
                 title=f"Orders for {customer_name}"
             ))
-            self.ui.layout["footer"].update(Panel("", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input()
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         # Create orders table
@@ -606,13 +697,10 @@ class CustomerOrdersScreen(Screen):
 
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(table, title=f"Recent Orders for {customer_name}"))
-        self.ui.layout["footer"].update(Panel(
-            "[cyan]Press enter to go back[/cyan]",
-            title=""
-        ))
+        self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
         self.ui.render()
 
-        self.ui.console.input()
+        self.ui.wait_back()
         return ScreenResult(NavigationAction.POP)
 
 
@@ -643,12 +731,12 @@ class OrderSelectionScreen(Screen):
 
         if not unfulfilled_orders:
             self.ui.layout["body"].update(Panel(
-                f"[dim]No unfulfilled orders found for {customer_name}[/dim]\n\n[cyan]Press enter to go back[/cyan]",
+                f"[dim]No unfulfilled orders found for {customer_name}[/dim]",
                 title="Order Selection"
             ))
-            self.ui.layout["footer"].update(Panel("", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input()
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         # Single order - skip selection and go directly to fulfillment
@@ -722,13 +810,12 @@ class OrderSelectionScreen(Screen):
 
         if not line_items:
             self.ui.layout["body"].update(Panel(
-                "[red]No cable items (with SKUs) found in this order[/red]\n\n"
-                "[dim]Press enter to go back[/dim]",
+                "[red]No cable items (with SKUs) found in this order[/red]",
                 title="Order Selection"
             ))
-            self.ui.layout["footer"].update(Panel("", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input()
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.REPLACE, OrderSelectionScreen, self.context)
 
         new_context = self.context.copy()
@@ -818,8 +905,7 @@ class OrderFulfillScanScreen(Screen):
         serial_input = self.ui.get_serial_number_scan_or_manual()
 
         if not serial_input or serial_input.lower() == 'q':
-            from greenlight.screens.cable import ScanCableLookupScreen
-            return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+            return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
 
         # Validate serial number
         from greenlight.db import validate_serial_number, format_serial_number
@@ -1007,8 +1093,7 @@ class AssignCablesScreen(Screen):
         serial_input = self.ui.get_serial_number_scan_or_manual()
 
         if not serial_input or serial_input.lower() == 'q':
-            from greenlight.screens.cable import ScanCableLookupScreen
-            return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+            return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
 
         # Assign the cable to the customer
         self.ui.layout["body"].update(Panel(
@@ -1086,8 +1171,7 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                 try:
                     choice = self.ui.console.input("").strip().lower()
                 except KeyboardInterrupt:
-                    from greenlight.screens.cable import ScanCableLookupScreen
-                    return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+                    return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
 
                 if choice == 'y' or choice == 'yes':
                     # Force reassignment
@@ -1126,8 +1210,7 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
 
                 elif choice == 'q':
                     # Quit assignment and go back to main hub
-                    from greenlight.screens.cable import ScanCableLookupScreen
-                    return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+                    return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
                 else:
                     # Skip this cable, continue scanning
                     return ScreenResult(NavigationAction.REPLACE, AssignCablesScreen, self.context)
