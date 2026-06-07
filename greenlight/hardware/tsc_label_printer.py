@@ -212,6 +212,8 @@ class TSCLabelPrinter(LabelPrinterInterface):
                 tspl = self._generate_wire_label_tspl(print_job.data)
             elif print_job.template == "barcode_label":
                 tspl = self._generate_barcode_label_tspl(print_job.data)
+            elif print_job.template == "bin_label":
+                tspl = self._generate_bin_label_tspl(print_job.data)
             elif print_job.template == "text_label":
                 tspl = self._generate_text_label_tspl(print_job.data)
             else:
@@ -699,6 +701,79 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         return output
 
+    def _generate_bin_label_tspl(self, data: Dict[str, Any]) -> bytes:
+        """Generate TSPL commands for a finished-goods BIN label.
+
+        Staff-facing (NOT customer-facing): no branding, no website QR — that
+        is the sample-card `wire_label` template's job. A bin label is just the
+        product name plus a large Code 128 barcode of the SKU. Shopify POS scans
+        that barcode against the variant Barcode field on the "Prepare for
+        pickup" screen to fulfill the order, so one label = one variant.
+
+        Label layout (1" x 3"):
+        +---------------------------------------------------+
+        |  Product Name Here That Wraps If Needed           |
+        |                                                   |
+        |      ||||| |||| || ||||| ||| ||||  (Code 128)     |
+        |                   SC-20GL                          |
+        +---------------------------------------------------+
+
+        Args:
+            data: Dictionary with:
+                - sku: str (required — encoded in the Code 128 barcode)
+                - product_title / title: str (optional product name, top line)
+                - subtitle: str (optional second line, e.g. length/connector)
+
+        Returns:
+            TSPL commands as bytes
+        """
+        sku = (data.get('sku') or '').strip()
+        title = data.get('product_title') or data.get('title') or ''
+        subtitle = data.get('subtitle') or ''
+
+        tspl_commands = []
+        tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
+        tspl_commands.append("GAP 2 mm, 2 mm")
+        tspl_commands.append("DIRECTION 1,0")
+        tspl_commands.append("REFERENCE 0,0")
+        tspl_commands.append("SET TEAR ON")
+        tspl_commands.append("SET PEEL OFF")
+        tspl_commands.append("CLS")
+        tspl_commands.append("DENSITY 10")
+        tspl_commands.append("SPEED 3")
+
+        x_left = 20
+
+        # Product name across the top (word-wrap up to 2 lines)
+        y = 14
+        if title:
+            for part in self._split_text(title, max_length=32)[:2]:
+                tspl_commands.append(f'TEXT {x_left},{y},"3",0,1,1,"{part}"')
+                y += 30
+        if subtitle:
+            tspl_commands.append(f'TEXT {x_left},{y},"2",0,1,1,"{subtitle}"')
+            y += 26
+
+        # Large Code 128 barcode of the SKU, with the SKU printed beneath it
+        # (human-readable flag = 1). Approximate the rendered width to center it:
+        # Code 128 ≈ 11 modules per char + 35 for start/check/stop, times the
+        # narrow-element width in dots, plus a quiet-zone allowance.
+        narrow = 2
+        wide = 4
+        est_width = (len(sku) * 11 + 35) * narrow + 40
+        barcode_x = max(x_left, (self.label_width_dots - est_width) // 2)
+        barcode_y = max(y + 6, 60)
+        # Leave ~26 dots under the bars for the human-readable text
+        barcode_height = max(50, min(90, self.label_height_dots - barcode_y - 26))
+        tspl_commands.append(
+            f'BARCODE {barcode_x},{barcode_y},"128",{barcode_height},1,0,{narrow},{wide},"{sku}"'
+        )
+
+        tspl_commands.append("PRINT 1")
+        tspl_commands.append("")
+
+        return "\r\n".join(tspl_commands).encode('utf-8')
+
     def _format_connector_type(self, connector_type: str) -> str:
         """Format connector type for display on label"""
         # Normalize en-dashes/em-dashes to ASCII hyphens (DB uses en-dashes)
@@ -985,6 +1060,8 @@ class MockTSCLabelPrinter(LabelPrinterInterface):
             logger.debug("Mock TSPL commands would be generated for wire label")
         elif print_job.template == "barcode_label":
             logger.debug("Mock TSPL commands would be generated for barcode label")
+        elif print_job.template == "bin_label":
+            logger.debug("Mock TSPL commands would be generated for bin label")
         elif print_job.template == "text_label":
             logger.debug("Mock TSPL commands would be generated for text label")
 

@@ -105,6 +105,26 @@ class WireLabelScreen(Screen):
                 f"[dim]This info will be printed on the label[/dim]",
                 title="Confirm Product", border_style="green"
             ))
+            # Choose label type: customer-facing sample card (wire_label) vs
+            # staff-facing bin label (bin_label, Code 128 SKU barcode for POS).
+            self.ui.layout["footer"].update(Panel(
+                "Label type: [cyan]'c'[/cyan] = sample card (default) | [cyan]'b'[/cyan] = bin label"
+                " | [cyan]'s'[/cyan] = skip | [cyan]'q'[/cyan] = quit",
+                title="Print Labels"
+            ))
+            self.ui.render()
+
+            try:
+                type_input = self.ui.console.input("Label type [c/b]: ").strip().lower()
+            except KeyboardInterrupt:
+                return ScreenResult(NavigationAction.POP)
+
+            if type_input == 'q':
+                return ScreenResult(NavigationAction.POP)
+            if type_input == 's':
+                continue
+            label_type = 'bin' if type_input == 'b' else 'card'
+
             self.ui.layout["footer"].update(Panel(
                 "Enter [bold]quantity[/bold] (default 1) | [cyan]'s'[/cyan] = skip | [cyan]'q'[/cyan] = quit",
                 title="Print Labels"
@@ -154,11 +174,24 @@ class WireLabelScreen(Screen):
             # Use the product title (without variant) for the label
             label_title = product_title
 
-            label_data = {
-                'product_title': label_title,
-                'sku': product_sku,
-                'product_url': product_url,
-            }
+            if label_type == 'bin':
+                # Bin label: SKU barcode for Shopify POS pickup fulfillment.
+                # No branding/QR; variant title (if any) becomes the subtitle.
+                template = "bin_label"
+                subtitle = variant_title if variant_title and variant_title != "Default Title" else ""
+                label_data = {
+                    'sku': product_sku,
+                    'product_title': label_title,
+                    'subtitle': subtitle,
+                }
+            else:
+                # Sample card: customer-facing label with product-page QR.
+                template = "wire_label"
+                label_data = {
+                    'product_title': label_title,
+                    'sku': product_sku,
+                    'product_url': product_url,
+                }
 
             self.ui.console.clear()
             self.ui.header(operator)
@@ -174,7 +207,7 @@ class WireLabelScreen(Screen):
             all_success = True
             for i in range(quantity):
                 print_job = PrintJob(
-                    template="wire_label",
+                    template=template,
                     data=label_data,
                     quantity=1
                 )
@@ -201,7 +234,7 @@ class WireLabelScreen(Screen):
                 ))
 
             self.ui.layout["footer"].update(Panel(
-                "Press [cyan]Enter[/cyan] to print another | [cyan]'q'[/cyan] to quit",
+                "Press [cyan]Enter[/cyan] to look up another SKU | [cyan]'q'[/cyan] to quit",
                 title=""
             ))
             self.ui.render()
