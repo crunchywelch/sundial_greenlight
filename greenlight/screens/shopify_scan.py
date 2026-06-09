@@ -42,8 +42,8 @@ class ShopifyScanModeScreen(Screen):
         ))
         self.ui.render()
 
-        # Wait for any keypress
-        self.ui.console.input("")
+        # Wait for any keypress (instant — honors the "press any key" prompt)
+        self.ui.read_key()
 
         return ScreenResult(NavigationAction.POP)
 

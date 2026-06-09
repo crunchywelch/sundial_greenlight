@@ -1,10 +1,33 @@
 """Order fulfillment screens: Customer lookup, order processing, and cable assignment"""
+import time
+
 from rich.panel import Panel
 from rich.table import Table
 
 from greenlight.screen_manager import Screen, ScreenResult, NavigationAction
+from greenlight.screens.cable import CableScreenBase
 from greenlight import shopify_client
 from greenlight import db
+
+# How long to display a transient error before auto-returning to the scan loop.
+# Blocking on console.input() here would freeze the scanner queue (MQTT scans
+# get dropped by the next clear_queue), so we use a brief sleep instead.
+ERROR_DISPLAY_SEC = 1.5
+
+
+def _assign_pop_target(context):
+    """Resolve the screen the cable-assignment flow should pop back to.
+
+    Assignment is usually started from the cable scan screen, so that's the
+    default. Callers that start it from elsewhere (e.g. the LTD inventory
+    listing) put their own screen class in context['assign_return_to'] so the
+    flow returns there instead of unwinding the whole stack.
+    """
+    target = context.get("assign_return_to")
+    if target is not None:
+        return target
+    from greenlight.screens.cable import ScanCableLookupScreen
+    return ScanCableLookupScreen
 
 
 class FulfillOrdersScreen(Screen):
@@ -101,22 +124,24 @@ class CustomerSearchResultsScreen(Screen):
         table = Table(show_header=True, header_style="bold cyan")
         table.add_column("#", style="green", width=3)
         table.add_column("Name", style="white")
+        table.add_column("Band", style="magenta")
         table.add_column("Email", style="dim")
         table.add_column("Orders", justify="right", style="yellow")
         table.add_column("Total Spent", justify="right", style="green")
 
         for i, customer in enumerate(customers, 1):
-            name = customer.get("displayName") or "N/A"
-            email = customer.get("email") or "N/A"
-            num_orders = str(customer.get("numberOfOrders") or 0)
+            name = customer.get("displayName") or ""
+            band = shopify_client.get_band_company(customer) or ""
+            email = customer.get("email") or ""
+
+            num_orders_raw = customer.get("numberOfOrders") or 0
+            num_orders = str(num_orders_raw) if int(num_orders_raw) else ""
 
             amount_spent = customer.get("amountSpent") or {}
-            if amount_spent and amount_spent.get("amount"):
-                spent = f"${float(amount_spent['amount']):.2f}"
-            else:
-                spent = "$0.00"
+            amount = float(amount_spent.get("amount") or 0)
+            spent = f"${amount:.2f}" if amount else ""
 
-            table.add_row(str(i), name, email, num_orders, spent)
+            table.add_row(str(i), name, band, email, num_orders, spent)
 
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(
@@ -134,16 +159,14 @@ class CustomerSearchResultsScreen(Screen):
         try:
             choice = self.ui.console.input("Choice: ").strip().lower()
         except KeyboardInterrupt:
-            from greenlight.screens.cable import ScanCableLookupScreen
-            return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+            return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
 
         # Auto-select if only one result and user pressed Enter
         if choice == '' and len(customers) == 1:
             choice = '1'
 
         if choice == 'q':
-            from greenlight.screens.cable import ScanCableLookupScreen
-            return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+            return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
         elif choice == 'n':
             return ScreenResult(NavigationAction.REPLACE, CustomerLookupScreen, self.context)
         elif choice.isdigit():
@@ -178,44 +201,56 @@ class CustomerDetailScreen(Screen):
             return self.assign_cable_and_return(operator, customer, assign_cable_serial)
 
         # Build customer info display
-        name = customer.get("displayName") or "N/A"
-        email = customer.get("email") or "N/A"
+        name = customer.get("displayName") or "(no name)"
+        band_company = shopify_client.get_band_company(customer)
+        email = customer.get("email")
 
         # Try to get phone from customer level, then from address
-        phone = customer.get("phone")
         address = customer.get("defaultAddress")
-        if not phone and address:
-            phone = address.get("phone")
-        phone = phone or "N/A"
+        phone = customer.get("phone") or (address.get("phone") if address else None)
 
         # Convert numberOfOrders to int (Shopify returns it as string)
-        num_orders_raw = customer.get("numberOfOrders") or 0
-        num_orders = int(num_orders_raw) if num_orders_raw else 0
+        num_orders = int(customer.get("numberOfOrders") or 0)
 
-        amount_spent = customer.get("amountSpent", {})
-        if amount_spent and amount_spent.get("amount"):
-            spent = f"${float(amount_spent['amount']):.2f} {amount_spent.get('currencyCode', 'USD')}"
-        else:
-            spent = "$0.00"
+        amount_spent = customer.get("amountSpent") or {}
+        amount = float(amount_spent.get("amount") or 0)
+        spent = (
+            f"${amount:.2f} {amount_spent.get('currencyCode', 'USD')}"
+            if amount else None
+        )
 
-        # Format address for display
+        # Show just city, state — full address isn't needed and country-only is noise
+        location = ""
         if address:
-            addr_lines = [
-                address.get("address1") or "",
-                address.get("address2") or "",
-                f"{address.get('city') or ''}, {address.get('province') or ''} {address.get('zip') or ''}",
-                address.get("country") or ""
-            ]
-            address_text = "\n".join([line for line in addr_lines if line and line.strip()])
-        else:
-            address_text = "No address on file"
+            location = ", ".join(
+                p for p in (address.get("city"), address.get("province")) if p
+            )
 
         # Fetch most recent order and assigned cables
         customer_id = customer.get("id", "")
         recent_orders = shopify_client.get_customer_orders(customer_id, limit=1)
         assigned_cables = db.get_cables_for_customer(customer_id)
 
-        last_order_text = ""
+        # Build sections, skipping empty ones
+        sections = []
+
+        contact_lines = [f"[bold cyan]Name:[/bold cyan] {name}"]
+        if band_company:
+            contact_lines.append(f"[bold cyan]Band:[/bold cyan] {band_company}")
+        if email:
+            contact_lines.append(f"[bold cyan]Email:[/bold cyan] {email}")
+        if phone:
+            contact_lines.append(f"[bold cyan]Phone:[/bold cyan] {phone}")
+        if location:
+            contact_lines.append(f"[bold cyan]Location:[/bold cyan] {location}")
+        sections.append("\n".join(contact_lines))
+
+        if num_orders > 0:
+            order_lines = [f"[bold yellow]Order Count:[/bold yellow] {num_orders}"]
+            if spent:
+                order_lines.append(f"[bold yellow]Total Spent:[/bold yellow] {spent}")
+            sections.append("\n".join(order_lines))
+
         if recent_orders:
             order = recent_orders[0]
             order_name = order.get("name") or "N/A"
@@ -228,58 +263,41 @@ class CustomerDetailScreen(Screen):
 
             line_items = (order.get("lineItems") or {}).get("edges") or []
             items_summary = []
-            for item_edge in line_items[:3]:  # Show first 3 items
+            for item_edge in line_items[:3]:
                 item = item_edge.get("node") or {}
                 title = item.get("title") or "Unknown"
                 qty = item.get("quantity") or 0
                 items_summary.append(f"  • {title} (x{qty})")
-
             if len(line_items) > 3:
                 items_summary.append(f"  • ... and {len(line_items) - 3} more items")
 
-            last_order_text = f"""
-[bold magenta]Last Order:[/bold magenta] {order_name} - {order_date}
-[bold magenta]Status:[/bold magenta] {order_status} / {order_financial}
-[bold magenta]Total:[/bold magenta] {order_total}
-[bold magenta]Items:[/bold magenta]
-{chr(10).join(items_summary) if items_summary else "  No items"}
-"""
-        else:
-            # No orders returned - but check if customer has orders
-            if num_orders > 0:
-                last_order_text = f"\n[dim]Customer has {num_orders} order(s) but they are not accessible via API[/dim]\n[dim](May be from a different sales channel or restricted status)[/dim]"
+            last_order = (
+                f"[bold magenta]Last Order:[/bold magenta] {order_name} - {order_date}\n"
+                f"[bold magenta]Status:[/bold magenta] {order_status} / {order_financial}\n"
+                f"[bold magenta]Total:[/bold magenta] {order_total}"
+            )
+            if items_summary:
+                last_order += "\n[bold magenta]Items:[/bold magenta]\n" + "\n".join(items_summary)
+            sections.append(last_order)
+        elif num_orders > 0:
+            sections.append(
+                f"[dim]Customer has {num_orders} order(s) but they are not accessible via API[/dim]"
+            )
+
+        # Assigned cables — always show the count
+        cables_text = f"[bold magenta]Assigned Cables:[/bold magenta] {len(assigned_cables)}"
+        for cable in assigned_cables[:5]:
+            kind = cable.get('kind')
+            if kind in ('misc', 'ltd') and cable.get('description'):
+                cable_desc = f"{cable['series']} {cable['length']}ft - {cable['description']}"
             else:
-                last_order_text = "\n[dim]No orders yet[/dim]"
+                cable_desc = f"{cable['series']} {cable['length']}ft {cable.get('pattern_name') or ''}"
+            cables_text += f"\n  • {cable['serial_number']} - {cable_desc.rstrip()}"
+        if len(assigned_cables) > 5:
+            cables_text += f"\n  • ... and {len(assigned_cables) - 5} more"
+        sections.append(cables_text)
 
-        # Format assigned cables display
-        cables_text = f"\n[bold magenta]Assigned Cables:[/bold magenta] {len(assigned_cables)}"
-        if assigned_cables:
-            cables_text += "\n"
-            for cable in assigned_cables[:5]:  # Show first 5
-                kind = cable.get('kind')
-                if kind in ('misc', 'ltd') and cable.get('description'):
-                    cable_desc = f"{cable['series']} {cable['length']}ft - {cable['description']}"
-                else:
-                    cable_desc = f"{cable['series']} {cable['length']}ft {cable.get('pattern_name') or ''}"
-                cables_text += f"\n  • {cable['serial_number']} - {cable_desc.rstrip()}"
-
-            if len(assigned_cables) > 5:
-                cables_text += f"\n  • ... and {len(assigned_cables) - 5} more"
-        else:
-            cables_text += "\n  [dim]No cables assigned yet[/dim]"
-
-        customer_info = f"""[bold cyan]Name:[/bold cyan] {name}
-[bold cyan]Email:[/bold cyan] {email}
-[bold cyan]Phone:[/bold cyan] {phone}
-
-[bold yellow]Order Count:[/bold yellow] {num_orders}
-[bold yellow]Total Spent:[/bold yellow] {spent}
-
-[bold green]Address:[/bold green]
-{address_text}
-{last_order_text}
-{cables_text}
-"""
+        customer_info = "\n\n".join(sections)
 
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(customer_info, title="Customer Details"))
@@ -290,6 +308,7 @@ class CustomerDetailScreen(Screen):
         ]
         if assigned_cables:
             footer_parts.append("[cyan]'u'[/cyan] = unassign cable")
+            footer_parts.append("[cyan]'p'[/cyan] = print all labels")
         footer_parts.extend([
             "[cyan]'f'[/cyan] = fulfill order",
             "[cyan]Enter[/cyan] = back",
@@ -327,6 +346,8 @@ class CustomerDetailScreen(Screen):
             new_context = self.context.copy()
             new_context["assigned_cables"] = assigned_cables
             return ScreenResult(NavigationAction.PUSH, UnassignCableScreen, new_context)
+        elif choice == 'p' and assigned_cables:
+            return ScreenResult(NavigationAction.PUSH, PrintCustomerLabelsScreen, self.context)
         elif choice == 'f':
             return ScreenResult(NavigationAction.PUSH, OrderSelectionScreen, self.context)
         elif choice == '':
@@ -358,8 +379,7 @@ class CustomerDetailScreen(Screen):
 
         if result.get('success'):
             # Pop back to cable info screen (it will show the assignment)
-            from greenlight.screens.cable import ScanCableLookupScreen
-            return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+            return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
         else:
             # Error occurred
             error_type = result.get('error')
@@ -397,8 +417,7 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                 try:
                     choice = self.ui.console.input("").strip().lower()
                 except KeyboardInterrupt:
-                    from greenlight.screens.cable import ScanCableLookupScreen
-                    return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+                    return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
 
                 if choice == 'y' or choice == 'yes':
                     # Force reassignment
@@ -411,37 +430,115 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                     reassign_result = db.force_reassign_cable(cable_serial, customer_gid)
 
                     if reassign_result.get('success'):
-                        from greenlight.screens.cable import ScanCableLookupScreen
-                        return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+                        return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
                     else:
                         self.ui.layout["body"].update(Panel(
-                            f"[red]❌ Error reassigning cable: {reassign_result.get('message', 'Unknown error')}[/red]\n\n[dim]Press enter to return[/dim]",
+                            f"[red]❌ Error reassigning cable: {reassign_result.get('message', 'Unknown error')}[/red]",
                             title="Error"
                         ))
                         self.ui.layout["footer"].update(Panel("", title=""))
                         self.ui.render()
-                        self.ui.console.input()
+                        time.sleep(ERROR_DISPLAY_SEC)
 
-                        from greenlight.screens.cable import ScanCableLookupScreen
-                        return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+                        return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
 
                 else:
                     # Cancel or go back to scanning
-                    from greenlight.screens.cable import ScanCableLookupScreen
-                    return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+                    return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
 
             else:
                 # Other error
-                error_display = f"[red]❌ Assignment Error[/red]\n\n{error_msg}\n\n[dim]Press enter to return[/dim]"
+                error_display = f"[red]❌ Assignment Error[/red]\n\n{error_msg}"
 
                 self.ui.layout["body"].update(Panel(error_display, title="Assignment Failed"))
                 self.ui.layout["footer"].update(Panel("", title=""))
                 self.ui.render()
-                self.ui.console.input()
+                time.sleep(ERROR_DISPLAY_SEC)
 
                 # Pop back to cable scan screen
-                from greenlight.screens.cable import ScanCableLookupScreen
-                return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+                return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
+
+
+class PrintCustomerLabelsScreen(CableScreenBase):
+    """Print labels for every cable assigned to a customer."""
+    def run(self) -> ScreenResult:
+        operator = self.context.get("operator", "")
+        customer = self.context.get("selected_customer", {})
+        customer_id = customer.get("id", "")
+        customer_name = customer.get("displayName") or "Customer"
+
+        cables = db.get_cables_for_customer(customer_id)
+
+        self.ui.header(operator)
+
+        if not cables:
+            self.ui.layout["body"].update(
+                Panel("No cables assigned to this customer.", title="Print Labels")
+            )
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
+            self.ui.render()
+            try:
+                self.ui.wait_back()
+            except KeyboardInterrupt:
+                pass
+            return ScreenResult(NavigationAction.POP)
+
+        from greenlight.hardware.interfaces import hardware_manager
+        if not hardware_manager.get_label_printer():
+            self.ui.layout["body"].update(
+                Panel("No label printer available.", title="Print Labels")
+            )
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
+            self.ui.render()
+            try:
+                self.ui.wait_back()
+            except KeyboardInterrupt:
+                pass
+            return ScreenResult(NavigationAction.POP)
+
+        # Confirm before sending a batch of labels to the printer
+        self.ui.layout["body"].update(Panel(
+            f"Print labels for [bold]{len(cables)}[/bold] cable(s) "
+            f"assigned to {customer_name}?",
+            title="Print Labels",
+        ))
+        self.ui.layout["footer"].update(
+            Panel("[green]Enter[/green] = print | [red]'q'[/red] = cancel", title="")
+        )
+        self.ui.render()
+        try:
+            confirm = self.ui.console.input("Choice: ").strip().lower()
+        except KeyboardInterrupt:
+            confirm = 'q'
+        if confirm == 'q':
+            return ScreenResult(NavigationAction.POP)
+
+        printed = 0
+        failed = []
+        for i, cable in enumerate(cables, 1):
+            serial = cable.get('serial_number')
+            self.ui.layout["body"].update(Panel(
+                f"Printing label {i} of {len(cables)}: {serial}",
+                title="Printing Labels",
+            ))
+            self.ui.layout["footer"].update(Panel("", title=""))
+            self.ui.render()
+            if self.print_label_for_cable(operator, cable):
+                printed += 1
+            else:
+                failed.append(serial)
+
+        summary = f"[green]Printed {printed} of {len(cables)} label(s) for {customer_name}.[/green]"
+        if failed:
+            summary += "\n[red]Failed:[/red] " + ", ".join(failed)
+        self.ui.layout["body"].update(Panel(summary, title="Print Labels"))
+        self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
+        self.ui.render()
+        try:
+            self.ui.wait_back()
+        except KeyboardInterrupt:
+            pass
+        return ScreenResult(NavigationAction.POP)
 
 
 class UnassignCableScreen(Screen):
@@ -458,9 +555,9 @@ class UnassignCableScreen(Screen):
                 "[dim]No cables assigned to this customer[/dim]",
                 title="Unassign Cable"
             ))
-            self.ui.layout["footer"].update(Panel("[cyan]Press Enter to go back[/cyan]", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input()
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         # Build cable list table
@@ -533,19 +630,17 @@ class UnassignCableScreen(Screen):
 
         if result.get('success'):
             self.ui.layout["body"].update(Panel(
-                f"[green]Cable {serial} unassigned from {customer_name}[/green]\n\n"
-                f"[dim]Press Enter to continue[/dim]",
+                f"[green]Cable {serial} unassigned from {customer_name}[/green]",
                 title="Unassigned"
             ))
         else:
             self.ui.layout["body"].update(Panel(
-                f"[red]Error: {result.get('message', 'Unknown error')}[/red]\n\n"
-                f"[dim]Press Enter to continue[/dim]",
+                f"[red]Error: {result.get('message', 'Unknown error')}[/red]",
                 title="Error"
             ))
-        self.ui.layout["footer"].update(Panel("", title=""))
+        self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
         self.ui.render()
-        self.ui.console.input()
+        self.ui.wait_back()
 
         # Refresh the assigned cables list and go back to customer detail
         return ScreenResult(NavigationAction.POP)
@@ -571,12 +666,12 @@ class CustomerOrdersScreen(Screen):
 
         if not orders:
             self.ui.layout["body"].update(Panel(
-                "[dim]No orders found for this customer[/dim]\n\n[cyan]Press enter to go back[/cyan]",
+                "[dim]No orders found for this customer[/dim]",
                 title=f"Orders for {customer_name}"
             ))
-            self.ui.layout["footer"].update(Panel("", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input()
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         # Create orders table
@@ -602,13 +697,10 @@ class CustomerOrdersScreen(Screen):
 
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(table, title=f"Recent Orders for {customer_name}"))
-        self.ui.layout["footer"].update(Panel(
-            "[cyan]Press enter to go back[/cyan]",
-            title=""
-        ))
+        self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
         self.ui.render()
 
-        self.ui.console.input()
+        self.ui.wait_back()
         return ScreenResult(NavigationAction.POP)
 
 
@@ -639,12 +731,12 @@ class OrderSelectionScreen(Screen):
 
         if not unfulfilled_orders:
             self.ui.layout["body"].update(Panel(
-                f"[dim]No unfulfilled orders found for {customer_name}[/dim]\n\n[cyan]Press enter to go back[/cyan]",
+                f"[dim]No unfulfilled orders found for {customer_name}[/dim]",
                 title="Order Selection"
             ))
-            self.ui.layout["footer"].update(Panel("", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input()
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         # Single order - skip selection and go directly to fulfillment
@@ -718,13 +810,12 @@ class OrderSelectionScreen(Screen):
 
         if not line_items:
             self.ui.layout["body"].update(Panel(
-                "[red]No cable items (with SKUs) found in this order[/red]\n\n"
-                "[dim]Press enter to go back[/dim]",
+                "[red]No cable items (with SKUs) found in this order[/red]",
                 title="Order Selection"
             ))
-            self.ui.layout["footer"].update(Panel("", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input()
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.REPLACE, OrderSelectionScreen, self.context)
 
         new_context = self.context.copy()
@@ -814,20 +905,19 @@ class OrderFulfillScanScreen(Screen):
         serial_input = self.ui.get_serial_number_scan_or_manual()
 
         if not serial_input or serial_input.lower() == 'q':
-            from greenlight.screens.cable import ScanCableLookupScreen
-            return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+            return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
 
         # Validate serial number
         from greenlight.db import validate_serial_number, format_serial_number
         valid, err_msg = validate_serial_number(serial_input)
         if not valid:
             self.ui.layout["body"].update(Panel(
-                f"[red]❌ Invalid serial number: {err_msg}[/red]\n\n[dim]Press enter to continue[/dim]",
+                f"[red]❌ Invalid serial number: {err_msg}[/red]",
                 title=f"Fulfill Order {order_name}"
             ))
             self.ui.layout["footer"].update(Panel("", title=""))
             self.ui.render()
-            self.ui.console.input()
+            time.sleep(ERROR_DISPLAY_SEC)
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
         formatted_serial = format_serial_number(serial_input)
@@ -848,35 +938,32 @@ class OrderFulfillScanScreen(Screen):
 
         if error_type == 'not_found':
             self.ui.layout["body"].update(Panel(
-                f"[red]❌ Cable {formatted_serial} not found in database[/red]\n\n"
-                f"[dim]Press enter to continue scanning[/dim]",
+                f"[red]❌ Cable {formatted_serial} not found in database[/red]",
                 title=f"Fulfill Order {order_name}"
             ))
             self.ui.layout["footer"].update(Panel("", title=""))
             self.ui.render()
-            self.ui.console.input()
+            time.sleep(ERROR_DISPLAY_SEC)
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
         elif error_type == 'duplicate':
             self.ui.layout["body"].update(Panel(
-                f"[yellow]⚠️  Cable {formatted_serial} is already scanned for this order[/yellow]\n\n"
-                f"[dim]Press enter to continue scanning[/dim]",
+                f"[yellow]⚠️  Cable {formatted_serial} is already scanned for this order[/yellow]",
                 title=f"Fulfill Order {order_name}"
             ))
             self.ui.layout["footer"].update(Panel("", title=""))
             self.ui.render()
-            self.ui.console.input()
+            time.sleep(ERROR_DISPLAY_SEC)
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
         elif error_type == 'already_assigned_order':
             self.ui.layout["body"].update(Panel(
-                f"[red]❌ Cable {formatted_serial} is assigned to a different order[/red]\n\n"
-                f"[dim]Press enter to continue scanning[/dim]",
+                f"[red]❌ Cable {formatted_serial} is assigned to a different order[/red]",
                 title=f"Fulfill Order {order_name}"
             ))
             self.ui.layout["footer"].update(Panel("", title=""))
             self.ui.render()
-            self.ui.console.input()
+            time.sleep(ERROR_DISPLAY_SEC)
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
         elif error_type == 'assigned_no_order':
@@ -916,13 +1003,12 @@ class OrderFulfillScanScreen(Screen):
                     cable_sku = cable_record.get('sku', '')
                     if cable_sku not in line_item_skus:
                         self.ui.layout["body"].update(Panel(
-                            f"[red]❌ SKU mismatch: cable is {cable_sku}, not in order[/red]\n\n"
-                            f"[dim]Press enter to continue scanning[/dim]",
+                            f"[red]❌ SKU mismatch: cable is {cable_sku}, not in order[/red]",
                             title=f"Fulfill Order {order_name}"
                         ))
                         self.ui.layout["footer"].update(Panel("", title=""))
                         self.ui.render()
-                        self.ui.console.input()
+                        time.sleep(ERROR_DISPLAY_SEC)
                         return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
                 override_result = db.force_assign_cable_to_order(formatted_serial, customer_gid, order_id)
@@ -932,13 +1018,12 @@ class OrderFulfillScanScreen(Screen):
                     return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, new_context)
                 else:
                     self.ui.layout["body"].update(Panel(
-                        f"[red]❌ Error: {override_result.get('message', 'Unknown')}[/red]\n\n"
-                        f"[dim]Press enter to continue[/dim]",
+                        f"[red]❌ Error: {override_result.get('message', 'Unknown')}[/red]",
                         title=f"Fulfill Order {order_name}"
                     ))
                     self.ui.layout["footer"].update(Panel("", title=""))
                     self.ui.render()
-                    self.ui.console.input()
+                    time.sleep(ERROR_DISPLAY_SEC)
 
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
@@ -947,25 +1032,23 @@ class OrderFulfillScanScreen(Screen):
             self.ui.layout["body"].update(Panel(
                 f"[red]❌ SKU mismatch![/red]\n\n"
                 f"Cable SKU: [yellow]{cable_sku}[/yellow]\n"
-                f"Order expects: {', '.join(line_item_skus)}\n\n"
-                f"[dim]Press enter to continue scanning[/dim]",
+                f"Order expects: {', '.join(line_item_skus)}",
                 title=f"Fulfill Order {order_name}"
             ))
             self.ui.layout["footer"].update(Panel("", title=""))
             self.ui.render()
-            self.ui.console.input()
+            time.sleep(ERROR_DISPLAY_SEC)
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
         else:
             # Generic error
             self.ui.layout["body"].update(Panel(
-                f"[red]❌ Error: {result.get('message', 'Unknown error')}[/red]\n\n"
-                f"[dim]Press enter to continue scanning[/dim]",
+                f"[red]❌ Error: {result.get('message', 'Unknown error')}[/red]",
                 title=f"Fulfill Order {order_name}"
             ))
             self.ui.layout["footer"].update(Panel("", title=""))
             self.ui.render()
-            self.ui.console.input()
+            time.sleep(ERROR_DISPLAY_SEC)
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
 
@@ -1010,8 +1093,7 @@ class AssignCablesScreen(Screen):
         serial_input = self.ui.get_serial_number_scan_or_manual()
 
         if not serial_input or serial_input.lower() == 'q':
-            from greenlight.screens.cable import ScanCableLookupScreen
-            return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+            return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
 
         # Assign the cable to the customer
         self.ui.layout["body"].update(Panel(
@@ -1047,12 +1129,12 @@ class AssignCablesScreen(Screen):
             error_msg = result.get('message')
 
             if error_type == 'not_found':
-                error_display = f"[red]❌ Cable not found[/red]\n\n{error_msg}\n\n[dim]Press enter to try again[/dim]"
+                error_display = f"[red]❌ Cable not found[/red]\n\n{error_msg}"
 
                 self.ui.layout["body"].update(Panel(error_display, title="Cable Assignment"))
                 self.ui.layout["footer"].update(Panel("", title=""))
                 self.ui.render()
-                self.ui.console.input()
+                time.sleep(ERROR_DISPLAY_SEC)
 
                 # Continue scanning
                 return ScreenResult(NavigationAction.REPLACE, AssignCablesScreen, self.context)
@@ -1089,8 +1171,7 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                 try:
                     choice = self.ui.console.input("").strip().lower()
                 except KeyboardInterrupt:
-                    from greenlight.screens.cable import ScanCableLookupScreen
-                    return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+                    return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
 
                 if choice == 'y' or choice == 'yes':
                     # Force reassignment
@@ -1114,36 +1195,33 @@ Do you want to reassign it to [bold green]{customer_name}[/bold green]?"""
                             title="Success"
                         ))
                         self.ui.render()
-
-                        import time
                         time.sleep(1)
 
                         return ScreenResult(NavigationAction.REPLACE, AssignCablesScreen, new_context)
                     else:
                         self.ui.layout["body"].update(Panel(
-                            f"[red]❌ Error reassigning cable: {reassign_result.get('message', 'Unknown error')}[/red]\n\n[dim]Press enter to continue[/dim]",
+                            f"[red]❌ Error reassigning cable: {reassign_result.get('message', 'Unknown error')}[/red]",
                             title="Error"
                         ))
                         self.ui.render()
-                        self.ui.console.input()
+                        time.sleep(ERROR_DISPLAY_SEC)
 
                         return ScreenResult(NavigationAction.REPLACE, AssignCablesScreen, self.context)
 
                 elif choice == 'q':
                     # Quit assignment and go back to main hub
-                    from greenlight.screens.cable import ScanCableLookupScreen
-                    return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
+                    return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
                 else:
                     # Skip this cable, continue scanning
                     return ScreenResult(NavigationAction.REPLACE, AssignCablesScreen, self.context)
 
             else:
-                error_display = f"[red]❌ Error[/red]\n\n{error_msg}\n\n[dim]Press enter to try again[/dim]"
+                error_display = f"[red]❌ Error[/red]\n\n{error_msg}"
 
                 self.ui.layout["body"].update(Panel(error_display, title="Cable Assignment"))
                 self.ui.layout["footer"].update(Panel("", title=""))
                 self.ui.render()
-                self.ui.console.input()
+                time.sleep(ERROR_DISPLAY_SEC)
 
                 # Continue scanning
                 return ScreenResult(NavigationAction.REPLACE, AssignCablesScreen, self.context)

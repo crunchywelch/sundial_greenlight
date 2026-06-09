@@ -12,11 +12,13 @@ Usage:
     python test_label_printer.py --text "AA:BB:CC:DD:EE:FF"
     python test_label_printer.py --text "MAC: AA:BB:CC:DD" --title "Tablet 3"
     python test_label_printer.py --text "line one" "line two" "line three"
+    python test_label_printer.py --text "BIG LABEL" --scale 2
 
 Options:
     --mock    Use mock printer (no actual hardware)
     --text    Print arbitrary text on a label (remaining args are lines)
     --title   Optional bold header line (used with --text)
+    --scale   Font size multiplier for text labels (default 1)
 """
 
 import sys
@@ -63,13 +65,13 @@ def create_printer(use_mock=False):
         return None
 
 
-def print_text_label(lines, title=None, use_mock=False):
+def print_text_label(lines, title=None, use_mock=False, scale=1):
     """Print a simple text label with arbitrary content"""
     printer = create_printer(use_mock)
     if not printer:
         return False
 
-    data = {'lines': lines}
+    data = {'lines': lines, 'scale': scale}
     if title:
         data['title'] = title
 
@@ -210,12 +212,15 @@ if __name__ == "__main__":
                         help="Print a text label with arbitrary content (each arg is a line)")
     parser.add_argument("--title", type=str, default=None,
                         help="Bold title line for text labels")
+    parser.add_argument("--scale", type=int, default=1,
+                        help="Font size multiplier for text labels (default 1)")
 
     args = parser.parse_args()
 
     try:
         if args.text:
-            print_text_label(args.text, title=args.title, use_mock=args.mock)
+            print_text_label(args.text, title=args.title, use_mock=args.mock,
+                             scale=args.scale)
         else:
             test_label_printer(args.mock)
     except KeyboardInterrupt:

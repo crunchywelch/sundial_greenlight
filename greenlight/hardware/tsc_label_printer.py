@@ -311,7 +311,6 @@ class TSCLabelPrinter(LabelPrinterInterface):
         kind = sku_kind(sku)
         is_misc = kind == 'misc'
         is_ltd = kind == 'ltd'
-        event_name = data.get('event_name')
 
         # Start TSPL commands
         tspl_commands = []
@@ -358,14 +357,12 @@ class TSCLabelPrinter(LabelPrinterInterface):
         y_qc_op = 130     # QC operator
 
         # X positions (from left, in dots)
-        # Label is 3" wide = ~609 dots
-        # Increase left margin from 10 to 20 dots
+        # Label is 3" wide = ~609 dots; printable area cuts off near x≈556.
         x_left = 20
-        # For right-aligned text, calculate based on estimated text width
-        # Font "2" is approximately 12 dots wide per character at normal scale
-        # SKU is typically 6-8 characters, so reserve ~100 dots
-        # Label width is ~609 dots, so position SKU to prevent cutoff
-        x_sku = 450  # SKU position (adjusted to prevent cutoff)
+        # Serial number and SKU sit on the top-right. Shifted further left
+        # than the QC column so long LTD SKUs like 'TV-25-LTD-GREENRIVER2026'
+        # don't run off the edge. AUDIO logo on line 1 ends around x≈270.
+        x_id = 340
         x_qc = 420   # QC results column on right side
 
         # Line 1: SUNDIAL [wire] AUDIO and serial number + SKU
@@ -375,9 +372,9 @@ class TSCLabelPrinter(LabelPrinterInterface):
         tspl_commands.append('__WIRE_LOGO__')  # Placeholder
         tspl_commands.append(f'TEXT {x_left + 190},{y_brand},"3",0,1,1,"AUDIO"')
         if serial_number:
-            tspl_commands.append(f'TEXT {x_qc},{y_serial},"2",0,1,1,"#{serial_number}"')
+            tspl_commands.append(f'TEXT {x_id},{y_serial},"2",0,1,1,"#{serial_number}"')
         # SKU under serial number
-        tspl_commands.append(f'TEXT {x_qc},{y_sku_right},"1",0,1,1,"{sku}"')
+        tspl_commands.append(f'TEXT {x_id},{y_sku_right},"1",0,1,1,"{sku}"')
 
         # Add small decorative line under brand
         tspl_commands.append(f'BAR {x_left},{y_brand + 28},300,2')
@@ -393,8 +390,6 @@ class TSCLabelPrinter(LabelPrinterInterface):
         # Line 3: Length and Color/Pattern (with branding for MISC and LTD variants)
         if is_misc:
             length_text = f"{length}' Special Baby"
-        elif is_ltd and event_name:
-            length_text = f"{length}' {event_name}"
         elif is_ltd:
             length_text = f"{length}' Limited Edition"
         else:
@@ -924,12 +919,16 @@ class TSCLabelPrinter(LabelPrinterInterface):
             data: Dictionary with:
                 - lines: list[str] — text lines to print
                 - title: str (optional) — bold header line
+                - scale: int (optional) — font size multiplier (default 1)
 
         Returns:
             TSPL commands as bytes
         """
         lines = data.get('lines', [])
         title = data.get('title', '')
+        # Font size multiplier applied to both width and height. Line spacing
+        # scales with it so larger text doesn't overlap.
+        scale = max(1, int(data.get('scale', 1) or 1))
 
         tspl_commands = []
         tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
@@ -947,8 +946,8 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         if title:
             # Bold title using font "4" (larger)
-            tspl_commands.append(f'TEXT {x},{y},"4",0,1,1,"{title}"')
-            y += 35
+            tspl_commands.append(f'TEXT {x},{y},"4",0,{scale},{scale},"{title}"')
+            y += 35 * scale
             # Decorative line under title
             tspl_commands.append(f'BAR {x},{y},560,2')
             y += 15
@@ -957,8 +956,8 @@ class TSCLabelPrinter(LabelPrinterInterface):
         for line in lines:
             # Escape quotes in text
             safe_line = line.replace('"', "'")
-            tspl_commands.append(f'TEXT {x},{y},"3",0,1,1,"{safe_line}"')
-            y += 30
+            tspl_commands.append(f'TEXT {x},{y},"3",0,{scale},{scale},"{safe_line}"')
+            y += 30 * scale
 
         tspl_commands.append("PRINT 1,1")
         tspl_commands.append("")

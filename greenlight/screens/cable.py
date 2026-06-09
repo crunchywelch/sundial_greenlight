@@ -203,20 +203,21 @@ class CableScreenBase(Screen):
             customer = shopify_client.get_customer_by_id(customer_numeric_id)
 
             if customer:
-                customer_name = customer.get("displayName") or "N/A"
-                customer_email = customer.get("email") or "N/A"
-                customer_phone = customer.get("phone")
+                customer_name = customer.get("displayName") or "(no name)"
+                customer_email = customer.get("email")
                 address = customer.get("defaultAddress")
-                if not customer_phone and address:
-                    customer_phone = address.get("phone")
-                customer_phone = customer_phone or "N/A"
+                customer_phone = customer.get("phone") or (address.get("phone") if address else None)
+                band_company = shopify_client.get_band_company(customer)
 
-                right += f"""
+                assigned_lines = [f"  {customer_name}"]
+                if band_company:
+                    assigned_lines.append(f"  [magenta]{band_company}[/magenta]")
+                if customer_email:
+                    assigned_lines.append(f"  {customer_email}")
+                if customer_phone:
+                    assigned_lines.append(f"  {customer_phone}")
 
-[bold magenta]✅ Assigned To:[/bold magenta]
-  {customer_name}
-  {customer_email}
-  {customer_phone}"""
+                right += "\n\n[bold magenta]✅ Assigned To:[/bold magenta]\n" + "\n".join(assigned_lines)
             else:
                 right += f"""
 
@@ -357,13 +358,15 @@ class CableScreenBase(Screen):
             logger.error(f"Failed to save test results: {e}")
             saved_status = " | [red]Save failed[/red]"
 
-        # Set Shopify inventory to match Postgres available count (best-effort; reconcile tool catches drift)
-        if all_passed:
+        # Set Shopify inventory to match Postgres available count (best-effort; reconcile tool catches drift).
+        # LTD cables aren't sold via Shopify so they have no product to sync.
+        kind = cable_record.get('kind')
+        if all_passed and kind != 'ltd':
             try:
                 from greenlight.db import get_available_count_for_sku
                 variant_sku = cable_record['variant_sku']
                 count = get_available_count_for_sku(variant_sku)
-                if cable_record.get('kind') == 'misc':
+                if kind == 'misc':
                     from greenlight.shopify_client import ensure_misc_shopify_product
                     success, err = ensure_misc_shopify_product(cable_record, quantity=count)
                 else:
@@ -407,6 +410,7 @@ class CableScreenBase(Screen):
         serial_number = cable_record.get('serial_number')
         series = cable_record.get('series') or ''
         is_misc = cable_record.get('kind') == 'misc'
+        is_ltd = cable_record.get('kind') == 'ltd'
         is_touring = series.startswith("Tour") and not is_misc
 
         # Keep cable info in body
@@ -545,8 +549,9 @@ class CableScreenBase(Screen):
             logger.error(f"Failed to save test results: {e}")
             saved_status = " | [red]Save failed[/red]"
 
-        # Set Shopify inventory to match Postgres available count (best-effort; reconcile tool catches drift)
-        if all_passed:
+        # Set Shopify inventory to match Postgres available count (best-effort; reconcile tool catches drift).
+        # LTD cables aren't sold via Shopify so they have no product to sync.
+        if all_passed and not is_ltd:
             try:
                 from greenlight.db import get_available_count_for_sku
                 variant_sku = cable_record['variant_sku']
@@ -833,11 +838,11 @@ class CableScreenBase(Screen):
             "\n".join(results),
             title="Calibration Complete", border_style="green"
         ))
-        self.ui.layout["footer"].update(Panel("Press [green]Enter[/green] to continue", title=""))
+        self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
         self.ui.render()
 
         try:
-            self.ui.console.input("")
+            self.ui.wait_back()
         except KeyboardInterrupt:
             pass
 
@@ -852,7 +857,7 @@ class CableScreenBase(Screen):
 
         label_printer = hardware_manager.get_label_printer()
         if not label_printer:
-            return
+            return False
 
         serial_number = cable_record.get('serial_number')
         variant_sku = cable_record.get('variant_sku')
@@ -875,11 +880,6 @@ class CableScreenBase(Screen):
             'connector_type': connector_display,
             'sku': variant_sku,
         }
-        # LTD cables: description is the event_name post-Phase-4 (cable_ltd_metadata
-        # was folded into sku_group.description).
-        if cable_record.get('kind') == 'ltd' and description:
-            label_data['event_name'] = description
-
         if description:
             label_data['description'] = description
 
@@ -898,7 +898,7 @@ class CableScreenBase(Screen):
             data=label_data,
             quantity=1
         )
-        label_printer.print_labels(print_job)
+        return label_printer.print_labels(print_job)
 
     def print_barcode_for_cable(self, operator, cable_record):
         """Print a barcode label with the cable's serial number.
@@ -1087,19 +1087,17 @@ class CableScreenBase(Screen):
         result = db_mod.unassign_cable(serial)
         if result.get('success'):
             self.ui.layout["body"].update(Panel(
-                f"[bold green]Cable {serial} unassigned and returned to inventory.[/bold green]\n\n"
-                f"[dim]Press enter to continue[/dim]",
+                f"[bold green]Cable {serial} unassigned and returned to inventory.[/bold green]",
                 title="Unassigned", style="green"
             ))
         else:
             self.ui.layout["body"].update(Panel(
-                f"[red]Error: {result.get('message', 'Unknown error')}[/red]\n\n"
-                f"[dim]Press enter to continue[/dim]",
+                f"[red]Error: {result.get('message', 'Unknown error')}[/red]",
                 title="Error"
             ))
-        self.ui.layout["footer"].update(Panel("", title=""))
+        self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
         self.ui.render()
-        self.ui.console.input()
+        self.ui.wait_back()
 
     def cable_action_loop(self, operator, cable_record, mode='lookup'):
         """Show cable info + action menu. Loops until quit or new scan.
@@ -1457,9 +1455,9 @@ class SeriesSelectionScreen(Screen):
         if not series_options:
             self.ui.header(operator)
             self.ui.layout["body"].update(Panel("No series found in database", title="Error", style="red"))
-            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input("Press enter to continue...")
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         # Display-friendly names for series
@@ -1528,28 +1526,28 @@ class LtdEditionPickerScreen(Screen):
         from greenlight.db import list_ltd_editions
         from greenlight.cable_config import prefix_for_series
 
-        # When invoked after a series has been chosen, filter to just that
-        # series' editions. Otherwise show all active editions.
+        # LTD editions are series-agnostic (Phase 5): the series picked
+        # earlier in the flow only drives the per-cable prefix attached at
+        # registration. Show every active edition here.
         series_prefix = prefix_for_series(selected_series) if selected_series else None
-        editions = list_ltd_editions(active_only=True, series_prefix=series_prefix)
+        editions = list_ltd_editions(active_only=True)
 
         self.ui.header(operator)
 
         if not editions:
-            scope = f" for {selected_series}" if selected_series else ""
             self.ui.layout["body"].update(Panel(
-                f"[bold yellow]No active Limited Editions{scope}[/bold yellow]\n\n"
+                "[bold yellow]No active Limited Editions[/bold yellow]\n\n"
                 "Create an LTD edition in the Shopify app first, then come back\n"
                 "to scan cables against it.",
                 title="Limited Edition Picker", border_style="yellow"
             ))
             self.ui.layout["footer"].update(Panel(
-                "Press enter or 'q' to go back",
+                "[green]q.[/green] Back",
                 title=""
             ))
             self.ui.render()
             try:
-                self.ui.console.input()
+                self.ui.wait_back()
             except KeyboardInterrupt:
                 pass
             return ScreenResult(NavigationAction.POP)
@@ -1606,9 +1604,9 @@ class LtdEditionPickerScreen(Screen):
                     f"❌ Error loading SKU {selected_sku}: {e}",
                     title="Error", style="red"
                 ))
-                self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+                self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
                 self.ui.render()
-                self.ui.console.input()
+                self.ui.wait_back()
                 return ScreenResult(NavigationAction.POP)
 
             new_context = self.context.copy()
@@ -1634,9 +1632,9 @@ class ColorPatternSelectionScreen(Screen):
         if not color_options:
             self.ui.header(operator)
             self.ui.layout["body"].update(Panel(f"No color patterns found for {selected_series}", title="Error", style="red"))
-            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input("Press enter to continue...")
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         # Append specialty entries after the standard patterns. They route to
@@ -1721,9 +1719,9 @@ class MiscVariantPickerScreen(Screen):
                 f"❌ Unknown series: {selected_series}",
                 title="Error", style="red"
             ))
-            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input()
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         from greenlight.db import search_misc_variants
@@ -1792,9 +1790,9 @@ class MiscVariantPickerScreen(Screen):
                     f"❌ Error loading SKU {selected['sku']}: {e}",
                     title="Error", style="red"
                 ))
-                self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+                self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
                 self.ui.render()
-                self.ui.console.input()
+                self.ui.wait_back()
                 return ScreenResult(NavigationAction.POP)
 
             # MISC groups are single-length; the picker shows that length and
@@ -1836,9 +1834,9 @@ class MiscVariantCreateScreen(Screen):
                 f"❌ Unknown series: {selected_series}",
                 title="Error", style="red"
             ))
-            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input()
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         # --- Step 1: description ---
@@ -1859,9 +1857,9 @@ class MiscVariantCreateScreen(Screen):
                 "❌ Failed to create MISC variant SKU. Check logs.",
                 title="Error", style="red"
             ))
-            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input()
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         try:
@@ -1872,9 +1870,9 @@ class MiscVariantCreateScreen(Screen):
                 f"❌ Error loading new SKU {new_sku}: {e}",
                 title="Error", style="red"
             ))
-            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input()
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         new_context = self.context.copy()
@@ -2047,9 +2045,9 @@ class LengthSelectionScreen(Screen):
         if not length_options:
             self.ui.header(operator)
             self.ui.layout["body"].update(Panel(f"No lengths found for {selected_series} {selected_color}", title="Error", style="red"))
-            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input("Press enter to continue...")
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         # Create menu items
@@ -2134,9 +2132,9 @@ class ConnectorTypeSelectionScreen(Screen):
                 "No connector types found for the selected series",
                 title="Error", style="red"
             ))
-            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input("Press enter to continue...")
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         # Auto-skip if there's only one connector option (e.g. vocal series).
@@ -2202,9 +2200,9 @@ class ConnectorTypeSelectionScreen(Screen):
                 "Could not resolve a SKU for the selected attributes",
                 title="Error", style="red",
             ))
-            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input("")
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         # Phase 5: catalog group SKU is just a pattern code (e.g. 'GL') with
@@ -2217,9 +2215,9 @@ class ConnectorTypeSelectionScreen(Screen):
             self.ui.layout["body"].update(Panel(
                 f"Error loading sku_group: {e}", title="Error", style="red",
             ))
-            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input("")
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         new_context['cable_type'] = new_cable_type
@@ -2245,9 +2243,9 @@ class ScanCableIntakeScreen(CableScreenBase):
         if not cable_type or not cable_type.is_loaded():
             self.ui.header(operator)
             self.ui.layout["body"].update(Panel("No cable type selected", title="Error", style="red"))
-            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input("Press enter to continue...")
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         if length is None or connector_code is None:
@@ -2257,9 +2255,9 @@ class ScanCableIntakeScreen(CableScreenBase):
                 "Go back and complete the selection.",
                 title="Missing variant attrs", style="red",
             ))
-            self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
             self.ui.render()
-            self.ui.console.input("Press enter to continue...")
+            self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
         return self.scan_cables_loop(operator, cable_type, length, connector_code)

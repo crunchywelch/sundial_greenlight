@@ -282,13 +282,13 @@ class WholesaleBatchScreen(Screen):
             style="green"
         ))
         self.ui.layout["footer"].update(Panel(
-            "Press Enter to go back",
+            "[green]q.[/green] Back",
             title=""
         ))
         self.ui.render()
 
         try:
-            self.ui.console.input("")
+            self.ui.wait_back()
         except KeyboardInterrupt:
             pass
 

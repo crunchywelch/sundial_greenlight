@@ -48,10 +48,10 @@ class DatabaseSettingsScreen(Screen):
         
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel("Database settings functionality coming soon", title="Database Settings"))
-        self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+        self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
         self.ui.render()
-        
-        self.ui.console.input("Press enter to continue...")
+
+        self.ui.wait_back()
         return ScreenResult(NavigationAction.POP)
 
 
@@ -62,10 +62,10 @@ class UserManagementScreen(Screen):
         
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel("User management functionality coming soon", title="User Management"))
-        self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+        self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
         self.ui.render()
-        
-        self.ui.console.input("Press enter to continue...")
+
+        self.ui.wait_back()
         return ScreenResult(NavigationAction.POP)
 
 
@@ -75,8 +75,8 @@ class SystemInfoScreen(Screen):
         
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel("System information functionality coming soon", title="System Information"))
-        self.ui.layout["footer"].update(Panel("Press enter to go back", title=""))
+        self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
         self.ui.render()
-        
-        self.ui.console.input("Press enter to continue...")
+
+        self.ui.wait_back()
         return ScreenResult(NavigationAction.POP)

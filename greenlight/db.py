@@ -519,17 +519,14 @@ def search_misc_variants(series_prefix):
         pg_pool.putconn(conn)
 
 
-def list_ltd_editions(active_only=True, series_prefix=None):
+def list_ltd_editions(active_only=True):
     """List LTD editions with cable counts (read-only; CRUD lives in shopify_app).
 
-    Phase 5: LTD groups are series-agnostic ('LTD-PHISH26'). The series_prefix
-    filter is a per-cable lens — show editions that have at least one cable
-    in the requested series.
+    Phase 5: LTD groups are series-agnostic ('LTD-PHISH26'); any series prefix
+    can be attached at per-cable registration time.
 
     Args:
         active_only: If True, exclude archived editions
-        series_prefix: Optional filter — show editions with at least one cable
-            registered under this prefix.
 
     Returns:
         List of dicts with sku, slug, description, archived_at, active, cable_count.
@@ -537,18 +534,9 @@ def list_ltd_editions(active_only=True, series_prefix=None):
     conn = pg_pool.getconn()
     try:
         with conn.cursor() as cur:
-            params = []
             where_clauses = ["sg.sku ~ '^LTD-[A-Z0-9]{4,24}$'"]
             if active_only:
                 where_clauses.append("sg.archived_at IS NULL")
-            if series_prefix:
-                where_clauses.append("""
-                    EXISTS (
-                        SELECT 1 FROM audio_cables ac
-                        WHERE ac.sku_group = sg.sku AND ac.prefix = %s
-                    )
-                """)
-                params.append(series_prefix)
 
             where_sql = " AND ".join(where_clauses)
             cur.execute(f"""
@@ -557,7 +545,7 @@ def list_ltd_editions(active_only=True, series_prefix=None):
                 FROM sku_group sg
                 WHERE {where_sql}
                 ORDER BY (sg.archived_at IS NULL) DESC, sg.sku
-            """, params)
+            """)
             rows = cur.fetchall()
             results = []
             for r in rows:
@@ -608,6 +596,56 @@ def get_ltd_edition(sku):
     except Exception as e:
         logger.error("Error fetching LTD edition %s: %s", sku, e)
         return None
+    finally:
+        pg_pool.putconn(conn)
+
+
+def get_cables_for_ltd_sku(ltd_group_sku):
+    """Get every cable registered under an LTD group SKU, assigned or not.
+
+    Unlike get_cables_for_customer, this returns all states: each record
+    carries shopify_gid (the assigned customer, or None/'' if unassigned)
+    and test_passed so callers can show assignment and QC status.
+
+    Args:
+        ltd_group_sku: LTD group SKU, e.g. 'LTD-PHISH26'
+
+    Returns:
+        List of enriched cable dicts ordered by serial number.
+    """
+    conn = pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT ac.serial_number, ac.sku_group, ac.prefix,
+                       ac.length, ac.connector_code,
+                       ac.updated_timestamp, ac.shopify_gid, ac.test_passed,
+                       sg.description, sg.archived_at
+                FROM audio_cables ac
+                JOIN sku_group sg ON ac.sku_group = sg.sku
+                WHERE ac.sku_group = %s
+                ORDER BY ac.serial_number
+            """, (ltd_group_sku,))
+            rows = cur.fetchall()
+
+            cables = []
+            for row in rows:
+                cables.append(_enrich_record({
+                    'serial_number': row[0],
+                    'sku_group': row[1],
+                    'prefix': row[2],
+                    'length': row[3],
+                    'connector_code': row[4],
+                    'updated_timestamp': row[5],
+                    'shopify_gid': row[6],
+                    'test_passed': row[7],
+                    'description': row[8],
+                    'archived_at': row[9],
+                }))
+            return cables
+    except Exception as e:
+        logger.error("Error fetching cables for LTD sku %s: %s", ltd_group_sku, e)
+        return []
     finally:
         pg_pool.putconn(conn)
 
