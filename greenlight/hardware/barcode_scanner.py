@@ -14,6 +14,7 @@ import os
 import sys
 import time
 import re
+import errno
 from typing import Optional, Tuple
 import threading
 import queue
@@ -57,6 +58,9 @@ class BarcodeScanner:
         self.scan_queue = queue.Queue()
         self.scan_thread = None
         self.running = False
+        # Set when the underlying device disappears (e.g. wireless scanner
+        # sleeps / leaves range / is unplugged). Lets the daemon re-initialize.
+        self.device_lost = False
 
     def list_input_devices(self):
         """List all available input devices"""
@@ -112,6 +116,7 @@ class BarcodeScanner:
             self.device_path = byid or path
             self.device = InputDevice(self.device_path)
             self.device_name = name
+            self.device_lost = False
 
             return True
 
@@ -192,9 +197,19 @@ class BarcodeScanner:
                         self._emit_barcode(buf)
                         buf.clear()
                     time.sleep(0.01)
+                except OSError as e:
+                    # Device disappeared (wireless scanner sleeping / out of
+                    # range / unplugged, or event node re-created on reconnect).
+                    # Flag it so the owner can re-initialize, then exit the loop.
+                    if e.errno in (errno.ENODEV, errno.EBADF, errno.ENOENT):
+                        self.device_lost = True
+                        self.running = False
+                        break
+                    raise
 
         except Exception as e:
             print(f"Scanner thread error: {e}")
+            self.device_lost = True
 
     def _emit_barcode(self, buf):
         """Process and emit a complete barcode"""

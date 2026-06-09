@@ -150,26 +150,34 @@ class ScannerDaemon:
             logger.error("MQTT setup failed, exiting")
             return 1
 
-        # Setup scanner (retry loop)
-        while not self.setup_scanner():
-            logger.warning(f"Scanner not found, retrying in {RECONNECT_DELAY}s...")
-            time.sleep(RECONNECT_DELAY)
-            if not self.running:
-                return 0
-
-        # Start scanning
-        self.scanner.start_scanning()
         self.running = True
 
-        logger.info(f"Scanner daemon running. Publishing to MQTT topic: {MQTT_TOPIC}")
-        logger.info("Press Ctrl+C to stop")
-
         try:
+            # Outer loop: (re)acquire the scanner and stream scans. If the
+            # device disappears (wireless scanner sleeps / leaves range /
+            # reconnects with a new event node), fall back here and re-init.
             while self.running:
-                # Check for scanned barcodes
-                barcode = self.scanner.get_scan(timeout=0.5)
-                if barcode:
-                    self.publish_scan(barcode)
+                # Acquire scanner (retry loop)
+                while self.running and not self.setup_scanner():
+                    logger.warning(f"Scanner not found, retrying in {RECONNECT_DELAY}s...")
+                    time.sleep(RECONNECT_DELAY)
+                if not self.running:
+                    break
+
+                # Start scanning
+                self.scanner.start_scanning()
+                logger.info(f"Scanner daemon running. Publishing to MQTT topic: {MQTT_TOPIC}")
+
+                # Stream scans until the device is lost or we're told to stop
+                while self.running and not self.scanner.device_lost:
+                    barcode = self.scanner.get_scan(timeout=0.5)
+                    if barcode:
+                        self.publish_scan(barcode)
+
+                if self.running and self.scanner.device_lost:
+                    logger.warning("Scanner device lost - attempting to reconnect...")
+                    self.scanner.shutdown()
+                    time.sleep(RECONNECT_DELAY)
 
         except KeyboardInterrupt:
             logger.info("Received shutdown signal")
