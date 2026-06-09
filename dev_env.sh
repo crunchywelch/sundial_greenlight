@@ -41,9 +41,22 @@ if [[ "${SKIP_BOOTSTRAP:-0}" != "1" ]]; then
   # Activate and ensure deps are installed
   source "$ENV_DIR/bin/activate"
   if [[ -f requirements.txt ]]; then
-    echo "[+] Checking dependencies..."
-    python -m pip install --upgrade pip -q
-    python -m pip install -r requirements.txt -q
+    # Only run pip when requirements.txt changed since the last successful
+    # install (tracked by a hash stamp). pip install on every source costs
+    # ~2.5s+ for no benefit when nothing changed. Use FORCE_DEPS=1 to override.
+    REQ_STAMP="$ENV_DIR/.requirements.sha256"
+    REQ_HASH="$(sha256sum requirements.txt | awk '{print $1}')"
+    if [[ "${FORCE_DEPS:-0}" == "1" || ! -f "$REQ_STAMP" || "$(cat "$REQ_STAMP" 2>/dev/null)" != "$REQ_HASH" ]]; then
+      echo "[+] Installing dependencies (requirements.txt changed)..."
+      python -m pip install --upgrade pip -q
+      if python -m pip install -r requirements.txt -q; then
+        echo "$REQ_HASH" > "$REQ_STAMP"
+      else
+        echo "[!] Dependency install failed; will retry on next source."
+      fi
+    else
+      echo "[+] Dependencies up to date (skipping pip)."
+    fi
   fi
 fi
 
