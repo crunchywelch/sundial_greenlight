@@ -9,6 +9,9 @@ DB_CONFIG = {
     "password": os.getenv("GREENLIGHT_DB_PASS"),
     "host": os.getenv("GREENLIGHT_DB_HOST", "127.0.0.1"),
     "port": int(os.getenv("GREENLIGHT_DB_PORT", 5432)),
+    # Bound the connect so a stalled SSH tunnel (local forward up but remote
+    # leg hung) fails fast instead of blocking app startup indefinitely.
+    "connect_timeout": int(os.getenv("GREENLIGHT_DB_CONNECT_TIMEOUT", "10")),
 }
 
 # Logging
