@@ -27,6 +27,7 @@ OPERATORS = {
     "ADW": {"name": "Aaron Welch", "shopify_user_id": "221850185"},
     "ISS": {"name": "Ian Smith", "shopify_user_id": "244198052"},
     "EDR": {"name": "Ed Renauld", "shopify_user_id": "244198053"},
+    "SMK": {"name": "Sean Klimmek", "shopify_user_id": "262574356"},
 }
 
 # Hardware feature flags
