@@ -16,6 +16,26 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
+
+class ShopifyConnectionError(Exception):
+    """Raised when the Shopify store can't be reached or authenticated.
+
+    Distinct from a lookup returning no results: this means we never got a
+    valid answer from Shopify (bad/expired token, app uninstalled, network),
+    so callers should not report it as "not found".
+    """
+
+
+def _is_shopify_auth_error(message: str) -> bool:
+    """True if a GraphQL error string looks like an auth/credential failure."""
+    msg = message.lower()
+    return (
+        "invalid api key" in msg
+        or "unauthorized" in msg
+        or "access token" in msg
+        or "app_not_installed" in msg
+    )
+
 # Shopify configuration from environment
 SHOPIFY_SHOP_URL = os.getenv("SHOPIFY_SHOP_URL")  # e.g., "your-store.myshopify.com"
 SHOPIFY_API_VERSION = os.getenv("SHOPIFY_API_VERSION", "2024-01")
@@ -591,7 +611,8 @@ def get_product_by_sku(sku: str) -> Optional[Dict[str, Any]]:
         sku: The SKU string to search for
 
     Returns:
-        Dictionary with product info or None if not found:
+        Dictionary with product info, or None if the SKU genuinely isn't in
+        the store:
         {
             "product_title": "...",
             "variant_title": "...",
@@ -599,9 +620,19 @@ def get_product_by_sku(sku: str) -> Optional[Dict[str, Any]]:
             "handle": "...",
             "price": "29.99"
         }
+
+    Raises:
+        ShopifyConnectionError: if the wire store can't be reached or
+            authenticated (so callers don't misreport it as "not found").
     """
     try:
-        session = get_wire_shopify_session()
+        try:
+            session = get_wire_shopify_session()
+        except Exception as e:
+            # Bad/expired token, app uninstalled, store unreachable, etc.
+            raise ShopifyConnectionError(
+                f"Cannot reach Sundial Wire store: {e}"
+            ) from e
 
         query = """
         query getVariantBySku($query: String!) {
@@ -621,29 +652,21 @@ def get_product_by_sku(sku: str) -> Optional[Dict[str, Any]]:
         }
         """
 
-        # Try exact match first, then prefix match (base SKU without variant suffix)
-        variables = {"query": f"sku:{sku}"}
-        result = shopify.GraphQL().execute(query, variables=variables)
-
-        import json
-        data = json.loads(result)
-
-        if "errors" in data:
-            logger.warning(f"GraphQL errors looking up SKU {sku}: {data['errors']}")
-            return None
-
-        edges = data.get("data", {}).get("productVariants", {}).get("edges", [])
-
-        # If exact match failed, try wildcard prefix search
-        if not edges:
-            variables = {"query": f"sku:{sku}*"}
-            result = shopify.GraphQL().execute(query, variables=variables)
+        def _search(filter_str: str):
+            result = shopify.GraphQL().execute(query, variables={"query": filter_str})
             data = json.loads(result)
-
             if "errors" in data:
-                return None
+                msg = str(data["errors"])
+                if _is_shopify_auth_error(msg):
+                    raise ShopifyConnectionError(f"Shopify auth error: {msg}")
+                logger.warning(f"GraphQL errors looking up SKU {sku}: {data['errors']}")
+                return []
+            return data.get("data", {}).get("productVariants", {}).get("edges", [])
 
-            edges = data.get("data", {}).get("productVariants", {}).get("edges", [])
+        # Try exact match first, then wildcard prefix (base SKU sans variant suffix)
+        edges = _search(f"sku:{sku}")
+        if not edges:
+            edges = _search(f"sku:{sku}*")
 
         if not edges:
             return None
@@ -659,6 +682,8 @@ def get_product_by_sku(sku: str) -> Optional[Dict[str, Any]]:
             "price": variant.get("price", ""),
         }
 
+    except ShopifyConnectionError:
+        raise
     except Exception as e:
         logger.error(f"Error looking up SKU {sku}: {e}")
         return None

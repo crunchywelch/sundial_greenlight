@@ -57,8 +57,32 @@ class WireLabelScreen(Screen):
             self.ui.layout["footer"].update(Panel("Please wait...", title=""))
             self.ui.render()
 
-            from greenlight.shopify_client import get_product_by_sku
-            product = get_product_by_sku(sku)
+            from greenlight.shopify_client import get_product_by_sku, ShopifyConnectionError
+            try:
+                product = get_product_by_sku(sku)
+            except ShopifyConnectionError as e:
+                # Auth/connection failure — NOT a missing SKU. Surface it
+                # distinctly so the operator checks credentials, not the SKU.
+                self.ui.console.clear()
+                self.ui.header(operator)
+                self.ui.layout["body"].update(Panel(
+                    "[bold red]Can't reach Shopify[/bold red]\n\n"
+                    "The Sundial Wire store could not be reached or authenticated, "
+                    f"so SKU [bold]{sku}[/bold] could not be looked up.\n\n"
+                    "This is a connection/credentials issue, not a bad SKU.\n"
+                    "Check the wire-store Shopify access token in .env.",
+                    title="Shopify Unavailable", style="red"
+                ))
+                self.ui.layout["footer"].update(Panel(
+                    "Press [cyan]Enter[/cyan] to try again",
+                    title=""
+                ))
+                self.ui.render()
+                try:
+                    self.ui.console.input("")
+                except KeyboardInterrupt:
+                    return ScreenResult(NavigationAction.POP)
+                continue
 
             if not product:
                 # SKU not found
