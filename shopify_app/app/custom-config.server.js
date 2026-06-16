@@ -41,13 +41,17 @@ export const PRICING = {
 // customer switches fabric. A free-form "color notes" field covers anything
 // off-list. FABRICS keys must match the COLORS keys below.
 // ---------------------------------------------------------------------------
+// `image` is an optional thumbnail shown when the pattern is selected. Paste a
+// Shopify Files CDN URL (Admin → Content → Files → copy link), e.g.
+// "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/xxxx.jpg?v=...".
+// Leave it "" to show no thumbnail for that pattern.
 export const PATTERNS = [
-  { value: "solid", label: "Solid Color", colors: 1, note: "A single-hue braid that lets your color choice carry the look." },
-  { value: "small-houndstooth", label: "Small Houndstooth", colors: 2, note: "A subtle woven check that adds texture without shouting." },
-  { value: "large-houndstooth", label: "Large Houndstooth", colors: 2, note: "A subtle woven check that adds texture without shouting." },
-  { value: "tracer", label: "Tracer", colors: 2, note: "Classic braid with a contrasting stripe woven in." },
-  { value: "double-tracer", label: "Double Tracer", colors: 3, note: "Classic braid with two contrasting stripes woven in." },
-  { value: "zig-zag", label: "Zig-Zag", colors: 2, note: "A bold, high-movement pattern that stands out on any stage." },
+  { value: "solid", label: "Solid Color", colors: 1, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/20260222_195707.jpg?v=1771951232", note: "A single-hue braid that lets your color choice carry the look." },
+  { value: "small-houndstooth", label: "Small Houndstooth", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/20260223_172618.jpg?v=1771950789", note: "A subtle woven check that adds texture without shouting." },
+  { value: "large-houndstooth", label: "Large Houndstooth", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/20260224_110258.jpg?v=1771950816", note: "A subtle woven check that adds texture without shouting." },
+  { value: "tracer", label: "Tracer", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/20260222_194658.jpg?v=1771951207", note: "Classic braid with a contrasting stripe woven in." },
+  { value: "double-tracer", label: "Double Tracer", colors: 3, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/20251217_133042.jpg?v=1765996692", note: "Classic braid with two contrasting stripes woven in." },
+  { value: "zig-zag", label: "Zig-Zag", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/20251217_124303.jpg?v=1765996705", note: "A bold, high-movement pattern that stands out on any stage." },
 ];
 
 export const FABRICS = [

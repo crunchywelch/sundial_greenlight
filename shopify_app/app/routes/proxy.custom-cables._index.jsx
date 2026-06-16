@@ -42,9 +42,9 @@ function pageHtml(catalog) {
   </section>
 
   <ol class="ccs-how">
+    <li><strong>Choose your cable type</strong> &mdash; 1/4" instrument, or XLR/microphone.</li>
     <li><strong>Choose a braid pattern</strong> &mdash; solid, houndstooth, tracer, zig-zag, and more.</li>
     <li><strong>Choose your colors</strong> &mdash; any color in our catalog.</li>
-    <li><strong>Choose your cable type and connectors</strong> &mdash; 1/4" instrument, or XLR/microphone.</li>
     <li><strong>Give us your lengths and quantities</strong> &mdash; one long run cut into however many finished cables you need.</li>
     <li><strong>We braid, build, test, and ship.</strong></li>
   </ol>
@@ -76,6 +76,7 @@ function pageHtml(catalog) {
         <select name="accentColor2" id="ccs-accent2"></select>
       </label>
     </div>
+    <img class="ccs-pattern-img" id="ccs-patternImg" alt="" hidden />
     <p class="ccs-pattern-note" id="ccs-patternNote"></p>
 
     <fieldset class="ccs-lines">
@@ -127,6 +128,7 @@ function pageHtml(catalog) {
   .ccs-field select, .ccs-field input, .ccs-field textarea {
     padding: .55rem .6rem; border: 1px solid #bbb; border-radius: 6px; font: inherit; width: 100%;
   }
+  .ccs-pattern-img { display: block; max-width: 280px; width: 100%; height: auto; border-radius: 8px; margin: .25rem 0 .5rem; }
   .ccs-pattern-note { font-size: .9rem; color: #555; margin: -.25rem 0 1rem; }
   .ccs-lines, .ccs-contact { border: 1px solid #ddd; border-radius: 8px; padding: 1rem 1.25rem; margin: 1.5rem 0; }
   .ccs-lines legend, .ccs-contact legend { font-weight: 700; padding: 0 .4rem; }
@@ -220,6 +222,15 @@ function pageHtml(catalog) {
     el("ccs-accentWrap").style.display = n >= 2 ? "" : "none";
     el("ccs-accent2Wrap").style.display = n >= 3 ? "" : "none";
     el("ccs-patternNote").textContent = (p && p.note) || "";
+    var img = el("ccs-patternImg");
+    if (p && p.image) {
+      img.src = p.image;
+      img.alt = p.label + " braid pattern";
+      img.hidden = false;
+    } else {
+      img.hidden = true;
+      img.removeAttribute("src");
+    }
   }
   cableTypeSel.addEventListener("change", syncRowConnectors);
   el("ccs-pattern").addEventListener("change", syncPattern);
@@ -288,8 +299,8 @@ function pageHtml(catalog) {
     totalEl.textContent = "Total cable: " + q.totalFeet + " ft across " +
       q.totalCables + " cable" + (q.totalCables === 1 ? "" : "s") + ".";
     var html = "<table>" +
-      "<tr><td>Cable &mdash; " + q.totalFeet + " ft &times; " + fmt(P.perFoot) + "/ft</td><td class='num'>" + fmt(q.cableCost) + "</td></tr>" +
-      "<tr><td>Connectors &mdash; " + q.totalCables + " &times; " + fmt(P.perCable) + "</td><td class='num'>" + fmt(q.connectorCost) + "</td></tr>" +
+      "<tr><td>Wire &mdash; " + q.totalFeet + " ft &times; " + fmt(P.perFoot) + "/ft</td><td class='num'>" + fmt(q.cableCost) + "</td></tr>" +
+      "<tr><td>Cable Qty &mdash; " + q.totalCables + " &times; " + fmt(P.perCable) + "</td><td class='num'>" + fmt(q.connectorCost) + "</td></tr>" +
       "<tr class='total'><td>Estimated total</td><td class='num'>" + fmt(q.total) + "</td></tr></table>";
     if (!q.meetsMinimum) {
       html += "<p class='warn'>Minimum order is " + P.minTotalFeet + " ft of total cable (you have " + q.totalFeet + " ft).</p>";
