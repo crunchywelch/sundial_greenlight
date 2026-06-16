@@ -8,6 +8,14 @@ embedded = true
 [build]
 automatically_update_urls_on_dev = true
 
+# Custom Cable Sets configurator — storefront URL sundialaudio.com/apps/custom-cables
+# routes to the Remix proxy.custom-cables.* routes. Requests are HMAC-signed by
+# Shopify and verified via authenticate.public.appProxy.
+[app_proxy]
+url = "https://greenlight.sundialwire.com/proxy/custom-cables"
+subpath = "custom-cables"
+prefix = "apps"
+
 [webhooks]
 api_version = "2025-10"
 
