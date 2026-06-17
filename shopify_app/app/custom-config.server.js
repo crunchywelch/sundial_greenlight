@@ -46,12 +46,12 @@ export const PRICING = {
 // "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/xxxx.jpg?v=...".
 // Leave it "" to show no thumbnail for that pattern.
 export const PATTERNS = [
-  { value: "solid", label: "Solid Color", colors: 1, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_solid.png?v=1781706665", note: "A single-hue braid that lets your color choice carry the look." },
-  { value: "small-houndstooth", label: "Small Houndstooth", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_small_houndstooth.png?v=1781706667", note: "A subtle woven check that adds texture without shouting." },
-  { value: "large-houndstooth", label: "Large Houndstooth", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_large_houndstooth.png?v=1781706666", note: "A subtle woven check that adds texture without shouting." },
-  { value: "running-tracer", label: "Running Tracer", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_running_tracer.png?v=1781706665", note: "Classic braid with a contrasting stripe woven in." },
-  { value: "double-tracer", label: "Double Tracer", colors: 3, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_double_tracer_w_space.png?v=1781706666", note: "Classic braid with two contrasting stripes woven in." },
-  { value: "zig-zag", label: "Zig-Zag", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_zig_zag.png?v=1781706791", note: "A bold, high-movement pattern that stands out on any stage." },
+  { value: "solid", label: "Solid Color", colors: 1, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_solid.png?v=1781706665", note: "A clean single-color braid that lets your color do the talking." },
+  { value: "small-houndstooth", label: "Small Houndstooth", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_small_houndstooth.png?v=1781706667", note: "A fine houndstooth check — subtle texture up close." },
+  { value: "large-houndstooth", label: "Large Houndstooth", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_large_houndstooth.png?v=1781706666", note: "A bold, oversized houndstooth check that reads across the room." },
+  { value: "running-tracer", label: "Running Tracer", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_running_tracer.png?v=1781706665", note: "A single contrasting stripe running the length of the braid." },
+  { value: "double-tracer", label: "Double Tracer", colors: 3, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_double_tracer_w_space.png?v=1781706666", note: "Two contrasting stripes running the length of the braid." },
+  { value: "zig-zag", label: "Zig-Zag", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_zig_zag.png?v=1781706791", note: "A bold zig-zag weave that pops on any stage." },
 ];
 
 export const FABRICS = [
@@ -96,7 +96,7 @@ export const COLORS = {
     ["Red", "#B0241F"],
     ["Bright Gold", "#D8B23A"],
     ["Green", "#2F7D38"],
-    ["Turquoise", "#1FA9A2"],
+    ["Turquoise", "#195f76"],
   ]),
 };
 
@@ -118,7 +118,7 @@ export function colorLabel(value) {
 export const CABLE_TYPES = [
   {
     value: "instrument",
-    label: "Instrument",
+    label: "1/4\" / Instrument",
     connectors: [
       { value: "ts-ts", label: "Straight / Straight (TS–TS)" },
       { value: "ra-ts", label: "Straight / Right-angle (RA–TS)" },
@@ -126,7 +126,7 @@ export const CABLE_TYPES = [
   },
   {
     value: "microphone",
-    label: "Microphone",
+    label: "XLR / Microphone",
     connectors: [{ value: "xlr-xlr", label: "XLR–XLR" }],
   },
 ];

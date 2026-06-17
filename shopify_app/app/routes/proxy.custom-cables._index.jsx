@@ -50,7 +50,7 @@ function pageHtml(catalog) {
   </ol>
 
   <form id="ccs-form" class="ccs-form" novalidate>
-    <div class="ccs-grid">
+    <div class="ccs-fields">
       <label class="ccs-field">
         <span>Cable type</span>
         <select name="cableType" id="ccs-cableType"></select>
@@ -59,12 +59,17 @@ function pageHtml(catalog) {
         <span>Fabric</span>
         <select name="fabric" id="ccs-fabric"></select>
       </label>
-      <label class="ccs-field">
+      <div class="ccs-field">
         <span>Pattern</span>
-        <select name="pattern" id="ccs-pattern"></select>
-        <img class="ccs-pattern-img" id="ccs-patternImg" alt="" hidden />
+        <div class="ccs-pattern-row">
+          <select name="pattern" id="ccs-pattern" aria-label="Pattern"></select>
+          <span class="ccs-thumb-wrap" id="ccs-thumbWrap" title="Click to enlarge" hidden>
+            <img class="ccs-pattern-thumb" id="ccs-patternImg" alt="" />
+            <img class="ccs-pattern-pop" id="ccs-patternPop" alt="" />
+          </span>
+        </div>
         <p class="ccs-pattern-note" id="ccs-patternNote"></p>
-      </label>
+      </div>
       <label class="ccs-field">
         <span>Primary color</span>
         <div class="ccs-color-row">
@@ -131,6 +136,7 @@ function pageHtml(catalog) {
   .ccs-how li { margin: .35rem 0; }
   .ccs-form { border-top: 1px solid #ddd; padding-top: 1.5rem; }
   .ccs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+  .ccs-fields { max-width: 440px; }
   .ccs-field { display: flex; flex-direction: column; gap: .35rem; margin-bottom: 1rem; }
   .ccs-field.ccs-wide { grid-column: 1 / -1; }
   .ccs-field > span { font-weight: 600; font-size: .9rem; }
@@ -140,7 +146,14 @@ function pageHtml(catalog) {
   .ccs-color-row { display: flex; align-items: center; gap: .5rem; }
   .ccs-color-row select { flex: 1 1 auto; min-width: 0; }
   .ccs-chip { width: 24px; height: 24px; border-radius: 50%; border: 1px solid rgba(0,0,0,.3); flex: 0 0 auto; box-shadow: inset 0 0 0 1px rgba(255,255,255,.4); }
-  .ccs-pattern-img { display: block; max-width: 280px; width: 100%; height: auto; border-radius: 8px; margin: .25rem 0 .5rem; filter: grayscale(1); }
+  .ccs-pattern-row { display: flex; align-items: center; gap: .5rem; }
+  .ccs-pattern-row select { flex: 1 1 auto; min-width: 0; }
+  .ccs-thumb-wrap { position: relative; flex: 0 0 auto; line-height: 0; cursor: zoom-in; }
+  .ccs-pattern-thumb { width: 46px; height: 46px; object-fit: cover; border-radius: 6px; border: 1px solid #ccc; filter: grayscale(1); display: block; }
+  .ccs-pattern-pop { display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
+    width: 320px; max-width: 70vw; height: auto; border-radius: 8px; border: 1px solid #ccc;
+    box-shadow: 0 8px 24px rgba(0,0,0,.28); filter: grayscale(1); background: #fff; }
+  .ccs-thumb-wrap:hover .ccs-pattern-pop, .ccs-thumb-wrap.open .ccs-pattern-pop { display: block; }
   .ccs-pattern-note { font-size: .9rem; color: #555; margin: -.25rem 0 1rem; }
   .ccs-lines, .ccs-contact { border: 1px solid #ddd; border-radius: 8px; padding: 1rem 1.25rem; margin: 1.5rem 0; }
   .ccs-lines legend, .ccs-contact legend { font-weight: 700; padding: 0 .4rem; }
@@ -177,12 +190,12 @@ function pageHtml(catalog) {
   };
   var el = function (id) { return document.getElementById(id); };
 
-  // Ask Shopify's CDN to resize the image to ~2x the 280px display box, so
-  // large originals don't ship full-size. Scales with device pixel ratio,
+  // Ask Shopify's CDN to resize the image to ~2x the given CSS display width,
+  // so large originals don't ship full-size. Scales with device pixel ratio,
   // capped. No-op on non-Shopify URLs.
-  function sized(url) {
+  function sized(url, cssPx) {
     if (!url || url.indexOf("cdn.shopify.com") === -1) return url;
-    var w = Math.min(840, Math.round(280 * (window.devicePixelRatio || 1)));
+    var w = Math.min(1280, Math.round((cssPx || 280) * (window.devicePixelRatio || 1)));
     return url + (url.indexOf("?") === -1 ? "?" : "&") + "width=" + w;
   }
 
@@ -263,16 +276,30 @@ function pageHtml(catalog) {
     el("ccs-accentWrap").style.display = n >= 2 ? "" : "none";
     el("ccs-accent2Wrap").style.display = n >= 3 ? "" : "none";
     el("ccs-patternNote").textContent = (p && p.note) || "";
-    var img = el("ccs-patternImg");
+    var wrap = el("ccs-thumbWrap");
+    var thumb = el("ccs-patternImg");
+    var pop = el("ccs-patternPop");
     if (p && p.image) {
-      img.src = sized(p.image);
-      img.alt = p.label + " braid pattern";
-      img.hidden = false;
+      thumb.src = sized(p.image, 46);   // small swatch
+      pop.src = sized(p.image, 320);    // enlarged preview
+      thumb.alt = pop.alt = p.label + " braid pattern";
+      wrap.hidden = false;
     } else {
-      img.hidden = true;
-      img.removeAttribute("src");
+      wrap.hidden = true;
+      wrap.classList.remove("open");
+      thumb.removeAttribute("src");
+      pop.removeAttribute("src");
     }
   }
+  // Tap/click the thumbnail to enlarge (works on touch; hover handles desktop).
+  el("ccs-thumbWrap").addEventListener("click", function (e) {
+    e.preventDefault();
+    el("ccs-thumbWrap").classList.toggle("open");
+  });
+  document.addEventListener("click", function (e) {
+    var wrap = el("ccs-thumbWrap");
+    if (wrap && !wrap.contains(e.target)) wrap.classList.remove("open");
+  });
   cableTypeSel.addEventListener("change", syncRowConnectors);
   el("ccs-pattern").addEventListener("change", syncPattern);
   syncPattern();
