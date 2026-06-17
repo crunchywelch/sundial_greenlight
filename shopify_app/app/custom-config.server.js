@@ -46,12 +46,12 @@ export const PRICING = {
 // "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/xxxx.jpg?v=...".
 // Leave it "" to show no thumbnail for that pattern.
 export const PATTERNS = [
-  { value: "solid", label: "Solid Color", colors: 1, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/20260222_195707.jpg?v=1771951232", note: "A single-hue braid that lets your color choice carry the look." },
-  { value: "small-houndstooth", label: "Small Houndstooth", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/20260223_172618.jpg?v=1771950789", note: "A subtle woven check that adds texture without shouting." },
-  { value: "large-houndstooth", label: "Large Houndstooth", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/20260224_110258.jpg?v=1771950816", note: "A subtle woven check that adds texture without shouting." },
-  { value: "tracer", label: "Tracer", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/20260222_194658.jpg?v=1771951207", note: "Classic braid with a contrasting stripe woven in." },
-  { value: "double-tracer", label: "Double Tracer", colors: 3, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/20251217_133042.jpg?v=1765996692", note: "Classic braid with two contrasting stripes woven in." },
-  { value: "zig-zag", label: "Zig-Zag", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/20251217_124303.jpg?v=1765996705", note: "A bold, high-movement pattern that stands out on any stage." },
+  { value: "solid", label: "Solid Color", colors: 1, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_solid.png?v=1781706665", note: "A single-hue braid that lets your color choice carry the look." },
+  { value: "small-houndstooth", label: "Small Houndstooth", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_small_houndstooth.png?v=1781706667", note: "A subtle woven check that adds texture without shouting." },
+  { value: "large-houndstooth", label: "Large Houndstooth", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_large_houndstooth.png?v=1781706666", note: "A subtle woven check that adds texture without shouting." },
+  { value: "running-tracer", label: "Running Tracer", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_running_tracer.png?v=1781706665", note: "Classic braid with a contrasting stripe woven in." },
+  { value: "double-tracer", label: "Double Tracer", colors: 3, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_double_tracer_w_space.png?v=1781706666", note: "Classic braid with two contrasting stripes woven in." },
+  { value: "zig-zag", label: "Zig-Zag", colors: 2, image: "https://cdn.shopify.com/s/files/1/0674/1475/3363/files/pattern_-_zig_zag.png?v=1781706791", note: "A bold, high-movement pattern that stands out on any stage." },
 ];
 
 export const FABRICS = [
@@ -59,18 +59,44 @@ export const FABRICS = [
   { value: "rayon", label: "Rayon" },
 ];
 
-const toColors = (names) =>
-  names.map((name) => ({ value: name.toLowerCase().replace(/\s+/g, "-"), label: name }));
+// Each color carries a `hex` used to render the swatch chip next to the color
+// dropdowns. These are approximate starting values — tune them to the real
+// cloth as needed; nothing else depends on the exact value.
+const toColors = (entries) =>
+  entries.map(([name, hex]) => ({
+    value: name.toLowerCase().replace(/\s+/g, "-"),
+    label: name,
+    hex,
+  }));
 
 export const COLORS = {
   rayon: toColors([
-    "Gold", "Walnut Brown", "Pewter", "White", "Mahogany Brown", "Black",
-    "Plata", "Silver",
+    ["Gold", "#C9A227"],
+    ["Walnut Brown", "#5C4033"],
+    ["Pewter", "#8E9092"],
+    ["White", "#F5F4EF"],
+    ["Mahogany Brown", "#6E3B2E"],
+    ["Black", "#1A1A1A"],
+    ["Plata", "#AEB4BA"],
+    ["Silver", "#C8CDD2"],
   ]),
   cotton: toColors([
-    "Gray", "Dark Brown", "Bleach White", "Yellow", "Burnt Orange",
-    "Lime Green", "Slate Blue", "Raspberry", "Black", "Light Brown",
-    "Putty", "Brush Gold", "Red", "Bright Gold", "Green", "Turquoise",
+    ["Gray", "#808487"],
+    ["Dark Brown", "#3B2A20"],
+    ["Bleach White", "#FBFBF7"],
+    ["Yellow", "#E9C13D"],
+    ["Burnt Orange", "#BF4D1A"],
+    ["Lime Green", "#9FBE2E"],
+    ["Slate Blue", "#54657A"],
+    ["Raspberry", "#9E2B53"],
+    ["Black", "#1A1A1A"],
+    ["Light Brown", "#AD7C4E"],
+    ["Putty", "#BBB096"],
+    ["Brush Gold", "#B28E3C"],
+    ["Red", "#B0241F"],
+    ["Bright Gold", "#D8B23A"],
+    ["Green", "#2F7D38"],
+    ["Turquoise", "#1FA9A2"],
   ]),
 };
 

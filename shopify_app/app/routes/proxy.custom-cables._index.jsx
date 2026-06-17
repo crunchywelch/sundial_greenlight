@@ -56,28 +56,37 @@ function pageHtml(catalog) {
         <select name="cableType" id="ccs-cableType"></select>
       </label>
       <label class="ccs-field">
-        <span>Pattern</span>
-        <select name="pattern" id="ccs-pattern"></select>
-      </label>
-      <label class="ccs-field">
         <span>Fabric</span>
         <select name="fabric" id="ccs-fabric"></select>
       </label>
       <label class="ccs-field">
+        <span>Pattern</span>
+        <select name="pattern" id="ccs-pattern"></select>
+        <img class="ccs-pattern-img" id="ccs-patternImg" alt="" hidden />
+        <p class="ccs-pattern-note" id="ccs-patternNote"></p>
+      </label>
+      <label class="ccs-field">
         <span>Primary color</span>
-        <select name="primaryColor" id="ccs-primaryColor"></select>
+        <div class="ccs-color-row">
+          <select name="primaryColor" id="ccs-primaryColor"></select>
+          <span class="ccs-chip" id="ccs-primaryChip" aria-hidden="true"></span>
+        </div>
       </label>
       <label class="ccs-field" id="ccs-accentWrap">
         <span>Accent color</span>
-        <select name="accentColor" id="ccs-accentColor"></select>
+        <div class="ccs-color-row">
+          <select name="accentColor" id="ccs-accentColor"></select>
+          <span class="ccs-chip" id="ccs-accentChip" aria-hidden="true"></span>
+        </div>
       </label>
       <label class="ccs-field" id="ccs-accent2Wrap">
         <span>Second accent color</span>
-        <select name="accentColor2" id="ccs-accent2"></select>
+        <div class="ccs-color-row">
+          <select name="accentColor2" id="ccs-accent2"></select>
+          <span class="ccs-chip" id="ccs-accent2Chip" aria-hidden="true"></span>
+        </div>
       </label>
     </div>
-    <img class="ccs-pattern-img" id="ccs-patternImg" alt="" hidden />
-    <p class="ccs-pattern-note" id="ccs-patternNote"></p>
 
     <fieldset class="ccs-lines">
       <legend>Cables in your set</legend>
@@ -128,7 +137,10 @@ function pageHtml(catalog) {
   .ccs-field select, .ccs-field input, .ccs-field textarea {
     padding: .55rem .6rem; border: 1px solid #bbb; border-radius: 6px; font: inherit; width: 100%;
   }
-  .ccs-pattern-img { display: block; max-width: 280px; width: 100%; height: auto; border-radius: 8px; margin: .25rem 0 .5rem; }
+  .ccs-color-row { display: flex; align-items: center; gap: .5rem; }
+  .ccs-color-row select { flex: 1 1 auto; min-width: 0; }
+  .ccs-chip { width: 24px; height: 24px; border-radius: 50%; border: 1px solid rgba(0,0,0,.3); flex: 0 0 auto; box-shadow: inset 0 0 0 1px rgba(255,255,255,.4); }
+  .ccs-pattern-img { display: block; max-width: 280px; width: 100%; height: auto; border-radius: 8px; margin: .25rem 0 .5rem; filter: grayscale(1); }
   .ccs-pattern-note { font-size: .9rem; color: #555; margin: -.25rem 0 1rem; }
   .ccs-lines, .ccs-contact { border: 1px solid #ddd; border-radius: 8px; padding: 1rem 1.25rem; margin: 1.5rem 0; }
   .ccs-lines legend, .ccs-contact legend { font-weight: 700; padding: 0 .4rem; }
@@ -165,6 +177,15 @@ function pageHtml(catalog) {
   };
   var el = function (id) { return document.getElementById(id); };
 
+  // Ask Shopify's CDN to resize the image to ~2x the 280px display box, so
+  // large originals don't ship full-size. Scales with device pixel ratio,
+  // capped. No-op on non-Shopify URLs.
+  function sized(url) {
+    if (!url || url.indexOf("cdn.shopify.com") === -1) return url;
+    var w = Math.min(840, Math.round(280 * (window.devicePixelRatio || 1)));
+    return url + (url.indexOf("?") === -1 ? "?" : "&") + "width=" + w;
+  }
+
   function opt(value, label) {
     var o = document.createElement("option");
     o.value = value; o.textContent = label; return o;
@@ -192,7 +213,27 @@ function pageHtml(catalog) {
     fillColors(el("ccs-primaryColor"), list);
     fillColors(el("ccs-accentColor"), list);
     fillColors(el("ccs-accent2"), list);
+    updateChips();
   }
+  // Swatch chip beside each color dropdown reflects the selected color's hex.
+  function chipHex(selectId) {
+    var list = CATALOG.colors[el("ccs-fabric").value] || [];
+    var c = list.find(function (x) { return x.value === el(selectId).value; });
+    return c && c.hex ? c.hex : null;
+  }
+  function setChip(chipId, hex) {
+    var chip = el(chipId);
+    if (hex) { chip.style.background = hex; chip.style.visibility = "visible"; }
+    else { chip.style.visibility = "hidden"; }
+  }
+  function updateChips() {
+    setChip("ccs-primaryChip", chipHex("ccs-primaryColor"));
+    setChip("ccs-accentChip", chipHex("ccs-accentColor"));
+    setChip("ccs-accent2Chip", chipHex("ccs-accent2"));
+  }
+  ["ccs-primaryColor", "ccs-accentColor", "ccs-accent2"].forEach(function (id) {
+    el(id).addEventListener("change", updateChips);
+  });
   el("ccs-fabric").addEventListener("change", syncColors);
   syncColors();
 
@@ -224,7 +265,7 @@ function pageHtml(catalog) {
     el("ccs-patternNote").textContent = (p && p.note) || "";
     var img = el("ccs-patternImg");
     if (p && p.image) {
-      img.src = p.image;
+      img.src = sized(p.image);
       img.alt = p.label + " braid pattern";
       img.hidden = false;
     } else {
