@@ -473,10 +473,16 @@ class LTDEditionCablesScreen(Screen):
                     qc = "[red]✗[/red]"
                 else:
                     qc = "[dim]-[/dim]"
+                # Surface a non-standard connector finish (custom/LTD builds)
+                # right on the SKU cell so it's visible at a glance.
+                sku_cell = cable.get("variant_sku") or ""
+                finish = cable.get("connector_finish_display")
+                if finish:
+                    sku_cell += f"  [dim]({finish})[/dim]"
                 table.add_row(
                     str(i),
                     cable.get("serial_number") or "",
-                    cable.get("variant_sku") or "",
+                    sku_cell,
                     qc,
                     resolve_customer(cable.get("shopify_gid")),
                 )

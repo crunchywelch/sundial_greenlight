@@ -139,6 +139,38 @@ def connector_display_for(series_prefix: str, connector_code: str) -> Optional[s
     return None
 
 
+# Connector finish is a per-cable attribute used ONLY for custom (MISC) and
+# limited-edition (LTD) builds. The standard catalog (the YAML above) always
+# pairs cotton/Tour with nickel and rayon/Studio with black, so catalog cables
+# leave this unset and the series-based heuristic still applies. `conductive_shell`
+# drives whether the XLR shell-bond test (XSHELL) runs: nickel shells bond to
+# pin 1, but black/gold Neutrik shells are coated and don't, so testing them
+# would falsely fail.
+CONNECTOR_FINISHES = {
+    'nickel':     {'display': 'Nickel',     'conductive_shell': True},
+    'black_gold': {'display': 'Black/Gold', 'conductive_shell': False},
+}
+
+
+def finish_display(finish_code: str) -> Optional[str]:
+    """Display string for a connector finish code; None if unset."""
+    if not finish_code:
+        return None
+    info = CONNECTOR_FINISHES.get(finish_code)
+    return info['display'] if info else finish_code
+
+
+def finish_tests_shell(finish_code: str) -> bool:
+    """Whether a connector finish has a conductive shell worth bond-testing.
+
+    Unknown/blank finishes default to True; callers should gate on whether a
+    finish is actually set before relying on this (an unset finish means
+    'use the series heuristic', not 'force the shell test').
+    """
+    info = CONNECTOR_FINISHES.get(finish_code)
+    return info['conductive_shell'] if info else True
+
+
 def parse_group_sku(sku: str) -> dict:
     """Parse a sku_group identifier.
 

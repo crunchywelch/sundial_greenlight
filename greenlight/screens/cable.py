@@ -173,6 +173,9 @@ class CableScreenBase(Screen):
             left += f"\n  Color: {pattern_name}"
         if connector_display:
             left += f"\n  Connector: {connector_display}"
+        connector_finish_display = cable_record.get("connector_finish_display")
+        if connector_finish_display:
+            left += f"\n  Finish: {connector_finish_display}"
 
         kind = cable_record.get("kind")
         description = cable_record.get("description")
@@ -413,6 +416,19 @@ class CableScreenBase(Screen):
         is_ltd = cable_record.get('kind') == 'ltd'
         is_touring = series.startswith("Tour") and not is_misc
 
+        # Whether to run the XLR shell-bond test. The standard catalog pairs
+        # cotton/Tour with conductive nickel shells and rayon/Studio with coated
+        # black shells, so for catalog cables the series tells us (is_touring).
+        # Custom/LTD builds can use any connector, so an explicit per-cable
+        # connector_finish overrides that assumption: black/gold Neutrik shells
+        # are non-conductive (skip) while nickel shells bond (test).
+        from greenlight.cable_config import finish_tests_shell
+        connector_finish = cable_record.get('connector_finish')
+        if connector_finish:
+            should_test_shell = finish_tests_shell(connector_finish)
+        else:
+            should_test_shell = is_touring
+
         # Keep cable info in body
         cable_info_panel = self.build_cable_info_panel(cable_record)
         self.ui.layout["body"].update(cable_info_panel)
@@ -474,8 +490,9 @@ class CableScreenBase(Screen):
             failure_reasons.append("CON: Error")
             all_passed = False
 
-        # Run shell bond test (touring series only, skip if continuity failed)
-        if is_touring and all_passed:
+        # Run shell bond test (only when the connectors have a conductive shell,
+        # and skip if continuity already failed)
+        if should_test_shell and all_passed:
             progress = f"🔬 Testing... CON: {cont_status} | Running shell bond test"
             self.ui.layout["footer"].update(Panel(progress, title="Testing"))
             self.ui.render()
@@ -505,12 +522,12 @@ class CableScreenBase(Screen):
                 shell_status = "[yellow]ERROR[/yellow]"
                 failure_reasons.append("SHELL: Error")
                 all_passed = False
-        elif is_touring:
+        elif should_test_shell:
             shell_status = "[dim]SKIP[/dim]"
 
         # Only run resistance test if continuity passed
         if all_passed:
-            if is_touring:
+            if should_test_shell:
                 progress = f"🔬 Testing... CON: {cont_status} | SHELL: {shell_status} | Running resistance test"
             else:
                 progress = f"🔬 Testing... CON: {cont_status} | Running resistance test"
@@ -572,7 +589,7 @@ class CableScreenBase(Screen):
                 saved_status += f" | [yellow]Shopify error: {e}[/yellow]"
 
         # Show final results - refresh body with updated record from DB
-        if is_touring:
+        if should_test_shell:
             summary = f"CON: {cont_status} | SHELL: {shell_status} | RES: {res_status}"
         else:
             summary = f"CON: {cont_status} | RES: {res_status}"
@@ -878,6 +895,7 @@ class CableScreenBase(Screen):
             'length': length,
             'color_pattern': pattern_name,
             'connector_type': connector_display,
+            'connector_finish': cable_record.get('connector_finish_display'),
             'sku': variant_sku,
         }
         if description:
@@ -2183,8 +2201,12 @@ class ConnectorTypeSelectionScreen(Screen):
         new_context['connector_code'] = connector_code
 
         if is_variant_flow:
-            # MISC/LTD: cable_type already in context (the sku_group). Just
-            # carry the connector_code through.
+            # MISC/LTD: cable_type already in context (the sku_group). Custom
+            # builds can use any connector finish, so for XLR capture it (it
+            # drives the shell-bond test) before scanning. Non-XLR variants go
+            # straight to scanning.
+            if 'XLR' in (connector_display or '').upper():
+                return ScreenResult(NavigationAction.REPLACE, ConnectorFinishSelectionScreen, new_context)
             return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
 
         # Catalog: resolve to (sku_group, length, connector_code) and load
@@ -2226,6 +2248,73 @@ class ConnectorTypeSelectionScreen(Screen):
         return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
 
 
+class ConnectorFinishSelectionScreen(Screen):
+    """Pick the connector finish for a custom (MISC) or LTD XLR build.
+
+    Only reached from the variant flow for XLR connectors. The chosen finish is
+    stored per-cable and decides whether the XLR shell-bond test (XSHELL) runs —
+    black/gold Neutrik shells are non-conductive by design and must skip it.
+    Standard catalog cables never reach here; their finish is implied by the
+    series (cotton→nickel, rayon→black).
+    """
+
+    # Nickel first so pressing Enter accepts the common default.
+    FINISH_ORDER = ['nickel', 'black_gold']
+
+    def run(self) -> ScreenResult:
+        from greenlight.cable_config import CONNECTOR_FINISHES
+        operator = self.context.get("operator", "")
+        cable_type = self.context.get("cable_type")
+        selected_length = self.context.get("selected_length")
+        connector_display = self.context.get("selected_connector") or "XLR–XLR"
+
+        finishes = [(code, CONNECTOR_FINISHES[code]['display'])
+                    for code in self.FINISH_ORDER if code in CONNECTOR_FINISHES]
+        menu_items = [disp for _, disp in finishes]
+        menu_items.append("Back (q)")
+        rows = [f"[green]{i + 1}.[/green] {name}" for i, name in enumerate(menu_items)]
+
+        body_lines = []
+        if cable_type:
+            body_lines.append(cable_type.name())
+        body_lines.append(f"Connector: {connector_display}")
+        if selected_length is not None:
+            body_lines.append(f"Length: {_format_length(selected_length)}")
+        body_lines.append("\nSelect the connector finish for this run")
+        body_lines.append(
+            "[dim]Black/Gold (Neutrik) shells are non-conductive — the shell-bond "
+            "test is skipped for them.[/dim]"
+        )
+
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel("\n".join(body_lines), title="Connector Finish"))
+        self.ui.layout["footer"].update(Panel("\n".join(rows), title="Available Finishes"))
+        self.ui.render()
+
+        choice = self.ui.console.input("Choose (Enter = Nickel): ").strip().lower()
+
+        # Enter accepts the default (first finish = nickel).
+        if choice == "":
+            return self._finish(finishes[0][0])
+        if choice == "q" or choice == str(len(menu_items)):
+            return ScreenResult(NavigationAction.POP)
+        try:
+            idx = int(choice) - 1
+            if 0 <= idx < len(finishes):
+                return self._finish(finishes[idx][0])
+        except ValueError:
+            pass
+
+        self.ui.console.print("[red]Invalid choice[/red]")
+        time.sleep(0.5)
+        return ScreenResult(NavigationAction.REPLACE, ConnectorFinishSelectionScreen, self.context)
+
+    def _finish(self, finish_code):
+        new_context = self.context.copy()
+        new_context['connector_finish'] = finish_code
+        return ScreenResult(NavigationAction.REPLACE, ScanCableIntakeScreen, new_context)
+
+
 # ============================================================================
 # Additional Cable Screens (from new_screens.py)
 # ============================================================================
@@ -2239,6 +2328,7 @@ class ScanCableIntakeScreen(CableScreenBase):
         cable_type = self.context.get("cable_type")
         length = self.context.get("selected_length")
         connector_code = self.context.get("connector_code")
+        connector_finish = self.context.get("connector_finish")
 
         if not cable_type or not cable_type.is_loaded():
             self.ui.header(operator)
@@ -2260,9 +2350,11 @@ class ScanCableIntakeScreen(CableScreenBase):
             self.ui.wait_back()
             return ScreenResult(NavigationAction.POP)
 
-        return self.scan_cables_loop(operator, cable_type, length, connector_code)
+        return self.scan_cables_loop(operator, cable_type, length, connector_code,
+                                     connector_finish)
 
-    def scan_cables_loop(self, operator, cable_type, length, connector_code):
+    def scan_cables_loop(self, operator, cable_type, length, connector_code,
+                         connector_finish=None):
         """Main scanning loop for registering multiple cables.
 
         Args:
@@ -2270,6 +2362,8 @@ class ScanCableIntakeScreen(CableScreenBase):
             cable_type: CableType object (sku_group + display attrs)
             length: per-cable length in feet (numeric)
             connector_code: per-cable connector ('' or '-R')
+            connector_finish: per-cable connector finish for custom/LTD XLR
+                builds (e.g. 'nickel', 'black_gold'); None for catalog.
         """
         scanned_count = 0
         scanned_serials = []
@@ -2307,6 +2401,11 @@ class ScanCableIntakeScreen(CableScreenBase):
                 )
                 if connector_code == '-R':
                     scan_info += "  [dim](right-angle)[/dim]"
+                if connector_finish:
+                    from greenlight.cable_config import finish_display
+                    fin = finish_display(connector_finish)
+                    if fin:
+                        scan_info += f"\n[bold cyan]Finish:[/bold cyan] {fin}"
                 scan_info += "\n"
                 if cable_type.kind in ('misc', 'ltd') and cable_type.description:
                     scan_info += f"[bold cyan]Description:[/bold cyan] {cable_type.description}\n"
@@ -2370,6 +2469,7 @@ class ScanCableIntakeScreen(CableScreenBase):
                 serial_number, cable_type.sku_group, cable_type.prefix,
                 length, connector_code,
                 operator=operator, update_if_exists=allow_update,
+                connector_finish=connector_finish,
             )
 
             if result.get('success'):
@@ -2455,6 +2555,7 @@ class ScanCableIntakeScreen(CableScreenBase):
                                 serial_number, cable_type.sku_group, cable_type.prefix,
                                 length, connector_code,
                                 operator=operator, update_if_exists=True,
+                                connector_finish=connector_finish,
                             )
                             if update_result.get('success'):
                                 scanned_count += 1

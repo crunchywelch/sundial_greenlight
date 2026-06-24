@@ -24,6 +24,7 @@ from greenlight.screens.cable import (
     VariantLengthEntryScreen,
     LengthSelectionScreen,
     ConnectorTypeSelectionScreen,
+    ConnectorFinishSelectionScreen,
     ScanCableIntakeScreen
 )
 
@@ -70,6 +71,7 @@ __all__ = [
     'VariantLengthEntryScreen',
     'LengthSelectionScreen',
     'ConnectorTypeSelectionScreen',
+    'ConnectorFinishSelectionScreen',
     'ScanCableIntakeScreen',
     # Wire
     'WireLabelScreen',

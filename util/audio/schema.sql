@@ -43,6 +43,9 @@ CREATE TABLE IF NOT EXISTS audio_cables (
     sku_group TEXT NOT NULL,
     length NUMERIC(5,2) NOT NULL,
     connector_code TEXT NOT NULL,
+    -- Connector finish (e.g. 'nickel', 'black_gold') for custom/LTD builds.
+    -- NULL = standard catalog, infer shell-test behavior from the series.
+    connector_finish TEXT,
     operator TEXT,
     arduino_unit_id INTEGER,
     notes TEXT,

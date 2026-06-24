@@ -303,8 +303,12 @@ class TSCLabelPrinter(LabelPrinterInterface):
         resistance_pass = test_results.get('resistance_pass', False)
         operator = test_results.get('operator', '')
 
-        # Format connector type for display
+        # Format connector type for display, appending a non-standard finish
+        # (custom/LTD builds, e.g. Black/Gold) so the physical label reflects it.
         connector_display = self._format_connector_type(connector_type)
+        connector_finish = data.get('connector_finish')
+        if connector_finish:
+            connector_display = f"{connector_display} ({connector_finish})"
 
         # MISC and LTD variants get distinct line-3 branding instead of color/pattern
         from greenlight.db import sku_kind

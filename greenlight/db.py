@@ -52,7 +52,7 @@ def get_audio_cable(serial_number):
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT ac.serial_number, ac.sku_group, ac.prefix,
-                       ac.length, ac.connector_code,
+                       ac.length, ac.connector_code, ac.connector_finish,
                        ac.resistance_adc, ac.calibration_adc,
                        ac.resistance_adc_p3, ac.calibration_adc_p3, ac.test_passed,
                        ac.operator, ac.arduino_unit_id, ac.notes, ac.test_timestamp,
@@ -105,7 +105,7 @@ def format_serial_number(serial_number):
     return serial_number
 
 def register_scanned_cable(serial_number, sku_group, prefix, length, connector_code,
-                           operator=None, update_if_exists=False):
+                           operator=None, update_if_exists=False, connector_finish=None):
     """Register a cable with a scanned serial number (Phase 5 intake workflow).
 
     Args:
@@ -168,11 +168,13 @@ def register_scanned_cable(serial_number, sku_group, prefix, length, connector_c
                             prefix = %s,
                             length = %s,
                             connector_code = %s,
+                            connector_finish = %s,
                             operator = %s,
                             updated_timestamp = CURRENT_TIMESTAMP
                         WHERE serial_number = %s
                         RETURNING serial_number, updated_timestamp
-                    """, (sku_group, prefix, length, connector_code, operator, formatted_serial))
+                    """, (sku_group, prefix, length, connector_code, connector_finish,
+                          operator, formatted_serial))
                     result = cur.fetchone()
                     conn.commit()
                     return {
@@ -189,11 +191,11 @@ def register_scanned_cable(serial_number, sku_group, prefix, length, connector_c
                 cur.execute("""
                     INSERT INTO audio_cables
                         (serial_number, sku_group, prefix, length, connector_code,
-                         resistance_adc, operator, arduino_unit_id, notes)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                         connector_finish, resistance_adc, operator, arduino_unit_id, notes)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING serial_number, updated_timestamp
                 """, (formatted_serial, sku_group, prefix, length, connector_code,
-                      None, operator, None, 'Scanned intake'))
+                      connector_finish, None, operator, None, 'Scanned intake'))
                 result = cur.fetchone()
                 conn.commit()
                 return {
@@ -297,7 +299,7 @@ def _enrich_record(record):
     """
     from greenlight.cable_config import (
         parse_group_sku, format_variant_sku, series_data_for_prefix,
-        connector_display_for, series_for_prefix,
+        connector_display_for, series_for_prefix, finish_display,
     )
     sku_group = record.get('sku_group')
     parsed = parse_group_sku(sku_group)
@@ -336,6 +338,9 @@ def _enrich_record(record):
     record['connector_display'] = (
         connector_display_for(prefix, connector_code) if prefix else None
     )
+
+    # Connector finish (custom/LTD only; None for standard catalog cables).
+    record['connector_finish_display'] = finish_display(record.get('connector_finish'))
 
     series_data = series_data_for_prefix(prefix) if prefix else None
     if series_data:
@@ -618,7 +623,7 @@ def get_cables_for_ltd_sku(ltd_group_sku):
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT ac.serial_number, ac.sku_group, ac.prefix,
-                       ac.length, ac.connector_code,
+                       ac.length, ac.connector_code, ac.connector_finish,
                        ac.updated_timestamp, ac.shopify_gid, ac.test_passed,
                        sg.description, sg.archived_at
                 FROM audio_cables ac
@@ -636,11 +641,12 @@ def get_cables_for_ltd_sku(ltd_group_sku):
                     'prefix': row[2],
                     'length': row[3],
                     'connector_code': row[4],
-                    'updated_timestamp': row[5],
-                    'shopify_gid': row[6],
-                    'test_passed': row[7],
-                    'description': row[8],
-                    'archived_at': row[9],
+                    'connector_finish': row[5],
+                    'updated_timestamp': row[6],
+                    'shopify_gid': row[7],
+                    'test_passed': row[8],
+                    'description': row[9],
+                    'archived_at': row[10],
                 }))
             return cables
     except Exception as e:
