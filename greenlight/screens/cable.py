@@ -918,57 +918,49 @@ class CableScreenBase(Screen):
         )
         return label_printer.print_labels(print_job)
 
-    def print_barcode_for_cable(self, operator, cable_record):
-        """Print a barcode label with the cable's serial number.
+    def print_registration_label(self, operator, cable_record):
+        """Generate a registration code if needed and print a registration label.
+
+        Mirrors the wholesale batch screen for a single cable: if the cable has
+        no registration code yet, one is generated and saved to the database,
+        then the registration label (code + QR) is printed. If the cable already
+        has a code, the existing label is reprinted.
 
         Args:
             operator: Operator ID
             cable_record: Cable record from database
-        """
-        from greenlight.hardware.interfaces import hardware_manager, PrintJob
 
-        label_printer = hardware_manager.get_label_printer()
-        if not label_printer:
-            return
-
-        serial_number = cable_record.get('serial_number', '')
-        sku = cable_record.get('variant_sku') or cable_record.get('sku_group') or ''
-        series = cable_record.get('series', '')
-        length = cable_record.get('length', '')
-        color_pattern = cable_record.get('pattern_name') or ''
-        connector_type = cable_record.get('connector_display') or ''
-
-        print_job = PrintJob(
-            template="barcode_label",
-            data={
-                'serial_number': serial_number,
-                'sku': sku,
-                'series': series,
-                'length': length,
-                'color_pattern': color_pattern,
-                'connector_type': connector_type,
-            },
-            quantity=1,
-        )
-        label_printer.print_labels(print_job)
-
-    def print_registration_label(self, operator, cable_record):
-        """Print a registration label for a cable that already has a registration code.
-
-        Args:
-            operator: Operator ID
-            cable_record: Cable record from database (must have registration_code)
+        Returns:
+            The (possibly updated) cable record.
         """
         from greenlight.hardware.interfaces import hardware_manager, PrintJob
         from greenlight.registration import generate_registration_url
+        from greenlight.db import batch_assign_registration_codes
 
         label_printer = hardware_manager.get_label_printer()
         if not label_printer:
-            return
+            return cable_record
+
+        serial_number = cable_record.get('serial_number', '')
 
         reg_code = cable_record.get('registration_code', '')
         if not reg_code:
-            return
+            # Generate + save a code (with collision retry) just like wholesale.
+            result = batch_assign_registration_codes([serial_number])
+            results_list = result.get('results', [])
+            if results_list:
+                reg_code = results_list[0]['registration_code']
+                cable_record['registration_code'] = reg_code
+                # Cable is now allocated to wholesale — drop it from retail inventory.
+                from greenlight.shopify_client import sync_inventory_for_cable
+                ok, err = sync_inventory_for_cable(cable_record)
+                if not ok:
+                    logger.warning(f"Shopify inventory sync failed for {serial_number}: {err}")
+            else:
+                errors = result.get('errors', [])
+                message = errors[0]['error'] if errors else result.get('message', 'Failed to generate registration code')
+                self._flash_message(operator, cable_record, f"[bold red]{message}[/bold red]")
+                return cable_record
 
         reg_url = generate_registration_url(reg_code)
 
@@ -977,12 +969,25 @@ class CableScreenBase(Screen):
             data={
                 'registration_code': reg_code,
                 'registration_url': reg_url,
-                'serial_number': cable_record.get('serial_number', ''),
+                'serial_number': serial_number,
                 'sku': cable_record.get('sku', ''),
             },
             quantity=1,
         )
         label_printer.print_labels(print_job)
+        return cable_record
+
+    def _flash_message(self, operator, cable_record, message):
+        """Briefly show a message in the footer over the cable info panel."""
+        self.ui.console.clear()
+        self.ui.header(operator)
+        self.ui.layout["body"].update(self.build_cable_info_panel(cable_record))
+        self.ui.layout["footer"].update(Panel(f"{message}\nPress Enter to continue", title=""))
+        self.ui.render()
+        try:
+            self.ui.console.input("")
+        except KeyboardInterrupt:
+            pass
 
     def edit_cable_description(self, operator, cable_record):
         """Prompt operator to edit description for a MISC cable
@@ -1104,6 +1109,11 @@ class CableScreenBase(Screen):
 
         result = db_mod.unassign_cable(serial)
         if result.get('success'):
+            # Cable is back in the available pool — push the higher count to Shopify.
+            from greenlight.shopify_client import sync_inventory_for_cable
+            ok, err = sync_inventory_for_cable(cable_record)
+            if not ok:
+                logger.warning(f"Shopify inventory sync failed for {serial}: {err}")
             self.ui.layout["body"].update(Panel(
                 f"[bold green]Cable {serial} unassigned and returned to inventory.[/bold green]",
                 title="Unassigned", style="green"
@@ -1162,9 +1172,6 @@ class CableScreenBase(Screen):
             if printer_available and cable_tested:
                 footer_options.append("[cyan]'p'[/cyan] = Print label")
             if printer_available:
-                footer_options.append("[cyan]'b'[/cyan] = Print barcode")
-            has_reg_code = bool(cable_record.get('registration_code'))
-            if printer_available and has_reg_code:
                 footer_options.append("[cyan]'l'[/cyan] = Print reg label")
             if is_misc:
                 footer_options.append("[cyan]'d'[/cyan] = Edit description")
@@ -1209,12 +1216,8 @@ class CableScreenBase(Screen):
                     self.print_label_for_cable(operator, cable_record)
                     continue
 
-                elif choice_lower == 'b' and printer_available:
-                    self.print_barcode_for_cable(operator, cable_record)
-                    continue
-
-                elif choice_lower == 'l' and printer_available and has_reg_code:
-                    self.print_registration_label(operator, cable_record)
+                elif choice_lower == 'l' and printer_available:
+                    cable_record = self.print_registration_label(operator, cable_record)
                     continue
 
                 elif choice_lower == 'd' and is_misc:

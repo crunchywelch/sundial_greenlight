@@ -1,0 +1,19 @@
+# /etc/systemd/system/nightly-inventory-reconcile.service
+[Unit]
+Description=Nightly Shopify Inventory Reconcile (backstop for drift)
+Documentation=https://github.com/sundialwire/greenlight
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=welch
+Group=welch
+WorkingDirectory=/home/welch/projects/sundial_greenlight
+Environment="PATH=/home/welch/projects/sundial_greenlight/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/welch/projects/sundial_greenlight/venv/bin/python util/audio/audio_shopify_inventory_reconcile.py --fix
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nightly-inventory-reconcile

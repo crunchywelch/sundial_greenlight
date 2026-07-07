@@ -1,5 +1,6 @@
 """Order fulfillment screens: Customer lookup, order processing, and cable assignment"""
 import time
+import logging
 
 from rich.panel import Panel
 from rich.table import Table
@@ -8,6 +9,8 @@ from greenlight.screen_manager import Screen, ScreenResult, NavigationAction
 from greenlight.screens.cable import CableScreenBase
 from greenlight import shopify_client
 from greenlight import db
+
+logger = logging.getLogger(__name__)
 
 # How long to display a transient error before auto-returning to the scan loop.
 # Blocking on console.input() here would freeze the scanner queue (MQTT scans
@@ -629,6 +632,12 @@ class UnassignCableScreen(Screen):
         result = db.unassign_cable(serial)
 
         if result.get('success'):
+            # Cable is back in the available pool — push the higher count to Shopify.
+            cable_record = db.get_audio_cable(serial)
+            if cable_record:
+                ok, err = shopify_client.sync_inventory_for_cable(cable_record)
+                if not ok:
+                    logger.warning("Shopify inventory sync failed for %s: %s", serial, err)
             self.ui.layout["body"].update(Panel(
                 f"[green]Cable {serial} unassigned from {customer_name}[/green]",
                 title="Unassigned"
