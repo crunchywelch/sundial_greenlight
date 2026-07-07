@@ -1,0 +1,420 @@
+{
+  "plug": {
+    "29897619046464": [
+      "14g Pulley",
+      "3-cond 18g Pulley",
+      "16g 3-cond Pulley",
+      "18g SJT Heavy Duty",
+      "Overbraid 3-cond"
+    ],
+    "29897626943552": [
+      "3-cond 18g Pulley",
+      "16g 3-cond Pulley",
+      "18g SJT Heavy Duty",
+      "Overbraid 3-cond"
+    ],
+    "30043530133568": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30043530330176": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "39276068307015": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30043766620224": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30043766751296": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "39738751287367": [
+      "14g Pulley",
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "39257187680327": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "45004892832024": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ]
+  },
+  "switch": {
+    "30045782605888": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30045782704192": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "Parallel"
+    ],
+    "31279717253191": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "Parallel"
+    ],
+    "30045782933568": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "Parallel"
+    ],
+    "30045783130176": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30045797154880": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "Parallel"
+    ],
+    "50768455500056": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30051679469632": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "32612013801543": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "47012142154008": [
+      "Parallel"
+    ]
+  },
+  "socket": {
+    "30066221711424": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "Parallel"
+    ],
+    "30066222039104": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "39831890821191": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30066222825536": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30066223710272": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30066224169024": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30066224431168": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30066224627776": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30066225152064": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30066225741888": [
+      "16g 3-cond Pulley",
+      "18g SJT Heavy Duty"
+    ],
+    "30066225807424": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted"
+    ],
+    "30066225872960": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30066226757696": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30066226921536": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30066227150912": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30066228068416": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30066228265024": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30066643140672": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30066643796032": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30066647236672": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30066677776448": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "30072050712640": [
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond"
+    ],
+    "30072086691904": [
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond"
+    ],
+    "31328669237319": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "32035357753415": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "39257209077831": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ],
+    "39866035765319": [
+      "16g Twisted",
+      "18g Twisted",
+      "20g Twisted",
+      "22g Twisted",
+      "2-cond 18g Pulley",
+      "3-cond 18g Pulley",
+      "Overbraid 3-cond",
+      "Parallel"
+    ]
+  }
+}
