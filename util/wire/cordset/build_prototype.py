@@ -193,6 +193,7 @@ CSS = r"""
   box-shadow:inset 0 0 0 1px var(--brass)}
 .optcard[disabled]{cursor:not-allowed;opacity:.5}
 .optcard .oc-img{width:100%;height:82px;object-fit:cover;border-radius:6px;border:1px solid var(--line-2);background:var(--paper);margin-bottom:.15rem}
+.optcard .oc-sku{font-family:var(--mono);font-size:.58rem;color:var(--ink-soft);word-break:break-word;letter-spacing:.02em}
 .optcard .ot{font-size:.8rem;line-height:1.2}
 .optcard .op{font-family:var(--mono);font-size:.72rem;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 .optcard .why{font-family:var(--mono);font-size:.6rem;color:var(--danger);letter-spacing:.02em}
@@ -266,6 +267,7 @@ CSS = r"""
 .variantpick{margin-top:.6rem;border-top:1px dashed var(--line-2);padding-top:.55rem}
 .variantpick[hidden]{display:none}
 .vchips{margin-top:.3rem}
+.vsku{font-family:var(--mono);font-size:.62rem;color:var(--ink-soft);display:block;margin-top:.35rem;letter-spacing:.02em}
 .switchpos{margin-top:.7rem;border-top:1px dashed var(--line-2);padding-top:.6rem}
 .switchpos[hidden]{display:none}
 .splabel{font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-soft);display:block;margin-bottom:.35rem}
@@ -403,7 +405,7 @@ function renderFilters(){
   });
 }
 function matchWire(w){
-  if(filt.conductors && String(w.conductors)!==filt.conductors) return false;
+  if(filt.conductors && wireVal(w,"conductors")!==filt.conductors) return false;
   if(filt.gauge && String(w.gauge)!==filt.gauge) return false;
   if(filt.style && w.style!==filt.style) return false;
   if(filt.material && w.material!==filt.material) return false;
@@ -475,7 +477,8 @@ function renderVariantPick(kind){
     html+='<button type="button" class="chip vchip" data-i="'+i+'" aria-pressed="'+String(!!cur&&cur.variantId===v.variantId)+'">'+
       v.label+(v.inventory<=0?' · b/o':'')+'</button>';
   });
-  host.innerHTML=html+'</div>';
+  var skuLine=(cur&&cur.sku)?'<span class="vsku">SKU '+cur.sku+'</span>':'';
+  host.innerHTML=html+'</div>'+skuLine;
   Array.prototype.forEach.call(host.querySelectorAll(".vchip"),function(b){
     b.addEventListener("click",function(){ setVarOf(kind, comp.variants[parseInt(b.dataset.i)]); renderVariantPick(kind); update(); });
   });
@@ -486,7 +489,10 @@ function optCard(item,label,price,state,onclick,tagText){
   b.disabled=!state.ok; b.setAttribute("aria-pressed",String(item._pressed===true));
   var img = item.image ? '<img class="oc-img" src="'+sized(item.image,120)+'" alt="" loading="lazy">' : '';
   var tag = tagText? '<span class="tag">'+tagText+'</span>':'';
-  b.innerHTML=img+'<span class="ot">'+label+'</span>'+tag+'<span class="op">'+(price!=null?(price===0?'included':'+'+money(price)):'')+'</span>';
+  // single-variant parts show their one SKU here; multi-variant show the
+  // selected variant's SKU in the colour/finish picker instead
+  var sku = (item.variants && item.variants.length===1 && item.sku) ? '<span class="oc-sku">'+item.sku+'</span>' : '';
+  b.innerHTML=img+'<span class="ot">'+label+'</span>'+sku+tag+'<span class="op">'+(price!=null?(price===0?'included':'+'+money(price)):'')+'</span>';
   if(state.ok) b.addEventListener("click",onclick);
   return b;
 }
@@ -497,7 +503,7 @@ function renderPlugs(){
   var host=$("plugList"); host.innerHTML="";
   var none=document.createElement("button"); none.type="button"; none.className="optcard";
   none.setAttribute("aria-pressed",String(sel.plug===null));
-  none.innerHTML='<span class="ot">No plug</span><span class="op">bare / stripped</span>';
+  none.innerHTML='<span class="ot">No plug</span>';
   none.addEventListener("click",function(){ sel.plug=null; sel.plugVar=null; renderPlugs(); update(); });
   host.appendChild(none);
   CAT.plugs.forEach(function(p){ p._pressed=(sel.plug===p);
