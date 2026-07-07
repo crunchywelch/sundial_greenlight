@@ -27,7 +27,15 @@ from greenlight.db import get_audio_cable
 
 
 def get_postgres_available_counts():
-    """Get count of available (passed + unassigned) cables per variant SKU.
+    """Get count of available cables per variant SKU.
+
+    "Available" means passed QC, unassigned, and not allocated to a
+    wholesale/reseller channel (registration_code IS NULL) — mirrors
+    db.get_available_count_for_sku so the live push and this reconcile agree.
+
+    LTD cables are excluded (sku_group 'LTD-%'): they are never sold via
+    Shopify and have no product/inventory item, so the live sync skips them
+    too. Including them here just produces "No inventory item" failures.
 
     Phase 5: groups by (sku_group, prefix, length, connector_code) — series
     prefix lives on audio_cables now. Returns dict keyed by computed
@@ -43,6 +51,8 @@ def get_postgres_available_counts():
                 FROM audio_cables ac
                 WHERE ac.test_passed = TRUE
                   AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
+                  AND ac.registration_code IS NULL
+                  AND ac.sku_group NOT LIKE 'LTD-%'
                 GROUP BY ac.sku_group, ac.prefix, ac.length, ac.connector_code
                 ORDER BY ac.prefix, ac.sku_group, ac.length, ac.connector_code
             """)

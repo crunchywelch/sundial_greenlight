@@ -1,0 +1,10 @@
+# /etc/systemd/system/nightly-inventory-reconcile.timer
+[Unit]
+Description=Run Shopify inventory reconcile nightly at 3:00 AM
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

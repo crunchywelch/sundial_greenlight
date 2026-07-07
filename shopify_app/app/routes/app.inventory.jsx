@@ -50,7 +50,7 @@ export async function action({ request }) {
       const dbResult = await query(
         `SELECT sku_group, prefix, length, connector_code, COUNT(*) as count
          FROM audio_cables
-         WHERE (shopify_gid IS NULL OR shopify_gid = '') AND sku_group !~ '^LTD-'
+         WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NULL AND sku_group !~ '^LTD-'
          GROUP BY sku_group, prefix, length, connector_code
          ORDER BY sku_group, prefix, length, connector_code`
       );
@@ -153,10 +153,14 @@ export async function action({ request }) {
 
   if (intent === "sync") {
     try {
+      // "Available" for the retail store excludes assigned cables (shopify_gid),
+      // wholesale/reseller-allocated cables (registration_code), and LTD groups
+      // (merch-only). Mirrors greenlight/db.py get_available_count_for_sku and
+      // the Python reconcile so all three inventory paths agree.
       const dbResult = await query(
         `SELECT sku_group, prefix, length, connector_code, COUNT(*) as count
          FROM audio_cables
-         WHERE (shopify_gid IS NULL OR shopify_gid = '') AND sku_group !~ '^LTD-'
+         WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NULL AND sku_group !~ '^LTD-'
          GROUP BY sku_group, prefix, length, connector_code
          ORDER BY sku_group, prefix, length, connector_code`
       );
@@ -485,7 +489,7 @@ export default function Inventory() {
             )}
 
             <div style={{ marginTop: "20px", padding: "15px", backgroundColor: "#f5f5f5", borderRadius: "4px", fontSize: "13px", color: "#666" }}>
-              <strong>Legend:</strong> Total = all cables in DB. Available = unassigned cables. Difference = Available − Shopify.
+              <strong>Legend:</strong> Total = all cables in DB. Available = unassigned retail cables (excludes wholesale/reg-coded). Difference = Available − Shopify.
               <span style={{ color: "#008060", marginLeft: "10px" }}>+Positive</span> means more available than Shopify shows.
               <span style={{ color: "#d72c0d", marginLeft: "10px" }}>−Negative</span> means less available than Shopify shows.
             </div>

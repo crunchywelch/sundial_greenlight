@@ -657,7 +657,12 @@ def get_cables_for_ltd_sku(ltd_group_sku):
 
 
 def get_available_count_for_sku(sku):
-    """Get count of available (passed + unassigned) cables for a SKU.
+    """Get count of available cables for a SKU.
+
+    "Available" means passed QC, not assigned to a customer, and not allocated
+    to a wholesale/reseller channel. A registration_code marks a cable as
+    wholesale-bound, so it is excluded from shopify.com availability (it must
+    not be double-sold via the retail store).
 
     The input may be either a variant SKU (e.g. 'SC-12GL', 'SC-12GL-R',
     'SC-12-LTD-PHISH26-R') or a group/MISC/LTD SKU. Catalog and LTD variants
@@ -678,6 +683,7 @@ def get_available_count_for_sku(sku):
                     FROM audio_cables ac
                     WHERE ac.test_passed = TRUE
                       AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
+                      AND ac.registration_code IS NULL
                       AND ac.sku_group = %s
                       AND ac.prefix = %s
                       AND ac.length = %s
@@ -691,6 +697,7 @@ def get_available_count_for_sku(sku):
                     FROM audio_cables ac
                     WHERE ac.test_passed = TRUE
                       AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
+                      AND ac.registration_code IS NULL
                       AND ac.sku_group = %s
                 """, (sku,))
             return cur.fetchone()[0]

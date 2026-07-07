@@ -1496,6 +1496,44 @@ def update_shopify_product_description(shopify_sku: str, description: str) -> Tu
             pass
 
 
+def sync_inventory_for_cable(cable_record: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+    """Push Shopify available inventory for this cable's SKU to match Postgres.
+
+    Recomputes the available count for the cable's variant SKU (via
+    db.get_available_count_for_sku, which excludes assigned and
+    wholesale/reseller cables) and sets Shopify to that absolute value.
+
+    Call after any event that changes availability for a single cable —
+    QC pass, customer unassign, or wholesale registration-code assignment.
+    Because the underlying set is absolute (not a delta), this is idempotent
+    and safe to call as often as changes are made.
+
+    - LTD cables have no Shopify product and are skipped (returns success).
+    - MISC cables create/find their "Special Baby" product on demand.
+
+    Returns (success, error_msg). Never raises.
+    """
+    try:
+        from greenlight.db import get_available_count_for_sku
+
+        kind = cable_record.get("kind")
+        if kind == "ltd":
+            return True, None  # LTD is never sold via Shopify — nothing to sync
+
+        variant_sku = cable_record.get("variant_sku") or cable_record.get("sku_group")
+        if not variant_sku:
+            return False, "Cable record has no variant_sku / sku_group"
+
+        count = get_available_count_for_sku(variant_sku)
+        if kind == "misc":
+            return ensure_misc_shopify_product(cable_record, quantity=count)
+        return set_inventory_for_sku(variant_sku, count)
+    except Exception as e:
+        err = str(e)
+        logger.error(f"Error syncing inventory for cable {cable_record.get('serial_number')}: {err}")
+        return False, err
+
+
 def ensure_misc_shopify_product(cable_record: Dict[str, Any], quantity: int = 1) -> Tuple[bool, Optional[str]]:
     """Find-or-create a "Special Baby" branded Shopify product for a MISC variant.
 
