@@ -184,6 +184,8 @@ def build_catalog(products, overrides=None):
     for p in products:
         if p.get("status") != "ACTIVE" or "sockets" not in _colls(p) or not _vars(p):
             continue
+        if p["title"].upper().startswith("SOCKET RING"):
+            continue  # shade support rings are accessories, not sockets
         rec = base(p)
         rec["grounded"] = "grounded-sockets" in _colls(p)
         rec["compatClasses"] = _compat_for(rec, "socket", overrides)
