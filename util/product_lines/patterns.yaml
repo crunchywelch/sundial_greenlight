@@ -61,3 +61,13 @@ patterns:
     name: Electric Houndstooth
     fabric_type: cotton
     description: Neon green cotton braid with neon purple houndstooth pattern
+
+  - code: NJ
+    name: Neon Jungle
+    fabric_type: cotton
+    description: Alternating dark and neon green chevrons with a double neon raspberry tracer cotton braid
+
+  - code: FF
+    name: Firefly
+    fabric_type: cotton
+    description: Neon raspberry with a black and neon green triple tracer cotton braid

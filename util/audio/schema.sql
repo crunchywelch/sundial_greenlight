@@ -17,7 +17,7 @@
 -- shopify_app/app/cable-config.server.js for the resolver.
 --
 -- description carries:
---   catalog: pattern name (e.g. "Goldline") — auto-seeded on first registration
+--   catalog: pattern name (e.g. "Goldline") — seeded via migration (no auto-seed helper)
 --   misc:    operator-supplied description ("dark putty houndstooth, gold connectors")
 --   ltd:     event_name + optional notes ("Phish Summer Tour 2026")
 -- archived_at IS NULL for active groups; soft-delete for retired LTD editions

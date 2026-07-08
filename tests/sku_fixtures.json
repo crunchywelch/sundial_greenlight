@@ -40,6 +40,26 @@
     }
   },
   {
+    "name": "group catalog: Neon Jungle",
+    "type": "group",
+    "sku": "NJ",
+    "expected": {
+      "kind": "catalog",
+      "pattern_code": "NJ",
+      "pattern_name": "Neon Jungle"
+    }
+  },
+  {
+    "name": "group catalog: Firefly",
+    "type": "group",
+    "sku": "FF",
+    "expected": {
+      "kind": "catalog",
+      "pattern_code": "FF",
+      "pattern_name": "Firefly"
+    }
+  },
+  {
     "name": "group misc: SC variant 42 (still series-scoped)",
     "type": "group",
     "sku": "SC-MISC-42",
@@ -224,6 +244,54 @@
     }
   },
   {
+    "name": "variant catalog: TC 10ft Neon Jungle straight",
+    "type": "variant",
+    "sku": "TC-10NJ",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "NJ",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 10,
+      "pattern_code": "NJ",
+      "pattern_name": "Neon Jungle",
+      "connector_code": "",
+      "connector_display": "TS–TS"
+    }
+  },
+  {
+    "name": "variant catalog: TC 10ft Neon Jungle right-angle",
+    "type": "variant",
+    "sku": "TC-10NJ-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "NJ",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 10,
+      "pattern_code": "NJ",
+      "pattern_name": "Neon Jungle",
+      "connector_code": "-R",
+      "connector_display": "RA–TS"
+    }
+  },
+  {
+    "name": "variant catalog: TV 6ft Firefly (XLR-XLR)",
+    "type": "variant",
+    "sku": "TV-6FF",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "FF",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 6,
+      "pattern_code": "FF",
+      "pattern_name": "Firefly",
+      "connector_code": "",
+      "connector_display": "XLR–XLR"
+    }
+  },
+  {
     "name": "variant misc: passes through as group",
     "type": "variant",
     "sku": "SC-MISC-42",
@@ -336,6 +404,21 @@
     "name": "round-trip: TV 6ft Bungalow",
     "type": "round_trip",
     "sku": "TV-6BU"
+  },
+  {
+    "name": "round-trip: TC 10ft Neon Jungle straight",
+    "type": "round_trip",
+    "sku": "TC-10NJ"
+  },
+  {
+    "name": "round-trip: TC 10ft Neon Jungle right-angle",
+    "type": "round_trip",
+    "sku": "TC-10NJ-R"
+  },
+  {
+    "name": "round-trip: TV 6ft Firefly",
+    "type": "round_trip",
+    "sku": "TV-6FF"
   },
   {
     "name": "round-trip: MISC variant",
