@@ -20,6 +20,16 @@
     }
   },
   {
+    "name": "prod group: FF",
+    "type": "group",
+    "sku": "FF",
+    "expected": {
+      "kind": "catalog",
+      "pattern_code": "FF",
+      "pattern_name": "Firefly"
+    }
+  },
+  {
     "name": "prod group: GL",
     "type": "group",
     "sku": "GL",
@@ -58,12 +68,31 @@
     }
   },
   {
+    "name": "prod group: LTD-THECITIEPODCAST",
+    "type": "group",
+    "sku": "LTD-THECITIEPODCAST",
+    "expected": {
+      "kind": "ltd",
+      "slug": "THECITIEPODCAST"
+    }
+  },
+  {
     "name": "prod group: LTD-VINTAGEINTHEVALLEY2026",
     "type": "group",
     "sku": "LTD-VINTAGEINTHEVALLEY2026",
     "expected": {
       "kind": "ltd",
       "slug": "VINTAGEINTHEVALLEY2026"
+    }
+  },
+  {
+    "name": "prod group: NJ",
+    "type": "group",
+    "sku": "NJ",
+    "expected": {
+      "kind": "catalog",
+      "pattern_code": "NJ",
+      "pattern_name": "Neon Jungle"
     }
   },
   {
@@ -578,6 +607,17 @@
       "prefix": "TC",
       "series": "Tour Classic",
       "misc_seq": 7
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-75",
+    "type": "group",
+    "sku": "TC-MISC-75",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 75
     }
   },
   {
@@ -1459,6 +1499,66 @@
     }
   },
   {
+    "name": "prod variant: TC-15-LTD-GREENRIVER2026",
+    "type": "variant",
+    "sku": "TC-15-LTD-GREENRIVER2026",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-GREENRIVER2026",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 15,
+      "slug": "GREENRIVER2026",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-15-LTD-GREENRIVER2026-R",
+    "type": "variant",
+    "sku": "TC-15-LTD-GREENRIVER2026-R",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-GREENRIVER2026",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 15,
+      "slug": "GREENRIVER2026",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TV-15-LTD-GREENRIVER2026",
+    "type": "variant",
+    "sku": "TV-15-LTD-GREENRIVER2026",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-GREENRIVER2026",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 15,
+      "slug": "GREENRIVER2026",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TV-25-LTD-GREENRIVER2026",
+    "type": "variant",
+    "sku": "TV-25-LTD-GREENRIVER2026",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-GREENRIVER2026",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 25,
+      "slug": "GREENRIVER2026",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
     "name": "prod variant: TC-6-LTD-LISTONS2026",
     "type": "variant",
     "sku": "TC-6-LTD-LISTONS2026",
@@ -1489,18 +1589,168 @@
     }
   },
   {
-    "name": "prod variant: TC-15-LTD-LISTONS2026-R",
+    "name": "prod variant: TV-15-LTD-LISTONS2026",
     "type": "variant",
-    "sku": "TC-15-LTD-LISTONS2026-R",
+    "sku": "TV-15-LTD-LISTONS2026",
     "expected": {
       "kind": "ltd",
       "group_sku": "LTD-LISTONS2026",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 15,
+      "slug": "LISTONS2026",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: SC-15-LTD-THECITIEPODCAST",
+    "type": "variant",
+    "sku": "SC-15-LTD-THECITIEPODCAST",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-THECITIEPODCAST",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 15,
+      "slug": "THECITIEPODCAST",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-20-LTD-THECITIEPODCAST",
+    "type": "variant",
+    "sku": "SC-20-LTD-THECITIEPODCAST",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-THECITIEPODCAST",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 20,
+      "slug": "THECITIEPODCAST",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-20-LTD-THECITIEPODCAST-R",
+    "type": "variant",
+    "sku": "SC-20-LTD-THECITIEPODCAST-R",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-THECITIEPODCAST",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 20,
+      "slug": "THECITIEPODCAST",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SV-15-LTD-THECITIEPODCAST",
+    "type": "variant",
+    "sku": "SV-15-LTD-THECITIEPODCAST",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-THECITIEPODCAST",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "length": 15,
+      "slug": "THECITIEPODCAST",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: SV-20-LTD-THECITIEPODCAST",
+    "type": "variant",
+    "sku": "SV-20-LTD-THECITIEPODCAST",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-THECITIEPODCAST",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "length": 20,
+      "slug": "THECITIEPODCAST",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: SV-25-LTD-THECITIEPODCAST",
+    "type": "variant",
+    "sku": "SV-25-LTD-THECITIEPODCAST",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-THECITIEPODCAST",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "length": 25,
+      "slug": "THECITIEPODCAST",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TC-15-LTD-VINTAGEINTHEVALLEY2026",
+    "type": "variant",
+    "sku": "TC-15-LTD-VINTAGEINTHEVALLEY2026",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-VINTAGEINTHEVALLEY2026",
       "prefix": "TC",
       "series": "Tour Classic",
       "length": 15,
-      "slug": "LISTONS2026",
+      "slug": "VINTAGEINTHEVALLEY2026",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TC-15-LTD-VINTAGEINTHEVALLEY2026-R",
+    "type": "variant",
+    "sku": "TC-15-LTD-VINTAGEINTHEVALLEY2026-R",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-VINTAGEINTHEVALLEY2026",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 15,
+      "slug": "VINTAGEINTHEVALLEY2026",
       "connector_code": "-R",
       "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TV-15-LTD-VINTAGEINTHEVALLEY2026",
+    "type": "variant",
+    "sku": "TV-15-LTD-VINTAGEINTHEVALLEY2026",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-VINTAGEINTHEVALLEY2026",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 15,
+      "slug": "VINTAGEINTHEVALLEY2026",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TV-20-LTD-VINTAGEINTHEVALLEY2026",
+    "type": "variant",
+    "sku": "TV-20-LTD-VINTAGEINTHEVALLEY2026",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-VINTAGEINTHEVALLEY2026",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 20,
+      "slug": "VINTAGEINTHEVALLEY2026",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
     }
   },
   {
@@ -1936,6 +2186,22 @@
     }
   },
   {
+    "name": "prod variant: SC-6SL",
+    "type": "variant",
+    "sku": "SC-6SL",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "SL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 6,
+      "pattern_code": "SL",
+      "pattern_name": "Silverline",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
     "name": "prod variant: SC-10SL",
     "type": "variant",
     "sku": "SC-10SL",
@@ -2045,6 +2311,22 @@
       "pattern_name": "Silverline",
       "connector_code": "-R",
       "connector_display": "RA\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SV-10SL",
+    "type": "variant",
+    "sku": "SV-10SL",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "SL",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "length": 10,
+      "pattern_code": "SL",
+      "pattern_name": "Silverline",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
     }
   },
   {
@@ -2436,6 +2718,30 @@
     }
   },
   {
+    "name": "prod variant: TC-MISC-54",
+    "type": "variant",
+    "sku": "TC-MISC-54",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-54",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 54
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-55",
+    "type": "variant",
+    "sku": "TC-MISC-55",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-55",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 55
+    }
+  },
+  {
     "name": "prod variant: TC-MISC-6",
     "type": "variant",
     "sku": "TC-MISC-6",
@@ -2457,6 +2763,18 @@
       "prefix": "TC",
       "series": "Tour Classic",
       "misc_seq": 7
+    }
+  },
+  {
+    "name": "prod variant: TC-MISC-75",
+    "type": "variant",
+    "sku": "TC-MISC-75",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-75",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 75
     }
   },
   {
@@ -2820,6 +3138,26 @@
     "sku": "TV-25HP"
   },
   {
+    "name": "prod round-trip: TC-15-LTD-GREENRIVER2026",
+    "type": "round_trip",
+    "sku": "TC-15-LTD-GREENRIVER2026"
+  },
+  {
+    "name": "prod round-trip: TC-15-LTD-GREENRIVER2026-R",
+    "type": "round_trip",
+    "sku": "TC-15-LTD-GREENRIVER2026-R"
+  },
+  {
+    "name": "prod round-trip: TV-15-LTD-GREENRIVER2026",
+    "type": "round_trip",
+    "sku": "TV-15-LTD-GREENRIVER2026"
+  },
+  {
+    "name": "prod round-trip: TV-25-LTD-GREENRIVER2026",
+    "type": "round_trip",
+    "sku": "TV-25-LTD-GREENRIVER2026"
+  },
+  {
     "name": "prod round-trip: TC-6-LTD-LISTONS2026",
     "type": "round_trip",
     "sku": "TC-6-LTD-LISTONS2026"
@@ -2830,9 +3168,59 @@
     "sku": "TC-15-LTD-LISTONS2026"
   },
   {
-    "name": "prod round-trip: TC-15-LTD-LISTONS2026-R",
+    "name": "prod round-trip: TV-15-LTD-LISTONS2026",
     "type": "round_trip",
-    "sku": "TC-15-LTD-LISTONS2026-R"
+    "sku": "TV-15-LTD-LISTONS2026"
+  },
+  {
+    "name": "prod round-trip: SC-15-LTD-THECITIEPODCAST",
+    "type": "round_trip",
+    "sku": "SC-15-LTD-THECITIEPODCAST"
+  },
+  {
+    "name": "prod round-trip: SC-20-LTD-THECITIEPODCAST",
+    "type": "round_trip",
+    "sku": "SC-20-LTD-THECITIEPODCAST"
+  },
+  {
+    "name": "prod round-trip: SC-20-LTD-THECITIEPODCAST-R",
+    "type": "round_trip",
+    "sku": "SC-20-LTD-THECITIEPODCAST-R"
+  },
+  {
+    "name": "prod round-trip: SV-15-LTD-THECITIEPODCAST",
+    "type": "round_trip",
+    "sku": "SV-15-LTD-THECITIEPODCAST"
+  },
+  {
+    "name": "prod round-trip: SV-20-LTD-THECITIEPODCAST",
+    "type": "round_trip",
+    "sku": "SV-20-LTD-THECITIEPODCAST"
+  },
+  {
+    "name": "prod round-trip: SV-25-LTD-THECITIEPODCAST",
+    "type": "round_trip",
+    "sku": "SV-25-LTD-THECITIEPODCAST"
+  },
+  {
+    "name": "prod round-trip: TC-15-LTD-VINTAGEINTHEVALLEY2026",
+    "type": "round_trip",
+    "sku": "TC-15-LTD-VINTAGEINTHEVALLEY2026"
+  },
+  {
+    "name": "prod round-trip: TC-15-LTD-VINTAGEINTHEVALLEY2026-R",
+    "type": "round_trip",
+    "sku": "TC-15-LTD-VINTAGEINTHEVALLEY2026-R"
+  },
+  {
+    "name": "prod round-trip: TV-15-LTD-VINTAGEINTHEVALLEY2026",
+    "type": "round_trip",
+    "sku": "TV-15-LTD-VINTAGEINTHEVALLEY2026"
+  },
+  {
+    "name": "prod round-trip: TV-20-LTD-VINTAGEINTHEVALLEY2026",
+    "type": "round_trip",
+    "sku": "TV-20-LTD-VINTAGEINTHEVALLEY2026"
   },
   {
     "name": "prod round-trip: SC-1PW",
@@ -2975,6 +3363,11 @@
     "sku": "SC-MISC-4"
   },
   {
+    "name": "prod round-trip: SC-6SL",
+    "type": "round_trip",
+    "sku": "SC-6SL"
+  },
+  {
     "name": "prod round-trip: SC-10SL",
     "type": "round_trip",
     "sku": "SC-10SL"
@@ -3008,6 +3401,11 @@
     "name": "prod round-trip: SC-20SL-R",
     "type": "round_trip",
     "sku": "SC-20SL-R"
+  },
+  {
+    "name": "prod round-trip: SV-10SL",
+    "type": "round_trip",
+    "sku": "SV-10SL"
   },
   {
     "name": "prod round-trip: SV-20SL",
@@ -3170,6 +3568,16 @@
     "sku": "TC-MISC-50"
   },
   {
+    "name": "prod round-trip: TC-MISC-54",
+    "type": "round_trip",
+    "sku": "TC-MISC-54"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-55",
+    "type": "round_trip",
+    "sku": "TC-MISC-55"
+  },
+  {
     "name": "prod round-trip: TC-MISC-6",
     "type": "round_trip",
     "sku": "TC-MISC-6"
@@ -3178,6 +3586,11 @@
     "name": "prod round-trip: TC-MISC-7",
     "type": "round_trip",
     "sku": "TC-MISC-7"
+  },
+  {
+    "name": "prod round-trip: TC-MISC-75",
+    "type": "round_trip",
+    "sku": "TC-MISC-75"
   },
   {
     "name": "prod round-trip: TC-MISC-8",

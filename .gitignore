@@ -6,6 +6,9 @@ __pycache__/
 shopify_app/.cache
 shopify_app/build
 shopify_app/public/build
+/node_modules
+/package.json
+/package-lock.json
 shopify_app/node_modules
 shopify_app/extensions/*/node_modules/
 shopify_app/extensions/*/dist
