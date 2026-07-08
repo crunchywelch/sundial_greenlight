@@ -86,31 +86,28 @@ APP_MARKUP = r"""
 
 CSS = r"""
 :root{
-  --paper:#E9E3D4; --paper-2:#E1D9C6; --card:#F3EEE1; --ink:#2A2620; --ink-soft:#6B6455;
-  --line:#CDC3AC; --line-2:#BCB199;
-  --brass:#9C6F22; --brass-2:#B4842E; --patina:#3B6A60; --patina-2:#48857a;
-  --danger:#9B3B2E; --good:#3B6A60;
-  --disabled:#B7AF9C;
-  --shadow:0 1px 0 rgba(255,255,255,.5), 0 8px 22px rgba(52,44,28,.10);
+  /* Palette + fonts inherited from the Atlantic storefront theme:
+     Fraunces headings, Halant body, Outfit micro-labels (all loaded globally
+     by the theme), slate/navy ink on white. */
+  --paper:#ffffff; --paper-2:#f6f5f1; --card:#ffffff; --ink:#222222; --ink-soft:#646464;
+  --line:#e7e4dd; --line-2:#d8d4ca;
+  --brass:#414d53; --brass-2:#2e383d; --patina:#6f8087; --patina-2:#55636a;
+  --danger:#b23b3b; --good:#3f6f63;
+  --disabled:#c3c0b8;
+  --shadow:0 1px 0 rgba(255,255,255,.6), 0 8px 22px rgba(1,2,23,.06);
   --radius:10px;
-  --display:ui-sans-serif,"Helvetica Neue",Helvetica,Arial,sans-serif;
-  --body:ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --display:"Fraunces","Halant",Georgia,"Times New Roman",serif;
+  --body:"Halant",Georgia,"Times New Roman",serif;
+  --label:"Outfit",ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
 }
-@media (prefers-color-scheme:dark){
-  :root{
-    --paper:#1E1B17; --paper-2:#242019; --card:#2A251E; --ink:#EDE6D6; --ink-soft:#A79E8A;
-    --line:#3A342A; --line-2:#4A4234;
-    --brass:#CBA35A; --brass-2:#DAB771; --patina:#5E9488; --patina-2:#77ADA0;
-    --danger:#D68472; --good:#77ADA0; --disabled:#5C5545;
-    --shadow:0 1px 0 rgba(255,255,255,.03), 0 10px 26px rgba(0,0,0,.45);
-  }
-}
+/* The storefront theme is light-only, so the form stays light regardless of the
+   visitor's OS colour scheme (no prefers-color-scheme dark auto-switch). */
 :root[data-theme="light"]{
-  --paper:#E9E3D4; --paper-2:#E1D9C6; --card:#F3EEE1; --ink:#2A2620; --ink-soft:#6B6455;
-  --line:#CDC3AC; --line-2:#BCB199; --brass:#9C6F22; --brass-2:#B4842E; --patina:#3B6A60;
-  --patina-2:#48857a; --danger:#9B3B2E; --good:#3B6A60; --disabled:#B7AF9C;
-  --shadow:0 1px 0 rgba(255,255,255,.5), 0 8px 22px rgba(52,44,28,.10);
+  --paper:#ffffff; --paper-2:#f6f5f1; --card:#ffffff; --ink:#222222; --ink-soft:#646464;
+  --line:#e7e4dd; --line-2:#d8d4ca; --brass:#414d53; --brass-2:#2e383d; --patina:#6f8087;
+  --patina-2:#55636a; --danger:#b23b3b; --good:#3f6f63; --disabled:#c3c0b8;
+  --shadow:0 1px 0 rgba(255,255,255,.6), 0 8px 22px rgba(1,2,23,.06);
 }
 :root[data-theme="dark"]{
   --paper:#1E1B17; --paper-2:#242019; --card:#2A251E; --ink:#EDE6D6; --ink-soft:#A79E8A;
@@ -132,7 +129,7 @@ CSS = r"""
     radial-gradient(circle at 50% 50%, transparent 34%, var(--brass) 35%, var(--brass) 44%, transparent 45%),
     conic-gradient(from -90deg, var(--brass), var(--patina), var(--brass));
   box-shadow:inset 0 0 0 2px var(--paper);}
-.kicker{font-family:var(--mono);text-transform:uppercase;letter-spacing:.16em;
+.kicker{font-family:var(--label);text-transform:uppercase;letter-spacing:.16em;
   font-size:.66rem;color:var(--ink-soft);margin:0 0 .1rem}
 .wrap h1{font-family:var(--display);font-weight:800;letter-spacing:-.01em;
   font-size:clamp(1.5rem,3.4vw,2.15rem);margin:0;text-wrap:balance}
@@ -152,13 +149,13 @@ CSS = r"""
 .num{font-family:var(--mono);font-size:.72rem;font-weight:700;background:var(--ink);color:var(--paper);
   width:1.35rem;height:1.35rem;border-radius:50%;display:inline-grid;place-items:center;letter-spacing:0}
 .endhint{font-family:var(--body);font-weight:400;font-size:.8rem;color:var(--ink-soft)}
-.optional legend::after{content:"optional";font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;
+.optional legend::after{content:"optional";font-family:var(--label);font-size:.6rem;letter-spacing:.1em;
   text-transform:uppercase;color:var(--ink-soft);border:1px solid var(--line-2);border-radius:20px;
   padding:.1rem .4rem;margin-left:.2rem}
 
 .filters{display:flex;flex-direction:column;gap:.5rem;margin:.7rem 0 .7rem;align-items:stretch}
 .fgroup{display:flex;gap:.3rem;flex-wrap:wrap;align-items:center}
-.fgroup .flabel{font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;
+.fgroup .flabel{font-family:var(--label);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;
   color:var(--ink-soft);margin-right:.15rem}
 .chip{font:inherit;font-size:.78rem;padding:.28rem .6rem;border:1px solid var(--line-2);
   background:transparent;color:var(--ink);border-radius:20px;cursor:pointer;line-height:1}
@@ -270,7 +267,7 @@ CSS = r"""
 .vsku{font-family:var(--mono);font-size:.62rem;color:var(--ink-soft);display:block;margin-top:.35rem;letter-spacing:.02em}
 .switchpos{margin-top:.7rem;border-top:1px dashed var(--line-2);padding-top:.6rem}
 .switchpos[hidden]{display:none}
-.splabel{font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-soft);display:block;margin-bottom:.35rem}
+.splabel{font-family:var(--label);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-soft);display:block;margin-bottom:.35rem}
 .sprow{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;font-size:.85rem}
 .sprow input{width:3.6rem;padding:.35rem .4rem;border:1px solid var(--line-2);border-radius:7px;background:var(--paper);color:var(--ink);font:inherit;font-family:var(--mono);text-align:center}
 .sprow select{padding:.35rem .4rem;border:1px solid var(--line-2);border-radius:7px;background:var(--paper);color:var(--ink);font:inherit}
