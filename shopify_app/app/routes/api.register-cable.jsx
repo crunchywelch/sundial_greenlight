@@ -150,7 +150,7 @@ async function updateMarketingConsent(customerId) {
   const { shop, access_token } = sessionResult.rows[0];
 
   const response = await fetch(
-    `https://${shop}/admin/api/2025-07/graphql.json`,
+    `https://${shop}/admin/api/2026-07/graphql.json`,
     {
       method: "POST",
       headers: {

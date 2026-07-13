@@ -1,4 +1,4 @@
-api_version = "2025-10"
+api_version = "2026-07"
 
 [[extensions]]
 name = "My Cables"
@@ -12,4 +12,3 @@ network_access = true
 [[extensions.targeting]]
 module = "./src/FullPage.jsx"
 target = "customer-account.page.render"
-url = "pages/my-cables"

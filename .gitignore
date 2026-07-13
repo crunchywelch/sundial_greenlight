@@ -12,6 +12,8 @@ shopify_app/public/build
 shopify_app/node_modules
 shopify_app/extensions/*/node_modules/
 shopify_app/extensions/*/dist
+shopify_app/extensions/*/manifest.json
+shopify_app/extensions/*/shopify.d.ts
 data/imports/
 data/exports/
 data/sundial.db

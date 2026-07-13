@@ -5,8 +5,8 @@
     "build": "shopify app build --include-config-on-deploy"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "@shopify/ui-extensions": "^2025.1.0",
-    "@shopify/ui-extensions-react": "^2025.1.0"
+    "@shopify/ui-extensions": "2026.7.0",
+    "preact": "^10.29.7",
+    "@preact/signals": "^2.9.3"
   }
 }

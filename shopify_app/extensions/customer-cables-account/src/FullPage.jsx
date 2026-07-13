@@ -1,34 +1,29 @@
-import { useEffect, useState } from "react";
-import {
-  reactExtension,
-  useAuthenticatedAccountCustomer,
-  Page,
-  Card,
-  ResourceItem,
-  BlockStack,
-  InlineStack,
-  Text,
-  Badge,
-  Divider,
-  Banner,
-  Link,
-  Image,
-  View,
-} from "@shopify/ui-extensions-react/customer-account";
+/** @jsxImportSource preact */
+import "@shopify/ui-extensions/preact";
+import { render } from "preact";
+import { useEffect, useState } from "preact/hooks";
 
 const APP_URL = "https://greenlight.sundialwire.com";
 
-export default reactExtension("customer-account.page.render", () => (
-  <MyCablesPage />
-));
+export default async () => {
+  render(<MyCablesPage />, document.body);
+};
+
+// Read the authenticated customer once. `customer` is a signal
+// (SubscribableSignalLike); `.value` is the canonical accessor. The id is a
+// full gid://shopify/Customer/<id>, which the backend expects.
+function getCustomerId() {
+  const signal = shopify?.authenticatedAccount?.customer;
+  const customer = signal?.value ?? signal?.current;
+  return customer?.id ?? null;
+}
 
 function MyCablesPage() {
-  const customer = useAuthenticatedAccountCustomer();
   const [cables, setCables] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const customerId = customer?.id;
+  const customerId = getCustomerId();
 
   useEffect(() => {
     if (!customerId) {
@@ -57,46 +52,47 @@ function MyCablesPage() {
 
   if (loading) {
     return (
-      <Page title="My Cables" loading>
-        <Text>Loading your cables...</Text>
-      </Page>
+      <s-page heading="My Cables">
+        <s-stack direction="inline" gap="base" alignItems="center">
+          <s-spinner />
+          <s-text>Loading your cables...</s-text>
+        </s-stack>
+      </s-page>
     );
   }
 
   if (error) {
     return (
-      <Page title="My Cables">
-        <Banner status="critical" title="Error loading cables">
-          <Text>{error}</Text>
-        </Banner>
-      </Page>
+      <s-page heading="My Cables">
+        <s-banner tone="critical" heading="Error loading cables">
+          <s-text>{error}</s-text>
+        </s-banner>
+      </s-page>
     );
   }
 
   if (cables.length === 0) {
     return (
-      <Page title="My Cables">
-        <Card padding>
-          <BlockStack spacing="base" inlineAlignment="center">
-            <Text emphasis="bold" size="large">
-              No cables registered yet
-            </Text>
-            <Text appearance="subdued">
+      <s-page heading="My Cables">
+        <s-section>
+          <s-stack gap="base" alignItems="center">
+            <s-heading>No cables registered yet</s-heading>
+            <s-text color="subdued">
               Register a cable using the code on your cable's label.
-            </Text>
-            <Link to="https://sundialaudio.com/pages/register">
+            </s-text>
+            <s-link href="https://sundialaudio.com/pages/register">
               Register a Cable
-            </Link>
-          </BlockStack>
-        </Card>
-      </Page>
+            </s-link>
+          </s-stack>
+        </s-section>
+      </s-page>
     );
   }
 
   return (
-    <Page title={`My Cables (${cables.length})`}>
-      <Card padding>
-        <BlockStack spacing="none">
+    <s-page heading={`My Cables (${cables.length})`}>
+      <s-section>
+        <s-stack gap="none">
           {cables.map((cable, index) => (
             <CableItem
               key={cable.serial_number}
@@ -104,9 +100,9 @@ function MyCablesPage() {
               showDivider={index > 0}
             />
           ))}
-        </BlockStack>
-      </Card>
-    </Page>
+        </s-stack>
+      </s-section>
+    </s-page>
   );
 }
 
@@ -130,46 +126,44 @@ function CableItem({ cable, showDivider }) {
 
   return (
     <>
-      {showDivider && <Divider />}
-      <ResourceItem>
-        <InlineStack spacing="base" blockAlignment="center">
-          {cable.image && (
-            <View maxInlineSize={80}>
-              <Image
-                source={`${APP_URL}/images/${cable.image}`}
-                accessibilityDescription={title || cable.sku}
-              />
-            </View>
-          )}
-          <BlockStack spacing="extraTight">
-          <InlineStack spacing="base" blockAlignment="center">
-            <Text emphasis="bold">{title || cable.sku}</Text>
+      {showDivider && <s-divider />}
+      <s-stack direction="inline" gap="base" alignItems="center">
+        {cable.image && (
+          <s-box maxInlineSize="80px">
+            <s-image
+              src={`${APP_URL}/images/${cable.image}`}
+              alt={title || cable.sku}
+            />
+          </s-box>
+        )}
+        <s-stack gap="small-400">
+          <s-stack direction="inline" gap="base" alignItems="center">
+            <s-text type="strong">{title || cable.sku}</s-text>
             {cable.test_passed === true && (
-              <Badge tone="success">QC Passed</Badge>
+              <s-badge tone="success">QC Passed</s-badge>
             )}
             {cable.test_passed === false && (
-              <Badge tone="critical">QC Failed</Badge>
+              <s-badge tone="critical">QC Failed</s-badge>
             )}
             {cable.test_passed == null && (
-              <Badge tone="warning">Not Tested</Badge>
+              <s-badge tone="warning">Not Tested</s-badge>
             )}
-          </InlineStack>
-          <InlineStack spacing="base">
-            <Text appearance="subdued" size="small">
+          </s-stack>
+          <s-stack direction="inline" gap="base">
+            <s-text color="subdued" type="small">
               Serial: {cable.serial_number}
-            </Text>
+            </s-text>
             {length && (
-              <Text appearance="subdued" size="small">{length}</Text>
+              <s-text color="subdued" type="small">{length}</s-text>
             )}
             {cable.test_date && (
-              <Text appearance="subdued" size="small">
+              <s-text color="subdued" type="small">
                 Tested: {new Date(cable.test_date).toLocaleDateString()}
-              </Text>
+              </s-text>
             )}
-          </InlineStack>
-        </BlockStack>
-        </InlineStack>
-      </ResourceItem>
+          </s-stack>
+        </s-stack>
+      </s-stack>
     </>
   );
 }
