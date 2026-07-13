@@ -4,6 +4,9 @@ import { render } from "preact";
 import { useEffect, useState } from "preact/hooks";
 
 const APP_URL = "https://greenlight.sundialwire.com";
+// The generic placeholder image is identical for every LTD/MISC cable, so
+// showing it just makes the list noisier — treat it as "no image".
+const PLACEHOLDER_IMAGE = "cable-special-babies.png";
 
 export default async () => {
   render(<MyCablesPage />, document.body);
@@ -89,21 +92,38 @@ function MyCablesPage() {
     );
   }
 
+  const groups = groupCables(cables);
+
   return (
     <s-page heading={`My Cables (${cables.length})`}>
-      <s-section>
-        <s-stack gap="none">
-          {cables.map((cable, index) => (
-            <CableItem
-              key={cable.serial_number}
-              cable={cable}
-              showDivider={index > 0}
-            />
-          ))}
-        </s-stack>
-      </s-section>
+      <s-stack gap="base">
+        {groups.map((group) => (
+          <CableGroup key={group.key} group={group} />
+        ))}
+      </s-stack>
     </s-page>
   );
+}
+
+// Group cables by variant so a customer who registered 20 identical cables
+// sees one row with a quantity, not 20 near-identical rows. The variant SKU
+// already encodes series + length + connector, so it's the natural key.
+// Insertion order is preserved, which keeps the most recently tested variant
+// first (the API returns rows ordered by test_timestamp DESC).
+function groupCables(cables) {
+  const map = new Map();
+  for (const cable of cables) {
+    const key =
+      cable.sku ||
+      `${cable.sku_group}|${cable.prefix}|${cable.length}|${cable.connector_type}`;
+    let group = map.get(key);
+    if (!group) {
+      group = { key, rep: cable, items: [] };
+      map.set(key, group);
+    }
+    group.items.push(cable);
+  }
+  return [...map.values()];
 }
 
 function formatLength(cable) {
@@ -113,57 +133,91 @@ function formatLength(cable) {
   return `${ft} ft`;
 }
 
-function CableItem({ cable, showDivider }) {
-  // For LTD and MISC cables, the description carries the meaningful
-  // identifier (LTD edition name; MISC variant discriminator) — lead with
-  // it. Catalog cables have a pattern color which is already in the title.
-  const titleParts =
-    cable.kind === "ltd" || cable.kind === "misc"
-      ? [cable.description, cable.series, cable.connector_type]
-      : [cable.series, cable.color, cable.connector_type];
-  const title = titleParts.filter(Boolean).join(" — ");
-  const length = formatLength(cable);
+function formatDate(value) {
+  return new Date(value).toLocaleDateString();
+}
+
+function CableGroup({ group }) {
+  const { rep, items } = group;
+  const qty = items.length;
+
+  // Catalog cables carry a meaningful pattern color (also in the image); LTD
+  // and MISC cables are distinguished by their edition/variant description,
+  // which we show as a secondary line rather than crammed into the heading.
+  const isSpecial = rep.kind === "ltd" || rep.kind === "misc";
+  const headingParts = isSpecial
+    ? [rep.series, rep.connector_type]
+    : [rep.series, rep.color, rep.connector_type];
+  const length = formatLength(rep);
+  const heading = [headingParts.filter(Boolean).join(" — "), length]
+    .filter(Boolean)
+    .join(" · ");
+  const subline = isSpecial ? rep.description : null;
+
+  const showImage = rep.image && rep.image !== PLACEHOLDER_IMAGE;
 
   return (
-    <>
-      {showDivider && <s-divider />}
-      <s-stack direction="inline" gap="base" alignItems="center">
-        {cable.image && (
-          <s-box maxInlineSize="80px">
-            <s-image
-              src={`${APP_URL}/images/${cable.image}`}
-              alt={title || cable.sku}
-            />
-          </s-box>
+    <s-section heading={heading || rep.sku}>
+      <s-stack direction="inline" gap="base" alignItems="start">
+        {showImage && (
+          <s-image
+            src={`${APP_URL}/images/${rep.image}`}
+            alt={heading || rep.sku}
+            inlineSize="64px"
+            aspectRatio="1"
+            objectFit="cover"
+            borderRadius="base"
+          />
         )}
         <s-stack gap="small-400">
-          <s-stack direction="inline" gap="base" alignItems="center">
-            <s-text type="strong">{title || cable.sku}</s-text>
-            {cable.test_passed === true && (
-              <s-badge tone="success">QC Passed</s-badge>
-            )}
-            {cable.test_passed === false && (
-              <s-badge tone="critical">QC Failed</s-badge>
-            )}
-            {cable.test_passed == null && (
-              <s-badge tone="warning">Not Tested</s-badge>
-            )}
-          </s-stack>
-          <s-stack direction="inline" gap="base">
-            <s-text color="subdued" type="small">
-              Serial: {cable.serial_number}
-            </s-text>
-            {length && (
-              <s-text color="subdued" type="small">{length}</s-text>
-            )}
-            {cable.test_date && (
-              <s-text color="subdued" type="small">
-                Tested: {new Date(cable.test_date).toLocaleDateString()}
+          {(qty > 1 || subline) && (
+            <s-stack direction="inline" gap="small-300" alignItems="center">
+              {qty > 1 && <s-badge tone="neutral">{`${qty} cables`}</s-badge>}
+              {subline && (
+                <s-text color="subdued" type="small">
+                  {subline}
+                </s-text>
+              )}
+            </s-stack>
+          )}
+
+          {qty > 1 ? (
+            <s-details>
+              <s-text slot="summary" type="small" color="subdued">
+                Show serial numbers
               </s-text>
-            )}
-          </s-stack>
+              <s-stack gap="small-400" paddingBlockStart="small-400">
+                {items.map((it) => (
+                  <s-stack
+                    key={it.serial_number}
+                    direction="inline"
+                    gap="base"
+                    alignItems="center"
+                  >
+                    <s-text type="small">{it.serial_number}</s-text>
+                    {it.test_date && (
+                      <s-text type="small" color="subdued">
+                        {formatDate(it.test_date)}
+                      </s-text>
+                    )}
+                  </s-stack>
+                ))}
+              </s-stack>
+            </s-details>
+          ) : (
+            <s-stack direction="inline" gap="base" alignItems="center">
+              <s-text color="subdued" type="small">
+                Serial: {rep.serial_number}
+              </s-text>
+              {rep.test_date && (
+                <s-text color="subdued" type="small">
+                  {formatDate(rep.test_date)}
+                </s-text>
+              )}
+            </s-stack>
+          )}
         </s-stack>
       </s-stack>
-    </>
+    </s-section>
   );
 }
