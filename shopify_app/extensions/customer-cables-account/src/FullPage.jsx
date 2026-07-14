@@ -146,9 +146,7 @@ function CableGroup({ group }) {
     ? [rep.series, rep.connector_type]
     : [rep.series, rep.color, rep.connector_type];
   const length = formatLength(rep);
-  const heading = [headingParts.filter(Boolean).join(" — "), length]
-    .filter(Boolean)
-    .join(" · ");
+  const heading = [...headingParts, length].filter(Boolean).join(", ");
   const subline = isSpecial ? rep.description : null;
 
   // The API returns a full image URL (Shopify CDN, or a curated fallback) or
@@ -179,8 +177,8 @@ function CableGroup({ group }) {
           )}
 
           {/* Special-edition cables (LTD/MISC) can't be identified by name, and
-              a serial number isn't a Shopify lookup key — the variant SKU is.
-              Surface it so the product is findable in Shopify. */}
+              a serial number isn't a Shopify lookup key, but the variant SKU
+              is. Surface it so the product is findable in Shopify. */}
           {isSpecial && (
             <s-text color="subdued" type="small">
               SKU: {rep.sku}
