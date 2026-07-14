@@ -178,6 +178,15 @@ function CableGroup({ group }) {
             </s-stack>
           )}
 
+          {/* Special-edition cables (LTD/MISC) can't be identified by name, and
+              a serial number isn't a Shopify lookup key — the variant SKU is.
+              Surface it so the product is findable in Shopify. */}
+          {isSpecial && (
+            <s-text color="subdued" type="small">
+              SKU: {rep.sku}
+            </s-text>
+          )}
+
           {qty > 1 ? (
             <s-details>
               <s-text slot="summary" type="small" color="subdued">
