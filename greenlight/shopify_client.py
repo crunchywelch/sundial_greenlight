@@ -1033,7 +1033,10 @@ def get_all_product_skus() -> Dict[str, Dict[str, Any]]:
             variants = product.get("variants", {}).get("edges", [])
             for variant_edge in variants:
                 variant = variant_edge["node"]
-                sku = variant.get("sku", "").strip()
+                # Shopify returns sku: null (not a missing key) for variants
+                # with no SKU set, so the "" default doesn't apply — guard the
+                # None explicitly or .strip() aborts the whole fetch.
+                sku = (variant.get("sku") or "").strip()
 
                 if sku:
                     inv_item = variant.get("inventoryItem") or {}
@@ -1508,7 +1511,10 @@ def sync_inventory_for_cable(cable_record: Dict[str, Any]) -> Tuple[bool, Option
     Because the underlying set is absolute (not a delta), this is idempotent
     and safe to call as often as changes are made.
 
-    - LTD cables have no Shopify product and are skipped (returns success).
+    - LTD cables sync like catalog once their Shopify product exists. Editions
+      whose product hasn't been built yet just fail the inventory set here
+      ("No inventory item found"); that's fine and expected — the reconcile
+      catches them up the moment the product is created with matching SKUs.
     - MISC cables create/find their "Special Baby" product on demand.
 
     Returns (success, error_msg). Never raises.
@@ -1517,9 +1523,6 @@ def sync_inventory_for_cable(cable_record: Dict[str, Any]) -> Tuple[bool, Option
         from greenlight.db import get_available_count_for_sku
 
         kind = cable_record.get("kind")
-        if kind == "ltd":
-            return True, None  # LTD is never sold via Shopify — nothing to sync
-
         variant_sku = cable_record.get("variant_sku") or cable_record.get("sku_group")
         if not variant_sku:
             return False, "Cable record has no variant_sku / sku_group"

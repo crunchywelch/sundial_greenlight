@@ -33,9 +33,12 @@ def get_postgres_available_counts():
     wholesale/reseller channel (registration_code IS NULL) — mirrors
     db.get_available_count_for_sku so the live push and this reconcile agree.
 
-    LTD cables are excluded (sku_group 'LTD-%'): they are never sold via
-    Shopify and have no product/inventory item, so the live sync skips them
-    too. Including them here just produces "No inventory item" failures.
+    LTD cables are included: editions with a built Shopify product (matching
+    variant SKUs) reconcile and fix like any catalog SKU. Editions whose
+    product hasn't been built yet have no Shopify counterpart, so their
+    available cables surface under "Postgres only" — a checklist of what's
+    left to productize, not an error. (--fix never auto-creates LTD products;
+    only MISC does.)
 
     Phase 5: groups by (sku_group, prefix, length, connector_code) — series
     prefix lives on audio_cables now. Returns dict keyed by computed
@@ -52,7 +55,6 @@ def get_postgres_available_counts():
                 WHERE ac.test_passed = TRUE
                   AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
                   AND ac.registration_code IS NULL
-                  AND ac.sku_group NOT LIKE 'LTD-%'
                 GROUP BY ac.sku_group, ac.prefix, ac.length, ac.connector_code
                 ORDER BY ac.prefix, ac.sku_group, ac.length, ac.connector_code
             """)
@@ -219,7 +221,8 @@ def fix_mismatches():
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Reconcile Shopify inventory with Postgres available cable counts"
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--fix", action="store_true",
