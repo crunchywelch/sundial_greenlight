@@ -163,6 +163,18 @@ export default function CustomerCables() {
                         {cable.description}
                       </div>
                     )}
+                    {/* Search the Shopify admin by SKU. Works whether or not the
+                        product exists, so a missing product is obvious (an empty
+                        result). App Bridge intercepts the shopify:admin/ link. */}
+                    <div style={{ marginTop: '4px' }}>
+                      <a
+                        href={`shopify:admin/products?query=${encodeURIComponent(`sku:${cable.sku}`)}`}
+                        target="_top"
+                        style={{ fontSize: '13px', color: '#008060', textDecoration: 'none' }}
+                      >
+                        Find in Shopify
+                      </a>
+                    </div>
                   </div>
                   <div style={{
                     padding: '4px 12px',
