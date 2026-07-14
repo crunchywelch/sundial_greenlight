@@ -255,7 +255,7 @@ def find_differences(yaml_map, shopify_map):
 
     for sku, yaml_vals in sorted(yaml_map.items()):
         if sku not in shopify_map:
-            continue  # SKU not in Shopify — shopify_sku_sync.py handles that
+            continue  # SKU not in Shopify — audio_sku_catalog_report.py flags that
 
         shopify_vals = shopify_map[sku]
 
@@ -358,7 +358,8 @@ def update_variant(product_id, variant_id, price=None, cost=None, weight=None):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Sync pricing, cost, and weight from YAML to Shopify'
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument('--fix', action='store_true',
                         help='Update Shopify to match YAML values')

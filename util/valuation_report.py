@@ -83,6 +83,9 @@ def run_report(conn, report_date):
 
 
 def main():
+    if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
+        print(__doc__)
+        sys.exit(0)
     report_date = sys.argv[1] if len(sys.argv) > 1 else None
 
     conn = get_db()

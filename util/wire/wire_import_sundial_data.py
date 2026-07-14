@@ -112,6 +112,9 @@ def import_wire_cost_data(conn):
 
 
 def main():
+    if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
+        print(__doc__)
+        sys.exit(0)
     print("Importing vendor data and wire cost parameters...")
     print(f"Database: {DATA_DIR / 'sundial.db'}")
     print()

@@ -155,7 +155,10 @@ def update_skus_for_product(product_id, variant_updates):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Batch 1: Update existing wire SKUs in Shopify")
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--fix", action="store_true", help="Apply SKU updates (default: preview only)")
     parser.add_argument("--batch", type=int, default=0, help="Limit to first N products (0 = all)")
     args = parser.parse_args()

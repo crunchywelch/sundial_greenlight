@@ -160,7 +160,8 @@ def refresh_from_shopify(conn):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Refresh product data from Shopify Wire store into SQLite"
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--sku", help="Show data for a specific SKU after refresh")
     args = parser.parse_args()

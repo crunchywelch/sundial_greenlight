@@ -221,6 +221,9 @@ def print_diagnostics(diag):
 
 
 def main():
+    if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
+        print(__doc__)
+        sys.exit(0)
     products = json.loads((D / "wire_products_all.json").read_text())
     ov_path = D / "compat_overrides.json"
     overrides = json.loads(ov_path.read_text()) if ov_path.exists() else None

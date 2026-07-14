@@ -41,7 +41,8 @@ def refresh_shopify_data(conn):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Nightly inventory data refresh and valuation report"
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--skip-refresh", action="store_true",

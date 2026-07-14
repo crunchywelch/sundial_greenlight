@@ -75,6 +75,10 @@ def list_printer_files(printer_ip: str):
 
 
 if __name__ == "__main__":
+    if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
+        print(__doc__)
+        sys.exit(0)
+
     if len(sys.argv) < 2:
         print(__doc__)
         sys.exit(1)

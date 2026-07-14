@@ -184,11 +184,15 @@ discrete URL: `/app/scan`, `/app/assign`, `/app/customers`,
 `host` param via `<Link>` + location.search.
 
 ### Util scripts
-- `util/audio/audio_shopify_sku_sync.py` — variant-level SKU comparison
-  between DB and Shopify. Walks distinct `(sku_group, prefix, length,
-  connector_code)` tuples from `audio_cables`.
-- `util/audio/audio_shopify_inventory_reconcile.py` — same shape, counts
-  available cables per variant and compares to Shopify inventory.
+- `util/audio/audio_sku_catalog_report.py` — catalog-completeness report
+  across SKU kinds (catalog/LTD/MISC). Lists every variant in `audio_cables`
+  (walking distinct `(sku_group, prefix, length, connector_code)` tuples)
+  with total/available/assigned/wholesale counts, cross-referenced against
+  Shopify variants (flags missing / blank-SKU / phantom). Supersedes the old
+  `audio_shopify_sku_sync.py`.
+- `util/audio/audio_shopify_inventory_reconcile.py` — availability-focused:
+  counts *available* cables per variant and reconciles/fixes Shopify
+  inventory to match.
 - `util/audio/audio_shopify_price_sync.py` — sync prices/costs/weights
   to Shopify. Reads `back_office/pricing.yaml` and `back_office/weights.yaml`
   for catalog pricing; reads `audio_cables` for MISC variant lengths.

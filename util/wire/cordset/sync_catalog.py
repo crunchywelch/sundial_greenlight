@@ -60,6 +60,9 @@ def fetch_products():
 
 
 def main():
+    if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
+        print(__doc__)
+        sys.exit(0)
     get_wire_shopify_session()
     try:
         products = fetch_products()

@@ -208,7 +208,10 @@ def create_variants_for_product(product_id, option_id, new_variants):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Batch 2: Create new wire variants in Shopify")
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--fix", action="store_true", help="Create variants (default: preview only)")
     parser.add_argument("--batch", type=int, default=0, help="Limit to first N products (0 = all)")
     args = parser.parse_args()

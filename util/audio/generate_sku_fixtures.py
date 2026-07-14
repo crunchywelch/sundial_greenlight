@@ -88,6 +88,9 @@ def build_round_trip_entry(variant_sku):
 
 
 def main():
+    if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
+        print(__doc__)
+        sys.exit(0)
     service = os.environ.get('PGSERVICE', 'greenlight')
     print(f'Connecting via PGSERVICE={service}...')
     try:

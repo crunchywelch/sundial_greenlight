@@ -153,7 +153,8 @@ def update_variant_policy(product_id, variant_id, policy):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Audit and fix wire variant inventory policies"
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--fix", action="store_true",
                         help="Fix mismatched policies in Shopify")

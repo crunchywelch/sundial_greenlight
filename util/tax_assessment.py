@@ -433,7 +433,8 @@ def generate_report(conn, tax_year):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate Schedule E property tax assessment report"
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--year", type=int, default=2025,
                         help="Tax year (default: 2025)")
