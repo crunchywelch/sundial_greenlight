@@ -4,9 +4,6 @@ import { render } from "preact";
 import { useEffect, useState } from "preact/hooks";
 
 const APP_URL = "https://greenlight.sundialwire.com";
-// The generic placeholder image is identical for every LTD/MISC cable, so
-// showing it just makes the list noisier — treat it as "no image".
-const PLACEHOLDER_IMAGE = "cable-special-babies.png";
 
 export default async () => {
   render(<MyCablesPage />, document.body);
@@ -154,20 +151,20 @@ function CableGroup({ group }) {
     .join(" · ");
   const subline = isSpecial ? rep.description : null;
 
-  const showImage = rep.image && rep.image !== PLACEHOLDER_IMAGE;
+  // The API returns a full image URL (Shopify CDN, or a curated fallback) or
+  // null when there's no image for the variant yet.
+  const showImage = Boolean(rep.image);
 
   return (
     <s-section heading={heading || rep.sku}>
       <s-stack direction="inline" gap="base" alignItems="start">
         {showImage && (
-          <s-image
-            src={`${APP_URL}/images/${rep.image}`}
-            alt={heading || rep.sku}
-            inlineSize="64px"
-            aspectRatio="1"
-            objectFit="cover"
-            borderRadius="base"
-          />
+          // Size is constrained by the box, not the image: s-image's own
+          // inlineSize doesn't honor a px value, so a bare image renders full
+          // width. The box caps it to a thumbnail.
+          <s-box inlineSize="72px" borderRadius="base" overflow="hidden">
+            <s-image src={rep.image} alt={heading || rep.sku} />
+          </s-box>
         )}
         <s-stack gap="small-400">
           {(qty > 1 || subline) && (
