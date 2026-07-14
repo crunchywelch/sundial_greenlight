@@ -5,7 +5,7 @@
 # Loaded by greenlight/shopify_client.py specifically when creating a
 # Shopify product for a MISC ("Special Baby") variant — the weight of a
 # new MISC product is computed from this file at create time, since
-# back_office/weights.yaml only covers catalog (predefined) lengths.
+# back_office/economics.yaml only covers catalog (predefined) lengths.
 #
 # Editing changes the computed weight passed to Shopify for newly-created
 # MISC products. Existing products are unaffected (their weight is already

@@ -1,0 +1,66 @@
+# =============================================================================
+# economics.yaml — BACK OFFICE ONLY
+# =============================================================================
+#
+# Consolidates the former pricing.yaml + weights.yaml into ONE table, so every
+# money/weight number for a given (series, length) lives in one place instead
+# of being split across two files keyed by length. (That split had already
+# drifted — SC 15ft had a price but no weight; see the null below.)
+#
+# NOT read by greenlight or the Shopify Remix app at runtime — consumed only by
+# util/audio scripts that sync price/cost/weight to Shopify, via
+# greenlight/product_lines.py load_yaml_skus(). Editing changes nothing live
+# until the sync script runs; Shopify is canonical once pushed.
+#
+# Per (series, length):
+#   price    — retail price (USD). Straight and right-angle sell for the same
+#              price, so there is no price_ra.
+#   cost     — unit cost (USD) of the straight variant.
+#   cost_ra  — unit cost of the right-angle variant. Only series with a '-R'
+#              connector carry it (SC, TC); XLR series (SV, TV) omit it.
+#   weight   — finished-product weight (ounces).
+#
+# load_yaml_skus() validates that the lengths here match each series' lengths
+# in cable_lines.yaml (raises on mismatch) and WARNS on any missing
+# price/cost/weight — so a gap like the SC-15 weight can't hide again.
+#
+# Price ladder (2026-07-14): 3'=$49, 6'/10'=$59, 12'/15'=$69, 20'/25'=$89.
+# 1' (SC/SV only) stays at $49.
+# =============================================================================
+
+series:
+  SC:                                                              # Studio Classic — instrument, TS / right-angle
+#    1:  { price: 49.00, cost:  9.22, cost_ra: 11.21, weight:  2.5 }
+    3:  { price: 49.00, cost: 10.78, cost_ra: 12.77, weight:  3.5 }
+    6:  { price: 59.00, cost: 13.12, cost_ra: 15.11, weight:  6.5 }
+    10: { price: 59.00, cost: 16.24, cost_ra: 18.23, weight:  7.5 }
+    12: { price: 69.00, cost: 17.80, cost_ra: 19.79, weight:  8.5 }
+    15: { price: 69.00, cost: 20.14, cost_ra: 22.13, weight: 9.5 }  # TODO: measure 15ft weight (was missing in old weights.yaml)
+    20: { price: 89.00, cost: 24.04, cost_ra: 26.03, weight: 13 }
+    25: { price: 89.00, cost: 25.90, cost_ra: 27.74, weight: 15 }
+
+  SV:                                                              # Studio Vocal — XLR
+#    1:  { price: 49.00, cost:  9.04, weight:  3 }
+    3:  { price: 49.00, cost: 10.13, weight:  4 }
+    6:  { price: 59.00, cost: 11.76, weight:  7 }
+    10: { price: 59.00, cost: 13.94, weight:  8 }
+    12: { price: 69.00, cost: 15.03, weight:  9 }
+    15: { price: 69.00, cost: 16.66, weight: 10.5 }
+    20: { price: 89.00, cost: 19.38, weight: 13.5 }
+    25: { price: 89.00, cost: 18.43, weight: 15 }
+
+  TC:                                                              # Tour Classic — instrument, TS / right-angle
+    3:  { price: 49.00, cost:  9.80, cost_ra: 11.64, weight:  3.5 }
+    6:  { price: 59.00, cost: 11.99, cost_ra: 13.83, weight:  6.5 }
+    10: { price: 59.00, cost: 14.92, cost_ra: 16.76, weight:  7.5 }
+    15: { price: 69.00, cost: 18.58, cost_ra: 20.42, weight:  9.5 }
+    20: { price: 89.00, cost: 22.24, cost_ra: 24.08, weight: 13 }
+    25: { price: 89.00, cost: 25.90, cost_ra: 27.74, weight: 15 }
+
+  TV:                                                              # Tour Vocal — XLR
+    3:  { price: 49.00, cost:  7.51, weight:  4.5 }
+    6:  { price: 59.00, cost:  9.00, weight:  7 }
+    10: { price: 59.00, cost: 10.98, weight:  8 }
+    15: { price: 69.00, cost: 13.47, weight:  9.5 }
+    20: { price: 89.00, cost: 15.95, weight: 13.5 }
+    25: { price: 89.00, cost: 18.43, weight: 15 }

@@ -3,10 +3,12 @@
 Used by both the greenlight app and CLI utilities.
 """
 
+import logging
 import yaml
 from pathlib import Path
 from collections import defaultdict
 
+logger = logging.getLogger(__name__)
 
 PRODUCT_LINES_DIR = Path(__file__).parent.parent / "util" / "product_lines"
 
@@ -20,17 +22,77 @@ PREFIX_MAP = {
 LOW_STOCK_THRESHOLD = 2
 
 
+def _load_economics():
+    """Load back_office/economics.yaml → {prefix: {length: {price, cost, cost_ra, weight}}}.
+
+    Consolidates the former pricing.yaml + weights.yaml. Returns {} if absent.
+    """
+    path = PRODUCT_LINES_DIR / "back_office" / "economics.yaml"
+    if not path.exists():
+        return {}
+    with open(path) as f:
+        data = yaml.safe_load(f) or {}
+    return data.get("series", {}) or {}
+
+
+def _validate_economics(economics, cable_lines_data):
+    """Cross-check economics.yaml against the runtime series definitions.
+
+    Raises on structural drift (a series' economics lengths not matching its
+    cable_lines lengths). Logs a warning — but does not raise — for individual
+    missing price/cost/weight values, so a gap like the old SC-15 missing
+    weight surfaces loudly instead of silently syncing nothing.
+    """
+    errors, warnings = [], []
+    for data in cable_lines_data.get("series", []):
+        prefix = data.get("sku_prefix")
+        if not prefix:
+            continue
+        want_lengths = set(data.get("lengths", []))
+        has_ra = any((c.get("code") or "") == "-R" for c in data.get("connectors", []))
+
+        econ = economics.get(prefix)
+        if econ is None:
+            errors.append(f"{prefix}: no economics entry")
+            continue
+
+        have_lengths = set(econ.keys())
+        if want_lengths - have_lengths:
+            errors.append(f"{prefix}: economics missing length(s) {sorted(want_lengths - have_lengths)}")
+        if have_lengths - want_lengths:
+            errors.append(f"{prefix}: economics has length(s) not in cable_lines {sorted(have_lengths - want_lengths)}")
+
+        for length in sorted(want_lengths & have_lengths):
+            entry = econ.get(length) or {}
+            for field in ("price", "cost", "weight"):
+                if entry.get(field) is None:
+                    warnings.append(f"{prefix}-{length}: missing {field}")
+            if has_ra and entry.get("cost_ra") is None:
+                warnings.append(f"{prefix}-{length}: missing cost_ra (series has a right-angle connector)")
+
+    if warnings:
+        logger.warning(
+            "economics.yaml has %d incomplete value(s):\n  %s",
+            len(warnings), "\n  ".join(warnings),
+        )
+    if errors:
+        raise ValueError("economics.yaml structural errors:\n  " + "\n  ".join(errors))
+
+
 def load_yaml_skus():
     """Load all defined SKUs from YAML product line files.
 
-    Post-2026-05-06 layout:
-      cable_lines.yaml         — runtime: sku_prefix, product_line, lengths,
-                                 connectors, braid_material
-      patterns.yaml            — runtime: pattern catalog
-      back_office/pricing.yaml — back-office: cost + pricing per series
-      back_office/weights.yaml — back-office: per-length finished weights
+    Layout:
+      cable_lines.yaml           — runtime: sku_prefix, product_line, lengths,
+                                   connectors, braid_material
+      patterns.yaml              — runtime: pattern catalog
+      back_office/economics.yaml — back-office: price + cost + cost_ra + weight
+                                   per (series, length) (merged pricing+weights)
 
-    Returns dict: sku_prefix -> {name, lengths, connectors, patterns, pricing, cost, weight}
+    Returns dict: sku_prefix -> {name, lengths, connectors, patterns, pricing, cost, weight}.
+    The pricing/cost/weight sub-dicts keep the pre-consolidation shape (cost
+    carries '{length}R' keys for right-angle) so downstream callers are
+    unchanged — only the source file changed.
     """
     patterns_path = PRODUCT_LINES_DIR / "patterns.yaml"
     with open(patterns_path) as f:
@@ -44,19 +106,8 @@ def load_yaml_skus():
     with open(cable_lines_path) as f:
         cable_lines_data = yaml.safe_load(f) or {}
 
-    pricing_path = PRODUCT_LINES_DIR / "back_office" / "pricing.yaml"
-    pricing_by_prefix = {}
-    if pricing_path.exists():
-        with open(pricing_path) as f:
-            pricing_data = yaml.safe_load(f) or {}
-        pricing_by_prefix = pricing_data.get("series", {}) or {}
-
-    weights_path = PRODUCT_LINES_DIR / "back_office" / "weights.yaml"
-    weights_by_prefix = {}
-    if weights_path.exists():
-        with open(weights_path) as f:
-            weights_data = yaml.safe_load(f) or {}
-        weights_by_prefix = weights_data.get("series", {}) or {}
+    economics = _load_economics()
+    _validate_economics(economics, cable_lines_data)
 
     lines = {}
     for data in cable_lines_data.get("series", []):
@@ -66,15 +117,30 @@ def load_yaml_skus():
         fabric = data.get("braid_material", "").lower()
         line_patterns = patterns_by_fabric.get(fabric, [])
 
-        back_office = pricing_by_prefix.get(prefix, {}) or {}
+        # Reshape economics into the legacy pricing/cost/weight dicts. Skip
+        # null values so missing keys stay missing (identical to the old
+        # two-file behavior — e.g. SC-15 weight simply won't be present).
+        econ = economics.get(prefix, {}) or {}
+        pricing, cost, weight = {}, {}, {}
+        for length, entry in econ.items():
+            entry = entry or {}
+            if entry.get("price") is not None:
+                pricing[length] = entry["price"]
+            if entry.get("cost") is not None:
+                cost[length] = entry["cost"]
+            if entry.get("cost_ra") is not None:
+                cost[f"{length}R"] = entry["cost_ra"]
+            if entry.get("weight") is not None:
+                weight[length] = entry["weight"]
+
         lines[prefix] = {
             "name": data["product_line"],
             "lengths": data["lengths"],
             "connectors": data.get("connectors", [{"code": "", "display": ""}]),
             "patterns": line_patterns,
-            "pricing": back_office.get("pricing", {}) or {},
-            "cost": back_office.get("cost", {}) or {},
-            "weight": weights_by_prefix.get(prefix, {}) or {},
+            "pricing": pricing,
+            "cost": cost,
+            "weight": weight,
         }
     return lines
 

@@ -108,8 +108,7 @@ util/product_lines/
   cable_lines.yaml          # APP RUNTIME — per-series sku_prefix, lengths, connectors
   materials.yaml            # APP RUNTIME (narrow) — per-foot/connector weights for MISC product creation
   back_office/
-    pricing.yaml            # back-office only — cost + price tables per series
-    weights.yaml            # back-office only — per-length finished-product weights
+    economics.yaml          # back-office only — price + cost + cost_ra + weight per (series, length)
 ```
 
 Audience separation is the point. App runtime files are tiny and rarely
@@ -194,8 +193,8 @@ discrete URL: `/app/scan`, `/app/assign`, `/app/customers`,
   counts *available* cables per variant and reconciles/fixes Shopify
   inventory to match.
 - `util/audio/audio_shopify_price_sync.py` — sync prices/costs/weights
-  to Shopify. Reads `back_office/pricing.yaml` and `back_office/weights.yaml`
-  for catalog pricing; reads `audio_cables` for MISC variant lengths.
+  to Shopify. Reads `back_office/economics.yaml` for catalog price/cost/weight;
+  reads `audio_cables` for MISC variant lengths.
 - `util/audio/generate_sku_fixtures.py` — regenerates
   `tests/sku_fixtures_prod.json` against current prod state. Run after
   any YAML edit that touches back-compat surface area.
@@ -273,3 +272,9 @@ git history.
   audience. Per-series files consolidated into `cable_lines.yaml` (app
   runtime); cost/pricing/weight tables moved to `back_office/`. Each
   file has a header documenting its audience and blast radius.
+- **Phase 7** (shipped 2026-07-14) — merged `back_office/pricing.yaml` +
+  `weights.yaml` into a single `back_office/economics.yaml` keyed by
+  (series, length) → {price, cost, cost_ra, weight}, so all money/weight for
+  a length lives in one place. `load_yaml_skus()` now validates that
+  economics lengths match `cable_lines.yaml` and warns on missing values
+  (surfaced a pre-existing SC-15 missing weight). Loader output unchanged.
