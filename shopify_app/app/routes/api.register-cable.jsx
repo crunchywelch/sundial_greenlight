@@ -109,7 +109,7 @@ export async function action({ request }) {
 
     await query(
       `UPDATE audio_cables
-       SET shopify_gid = $1, updated_timestamp = NOW()
+       SET shopify_gid = $1, registered_at = NOW(), updated_timestamp = NOW()
        WHERE registration_code = $2 AND (shopify_gid IS NULL OR shopify_gid = '')`,
       [customerId, normalizedCode]
     );

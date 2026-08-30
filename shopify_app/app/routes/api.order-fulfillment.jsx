@@ -82,7 +82,9 @@ export async function loader({ request }) {
         ac.test_passed,
         ac.test_timestamp,
         ac.shopify_gid,
-        ac.shopify_order_gid
+        ac.shopify_order_gid,
+        ac.wholesale_company_gid,
+        ac.wholesale_location_gid
       FROM audio_cables ac
       WHERE ac.shopify_order_gid = $1
       ORDER BY ac.updated_timestamp DESC NULLS LAST`,
@@ -94,6 +96,8 @@ export async function loader({ request }) {
       ...buildCableDisplay(row),
       test_date: row.test_timestamp,
       test_passed: row.test_passed,
+      wholesale_company_gid: row.wholesale_company_gid,
+      wholesale_location_gid: row.wholesale_location_gid,
     }));
 
     return json({ cables });
@@ -146,6 +150,8 @@ async function handleLookupCable({ serialNumber }) {
       ac.connector_code,
       ac.shopify_gid,
       ac.shopify_order_gid,
+      ac.wholesale_company_gid,
+      ac.wholesale_location_gid,
       ac.test_passed
     FROM audio_cables ac
     WHERE ac.serial_number = $1`,
@@ -163,15 +169,24 @@ async function handleLookupCable({ serialNumber }) {
       ...buildCableDisplay(row),
       shopify_gid: row.shopify_gid,
       shopify_order_gid: row.shopify_order_gid,
+      wholesale_company_gid: row.wholesale_company_gid,
+      wholesale_location_gid: row.wholesale_location_gid,
       test_passed: row.test_passed,
     },
   });
 }
 
-async function handleAssignCable({ serialNumber, orderId, customerId, lineItemSkus }) {
-  if (!serialNumber || !orderId || !customerId) {
+// Retail vs wholesale is decided by which identity the order carries: a B2B
+// order has a company (purchasingEntity = PurchasingCompany) and no meaningful
+// end customer; a retail order has a customer. This mirrors greenlight's
+// assign_cable_to_order — shopify_gid means the END OWNER, so a B2B assign
+// records the dealer and leaves shopify_gid NULL for the buyer to register later.
+async function handleAssignCable({ serialNumber, orderId, customerId, companyId, companyLocationId, lineItemSkus }) {
+  // A B2B assign has no end customer (the dealer company stands in); a retail
+  // assign has no company. Require the order plus one of the two.
+  if (!serialNumber || !orderId || (!customerId && !companyId)) {
     return json(
-      { error: "serialNumber, orderId, and customerId are required" },
+      { error: "serialNumber, orderId, and a customer or company are required" },
       { status: 400 }
     );
   }
@@ -197,6 +212,15 @@ async function handleAssignCable({ serialNumber, orderId, customerId, lineItemSk
     connector_code: cable.connector_code,
   });
 
+  // shopify_gid means the end owner has already registered this cable. It can't
+  // then be sold to a dealer — that would strand the buyer's registration.
+  if (companyId && cable.shopify_gid && cable.shopify_gid !== "") {
+    return json(
+      { error: "Cable is registered to an end owner and cannot be assigned to a dealer", code: "ALREADY_REGISTERED" },
+      { status: 409 }
+    );
+  }
+
   if (cable.shopify_order_gid === orderId) {
     return json({ error: "Cable already scanned for this order", code: "DUPLICATE" }, { status: 409 });
   }
@@ -220,15 +244,26 @@ async function handleAssignCable({ serialNumber, orderId, customerId, lineItemSk
     }
   }
 
-  await query(
-    `UPDATE audio_cables
-     SET shopify_gid = $1, shopify_order_gid = $2, updated_timestamp = NOW()
-     WHERE serial_number = $3`,
-    [customerId, orderId, serialNumber]
-  );
+  if (companyId) {
+    // Wholesale: record the dealer; leave shopify_gid for the buyer to claim.
+    await query(
+      `UPDATE audio_cables
+       SET wholesale_company_gid = $1, wholesale_location_gid = $2, shopify_order_gid = $3, updated_timestamp = NOW()
+       WHERE serial_number = $4`,
+      [companyId, companyLocationId ?? null, orderId, serialNumber]
+    );
+  } else {
+    await query(
+      `UPDATE audio_cables
+       SET shopify_gid = $1, shopify_order_gid = $2, updated_timestamp = NOW()
+       WHERE serial_number = $3`,
+      [customerId, orderId, serialNumber]
+    );
+  }
 
   return json({
     success: true,
+    channel: companyId ? "wholesale" : "retail",
     cable: { serial_number: serialNumber, sku: cableVariantSku },
   });
 }
@@ -241,10 +276,14 @@ async function handleUnassignCable({ serialNumber, orderId }) {
     );
   }
 
-  // Only unassign if it belongs to this order
+  // Only unassign if it belongs to this order. Clear both channels (retail owner
+  // and wholesale dealer) plus registered_at, since a registration date with no
+  // owner is meaningless.
   const result = await query(
     `UPDATE audio_cables
-     SET shopify_gid = NULL, shopify_order_gid = NULL, updated_timestamp = NOW()
+     SET shopify_gid = NULL, shopify_order_gid = NULL,
+         wholesale_company_gid = NULL, wholesale_location_gid = NULL,
+         registered_at = NULL, updated_timestamp = NOW()
      WHERE serial_number = $1 AND shopify_order_gid = $2`,
     [serialNumber, orderId]
   );

@@ -21,6 +21,8 @@ function OrderFulfillmentBlock() {
   const { data, query } = useApi(TARGET);
   const [lineItems, setLineItems] = useState([]);
   const [customerId, setCustomerId] = useState(null);
+  // B2B order: the purchasing company + location. null for a retail order.
+  const [company, setCompany] = useState(null);
   const [fulfillmentStatus, setFulfillmentStatus] = useState(null);
   const [assignedCables, setAssignedCables] = useState([]);
   const [greenlightHosts, setGreenlightHosts] = useState([]);
@@ -49,6 +51,13 @@ function OrderFulfillmentBlock() {
               customer {
                 id
               }
+              purchasingEntity {
+                __typename
+                ... on PurchasingCompany {
+                  company { id name }
+                  location { id name }
+                }
+              }
               lineItems(first: 50) {
                 edges {
                   node {
@@ -66,6 +75,16 @@ function OrderFulfillmentBlock() {
         const order = result?.data?.order;
         if (order) {
           setCustomerId(order.customer?.id || null);
+          const pe = order.purchasingEntity;
+          if (pe?.__typename === "PurchasingCompany" && pe.company?.id) {
+            setCompany({
+              id: pe.company.id,
+              name: pe.company.name || null,
+              locationId: pe.location?.id || null,
+            });
+          } else {
+            setCompany(null);
+          }
           setFulfillmentStatus(order.displayFulfillmentStatus || null);
           const items = (order.lineItems?.edges || []).map((e) => ({
             title: e.node.title,
@@ -114,8 +133,10 @@ function OrderFulfillmentBlock() {
   // Assign a scanned cable
   const assignCable = useCallback(
     async (serial) => {
-      if (!orderId || !customerId) {
-        showBanner("warning", "Order has no customer assigned");
+      // A B2B order has a company but often no meaningful end customer, so the
+      // company must be able to gate the assign on its own.
+      if (!orderId || (!customerId && !company)) {
+        showBanner("warning", "Order has no customer or company assigned");
         return;
       }
 
@@ -130,6 +151,8 @@ function OrderFulfillmentBlock() {
             serialNumber: serial,
             orderId,
             customerId,
+            companyId: company?.id || null,
+            companyLocationId: company?.locationId || null,
             lineItemSkus,
           }),
         });
@@ -148,6 +171,8 @@ function OrderFulfillmentBlock() {
             fetchAssignedCables();
           } else if (code === "ALREADY_ASSIGNED") {
             showBanner("critical", `${serial} is assigned to a different order`);
+          } else if (code === "ALREADY_REGISTERED") {
+            showBanner("critical", `${serial} is registered to an end owner and can't be sold to a dealer`);
           } else if (code === "SKU_MISMATCH") {
             showBanner(
               "critical",
@@ -162,7 +187,7 @@ function OrderFulfillmentBlock() {
         showBanner("critical", "Network error assigning cable");
       }
     },
-    [orderId, customerId, lineItems, showBanner, fetchAssignedCables]
+    [orderId, customerId, company, lineItems, showBanner, fetchAssignedCables]
   );
 
   // Unassign a cable
@@ -258,6 +283,13 @@ function OrderFulfillmentBlock() {
   return (
     <AdminBlock title={`Fulfillment (${totalScanned}/${totalNeeded})`}>
       <BlockStack gap="base">
+        {/* B2B order: show the dealer so the operator knows this is wholesale. */}
+        {company && (
+          <InlineStack gap="base" blockAlignment="center">
+            <Badge tone="info">{`B2B · ${company.name || "Company"}`}</Badge>
+          </InlineStack>
+        )}
+
         {/* Scanner status (active mode only) */}
         {!isReadOnly && (
           <InlineStack gap="base" blockAlignment="center">
