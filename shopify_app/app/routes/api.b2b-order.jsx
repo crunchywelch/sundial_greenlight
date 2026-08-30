@@ -13,6 +13,7 @@ import {
   verifyCustomerAccountToken,
   resolvePurchasingCompany,
   createWholesaleDraftOrder,
+  normalizeCompanyLocationId,
   HttpError,
 } from "../b2b.server";
 
@@ -24,7 +25,6 @@ const CORS_HEADERS = {
 };
 const corsJson = (data, status = 200) => json(data, { status, headers: CORS_HEADERS });
 
-const COMPANY_LOCATION_GID = /^gid:\/\/shopify\/CompanyLocation\/\d+$/;
 const VARIANT_GID = /^gid:\/\/shopify\/ProductVariant\/\d+$/;
 const MAX_LINES = 500;
 const MAX_QTY = 9999;
@@ -52,8 +52,8 @@ export async function action({ request }) {
       return corsJson({ error: "Invalid JSON body" }, 400);
     }
 
-    const companyLocationId = String(body?.companyLocationId || "");
-    if (!COMPANY_LOCATION_GID.test(companyLocationId)) {
+    const companyLocationId = normalizeCompanyLocationId(body?.companyLocationId);
+    if (!companyLocationId) {
       return corsJson({ error: "A valid companyLocationId is required" }, 400);
     }
 

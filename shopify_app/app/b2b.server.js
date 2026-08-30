@@ -44,6 +44,21 @@ class HttpError extends Error {
 }
 export { HttpError };
 
+const COMPANY_LOCATION_GID = /^gid:\/\/shopify\/CompanyLocation\/\d+$/;
+
+/**
+ * The customer-account API's `purchasingCompany.location.id` is a bare numeric
+ * id (e.g. "4596891731"), unlike the customer id which is a full GID. Accept
+ * either form and normalize to the GID the Admin API expects. Returns null if
+ * the value is neither.
+ */
+export function normalizeCompanyLocationId(raw) {
+  const s = String(raw || "").trim();
+  if (COMPANY_LOCATION_GID.test(s)) return s;
+  if (/^\d+$/.test(s)) return `gid://shopify/CompanyLocation/${s}`;
+  return null;
+}
+
 // --- Auth: verify the customer-account extension session token ------------
 
 function base64urlToBuffer(s) {
