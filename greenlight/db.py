@@ -1177,6 +1177,44 @@ def assign_registration_code(serial_number, code):
         pg_pool.putconn(conn)
 
 
+def clear_registration_code(serial_number):
+    """Remove a cable's registration code, returning it to retail availability.
+
+    The inverse of assign_registration_code: a cable allocated to a
+    wholesale/reseller channel is pulled back into the shopify.com pool
+    (see get_available_count_for_sku, which excludes coded cables).
+
+    Returns:
+        dict with 'success' and the cleared code, or 'error'/'message'
+    """
+    conn = pg_pool.getconn()
+    try:
+        formatted_serial = format_serial_number(serial_number)
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE audio_cables
+                    SET registration_code = NULL,
+                        updated_timestamp = CURRENT_TIMESTAMP
+                    WHERE serial_number = %s AND registration_code IS NOT NULL
+                    RETURNING serial_number
+                """, (formatted_serial,))
+                result = cur.fetchone()
+                conn.commit()
+                if result:
+                    return {'success': True, 'serial_number': result[0]}
+                return {
+                    'error': 'no_code',
+                    'message': f'Cable {formatted_serial} has no registration code'
+                }
+    except Exception as e:
+        logger.error("Error clearing registration code: %s", e)
+        conn.rollback()
+        return {'error': 'database', 'message': str(e)}
+    finally:
+        pg_pool.putconn(conn)
+
+
 def batch_assign_registration_codes(serial_numbers):
     """Generate and assign registration codes to a list of cables in a single transaction.
 

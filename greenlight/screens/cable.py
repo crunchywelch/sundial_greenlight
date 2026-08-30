@@ -1127,6 +1127,64 @@ class CableScreenBase(Screen):
         self.ui.render()
         self.ui.wait_back()
 
+    def _clear_registration_code(self, operator, cable_record):
+        """Prompt for confirmation and clear a cable's wholesale registration code.
+
+        The inverse of print_registration_label: the cable leaves the
+        wholesale/reseller allocation and returns to the retail pool, so
+        Shopify inventory is pushed back up.
+        """
+        from greenlight import db as db_mod
+
+        serial = cable_record['serial_number']
+        reg_code = cable_record.get('registration_code', '')
+
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(
+            f"[yellow]Clear registration code for {serial}?[/yellow]\n\n"
+            f"Current code: [cyan]{reg_code}[/cyan]\n\n"
+            f"This removes the cable from wholesale allocation and returns it\n"
+            f"to retail inventory on shopify.com.\n\n"
+            f"[yellow]Any registration label already printed for this code "
+            f"will no longer work — destroy it.[/yellow]",
+            title="Clear Registration Code"
+        ))
+        self.ui.layout["footer"].update(Panel(
+            "[green]y[/green] = Confirm clear | [cyan]n[/cyan] = Cancel",
+            title="Confirm?"
+        ))
+        self.ui.render()
+
+        try:
+            choice = self.ui.console.input("").strip().lower()
+        except KeyboardInterrupt:
+            return
+
+        if choice not in ('y', 'yes'):
+            return
+
+        result = db_mod.clear_registration_code(serial)
+        if result.get('success'):
+            # Cable is back in the retail pool — push the higher count to Shopify.
+            cable_record['registration_code'] = None
+            from greenlight.shopify_client import sync_inventory_for_cable
+            ok, err = sync_inventory_for_cable(cable_record)
+            if not ok:
+                logger.warning(f"Shopify inventory sync failed for {serial}: {err}")
+            self.ui.layout["body"].update(Panel(
+                f"[bold green]Registration code {reg_code} cleared.[/bold green]\n\n"
+                f"Cable {serial} is available for retail again.",
+                title="Code Cleared", style="green"
+            ))
+        else:
+            self.ui.layout["body"].update(Panel(
+                f"[red]Error: {result.get('message', 'Unknown error')}[/red]",
+                title="Error"
+            ))
+        self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
+        self.ui.render()
+        self.ui.wait_back()
+
     def cable_action_loop(self, operator, cable_record, mode='lookup'):
         """Show cable info + action menu. Loops until quit or new scan.
 
@@ -1160,6 +1218,7 @@ class CableScreenBase(Screen):
             cable_tested = cable_record.get('test_passed') is True
             is_misc = cable_record.get('kind') == 'misc'
             is_assigned = bool(cable_record.get('shopify_gid'))
+            has_reg_code = bool(cable_record.get('registration_code'))
 
             # Build footer options based on mode and hardware
             footer_options = []
@@ -1173,6 +1232,8 @@ class CableScreenBase(Screen):
                 footer_options.append("[cyan]'p'[/cyan] = Print label")
             if printer_available:
                 footer_options.append("[cyan]'l'[/cyan] = Print reg label")
+            if mode == 'lookup' and has_reg_code:
+                footer_options.append("[cyan]'c'[/cyan] = Clear reg code")
             if is_misc:
                 footer_options.append("[cyan]'d'[/cyan] = Edit description")
             if mode == 'lookup' and not is_assigned:
@@ -1218,6 +1279,10 @@ class CableScreenBase(Screen):
 
                 elif choice_lower == 'l' and printer_available:
                     cable_record = self.print_registration_label(operator, cable_record)
+                    continue
+
+                elif choice_lower == 'c' and mode == 'lookup' and has_reg_code:
+                    self._clear_registration_code(operator, cable_record)
                     continue
 
                 elif choice_lower == 'd' and is_misc:
