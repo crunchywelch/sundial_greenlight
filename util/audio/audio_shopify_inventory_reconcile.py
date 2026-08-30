@@ -30,7 +30,7 @@ def get_postgres_available_counts():
     """Get count of available cables per variant SKU.
 
     "Available" means passed QC, unassigned, and not allocated to a
-    wholesale/reseller channel (registration_code IS NULL) — mirrors
+    sold to a wholesale dealer (wholesale_company_gid IS NULL) — mirrors
     db.get_available_count_for_sku so the live push and this reconcile agree.
 
     LTD cables are included: editions with a built Shopify product (matching
@@ -54,7 +54,7 @@ def get_postgres_available_counts():
                 FROM audio_cables ac
                 WHERE ac.test_passed = TRUE
                   AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
-                  AND ac.registration_code IS NULL
+                  AND ac.wholesale_company_gid IS NULL
                 GROUP BY ac.sku_group, ac.prefix, ac.length, ac.connector_code
                 ORDER BY ac.prefix, ac.sku_group, ac.length, ac.connector_code
             """)
