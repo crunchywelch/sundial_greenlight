@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useLocation, Link } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
 import { query } from "../db.server";
 import { parseGroupSku, formatVariantSku } from "../cable-config.server";
@@ -111,6 +111,7 @@ export async function loader({ request, params }) {
     sku_group: skuGroup,
     cables: cablesWithCustomers,
     groupSubtitle,
+    isEdition: parsed.kind === "ltd",
     initialState,
     counts: {
       total: parseInt(counts.total),
@@ -126,7 +127,9 @@ export async function loader({ request, params }) {
 const STATE_ORDER = ["retail", "wholesale", "assigned", "failed", "untested"];
 
 export default function CablesBySkuGroup() {
-  const { sku_group, cables, groupSubtitle, counts, initialState } = useLoaderData();
+  const { sku_group, cables, groupSubtitle, isEdition, counts, initialState } = useLoaderData();
+  const location = useLocation();
+  const editHref = { pathname: `/app/editions/${encodeURIComponent(sku_group)}`, search: location.search };
   const [serialFilter, setSerialFilter] = useState("");
   const [stateFilter, setStateFilter] = useState(
     STATE_ORDER.includes(initialState) ? initialState : "all"
@@ -156,7 +159,17 @@ export default function CablesBySkuGroup() {
 
       <div style={{ marginBottom: "24px" }}>
         <h1 style={{ fontSize: "24px", marginBottom: "10px" }}>{sku_group}</h1>
-        {groupSubtitle && <div style={{ fontSize: "14px", color: "#666", marginBottom: "12px" }}>{groupSubtitle}</div>}
+        {(groupSubtitle || isEdition) && (
+          <div style={{ fontSize: "14px", color: "#666", marginBottom: "12px" }}>
+            {groupSubtitle}
+            {isEdition && (
+              <>
+                {groupSubtitle ? " · " : ""}
+                <Link to={editHref} style={{ color: "#008060", textDecoration: "none" }}>Edit edition</Link>
+              </>
+            )}
+          </div>
+        )}
 
         {/* State chips double as one-click filters. */}
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>

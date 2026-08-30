@@ -86,7 +86,7 @@ export default function EditionsIndex() {
               {editions.map((e) => (
                 <tr key={e.sku} style={{ backgroundColor: e.active ? "#fff" : "#fafafa" }}>
                   <td style={{ padding: "12px", borderBottom: "1px solid #eee", fontWeight: "bold" }}>
-                    <Link to={linkTo(`/app/editions/${encodeURIComponent(e.sku)}`)} style={{ color: "#008060", textDecoration: "none" }}>
+                    <Link to={linkTo(`/app/cables/${encodeURIComponent(e.sku)}`)} style={{ color: "#008060", textDecoration: "none" }}>
                       {e.slug}
                     </Link>
                     <div style={{ fontSize: "12px", fontWeight: "normal", color: "#999" }}>{e.sku}</div>
