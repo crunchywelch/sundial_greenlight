@@ -175,6 +175,10 @@ function OrderFulfillmentBlock() {
             showBanner("critical", `${serial} is registered to an end owner and can't be sold to a dealer`);
           } else if (code === "SOLD_TO_DEALER") {
             showBanner("critical", `${serial} is sold to a dealer and can't be assigned to a retail customer`);
+          } else if (code === "QC_FAILED") {
+            showBanner("critical", `${serial} failed QC and can't be shipped`);
+          } else if (code === "NOT_TESTED") {
+            showBanner("critical", `${serial} hasn't been QC tested and can't be shipped`);
           } else if (code === "SKU_MISMATCH") {
             showBanner(
               "critical",

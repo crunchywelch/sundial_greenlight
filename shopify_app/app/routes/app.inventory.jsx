@@ -35,10 +35,10 @@ export async function action({ request }) {
       const stateResult = await query(
         `SELECT sku_group, prefix, length, connector_code,
            COUNT(*) FILTER (WHERE shopify_gid IS NOT NULL AND shopify_gid != '') AS assigned,
-           COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NOT NULL) AS wholesale,
-           COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NULL AND wholesale_company_gid IS NULL AND test_passed = TRUE) AS retail,
-           COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NULL AND test_passed = FALSE) AS failed,
-           COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NULL AND test_passed IS NULL) AS untested,
+           COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND wholesale_company_gid IS NOT NULL) AS wholesale,
+           COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND wholesale_company_gid IS NULL AND test_passed = TRUE) AS retail,
+           COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND wholesale_company_gid IS NULL AND test_passed = FALSE) AS failed,
+           COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND wholesale_company_gid IS NULL AND test_passed IS NULL) AS untested,
            COUNT(*) AS total
          FROM audio_cables
          WHERE sku_group !~ '^LTD-'
@@ -162,14 +162,15 @@ export async function action({ request }) {
 
   if (intent === "sync") {
     try {
-      // "Available" for the retail store excludes assigned cables (shopify_gid),
-      // wholesale/reseller-allocated cables (registration_code), and LTD groups
-      // (merch-only). Mirrors greenlight/db.py get_available_count_for_sku and
-      // the Python reconcile so all inventory paths agree.
+      // "Available" for the retail store excludes cables that have actually been
+      // sold — to a retail owner (shopify_gid) or a dealer (wholesale_company_gid)
+      // — and LTD groups (handled separately). A registration code is just an
+      // attribute (e.g. festival stock we still own), NOT a sale, so it does not
+      // remove a cable. Mirrors greenlight/db.py get_available_count_for_sku.
       const dbResult = await query(
         `SELECT sku_group, prefix, length, connector_code, COUNT(*) as count
          FROM audio_cables
-         WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NULL AND wholesale_company_gid IS NULL AND sku_group !~ '^LTD-'
+         WHERE (shopify_gid IS NULL OR shopify_gid = '') AND wholesale_company_gid IS NULL AND sku_group !~ '^LTD-'
          GROUP BY sku_group, prefix, length, connector_code
          ORDER BY sku_group, prefix, length, connector_code`
       );

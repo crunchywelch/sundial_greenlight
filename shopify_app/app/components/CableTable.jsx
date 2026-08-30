@@ -15,8 +15,11 @@
  * badge always agrees with the per-SKU tally.
  */
 export function cableState(cable) {
+  // A registration code is an orthogonal attribute (a cable we expect a buyer to
+  // register), not a stock state. Only an actual sale removes a cable from
+  // availability: shopify_gid (retail owner) or wholesale_company_gid (dealer).
   if (cable.shopify_gid) return "assigned";
-  if (cable.registration_code) return "wholesale";
+  if (cable.wholesale_company_gid) return "wholesale";
   if (cable.test_passed === true) return "retail";
   if (cable.test_passed === false) return "failed";
   return "untested";

@@ -116,10 +116,10 @@ export async function listEditions(filter = "active") {
        SELECT sku_group,
          COUNT(*) AS total,
          COUNT(*) FILTER (WHERE shopify_gid IS NOT NULL AND shopify_gid != '') AS assigned,
-         COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NOT NULL) AS wholesale,
-         COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NULL AND wholesale_company_gid IS NULL AND test_passed = TRUE) AS retail,
-         COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NULL AND test_passed = FALSE) AS failed,
-         COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NULL AND test_passed IS NULL) AS untested
+         COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND wholesale_company_gid IS NOT NULL) AS wholesale,
+         COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND wholesale_company_gid IS NULL AND test_passed = TRUE) AS retail,
+         COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND wholesale_company_gid IS NULL AND test_passed = FALSE) AS failed,
+         COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND wholesale_company_gid IS NULL AND test_passed IS NULL) AS untested
        FROM audio_cables GROUP BY sku_group
      ) c ON c.sku_group = sg.sku
      WHERE ${where.join(" AND ")}

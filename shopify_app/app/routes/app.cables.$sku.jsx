@@ -18,10 +18,10 @@ export async function loader({ request, params }) {
     `SELECT
       COUNT(*) AS total,
       COUNT(*) FILTER (WHERE shopify_gid IS NOT NULL AND shopify_gid != '') AS assigned,
-      COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NOT NULL) AS wholesale,
-      COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NULL AND wholesale_company_gid IS NULL AND test_passed = TRUE) AS retail,
-      COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NULL AND test_passed = FALSE) AS failed,
-      COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NULL AND test_passed IS NULL) AS untested
+      COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND wholesale_company_gid IS NOT NULL) AS wholesale,
+      COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND wholesale_company_gid IS NULL AND test_passed = TRUE) AS retail,
+      COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND wholesale_company_gid IS NULL AND test_passed = FALSE) AS failed,
+      COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND wholesale_company_gid IS NULL AND test_passed IS NULL) AS untested
     FROM audio_cables
     WHERE sku_group = $1`,
     [skuGroup]
@@ -39,6 +39,7 @@ export async function loader({ request, params }) {
       ac.length,
       ac.connector_code,
       ac.shopify_gid,
+      ac.wholesale_company_gid,
       ac.registration_code,
       ac.test_timestamp,
       ac.test_passed

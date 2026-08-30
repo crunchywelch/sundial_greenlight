@@ -194,7 +194,7 @@ async function handleAssignCable({ serialNumber, orderId, customerId, companyId,
   // Look up the cable
   const result = await query(
     `SELECT ac.serial_number, ac.sku_group, ac.prefix, ac.length, ac.connector_code,
-            ac.shopify_gid, ac.shopify_order_gid, ac.wholesale_company_gid
+            ac.shopify_gid, ac.shopify_order_gid, ac.wholesale_company_gid, ac.test_passed
      FROM audio_cables ac
      WHERE ac.serial_number = $1`,
     [serialNumber]
@@ -227,6 +227,18 @@ async function handleAssignCable({ serialNumber, orderId, customerId, companyId,
   if (!companyId && cable.wholesale_company_gid && cable.wholesale_company_gid !== "") {
     return json(
       { error: "Cable is sold to a dealer and cannot be assigned to a retail customer", code: "SOLD_TO_DEALER" },
+      { status: 409 }
+    );
+  }
+
+  // Orders don't reserve a specific cable — it's bound at fulfillment, so this
+  // is the only place to catch an unfit one. Never ship untested or failed
+  // cable, on either channel. Mirrors greenlight's assign guards.
+  if (cable.test_passed !== true) {
+    return json(
+      cable.test_passed === false
+        ? { error: "Cable failed QC and cannot be shipped", code: "QC_FAILED" }
+        : { error: "Cable has not been QC tested and cannot be shipped", code: "NOT_TESTED" },
       { status: 409 }
     );
   }

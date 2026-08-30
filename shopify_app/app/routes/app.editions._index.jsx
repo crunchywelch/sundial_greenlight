@@ -36,7 +36,6 @@ export async function action({ request }) {
        FROM audio_cables
       WHERE sku_group ~ '^LTD-'
         AND (shopify_gid IS NULL OR shopify_gid = '')
-        AND registration_code IS NULL
         AND wholesale_company_gid IS NULL
         AND test_passed = TRUE
       GROUP BY sku_group, prefix, length, connector_code`
