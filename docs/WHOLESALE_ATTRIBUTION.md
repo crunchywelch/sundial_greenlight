@@ -80,9 +80,12 @@ Commit `5b3be3d2`. Schema migration is already applied on the host.
 - `util/audio/schema.sql` — the three columns + `idx_audio_cables_wholesale_company`.
 - `greenlight/db.py`
   - `get_audio_cable` selects the new columns.
-  - `unassign_cable` releases **either** channel and returns `channel: 'retail'|'wholesale'`.
-    It clears `registered_at` alongside the owner. This is the escape hatch for a
-    mis-assigned dealer cable.
+  - `unassign_cable(serial, channel=...)` releases **one** channel — `'retail'` (the end
+    owner, clearing `registered_at` with them) or `'wholesale'` (the dealer). A cable can
+    be committed to both at once, so passing no channel on such a row is an
+    `ambiguous_channel` error rather than a guess: clearing both would destroy the dealer
+    attribution this feature exists to preserve. **`handleUnassignCable` needs the same
+    split** — do not NULL both channels in one statement.
   - `get_cables_for_company(company_gid)` — dealer cables never appear in
     `get_cables_for_customer`, since a B2B sale leaves `shopify_gid` NULL.
   - `assign_cable_to_order` / `force_assign_cable_to_order` take optional

@@ -628,8 +628,10 @@ class UnassignCableScreen(Screen):
         if confirm not in ('y', 'yes'):
             return ScreenResult(NavigationAction.REPLACE, UnassignCableScreen, self.context)
 
-        # Perform unassignment
-        result = db.unassign_cable(serial)
+        # Perform unassignment. This screen is reached from a customer's cable
+        # list, so it always releases the end owner — never the dealer, whose
+        # attribution must survive the customer being unassigned.
+        result = db.unassign_cable(serial, channel='retail')
 
         if result.get('success'):
             # Cable is back in the available pool — push the higher count to Shopify.

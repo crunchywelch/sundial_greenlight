@@ -1090,127 +1090,65 @@ class CableScreenBase(Screen):
             return cable_record
 
     def _unassign_cable(self, operator, cable_record):
-        """Prompt for confirmation and unassign a cable from its customer/order."""
+        """Prompt for confirmation and release a cable from a commercial channel.
+
+        A cable can be committed to both at once — sold to a dealer, then
+        registered by the buyer who bought it from that dealer. In that case the
+        operator picks which to release, because clearing both would destroy the
+        dealer attribution.
+        """
         from greenlight import shopify_client, db as db_mod
 
         serial = cable_record['serial_number']
         customer_gid = cable_record.get('shopify_gid', '')
         company_gid = cable_record.get('wholesale_company_gid', '')
 
-        # A cable is committed to one channel or the other: an end owner
-        # (shopify_gid) or a wholesale dealer (wholesale_company_gid).
-        if company_gid:
-            dealer = shopify_client.get_company_display(
-                company_gid, cable_record.get('wholesale_location_gid')
-            ) or company_gid
-            holder = f"dealer [cyan]{dealer}[/cyan]"
-            extra = (
-                "\n[yellow]The cable keeps its registration code, so it stays out of "
-                "retail inventory. Clear the code separately if you want it back on "
-                "shopify.com.[/yellow]"
-            )
-        else:
+        customer_name = None
+        if customer_gid:
             customer_name = "unknown customer"
             try:
-                if customer_gid:
-                    customer_numeric_id = customer_gid.split('/')[-1]
-                    customer = shopify_client.get_customer_by_id(customer_numeric_id)
-                    if customer:
-                        customer_name = customer.get('displayName') or customer_name
-            except:
+                customer = shopify_client.get_customer_by_id(customer_gid.split('/')[-1])
+                if customer:
+                    customer_name = customer.get('displayName') or customer_name
+            except Exception:
                 pass
-            holder = f"[cyan]{customer_name}[/cyan]"
-            extra = ""
 
-        has_order = bool(cable_record.get('shopify_order_gid'))
-        order_note = "\n[yellow]This cable is also assigned to an order — both will be cleared.[/yellow]" if has_order else ""
+        dealer_name = None
+        if company_gid:
+            dealer_name = shopify_client.get_company_display(
+                company_gid, cable_record.get('wholesale_location_gid')
+            ) or company_gid
+
+        both = bool(customer_gid and company_gid)
 
         self.ui.header(operator)
-        self.ui.layout["body"].update(Panel(
-            f"[yellow]Unassign cable {serial}?[/yellow]\n\n"
-            f"Currently assigned to: {holder}"
-            f"{order_note}{extra}\n\n"
-            f"This will return the cable to available inventory.",
-            title="Unassign Cable"
-        ))
-        self.ui.layout["footer"].update(Panel(
-            "[green]y[/green] = Confirm unassign | [cyan]n[/cyan] = Cancel",
-            title="Confirm?"
-        ))
-        self.ui.render()
-
-        try:
-            choice = self.ui.console.input("").strip().lower()
-        except KeyboardInterrupt:
-            return
-
-        if choice not in ('y', 'yes'):
-            return
-
-        result = db_mod.unassign_cable(serial)
-        if result.get('success'):
-            # Cable is back in the available pool — push the higher count to Shopify.
-            from greenlight.shopify_client import sync_inventory_for_cable
-            ok, err = sync_inventory_for_cable(cable_record)
-            if not ok:
-                logger.warning(f"Shopify inventory sync failed for {serial}: {err}")
-            self.ui.layout["body"].update(Panel(
-                f"[bold green]Cable {serial} unassigned and returned to inventory.[/bold green]",
-                title="Unassigned", style="green"
-            ))
+        if both:
+            body = (
+                f"[yellow]Cable {serial} is committed to two parties.[/yellow]\n\n"
+                f"  [cyan]c[/cyan]  Owner:  {customer_name}\n"
+                f"  [cyan]d[/cyan]  Dealer: {dealer_name}\n\n"
+                f"Releasing one leaves the other intact. Clearing the dealer would\n"
+                f"lose the record of which store sold this cable."
+            )
+            footer = "[cyan]c[/cyan] = Release owner | [cyan]d[/cyan] = Release dealer | [cyan]n[/cyan] = Cancel"
         else:
-            self.ui.layout["body"].update(Panel(
-                f"[red]Error: {result.get('message', 'Unknown error')}[/red]",
-                title="Error"
-            ))
-        self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
-        self.ui.render()
-        self.ui.wait_back()
+            holder = f"[cyan]{customer_name}[/cyan]" if customer_gid else f"dealer [cyan]{dealer_name}[/cyan]"
+            note = ""
+            if company_gid:
+                note = ("\n[yellow]The cable keeps its registration code, so it stays out of "
+                        "retail inventory. Clear the code separately to return it to "
+                        "shopify.com.[/yellow]")
+            elif cable_record.get('shopify_order_gid'):
+                note = "\n[yellow]This cable is also assigned to an order — both will be cleared.[/yellow]"
+            body = (
+                f"[yellow]Unassign cable {serial}?[/yellow]\n\n"
+                f"Currently assigned to: {holder}{note}\n\n"
+                f"This will return the cable to available inventory."
+            )
+            footer = "[green]y[/green] = Confirm unassign | [cyan]n[/cyan] = Cancel"
 
-    def _clear_registration_code(self, operator, cable_record):
-        """Prompt for confirmation and clear a cable's wholesale registration code.
-
-        The inverse of print_registration_label: the cable leaves the
-        wholesale/reseller allocation and returns to the retail pool, so
-        Shopify inventory is pushed back up.
-        """
-        from greenlight import db as db_mod
-
-        serial = cable_record['serial_number']
-        reg_code = cable_record.get('registration_code', '')
-
-        # A cable already sold to a dealer must keep its code: clearing it would
-        # put the cable back into shopify.com retail inventory while it sits on
-        # the store's shelf, and we'd sell it twice.
-        if cable_record.get('wholesale_company_gid'):
-            self.ui.header(operator)
-            self.ui.layout["body"].update(Panel(
-                f"[red]Cable {serial} has been sold to a dealer — its registration "
-                f"code can't be cleared.[/red]\n\n"
-                f"Returning it to retail inventory now would double-sell it.\n\n"
-                f"If this was a mistake, unassign the cable from its wholesale "
-                f"order first, then clear the code.",
-                title="Sold to Dealer", style="red"
-            ))
-            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
-            self.ui.render()
-            self.ui.wait_back()
-            return
-
-        self.ui.header(operator)
-        self.ui.layout["body"].update(Panel(
-            f"[yellow]Clear registration code for {serial}?[/yellow]\n\n"
-            f"Current code: [cyan]{reg_code}[/cyan]\n\n"
-            f"This removes the cable from wholesale allocation and returns it\n"
-            f"to retail inventory on shopify.com.\n\n"
-            f"[yellow]Any registration label already printed for this code "
-            f"will no longer work — destroy it.[/yellow]",
-            title="Clear Registration Code"
-        ))
-        self.ui.layout["footer"].update(Panel(
-            "[green]y[/green] = Confirm clear | [cyan]n[/cyan] = Cancel",
-            title="Confirm?"
-        ))
+        self.ui.layout["body"].update(Panel(body, title="Unassign Cable"))
+        self.ui.layout["footer"].update(Panel(footer, title="Confirm?"))
         self.ui.render()
 
         try:
@@ -1218,21 +1156,26 @@ class CableScreenBase(Screen):
         except KeyboardInterrupt:
             return
 
-        if choice not in ('y', 'yes'):
-            return
+        if both:
+            channel = {'c': 'retail', 'd': 'wholesale'}.get(choice)
+            if not channel:
+                return
+        else:
+            if choice not in ('y', 'yes'):
+                return
+            channel = 'retail' if customer_gid else 'wholesale'
 
-        result = db_mod.clear_registration_code(serial)
+        result = db_mod.unassign_cable(serial, channel=channel)
         if result.get('success'):
-            # Cable is back in the retail pool — push the higher count to Shopify.
-            cable_record['registration_code'] = None
+            # Availability may have gone up — push the new count to Shopify.
             from greenlight.shopify_client import sync_inventory_for_cable
             ok, err = sync_inventory_for_cable(cable_record)
             if not ok:
                 logger.warning(f"Shopify inventory sync failed for {serial}: {err}")
+            released = "owner" if channel == 'retail' else "dealer"
             self.ui.layout["body"].update(Panel(
-                f"[bold green]Registration code {reg_code} cleared.[/bold green]\n\n"
-                f"Cable {serial} is available for retail again.",
-                title="Code Cleared", style="green"
+                f"[bold green]Cable {serial}: {released} released.[/bold green]",
+                title="Unassigned", style="green"
             ))
         else:
             self.ui.layout["body"].update(Panel(
