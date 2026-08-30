@@ -9,9 +9,7 @@ export default async () => {
   render(<ReorderPage />, document.body);
 };
 
-// companyLocationId is present only for authenticated B2B (business) customers;
-// undefined for everyone else. It's also the pricing/ordering context we send
-// to the backend.
+// companyLocationId is present only for authenticated B2B (business) customers.
 function getCompanyLocationId() {
   const signal = shopify?.authenticatedAccount?.purchasingCompany;
   const pc = signal?.value ?? signal?.current;
@@ -22,7 +20,6 @@ const money = (n) => `$${(Number(n) || 0).toFixed(2)}`;
 
 function ReorderPage() {
   const companyLocationId = getCompanyLocationId();
-
   if (!companyLocationId) {
     return (
       <s-page heading="Order Cables">
@@ -38,7 +35,6 @@ function ReorderPage() {
       </s-page>
     );
   }
-
   return <ReorderForm companyLocationId={companyLocationId} />;
 }
 
@@ -46,12 +42,19 @@ function ReorderForm({ companyLocationId }) {
   const [catalog, setCatalog] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [qty, setQty] = useState({}); // variantId -> quantity
+
+  // order: variantId -> line
+  const [order, setOrder] = useState({});
   const [poNumber, setPoNumber] = useState("");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [confirmation, setConfirmation] = useState(null);
+
+  // builder selection
+  const [styleKey, setStyleKey] = useState("");
+  const [length, setLength] = useState("");
+  const [qtys, setQtys] = useState({});
 
   useEffect(() => {
     let cancelled = false;
@@ -77,28 +80,87 @@ function ReorderForm({ companyLocationId }) {
     };
   }, [companyLocationId]);
 
-  const setCell = (variantId, value) => {
-    const n = Math.max(0, parseInt(value, 10) || 0);
-    setQty((prev) => {
+  const styles = useMemo(() => {
+    if (!catalog) return [];
+    const list = [];
+    for (const s of catalog.series) {
+      for (const st of s.styles) list.push({ ...st, series: s.name });
+    }
+    return list;
+  }, [catalog]);
+
+  // default the selectors once the catalog arrives
+  useEffect(() => {
+    if (styles.length && !styleKey) setStyleKey(styles[0].label);
+    if (catalog && !length) setLength(String(catalog.lengths[0]));
+  }, [styles, catalog]);
+
+  const selStyle = styles.find((s) => s.label === styleKey) || null;
+  const priceCell = useMemo(() => {
+    if (!selStyle || !length || !catalog) return null;
+    for (const c of catalog.connectors) {
+      const cell = selStyle.cells[`${length}|${c.code}`];
+      if (cell) return cell;
+    }
+    return null;
+  }, [selStyle, length, catalog]);
+
+  function addToOrder() {
+    if (!selStyle || !length || !catalog) return;
+    setOrder((prev) => {
       const next = { ...prev };
-      if (n > 0) next[variantId] = n;
-      else delete next[variantId];
+      for (const c of catalog.connectors) {
+        const q = parseInt(qtys[c.code], 10) || 0;
+        if (q <= 0) continue;
+        const cell = selStyle.cells[`${length}|${c.code}`];
+        if (!cell) continue;
+        const existing = next[cell.variantId];
+        next[cell.variantId] = {
+          variantId: cell.variantId,
+          styleLabel: selStyle.label,
+          length: Number(length),
+          connectorLabel: c.label,
+          qty: (existing?.qty || 0) + q,
+          wholesale: cell.wholesale,
+          msrp: cell.msrp,
+        };
+      }
       return next;
     });
-  };
+    setQtys({});
+  }
 
-  const totals = useMemo(() => computeTotals(catalog, qty), [catalog, qty]);
+  function removeLine(variantId) {
+    setOrder((prev) => {
+      const next = { ...prev };
+      delete next[variantId];
+      return next;
+    });
+  }
+
+  const lines = Object.values(order);
+  const totals = useMemo(() => {
+    let qty = 0;
+    let cost = 0;
+    let msrp = 0;
+    for (const l of lines) {
+      qty += l.qty;
+      cost += l.qty * l.wholesale;
+      msrp += l.qty * l.msrp;
+    }
+    return { qty, cost, msrp, profit: msrp - cost };
+  }, [order]);
 
   async function submit() {
     setSubmitting(true);
     setSubmitError(null);
     try {
       const token = await shopify.sessionToken.get();
-      const lines = Object.keys(qty).map((variantId) => ({ variantId, quantity: qty[variantId] }));
+      const payloadLines = lines.map((l) => ({ variantId: l.variantId, quantity: l.qty }));
       const resp = await fetch(`${APP_URL}/api/b2b-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ companyLocationId, lines, poNumber, note }),
+        body: JSON.stringify({ companyLocationId, lines: payloadLines, poNumber, note }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Could not submit your order.");
@@ -120,7 +182,6 @@ function ReorderForm({ companyLocationId }) {
       </s-page>
     );
   }
-
   if (error) {
     return (
       <s-page heading="Order Cables">
@@ -130,14 +191,13 @@ function ReorderForm({ companyLocationId }) {
       </s-page>
     );
   }
-
   if (confirmation) {
     return (
       <Confirmation
         confirmation={confirmation}
         onNew={() => {
           setConfirmation(null);
-          setQty({});
+          setOrder({});
           setPoNumber("");
           setNote("");
         }}
@@ -149,22 +209,79 @@ function ReorderForm({ companyLocationId }) {
     <s-page heading="Order Cables">
       <s-stack gap="large-100">
         <s-text color="subdued">
-          Wholesale pricing for your account. Enter quantities below, review the total,
-          and submit. We create a draft order and send an invoice for review and payment.
+          Wholesale pricing for your store. Add cables to your order below, then submit.
+          We create a draft order and send an invoice to review and pay.
         </s-text>
 
-        {catalog.series.map((series) => (
-          <SeriesGrid
-            key={series.name}
-            series={series}
-            lengths={catalog.lengths}
-            connectors={catalog.connectors}
-            qty={qty}
-            setCell={setCell}
-          />
-        ))}
+        <s-section heading="Add cables">
+          <s-stack gap="base">
+            <s-select label="Style" value={styleKey} onChange={(e) => setStyleKey(e.target.value)}>
+              {catalog.series.map((s) =>
+                s.styles.map((st) => (
+                  <s-option key={st.label} value={st.label}>
+                    {`${st.label} (${s.name.replace(" Series", "")})`}
+                  </s-option>
+                ))
+              )}
+            </s-select>
 
-        <OrderSummary totals={totals} />
+            <s-select label="Length" value={length} onChange={(e) => setLength(e.target.value)}>
+              {catalog.lengths.map((L) => (
+                <s-option key={L} value={String(L)}>{`${L} ft`}</s-option>
+              ))}
+            </s-select>
+
+            {priceCell && (
+              <s-text color="subdued" type="small">
+                {`Wholesale ${money(priceCell.wholesale)} each · MSRP ${money(priceCell.msrp)} · profit ${money(priceCell.msrp - priceCell.wholesale)}`}
+              </s-text>
+            )}
+
+            <s-stack direction="inline" gap="base">
+              {catalog.connectors.map((c) => {
+                const avail = Boolean(selStyle && selStyle.cells[`${length}|${c.code}`]);
+                return (
+                  <s-number-field
+                    key={c.code}
+                    label={c.label}
+                    min={0}
+                    placeholder="0"
+                    disabled={!avail}
+                    value={qtys[c.code] || ""}
+                    onInput={(e) => setQtys((q) => ({ ...q, [c.code]: e.target.value }))}
+                  />
+                );
+              })}
+            </s-stack>
+
+            <s-button onClick={addToOrder}>Add to order</s-button>
+          </s-stack>
+        </s-section>
+
+        {lines.length > 0 && (
+          <s-section heading="Your order">
+            <s-stack gap="small-300">
+              {lines.map((l) => (
+                <s-stack key={l.variantId} direction="inline" gap="base" alignItems="center">
+                  <s-box inlineSize="fill">
+                    <s-text>{`${l.qty} × ${l.styleLabel} ${l.length} ft ${l.connectorLabel}`}</s-text>
+                  </s-box>
+                  <s-text>{money(l.qty * l.wholesale)}</s-text>
+                  <s-button variant="tertiary" onClick={() => removeLine(l.variantId)}>Remove</s-button>
+                </s-stack>
+              ))}
+            </s-stack>
+          </s-section>
+        )}
+
+        <s-section heading="Summary">
+          <s-stack gap="small-200">
+            <SummaryRow label="Total cables" value={String(totals.qty)} />
+            <SummaryRow label="Your cost (dealer)" value={money(totals.cost)} />
+            <SummaryRow label="Retail value (MSRP)" value={money(totals.msrp)} />
+            <SummaryRow label="Net profit" value={money(totals.profit)} strong />
+          </s-stack>
+        </s-section>
 
         <s-section heading="Order details">
           <s-stack gap="base">
@@ -189,108 +306,15 @@ function ReorderForm({ companyLocationId }) {
 
         <s-button
           variant="primary"
-          disabled={submitting || totals.totalQty === 0}
+          disabled={submitting || totals.qty === 0}
           onClick={submit}
         >
           {submitting
             ? "Submitting..."
-            : `Submit order (${totals.totalQty} cable${totals.totalQty === 1 ? "" : "s"}, ${money(totals.cost)})`}
+            : `Submit order (${totals.qty} cable${totals.qty === 1 ? "" : "s"}, ${money(totals.cost)})`}
         </s-button>
       </s-stack>
     </s-page>
-  );
-}
-
-// One series section: a horizontally scrollable matrix of styles (rows) x
-// length x connector (columns). Header is two rows: lengths spanning their three
-// connector columns, then the connector labels beneath.
-function SeriesGrid({ series, lengths, connectors, qty, setCell }) {
-  const perLength = connectors.length;
-  const template = `minmax(130px, max-content) repeat(${lengths.length * perLength}, 3.5rem)`;
-
-  const children = [];
-
-  // Header row 1: empty corner + length labels spanning their connectors.
-  children.push(<s-grid-item key="corner1" gridColumn="span 1" />);
-  for (const L of lengths) {
-    children.push(
-      <s-grid-item key={`len-${L}`} gridColumn={`span ${perLength}`} paddingBlock="small-200">
-        <s-text fontWeight="bold">{L}'</s-text>
-      </s-grid-item>
-    );
-  }
-
-  // Header row 2: empty corner + connector labels.
-  children.push(<s-grid-item key="corner2" gridColumn="span 1" />);
-  for (const L of lengths) {
-    for (const c of connectors) {
-      children.push(
-        <s-grid-item key={`conn-${L}-${c.code}`}>
-          <s-text type="small" color="subdued">{c.label}</s-text>
-        </s-grid-item>
-      );
-    }
-  }
-
-  // Body: one row per style.
-  for (const style of series.styles) {
-    children.push(
-      <s-grid-item key={`style-${style.label}`} paddingBlock="small-200">
-        <s-text>{style.label}</s-text>
-      </s-grid-item>
-    );
-    for (const L of lengths) {
-      for (const c of connectors) {
-        const cell = style.cells[`${L}|${c.code}`];
-        const key = `cell-${style.label}-${L}-${c.code}`;
-        if (!cell) {
-          children.push(
-            <s-grid-item key={key}>
-              <s-text color="subdued">-</s-text>
-            </s-grid-item>
-          );
-          continue;
-        }
-        children.push(
-          <s-grid-item key={key}>
-            <s-number-field
-              label={`${style.label} ${L} foot ${c.label}`}
-              labelAccessibilityVisibility="exclusive"
-              min={0}
-              placeholder="0"
-              value={qty[cell.variantId] ? String(qty[cell.variantId]) : ""}
-              onInput={(e) => setCell(cell.variantId, e.target.value)}
-            />
-          </s-grid-item>
-        );
-      }
-    }
-  }
-
-  return (
-    <s-section heading={series.name}>
-      <s-stack gap="small-200">
-        {series.subtitle && <s-text type="small" color="subdued">{series.subtitle}</s-text>}
-        <s-scroll-box>
-          <s-grid gridTemplateColumns={template} columnGap="small-200" rowGap="small-100">
-            {children}
-          </s-grid>
-        </s-scroll-box>
-      </s-stack>
-    </s-section>
-  );
-}
-
-function OrderSummary({ totals }) {
-  return (
-    <s-section heading="Order summary">
-      <s-stack gap="small-200">
-        <SummaryRow label="Total cables" value={String(totals.totalQty)} />
-        <SummaryRow label="Your cost (dealer)" value={money(totals.cost)} />
-        <SummaryRow label="Retail value (MSRP)" value={money(totals.msrpTotal)} />
-        <SummaryRow label="Net profit" value={money(totals.profit)} strong />
-      </s-stack>
-    </s-section>
   );
 }
 
@@ -328,26 +352,4 @@ function Confirmation({ confirmation, onNew }) {
       </s-section>
     </s-page>
   );
-}
-
-function computeTotals(catalog, qty) {
-  let totalQty = 0;
-  let cost = 0;
-  let msrpTotal = 0;
-  if (catalog) {
-    for (const series of catalog.series) {
-      for (const style of series.styles) {
-        for (const key in style.cells) {
-          const cell = style.cells[key];
-          const q = qty[cell.variantId] || 0;
-          if (q > 0) {
-            totalQty += q;
-            cost += q * cell.wholesale;
-            msrpTotal += q * cell.msrp;
-          }
-        }
-      }
-    }
-  }
-  return { totalQty, cost, msrpTotal, profit: msrpTotal - cost };
 }
