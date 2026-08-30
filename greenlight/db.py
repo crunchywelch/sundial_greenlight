@@ -58,7 +58,9 @@ def get_audio_cable(serial_number):
                        ac.operator, ac.arduino_unit_id, ac.notes, ac.test_timestamp,
                        ac.shopify_gid, ac.updated_timestamp,
                        sg.description, sg.archived_at,
-                       ac.registration_code
+                       ac.registration_code,
+                       ac.wholesale_company_gid, ac.wholesale_location_gid,
+                       ac.registered_at
                 FROM audio_cables ac
                 JOIN sku_group sg ON ac.sku_group = sg.sku
                 WHERE ac.serial_number = %s
@@ -760,29 +762,59 @@ def assign_cable_to_customer(serial_number, customer_shopify_gid):
 
 
 def unassign_cable(serial_number):
-    """Remove customer and order assignment from a cable, returning it to inventory.
+    """Clear a cable's commercial assignment, returning it to inventory.
+
+    Covers both channels, since a cable is committed one way or the other:
+      - retail / end owner  -> shopify_gid (+ shopify_order_gid, registered_at)
+      - wholesale dealer    -> wholesale_company_gid / wholesale_location_gid
+
+    registered_at is cleared alongside shopify_gid — a registration date with no
+    registered owner would be meaningless.
 
     Returns:
-        dict with 'success' or 'error'/'message'
+        dict with 'success' and 'channel' ('retail' or 'wholesale'), or 'error'/'message'
     """
     conn = pg_pool.getconn()
     try:
         formatted_serial = format_serial_number(serial_number)
         with conn:
             with conn.cursor() as cur:
+                # Read the prior state first — RETURNING would hand back the
+                # nulled-out row, and the caller wants to know which channel
+                # the cable was released from.
+                cur.execute("""
+                    SELECT shopify_gid, wholesale_company_gid
+                    FROM audio_cables WHERE serial_number = %s
+                """, (formatted_serial,))
+                prior = cur.fetchone()
+                if not prior:
+                    return {'error': 'not_found', 'message': f'Cable {formatted_serial} not found'}
+
+                prior_customer, prior_company = prior
+                if not prior_customer and not prior_company:
+                    return {
+                        'error': 'not_assigned',
+                        'message': f'Cable {formatted_serial} is not assigned to anyone'
+                    }
+
                 cur.execute("""
                     UPDATE audio_cables
                     SET shopify_gid = NULL,
                         shopify_order_gid = NULL,
+                        wholesale_company_gid = NULL,
+                        wholesale_location_gid = NULL,
+                        registered_at = NULL,
                         updated_timestamp = CURRENT_TIMESTAMP
-                    WHERE serial_number = %s AND shopify_gid IS NOT NULL
+                    WHERE serial_number = %s
                     RETURNING serial_number
                 """, (formatted_serial,))
                 result = cur.fetchone()
                 conn.commit()
-                if result:
-                    return {'success': True, 'serial_number': result[0]}
-                return {'error': 'not_assigned', 'message': f'Cable {formatted_serial} is not assigned to anyone'}
+                return {
+                    'success': True,
+                    'serial_number': result[0],
+                    'channel': 'retail' if prior_customer else 'wholesale',
+                }
     except Exception as e:
         logger.error("Error unassigning cable: %s", e)
         conn.rollback()
@@ -860,6 +892,55 @@ def get_cables_for_customer(customer_shopify_gid):
         return []
     finally:
         pg_pool.putconn(conn)
+
+
+def get_cables_for_company(company_gid):
+    """Get all cables sold to a wholesale dealer (B2B company).
+
+    The wholesale counterpart to get_cables_for_customer. Because a B2B sale
+    leaves shopify_gid NULL for the end buyer to claim, dealer cables never show
+    up in the customer query and need their own lookup.
+
+    registered_at tells you which of the dealer's cables have reached an end
+    buyer — NULL means it's still on their shelf (or was never registered).
+    """
+    conn = pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT ac.serial_number, ac.sku_group, ac.prefix,
+                       ac.length, ac.connector_code,
+                       ac.updated_timestamp, sg.description, sg.archived_at,
+                       ac.wholesale_location_gid, ac.registration_code,
+                       ac.registered_at, ac.shopify_gid
+                FROM audio_cables ac
+                JOIN sku_group sg ON ac.sku_group = sg.sku
+                WHERE ac.wholesale_company_gid = %s
+                ORDER BY ac.updated_timestamp DESC
+            """, (company_gid,))
+            return [
+                _enrich_record({
+                    'serial_number': row[0],
+                    'sku_group': row[1],
+                    'prefix': row[2],
+                    'length': row[3],
+                    'connector_code': row[4],
+                    'updated_timestamp': row[5],
+                    'description': row[6],
+                    'archived_at': row[7],
+                    'wholesale_location_gid': row[8],
+                    'registration_code': row[9],
+                    'registered_at': row[10],
+                    'shopify_gid': row[11],
+                })
+                for row in cur.fetchall()
+            ]
+    except Exception as e:
+        logger.error("Error fetching cables for company: %s", e)
+        return []
+    finally:
+        pg_pool.putconn(conn)
+
 
 def get_all_cables(limit=100, offset=0):
     """Get all cables ordered by serial number descending (highest first)"""
@@ -976,14 +1057,28 @@ def get_available_inventory(series=None):
     finally:
         pg_pool.putconn(conn)
 
-def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus):
-    """Assign a cable to a customer order with SKU validation.
+def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus,
+                          company_gid=None, location_gid=None):
+    """Assign a cable to an order with SKU validation.
+
+    Two channels, decided by whether the order is B2B:
+
+      retail    (company_gid None) -> shopify_gid = customer_gid
+      wholesale (company_gid set)  -> wholesale_company_gid / wholesale_location_gid,
+                                      and shopify_gid is left NULL so the end buyer
+                                      can still claim the cable with its
+                                      registration code
+
+    Shopify surfaces the distinction as Order.purchasingEntity: a retail order
+    resolves to Customer, a B2B order to PurchasingCompany (company + location).
 
     Args:
         serial_number: Cable serial number
-        customer_gid: Shopify customer GID
+        customer_gid: Shopify customer GID (retail; ignored when company_gid is set)
         order_gid: Shopify order GID
         line_item_skus: List of SKUs from order line items (for validation)
+        company_gid: Shopify Company GID for a B2B order
+        location_gid: Shopify CompanyLocation GID for a B2B order
 
     Returns:
         dict with 'success' or 'error' key
@@ -1013,6 +1108,15 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
 
                 (cable_serial, sku_group, prefix, length, connector_code,
                  existing_customer_gid, existing_order_gid) = row
+
+                if company_gid and existing_customer_gid:
+                    # shopify_gid means end owner, so this cable has already been
+                    # registered by a buyer — it can't now be sold to a dealer.
+                    return {
+                        'error': 'already_registered',
+                        'message': f'Cable {formatted_serial} is registered to an end owner '
+                                   f'and cannot be assigned to a dealer'
+                    }
 
                 if existing_order_gid == order_gid:
                     return {
@@ -1051,14 +1155,27 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
                         'cable_sku': variant_sku,
                     }
 
-                cur.execute("""
-                    UPDATE audio_cables
-                    SET shopify_gid = %s,
-                        shopify_order_gid = %s,
-                        updated_timestamp = CURRENT_TIMESTAMP
-                    WHERE serial_number = %s
-                    RETURNING serial_number, sku_group
-                """, (customer_gid, order_gid, formatted_serial))
+                if company_gid:
+                    # Wholesale: record the dealer, leave shopify_gid for the
+                    # end buyer's registration.
+                    cur.execute("""
+                        UPDATE audio_cables
+                        SET wholesale_company_gid = %s,
+                            wholesale_location_gid = %s,
+                            shopify_order_gid = %s,
+                            updated_timestamp = CURRENT_TIMESTAMP
+                        WHERE serial_number = %s
+                        RETURNING serial_number, sku_group
+                    """, (company_gid, location_gid, order_gid, formatted_serial))
+                else:
+                    cur.execute("""
+                        UPDATE audio_cables
+                        SET shopify_gid = %s,
+                            shopify_order_gid = %s,
+                            updated_timestamp = CURRENT_TIMESTAMP
+                        WHERE serial_number = %s
+                        RETURNING serial_number, sku_group
+                    """, (customer_gid, order_gid, formatted_serial))
                 result = cur.fetchone()
                 conn.commit()
 
@@ -1067,6 +1184,7 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
                     'serial_number': result[0],
                     'sku_group': result[1],
                     'sku': variant_sku,
+                    'channel': 'wholesale' if company_gid else 'retail',
                 }
     except Exception as e:
         logger.error("Error assigning cable to order: %s", e)
@@ -1076,25 +1194,43 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
         pg_pool.putconn(conn)
 
 
-def force_assign_cable_to_order(serial_number, customer_gid, order_gid):
+def force_assign_cable_to_order(serial_number, customer_gid, order_gid,
+                                company_gid=None, location_gid=None):
     """Override existing customer-only assignment and assign cable to an order.
 
     Used when operator confirms overriding an 'assigned_no_order' cable.
     Skips SKU validation (already validated before the confirmation prompt).
+
+    Same retail/wholesale split as assign_cable_to_order: when company_gid is
+    given the cable is recorded against the dealer and shopify_gid is cleared,
+    since a forced wholesale assignment means the cable is going out to a store
+    rather than to the customer it was previously held for.
     """
     conn = pg_pool.getconn()
     try:
         formatted_serial = format_serial_number(serial_number)
         with conn:
             with conn.cursor() as cur:
-                cur.execute("""
-                    UPDATE audio_cables
-                    SET shopify_gid = %s,
-                        shopify_order_gid = %s,
-                        updated_timestamp = CURRENT_TIMESTAMP
-                    WHERE serial_number = %s
-                    RETURNING serial_number, sku_group
-                """, (customer_gid, order_gid, formatted_serial))
+                if company_gid:
+                    cur.execute("""
+                        UPDATE audio_cables
+                        SET wholesale_company_gid = %s,
+                            wholesale_location_gid = %s,
+                            shopify_order_gid = %s,
+                            shopify_gid = NULL,
+                            updated_timestamp = CURRENT_TIMESTAMP
+                        WHERE serial_number = %s
+                        RETURNING serial_number, sku_group
+                    """, (company_gid, location_gid, order_gid, formatted_serial))
+                else:
+                    cur.execute("""
+                        UPDATE audio_cables
+                        SET shopify_gid = %s,
+                            shopify_order_gid = %s,
+                            updated_timestamp = CURRENT_TIMESTAMP
+                        WHERE serial_number = %s
+                        RETURNING serial_number, sku_group
+                    """, (customer_gid, order_gid, formatted_serial))
                 result = cur.fetchone()
                 conn.commit()
                 if result:

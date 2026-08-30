@@ -59,10 +59,25 @@ CREATE TABLE IF NOT EXISTS audio_cables (
     resistance_adc_p3 INTEGER,
     calibration_adc_p3 INTEGER,
     shopify_order_gid TEXT,
+    -- Wholesale channel attribution: the B2B dealer that bought this cable.
+    -- Distinct from shopify_gid, which is ALWAYS the end owner (written only by
+    -- retail order fulfillment or end-buyer registration). A B2B order assignment
+    -- writes these two and deliberately leaves shopify_gid NULL, so the end buyer
+    -- can still claim the cable via its registration code.
+    wholesale_company_gid TEXT,
+    wholesale_location_gid TEXT,
+    -- When the end buyer registered the cable — the warranty start date.
+    -- updated_timestamp can't serve this; any edit clobbers it.
+    registered_at TIMESTAMPTZ,
     FOREIGN KEY (sku_group) REFERENCES sku_group(sku)
 );
 
 CREATE INDEX IF NOT EXISTS idx_audio_cables_order_gid ON audio_cables(shopify_order_gid);
+
+-- Partial index for dealer rollups ("every cable sold to Mill River Music").
+CREATE INDEX IF NOT EXISTS idx_audio_cables_wholesale_company
+    ON audio_cables(wholesale_company_gid)
+    WHERE wholesale_company_gid IS NOT NULL;
 
 -- ============================================================================
 -- SEQUENCES
