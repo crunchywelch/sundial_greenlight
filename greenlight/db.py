@@ -720,8 +720,11 @@ def get_cables_for_ltd_sku(ltd_group_sku):
     """Get every cable registered under an LTD group SKU, assigned or not.
 
     Unlike get_cables_for_customer, this returns all states: each record
-    carries shopify_gid (the assigned customer, or None/'' if unassigned)
-    and test_passed so callers can show assignment and QC status.
+    carries shopify_gid (the end owner, or None/'' if unclaimed),
+    wholesale_company_gid (the dealer, if sold through one) and test_passed,
+    so callers can show both channels and QC status. A dealer-sold cable has
+    no shopify_gid until its buyer registers, so showing only shopify_gid
+    would report it as unassigned.
 
     Args:
         ltd_group_sku: LTD group SKU, e.g. 'LTD-PHISH26'
@@ -736,7 +739,8 @@ def get_cables_for_ltd_sku(ltd_group_sku):
                 SELECT ac.serial_number, ac.sku_group, ac.prefix,
                        ac.length, ac.connector_code, ac.connector_finish,
                        ac.updated_timestamp, ac.shopify_gid, ac.test_passed,
-                       sg.description, sg.archived_at
+                       sg.description, sg.archived_at,
+                       ac.wholesale_company_gid, ac.registered_at
                 FROM audio_cables ac
                 JOIN sku_group sg ON ac.sku_group = sg.sku
                 WHERE ac.sku_group = %s
@@ -758,6 +762,8 @@ def get_cables_for_ltd_sku(ltd_group_sku):
                     'test_passed': row[8],
                     'description': row[9],
                     'archived_at': row[10],
+                    'wholesale_company_gid': row[11],
+                    'registered_at': row[12],
                 }))
             return cables
     except Exception as e:
@@ -830,7 +836,7 @@ def assign_cable_to_customer(serial_number, customer_shopify_gid):
         with conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT serial_number, sku_group, shopify_gid
+                    SELECT serial_number, sku_group, shopify_gid, wholesale_company_gid
                     FROM audio_cables
                     WHERE serial_number = %s
                 """, (formatted_serial,))
@@ -847,6 +853,18 @@ def assign_cable_to_customer(serial_number, customer_shopify_gid):
                         'error': 'already_assigned',
                         'message': f'Cable {formatted_serial} is already assigned to customer {existing[2]}',
                         'existing_customer_gid': existing[2]
+                    }
+
+                if existing[3]:
+                    # Sold to a dealer. shopify_gid is NULL by design there — it
+                    # is reserved for the end buyer who registers the cable — so
+                    # the check above does not catch this. Handing it to a retail
+                    # customer as well would sell the same cable twice.
+                    return {
+                        'error': 'sold_to_dealer',
+                        'message': (f'Cable {formatted_serial} has been sold to a dealer and '
+                                    f'cannot be assigned to a retail customer'),
+                        'wholesale_company_gid': existing[3],
                     }
 
                 cur.execute("""

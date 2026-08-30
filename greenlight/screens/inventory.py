@@ -11,7 +11,7 @@ from rich.console import Group
 from greenlight.screen_manager import Screen, ScreenResult, NavigationAction
 from greenlight.db import (
     get_sku_stock_summary, get_recent_sales, get_misc_summary,
-    list_ltd_editions, get_cables_for_ltd_sku,
+    list_ltd_editions, get_cables_for_ltd_sku, get_cables_for_company,
 )
 from greenlight import shopify_client
 from greenlight.product_lines import (
@@ -131,6 +131,7 @@ class InventoryDashboardScreen(Screen):
             "[green]2.[/green] Tour (Cotton)   "
             "[green]s.[/green] Suggestions   "
             "[green]l.[/green] LTD Editions   "
+            "[green]d.[/green] Dealers   "
             "[green]q.[/green] Back"
         )
 
@@ -153,6 +154,8 @@ class InventoryDashboardScreen(Screen):
             return ScreenResult(NavigationAction.PUSH, ProductionSuggestionsScreen, self.context)
         elif choice == "l":
             return ScreenResult(NavigationAction.PUSH, LTDEditionListScreen, self.context)
+        elif choice == "d":
+            return ScreenResult(NavigationAction.PUSH, DealerListScreen, self.context)
         elif choice == "q":
             return ScreenResult(NavigationAction.POP)
 
@@ -439,14 +442,32 @@ class LTDEditionCablesScreen(Screen):
         name_cache = {}
 
         def resolve_customer(gid):
-            if not gid:
-                return "[dim]— unassigned[/dim]"
             if gid not in name_cache:
                 customer = shopify_client.get_customer_by_id(gid)
                 name_cache[gid] = (customer or {}).get("displayName") or "[red]Unknown[/red]"
             return name_cache[gid]
 
-        assigned_count = sum(1 for c in cables if c.get("shopify_gid"))
+        def resolve_holder(cable):
+            """Who holds this cable — end owner, or the dealer it was sold to.
+
+            A cable sold through a dealer has no shopify_gid until its buyer
+            registers it, so showing only the customer would report it as
+            unassigned when it is in fact sold.
+            """
+            gid = cable.get("shopify_gid")
+            if gid:
+                return resolve_customer(gid)
+            company_gid = cable.get("wholesale_company_gid")
+            if company_gid:
+                dealer = shopify_client.get_company_display(company_gid) or company_gid
+                return f"[yellow]🏪 {dealer}[/yellow]"
+            return "[dim]— unassigned[/dim]"
+
+        # "Spoken for" either way: registered to an owner, or sold to a dealer.
+        assigned_count = sum(
+            1 for c in cables
+            if c.get("shopify_gid") or c.get("wholesale_company_gid")
+        )
 
         def build_page(page_cables, page_index, total_pages):
             title = f"LTD — {name}"
@@ -459,7 +480,7 @@ class LTDEditionCablesScreen(Screen):
             table.add_column("Serial", width=12)
             table.add_column("Variant SKU", width=20)
             table.add_column("QC", justify="center", width=4)
-            table.add_column("Assigned To", width=26)
+            table.add_column("Assigned To", width=26)   # owner, or dealer if sold through one
 
             if not cables:
                 table.add_row("", "[dim]No cables registered for this edition[/dim]", "", "", "")
@@ -484,7 +505,7 @@ class LTDEditionCablesScreen(Screen):
                     cable.get("serial_number") or "",
                     sku_cell,
                     qc,
-                    resolve_customer(cable.get("shopify_gid")),
+                    resolve_holder(cable),
                 )
             return table
 
@@ -530,3 +551,131 @@ class LTDEditionCablesScreen(Screen):
 
         # Cancelled or invalid number — redraw, staying on the same page.
         return ScreenResult(NavigationAction.REPLACE, LTDEditionCablesScreen, self.context)
+
+
+class DealerListScreen(Screen):
+    """B2B dealers (Shopify companies) and what they hold."""
+
+    def run(self) -> ScreenResult:
+        operator = self.context.get("operator", "")
+
+        companies = shopify_client.list_companies()
+        if not companies:
+            self.ui.header(operator)
+            self.ui.layout["body"].update(Panel(
+                "[yellow]No B2B companies found.[/yellow]\n\n"
+                "[dim]Dealers are Shopify B2B companies. If you expect some here, "
+                "check that the Shopify connection is working.[/dim]",
+                title="Dealers"
+            ))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
+            self.ui.render()
+            self.ui.wait_back()
+            return ScreenResult(NavigationAction.POP)
+
+        # One query per dealer, but there are only a handful of them.
+        rows = []
+        for company in companies:
+            cables = get_cables_for_company(company["id"])
+            registered = sum(1 for c in cables if c.get("registered_at"))
+            rows.append({
+                "company": company,
+                "total": len(cables),
+                "registered": registered,
+                "on_shelf": len(cables) - registered,
+            })
+
+        table = Table(title="Dealers", show_header=True, header_style="bold cyan", padding=(0, 1))
+        table.add_column("#", justify="right", style="green", width=3)
+        table.add_column("Dealer", width=32)
+        table.add_column("Cables", justify="right", width=8)
+        table.add_column("Registered", justify="right", width=11)
+        table.add_column("On shelf", justify="right", width=9)
+
+        for i, r in enumerate(rows, 1):
+            table.add_row(
+                str(i),
+                r["company"].get("name") or r["company"]["id"],
+                str(r["total"]) if r["total"] else "[dim]-[/dim]",
+                str(r["registered"]) if r["registered"] else "[dim]-[/dim]",
+                str(r["on_shelf"]) if r["on_shelf"] else "[dim]-[/dim]",
+            )
+
+        self.ui.header(operator)
+        self.ui.layout["body"].update(table)
+        self.ui.layout["footer"].update(Panel(
+            "Enter a [green]#[/green] to see that dealer's cables   [green]q.[/green] Back",
+            title="Options"
+        ))
+        self.ui.render()
+
+        try:
+            choice = self.ui.console.input("Choose: ").strip().lower()
+        except KeyboardInterrupt:
+            return ScreenResult(NavigationAction.POP)
+
+        if choice == "q":
+            return ScreenResult(NavigationAction.POP)
+
+        if choice.isdigit() and 1 <= int(choice) <= len(rows):
+            ctx = self.context.copy()
+            ctx["dealer_company"] = rows[int(choice) - 1]["company"]
+            return ScreenResult(NavigationAction.PUSH, DealerCablesScreen, ctx)
+
+        return ScreenResult(NavigationAction.REPLACE, DealerListScreen, self.context)
+
+
+class DealerCablesScreen(Screen):
+    """Every cable sold to one dealer, and whether its buyer has registered it."""
+
+    def run(self) -> ScreenResult:
+        operator = self.context.get("operator", "")
+        company = self.context.get("dealer_company") or {}
+        name = company.get("name") or company.get("id", "")
+
+        cables = get_cables_for_company(company.get("id", ""))
+        name_cache = {}
+
+        def owner_cell(cable):
+            """The end buyer, once they've registered. Blank while on the shelf."""
+            gid = cable.get("shopify_gid")
+            if not gid:
+                return "[dim]— on shelf[/dim]"
+            if gid not in name_cache:
+                customer = shopify_client.get_customer_by_id(gid)
+                name_cache[gid] = (customer or {}).get("displayName") or "[red]Unknown[/red]"
+            return name_cache[gid]
+
+        def build_page(page_cables, page_index, total_pages):
+            title = f"Dealer — {name}"
+            if total_pages > 1:
+                title += f"  (page {page_index + 1}/{total_pages})"
+            table = Table(title=title, show_header=True, header_style="bold cyan", padding=(0, 1))
+            table.add_column("Serial", width=12)
+            table.add_column("Variant SKU", width=20)
+            table.add_column("Reg Code", width=11)
+            table.add_column("Registered", width=12)
+            table.add_column("End Buyer", overflow="fold")
+
+            if not cables:
+                table.add_row("[dim]No cables sold to this dealer[/dim]", "", "", "", "")
+                return table
+
+            for cable in page_cables:
+                registered_at = cable.get("registered_at")
+                table.add_row(
+                    cable.get("serial_number") or "",
+                    cable.get("variant_sku") or "",
+                    cable.get("registration_code") or "[dim]-[/dim]",
+                    registered_at.strftime("%Y-%m-%d") if registered_at else "[dim]-[/dim]",
+                    owner_cell(cable),
+                )
+            return table
+
+        registered = sum(1 for c in cables if c.get("registered_at"))
+        hint = (f"[cyan]{len(cables)}[/cyan] sold, [cyan]{registered}[/cyan] registered, "
+                f"[cyan]{len(cables) - registered}[/cyan] still on their shelf")
+
+        self.ui.header(operator)
+        self.ui.paginate(cables, build_page, footer_hint=hint)
+        return ScreenResult(NavigationAction.POP)
