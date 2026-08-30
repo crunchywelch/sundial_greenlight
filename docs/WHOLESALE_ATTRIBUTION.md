@@ -1,7 +1,13 @@
 # Wholesale Dealer Attribution (Shopify B2B)
 
-Status: **Phase A landed** (commit `5b3be3d2`, Greenlight side). **Phase B pending**
-(Shopify app + extension). This document is the handoff for Phase B.
+Status: **Phase A landed** (commit `5b3be3d2`, Greenlight side). **Phase B landed**
+(Shopify app + extension) — B0–B3 implemented and verified live: `read_companies`
+granted, the extension captures `purchasingEntity` (shows a `B2B · <company>`
+badge), `handleAssignCable` branches to the wholesale columns leaving `shopify_gid`
+NULL, `handleUnassignCable` is channel-aware (a both-channels cable keeps its
+registration when the dealer is released), `registered_at` is set on registration,
+and wholesale-sold cables are excluded from the sellable/retail counts so they
+aren't double-sold. This document is the handoff record for Phase B.
 
 ## Why this exists
 
