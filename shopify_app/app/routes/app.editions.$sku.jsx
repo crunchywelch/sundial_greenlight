@@ -1,78 +1,20 @@
 import { json } from "@remix-run/node";
 import { Form, Link, useActionData, useLoaderData, useLocation, useNavigation } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
-import { query } from "../db.server";
-import { formatVariantSku } from "../cable-config.server";
 import {
   getEdition,
   updateEdition,
   EditionValidationError,
 } from "../editions.server";
-import { CableTable } from "../components/CableTable";
-
-const CABLE_PREVIEW_LIMIT = 10;
 
 export async function loader({ request, params }) {
-  const { admin } = await authenticate.admin(request);
+  await authenticate.admin(request);
   const sku = decodeURIComponent(params.sku);
   const edition = await getEdition(sku);
   if (!edition) {
     throw new Response("Edition not found", { status: 404 });
   }
-
-  // Cable preview: assigned-first, then by serial. Mirror the column set
-  // and customer enrichment of /app/cables/{sku_group} so the embedded
-  // table looks identical to the canonical view.
-  const cablesResult = await query(
-    `SELECT serial_number, sku_group, prefix, length, connector_code,
-            shopify_gid, test_passed, test_timestamp
-     FROM audio_cables
-     WHERE sku_group = $1
-     ORDER BY (shopify_gid IS NOT NULL AND shopify_gid != '') DESC, serial_number
-     LIMIT $2`,
-    [sku, CABLE_PREVIEW_LIMIT]
-  );
-  const cables = cablesResult.rows.map((r) => ({
-    serial_number: r.serial_number,
-    sku_group: r.sku_group,
-    prefix: r.prefix,
-    length: Number(r.length),
-    connector_code: r.connector_code,
-    shopify_gid: r.shopify_gid,
-    test_passed: r.test_passed,
-    test_timestamp: r.test_timestamp,
-    variant_sku: formatVariantSku({
-      prefix: r.prefix,
-      group_sku: r.sku_group,
-      length: Number(r.length),
-      connector_code: r.connector_code,
-    }),
-  }));
-
-  // Customer enrichment for assigned cables — same shape the cables-by-
-  // group page uses. Single GraphQL call per unique customer.
-  const customerIds = [...new Set(cables.filter((c) => c.shopify_gid).map((c) => c.shopify_gid))];
-  const customerMap = {};
-  for (const customerId of customerIds) {
-    try {
-      const response = await admin.graphql(
-        `#graphql
-        query getCustomer($id: ID!) {
-          customer(id: $id) { id firstName lastName email }
-        }`,
-        { variables: { id: customerId } }
-      );
-      const data = await response.json();
-      if (data.data?.customer) customerMap[customerId] = data.data.customer;
-    } catch (error) {
-      console.error(`Error fetching customer ${customerId}:`, error);
-    }
-  }
-  for (const cable of cables) {
-    cable.customer = cable.shopify_gid ? customerMap[cable.shopify_gid] || null : null;
-  }
-
-  return json({ edition, cables, cablePreviewLimit: CABLE_PREVIEW_LIMIT });
+  return json({ edition });
 }
 
 export async function action({ request, params }) {
@@ -123,14 +65,13 @@ const labelStyle = { display: "block", marginBottom: "5px", fontSize: "14px", fo
 const fieldStyle = { marginBottom: "16px" };
 
 export default function EditionDetail() {
-  const { edition, cables, cablePreviewLimit } = useLoaderData();
+  const { edition } = useLoaderData();
   const actionData = useActionData();
   const navigation = useNavigation();
   const location = useLocation();
   const submitting = navigation.state === "submitting";
   const editionsHref = { pathname: "/app/editions", search: location.search };
   const cablesHref = { pathname: `/app/cables/${encodeURIComponent(edition.sku)}`, search: location.search };
-  const hasMoreCables = edition.cable_count > cables.length;
 
   return (
     <div style={{ padding: "20px", maxWidth: "1100px", margin: "0 auto", fontFamily: "system-ui, -apple-system, sans-serif" }}>
@@ -210,30 +151,6 @@ export default function EditionDetail() {
           </button>
         </div>
       </Form>
-
-      {/* Cables in this edition. Same table layout as /app/cables/{sku}
-          for visual consistency; canonical full list lives there. */}
-      {cables.length > 0 && (
-        <div style={{ marginTop: "40px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "10px" }}>
-            <h2 style={{ fontSize: "16px", margin: 0 }}>Registered cables</h2>
-            {hasMoreCables && (
-              <Link to={cablesHref} style={{ color: "#008060", textDecoration: "none", fontSize: "13px" }}>
-                View all {edition.cable_count} →
-              </Link>
-            )}
-          </div>
-          <CableTable cables={cables} />
-          {hasMoreCables && (
-            <div style={{ marginTop: "8px", fontSize: "12px", color: "#666" }}>
-              Showing {cables.length} of {edition.cable_count}.{" "}
-              <Link to={cablesHref} style={{ color: "#008060", textDecoration: "none" }}>
-                See all on the cables page →
-              </Link>
-            </div>
-          )}
-        </div>
-      )}
 
       <div style={{ marginTop: "40px", paddingTop: "20px", borderTop: "1px solid #eee" }}>
         <Form method="post">
