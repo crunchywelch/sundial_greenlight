@@ -2,6 +2,7 @@ import logging
 import re
 
 import psycopg2
+from psycopg2.extras import Json
 from psycopg2 import pool
 
 from greenlight.config import DB_CONFIG
@@ -44,6 +45,98 @@ def generate_serial_number():
         return None
     finally:
         pg_pool.putconn(conn)
+
+# The operator chosen at login. Greenlight runs one operator per session, so
+# threading an actor through every mutation signature would be noise — screens
+# set this once and cable events attribute themselves.
+_current_operator = None
+
+
+def set_current_operator(operator_code):
+    """Record who is driving this session, for cable_events attribution."""
+    global _current_operator
+    _current_operator = operator_code
+
+
+def record_cable_event(serial_number, event, detail=None, actor=None, cur=None):
+    """Append an immutable audit row for a change to a cable.
+
+    Every commercial mutation overwrites in place, so without this there is no
+    way to answer "who cleared this registration code?" or to notice that an
+    assignment quietly destroyed dealer attribution.
+
+    Args:
+        serial_number: Cable serial number
+        event: Event slug — see EVENT_* constants below. Free text rather than
+            an enum so Greenlight and the Shopify app can add events without
+            coordinating a migration.
+        detail: JSON-serializable dict, conventionally {'from': ..., 'to': ...}
+        actor: Overrides the session operator. The admin app writes
+            'admin:<staff email>' so the two sources stay distinguishable.
+        cur: An open cursor to write through, so the event commits atomically
+            with the mutation it describes. Wrapped in a SAVEPOINT: a failed
+            audit write must not abort the caller's transaction, and an event
+            must never outlive a mutation that rolled back.
+
+    Never raises — a failed audit write is logged, not propagated.
+    """
+    payload = Json(detail) if detail is not None else None
+    who = actor if actor is not None else _current_operator
+
+    if cur is not None:
+        try:
+            cur.execute("SAVEPOINT cable_event")
+            cur.execute("""
+                INSERT INTO cable_events (serial_number, event, actor, detail)
+                VALUES (%s, %s, %s, %s)
+            """, (serial_number, event, who, payload))
+            cur.execute("RELEASE SAVEPOINT cable_event")
+        except Exception as e:
+            logger.error("Failed to record cable event %s for %s: %s", event, serial_number, e)
+            try:
+                cur.execute("ROLLBACK TO SAVEPOINT cable_event")
+            except Exception:
+                pass
+        return
+
+    conn = pg_pool.getconn()
+    try:
+        with conn:
+            with conn.cursor() as own:
+                own.execute("""
+                    INSERT INTO cable_events (serial_number, event, actor, detail)
+                    VALUES (%s, %s, %s, %s)
+                """, (serial_number, event, who, payload))
+            conn.commit()
+    except Exception as e:
+        logger.error("Failed to record cable event %s for %s: %s", event, serial_number, e)
+        conn.rollback()
+    finally:
+        pg_pool.putconn(conn)
+
+
+def get_cable_events(serial_number, limit=50):
+    """Most-recent-first audit history for one cable."""
+    conn = pg_pool.getconn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT event, actor, detail, created_at
+                FROM cable_events
+                WHERE serial_number = %s
+                ORDER BY created_at DESC, id DESC
+                LIMIT %s
+            """, (format_serial_number(serial_number), limit))
+            return [
+                {'event': r[0], 'actor': r[1], 'detail': r[2], 'created_at': r[3]}
+                for r in cur.fetchall()
+            ]
+    except Exception as e:
+        logger.error("Error fetching cable events: %s", e)
+        return []
+    finally:
+        pg_pool.putconn(conn)
+
 
 def get_audio_cable(serial_number):
     """Get audio cable record by serial number."""
@@ -178,6 +271,17 @@ def register_scanned_cable(serial_number, sku_group, prefix, length, connector_c
                     """, (sku_group, prefix, length, connector_code, connector_finish,
                           operator, formatted_serial))
                     result = cur.fetchone()
+                    record_cable_event(
+                        formatted_serial, 're_registered',
+                        detail={
+                            'from': {'sku_group': existing[1], 'prefix': existing[2],
+                                     'length': float(existing[3]) if existing[3] is not None else None,
+                                     'connector_code': existing[4]},
+                            'to': {'sku_group': sku_group, 'prefix': prefix,
+                                   'length': float(length), 'connector_code': connector_code},
+                        },
+                        actor=operator, cur=cur,
+                    )
                     conn.commit()
                     return {
                         'serial_number': result[0],
@@ -255,6 +359,11 @@ def update_cable_test_results(serial_number, test_passed, resistance_adc=None, c
                     operator, arduino_unit_id, notes, serial_number
                 ))
                 result = cur.fetchone()
+                if result:
+                    record_cable_event(serial_number, 'qc_tested',
+                                       detail={'to': 'pass' if test_passed else 'fail',
+                                               'resistance_adc': resistance_adc},
+                                       actor=operator, cur=cur)
                 conn.commit()
                 return result[0] if result else None
     except Exception as e:
@@ -747,6 +856,8 @@ def assign_cable_to_customer(serial_number, customer_shopify_gid):
                     RETURNING serial_number, sku_group, shopify_gid
                 """, (customer_shopify_gid, formatted_serial))
                 result = cur.fetchone()
+                record_cable_event(formatted_serial, 'assigned_customer',
+                                   detail={'to': customer_shopify_gid}, cur=cur)
                 conn.commit()
 
                 return {
@@ -849,6 +960,12 @@ def unassign_cable(serial_number, channel=None):
                     """, (formatted_serial,))
 
                 result = cur.fetchone()
+                record_cable_event(
+                    formatted_serial,
+                    'unassigned_customer' if channel == 'retail' else 'unassigned_dealer',
+                    detail={'from': prior_customer if channel == 'retail' else prior_company},
+                    cur=cur,
+                )
                 conn.commit()
                 return {'success': True, 'serial_number': result[0], 'channel': channel}
     except Exception as e:
@@ -873,6 +990,9 @@ def force_reassign_cable(serial_number, customer_shopify_gid):
                     RETURNING serial_number, sku_group, shopify_gid
                 """, (customer_shopify_gid, formatted_serial))
                 result = cur.fetchone()
+                if result:
+                    record_cable_event(formatted_serial, 'assigned_customer',
+                                       detail={'to': customer_shopify_gid, 'forced': True}, cur=cur)
                 conn.commit()
 
                 if result:
@@ -1215,6 +1335,14 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
                         RETURNING serial_number, sku_group
                     """, (customer_gid, order_gid, formatted_serial))
                 result = cur.fetchone()
+                record_cable_event(
+                    formatted_serial,
+                    'assigned_dealer' if company_gid else 'assigned_customer',
+                    detail={'to': company_gid or customer_gid, 'order': order_gid,
+                            'location': location_gid} if company_gid
+                           else {'to': customer_gid, 'order': order_gid},
+                    cur=cur,
+                )
                 conn.commit()
 
                 return {
@@ -1273,6 +1401,14 @@ def force_assign_cable_to_order(serial_number, customer_gid, order_gid,
                         RETURNING serial_number, sku_group
                     """, (customer_gid, order_gid, formatted_serial))
                 result = cur.fetchone()
+                if result:
+                    record_cable_event(
+                        formatted_serial,
+                        'assigned_dealer' if company_gid else 'assigned_customer',
+                        detail={'to': company_gid or customer_gid, 'order': order_gid,
+                                'forced': True},
+                        cur=cur,
+                    )
                 conn.commit()
                 if result:
                     return {'success': True, 'serial_number': result[0], 'sku_group': result[1]}
@@ -1377,6 +1513,8 @@ def clear_registration_code(serial_number):
                     RETURNING serial_number
                 """, (formatted_serial,))
                 result = cur.fetchone()
+                if result:
+                    record_cable_event(formatted_serial, 'code_cleared', cur=cur)
                 conn.commit()
                 if result:
                     return {'success': True, 'serial_number': result[0]}
@@ -1432,6 +1570,8 @@ def batch_assign_registration_codes(serial_numbers):
                                     'serial_number': result[0],
                                     'registration_code': result[1]
                                 })
+                                record_cable_event(result[0], 'code_generated',
+                                                   detail={'to': result[1]}, cur=cur)
                                 assigned = True
                                 break
                             else:

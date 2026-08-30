@@ -42,6 +42,9 @@ class SplashScreen(Screen):
 
         if choice in valid_choices:
             operator_code = codes[int(choice) - 1]
+            # Attribute cable_events to whoever is driving this session.
+            from greenlight.db import set_current_operator
+            set_current_operator(operator_code)
             # Go directly to scan interface
             from greenlight.screens.cable import ScanCableLookupScreen
             return ScreenResult(NavigationAction.PUSH, ScanCableLookupScreen, {"operator": operator_code})
