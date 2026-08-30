@@ -1,9 +1,9 @@
 api_version = "2026-07"
 
 [[extensions]]
-name = "Order Cables"
-handle = "b2b-reorder"
-uid = "d5e801fa-0bad-49ad-9e16-fd0282b4b90cfaee78f2"
+name = "Wholesale Order Form"
+handle = "wholesale-order-form"
+uid = "57804426-b7eb-016c-5223-4204fda867c9a8d2b957"
 type = "ui_extension"
 
 [extensions.capabilities]

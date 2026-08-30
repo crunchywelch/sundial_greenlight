@@ -1,5 +1,5 @@
 {
-  "name": "b2b-reorder",
+  "name": "wholesale-order-form",
   "private": true,
   "scripts": {
     "build": "shopify app build --include-config-on-deploy"
