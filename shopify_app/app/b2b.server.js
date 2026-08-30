@@ -130,15 +130,20 @@ async function adminGraphql(gql, variables) {
 
 /**
  * Confirm the authenticated customer is a contact who may purchase for the given
- * company location. Prevents a caller from pulling another company's pricing or
+ * company location, and return the purchasing entity (company + contact + email)
+ * needed to create a B2B draft order. Throws HttpError(403) if the customer isn't
+ * a contact at that location. Prevents pulling another company's pricing or
  * ordering against a location that isn't theirs.
  */
-export async function assertCustomerOwnsLocation(customerId, companyLocationId) {
+export async function resolvePurchasingCompany(customerId, companyLocationId) {
   const data = await adminGraphql(
     `#graphql
-    query ownedLocations($id: ID!) {
+    query purchasingCompany($id: ID!) {
       customer(id: $id) {
+        email
         companyContactProfiles {
+          id
+          company { id }
           roleAssignments(first: 50) {
             nodes { companyLocation { id } }
           }
@@ -147,15 +152,25 @@ export async function assertCustomerOwnsLocation(customerId, companyLocationId) 
     }`,
     { id: customerId }
   );
-  const owned = new Set();
-  for (const profile of data.customer?.companyContactProfiles ?? []) {
-    for (const ra of profile.roleAssignments?.nodes ?? []) {
-      if (ra.companyLocation?.id) owned.add(ra.companyLocation.id);
+  const customer = data.customer;
+  for (const profile of customer?.companyContactProfiles ?? []) {
+    const locations = (profile.roleAssignments?.nodes ?? []).map((ra) => ra.companyLocation?.id);
+    if (locations.includes(companyLocationId)) {
+      return {
+        companyId: profile.company?.id,
+        companyContactId: profile.id,
+        companyLocationId,
+        email: customer.email || null,
+      };
     }
   }
-  if (!owned.has(companyLocationId)) {
-    throw new HttpError(403, "Not authorized for this company location");
-  }
+  throw new HttpError(403, "Not authorized for this company location");
+}
+
+// Thin ownership guard for callers that only need validation (e.g. the catalog
+// route). Throws HttpError(403) if the customer can't buy for this location.
+export async function assertCustomerOwnsLocation(customerId, companyLocationId) {
+  await resolvePurchasingCompany(customerId, companyLocationId);
 }
 
 // --- Catalog + wholesale pricing ------------------------------------------
@@ -240,4 +255,63 @@ export async function buildWholesaleCatalog(companyLocationId) {
   });
 
   return { lengths: ALLOWED_LENGTHS, connectors: CONNECTOR_COLUMNS, series };
+}
+
+// --- Order submission ------------------------------------------------------
+
+/**
+ * Create a B2B draft order for the company location. Setting `purchasingEntity`
+ * makes Shopify apply the location's catalog (wholesale) pricing automatically,
+ * so we never trust or set prices from the client. Returns the order name and
+ * invoice URL for the buyer to review and pay.
+ */
+export async function createWholesaleDraftOrder({ purchasingCompany, lines, poNumber, note, email }) {
+  const noteParts = [];
+  if (poNumber) noteParts.push(`PO number: ${poNumber}`);
+  if (note) noteParts.push(note);
+  noteParts.push("Submitted via the wholesale reorder page.");
+
+  const input = {
+    purchasingEntity: {
+      purchasingCompany: {
+        companyId: purchasingCompany.companyId,
+        companyContactId: purchasingCompany.companyContactId,
+        companyLocationId: purchasingCompany.companyLocationId,
+      },
+    },
+    lineItems: lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
+    tags: ["wholesale-reorder", "customer-account"],
+    note: noteParts.join("\n"),
+  };
+  const buyerEmail = email || purchasingCompany.email;
+  if (buyerEmail) input.email = buyerEmail;
+
+  const data = await adminGraphql(
+    `#graphql
+    mutation createWholesaleDraft($input: DraftOrderInput!) {
+      draftOrderCreate(input: $input) {
+        draftOrder {
+          id
+          name
+          invoiceUrl
+          totalPriceSet { shopMoney { amount currencyCode } }
+        }
+        userErrors { field message }
+      }
+    }`,
+    { input }
+  );
+
+  const errs = data.draftOrderCreate?.userErrors ?? [];
+  if (errs.length > 0) {
+    console.error("draftOrderCreate userErrors:", JSON.stringify(errs));
+    throw new HttpError(502, "Could not create the order. Please contact custserv@sundialwire.com.");
+  }
+
+  const draft = data.draftOrderCreate?.draftOrder;
+  return {
+    orderName: draft?.name || null,
+    invoiceUrl: draft?.invoiceUrl || null,
+    total: draft?.totalPriceSet?.shopMoney?.amount || null,
+  };
 }
