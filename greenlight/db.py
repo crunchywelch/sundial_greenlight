@@ -1507,48 +1507,13 @@ def get_cables_for_order(order_gid):
         pg_pool.putconn(conn)
 
 
-def assign_registration_code(serial_number, code):
-    """Assign a registration code to a cable for wholesale/reseller sales.
-
-    Args:
-        serial_number: Cable serial number
-        code: Registration code (format: XXXX-XXXX)
-
-    Returns:
-        dict with 'success' bool, or 'error'/'message' on failure
-    """
-    conn = pg_pool.getconn()
-    try:
-        formatted_serial = format_serial_number(serial_number)
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    UPDATE audio_cables
-                    SET registration_code = %s
-                    WHERE serial_number = %s
-                    RETURNING serial_number, registration_code
-                """, (code, formatted_serial))
-                result = cur.fetchone()
-                conn.commit()
-                if result:
-                    return {'success': True, 'serial_number': result[0], 'registration_code': result[1]}
-                return {'error': 'not_found', 'message': f'Cable {formatted_serial} not found'}
-    except Exception as e:
-        conn.rollback()
-        error_msg = str(e)
-        if 'unique' in error_msg.lower() or 'duplicate' in error_msg.lower():
-            return {'error': 'duplicate_code', 'message': f'Registration code {code} already in use'}
-        return {'error': 'database', 'message': error_msg}
-    finally:
-        pg_pool.putconn(conn)
-
-
 def clear_registration_code(serial_number):
-    """Remove a cable's registration code, returning it to retail availability.
+    """Detach a cable's registration code.
 
-    The inverse of assign_registration_code: a cable allocated to a
-    wholesale/reseller channel is pulled back into the shopify.com pool
-    (see get_available_count_for_sku, which excludes coded cables).
+    This does not change availability: a code is not a state that removes a
+    cable from stock (see get_available_count_for_sku). Use it to undo a
+    mis-scan, or to reissue under a new code — noting that any label already
+    printed with the old code stops working.
 
     Returns:
         dict with 'success' and the cleared code, or 'error'/'message'

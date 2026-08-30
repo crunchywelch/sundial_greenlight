@@ -41,6 +41,9 @@ CREATE INDEX IF NOT EXISTS idx_active_ltd ON sku_group(archived_at)
 CREATE TABLE IF NOT EXISTS audio_cables (
     serial_number TEXT PRIMARY KEY,
     sku_group TEXT NOT NULL,
+    -- Series prefix ('SC', 'TC'). Lives per-cable because catalog and LTD group
+    -- SKUs drop the prefix, and the variant SKU still has to be derivable.
+    prefix TEXT NOT NULL,
     length NUMERIC(5,2) NOT NULL,
     connector_code TEXT NOT NULL,
     -- Connector finish (e.g. 'nickel', 'black_gold') for custom/LTD builds.
