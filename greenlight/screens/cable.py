@@ -226,6 +226,14 @@ class CableScreenBase(Screen):
 
 [bold magenta]Assigned To:[/bold magenta]
   [yellow]ID: {customer_gid}[/yellow]"""
+        elif cable_record.get("wholesale_company_gid"):
+            # Sold to a dealer but not yet claimed: shopify_gid is deliberately
+            # NULL so the end buyer can register. "Not assigned" would read as
+            # though nothing had happened to the cable.
+            right += """
+
+[bold magenta]Owner:[/bold magenta]
+  [yellow]⏳ Awaiting end-buyer registration[/yellow]"""
         else:
             right += """
 
@@ -237,7 +245,12 @@ class CableScreenBase(Screen):
         # sections can show at once once that happens.
         wholesale_company_gid = cable_record.get("wholesale_company_gid")
         if wholesale_company_gid:
-            right += f"\n\n[bold yellow]🏪 Sold via:[/bold yellow]\n  {wholesale_company_gid}"
+            from greenlight import shopify_client
+            # Cached in shopify_client, so this doesn't hit the API on every render.
+            dealer = shopify_client.get_company_display(
+                wholesale_company_gid, cable_record.get("wholesale_location_gid")
+            ) or f"[yellow]{wholesale_company_gid}[/yellow]"
+            right += f"\n\n[bold yellow]🏪 Sold via:[/bold yellow]\n  {dealer}"
             registered_at = cable_record.get("registered_at")
             if registered_at:
                 right += f"\n  [dim]Registered {registered_at.strftime('%Y-%m-%d')}[/dim]"
@@ -1087,8 +1100,10 @@ class CableScreenBase(Screen):
         # A cable is committed to one channel or the other: an end owner
         # (shopify_gid) or a wholesale dealer (wholesale_company_gid).
         if company_gid:
-            # Phase B resolves this GID to the company name.
-            holder = f"dealer [cyan]{company_gid}[/cyan]"
+            dealer = shopify_client.get_company_display(
+                company_gid, cable_record.get('wholesale_location_gid')
+            ) or company_gid
+            holder = f"dealer [cyan]{dealer}[/cyan]"
             extra = (
                 "\n[yellow]The cable keeps its registration code, so it stays out of "
                 "retail inventory. Clear the code separately if you want it back on "

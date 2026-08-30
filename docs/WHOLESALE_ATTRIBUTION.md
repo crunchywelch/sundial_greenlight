@@ -154,13 +154,16 @@ take scans.
 - Optional: have the GET loader return the dealer name so the registration page can say
   "purchased from Mill River Music".
 
-### B4. Company name lookup — Greenlight side, coordinate before starting
-`greenlight/shopify_client.py` needs `get_company_by_id()` / `list_companies()`, and
-`build_cable_info_panel` in `greenlight/screens/cable.py` currently prints the raw company
-GID in its `🏪 Sold via:` block pending that lookup. Cache the lookup module-level — the
-panel re-renders on every iteration of `cable_action_loop`.
+### B4. Company name lookup — ✅ DONE on the Greenlight side, don't redo
+`greenlight/shopify_client.py` has `get_company_by_id()`, `get_company_display()` and
+`list_companies()`, module-level cached in `_company_cache`. The cable detail panel
+resolves the dealer to `Mill River Music — 135 King St`.
 
-Proven query shape:
+Note this works today **without** the `read_companies` scope, because Greenlight uses a
+client-credentials token. That is exactly why B0 is still needed for the Remix side: the
+scope gap only bites the OAuth session token.
+
+Proven query shape (for reference, already implemented):
 
 ```graphql
 { companies(first: 100) { edges { node {
