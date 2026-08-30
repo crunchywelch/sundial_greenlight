@@ -1,0 +1,14 @@
+api_version = "2026-07"
+
+[[extensions]]
+name = "Order Cables"
+handle = "b2b-reorder"
+uid = "d5e801fa-0bad-49ad-9e16-fd0282b4b90cfaee78f2"
+type = "ui_extension"
+
+[extensions.capabilities]
+network_access = true
+
+[[extensions.targeting]]
+module = "./src/ReorderPage.jsx"
+target = "customer-account.page.render"

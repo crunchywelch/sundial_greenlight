@@ -1,0 +1,12 @@
+{
+  "name": "b2b-reorder",
+  "private": true,
+  "scripts": {
+    "build": "shopify app build --include-config-on-deploy"
+  },
+  "dependencies": {
+    "@shopify/ui-extensions": "2026.7.0",
+    "preact": "^10.29.7",
+    "@preact/signals": "^2.9.3"
+  }
+}
