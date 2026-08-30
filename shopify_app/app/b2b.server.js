@@ -282,7 +282,6 @@ export async function buildWholesaleCatalog(companyLocationId) {
  */
 export async function createWholesaleDraftOrder({ purchasingCompany, lines, poNumber, note, email }) {
   const noteParts = [];
-  if (poNumber) noteParts.push(`PO number: ${poNumber}`);
   if (note) noteParts.push(note);
   noteParts.push("Submitted via the wholesale reorder page.");
 
@@ -297,7 +296,11 @@ export async function createWholesaleDraftOrder({ purchasingCompany, lines, poNu
     lineItems: lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
     tags: ["wholesale-reorder", "customer-account"],
     note: noteParts.join("\n"),
+    // Show the draft in the buyer's account so they can view, track, and pay it
+    // (draft orders are otherwise staff-only and never appear in order history).
+    visibleToCustomer: true,
   };
+  if (poNumber) input.poNumber = poNumber;
   const buyerEmail = email || purchasingCompany.email;
   if (buyerEmail) input.email = buyerEmail;
 
