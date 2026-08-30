@@ -5,6 +5,10 @@
  * Header: Authorization: Bearer <extension session token>
  * Returns the wholesale reorder grid (styles x length x connector) with per-cell
  * MSRP + wholesale price for the buyer's company location.
+ *
+ * CORS is handled by the nginx layer in front of the app (same as
+ * /api/customer-cables); this route must NOT set its own Access-Control-* headers
+ * or the duplicated Allow-Origin breaks the browser fetch.
  */
 import { json } from "@remix-run/node";
 import {
@@ -15,21 +19,9 @@ import {
   HttpError,
 } from "../b2b.server";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Authorization, Content-Type",
-  "Access-Control-Max-Age": "86400",
-};
-
-const corsJson = (data, status = 200) => json(data, { status, headers: CORS_HEADERS });
-
 export async function action({ request }) {
-  if (request.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
-  }
   if (request.method !== "POST") {
-    return corsJson({ error: "POST required" }, 405);
+    return json({ error: "POST required" }, { status: 405 });
   }
 
   try {
@@ -39,25 +31,24 @@ export async function action({ request }) {
     try {
       body = await request.json();
     } catch {
-      return corsJson({ error: "Invalid JSON body" }, 400);
+      return json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
     const companyLocationId = normalizeCompanyLocationId(body?.companyLocationId);
     if (!companyLocationId) {
-      return corsJson({ error: "A valid companyLocationId is required" }, 400);
+      return json({ error: "A valid companyLocationId is required" }, { status: 400 });
     }
 
     await assertCustomerOwnsLocation(customerId, companyLocationId);
     const catalog = await buildWholesaleCatalog(companyLocationId);
-    return corsJson({ catalog });
+    return json({ catalog });
   } catch (err) {
     const status = err instanceof HttpError ? err.status : 500;
     if (status >= 500) console.error("b2b-catalog error:", err);
-    return corsJson({ error: err.message || "Server error" }, status);
+    return json({ error: err.message || "Server error" }, { status });
   }
 }
 
-// A stray GET (e.g. someone opening the URL) shouldn't 404 the route.
 export async function loader() {
-  return corsJson({ error: "POST required" }, 405);
+  return json({ error: "POST required" }, { status: 405 });
 }
