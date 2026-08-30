@@ -11,10 +11,16 @@ aren't double-sold. This document is the handoff record for Phase B.
 
 ## Why this exists
 
-We sell cables wholesale to stores. A wholesale cable gets a `registration_code`, which
-pulls it out of shopify.com retail availability, ships to the store, and the end buyer
-later registers it at `sundialaudio.com/register`. That registration writes the buyer into
-`audio_cables.shopify_gid`.
+We sell cables wholesale to stores. A cable gets a `registration_code`, ships to the
+store, and the end buyer later registers it at `sundialaudio.com/register`. That
+registration writes the buyer into `audio_cables.shopify_gid`.
+
+> **Corrected 2026-08-30:** an earlier version of this document said a registration code
+> "pulls the cable out of retail availability". That was wrong, and code was built on it.
+> A code is printed for any cable we expect a buyer to register — including a batch taken
+> to a festival to sell direct — and those cables stay ours and sellable through either
+> channel. **Only an actual sale moves a cable out of stock:** `shopify_gid` (customer) or
+> `wholesale_company_gid` (dealer). See "Inventory semantics" at the end.
 
 Until now nothing recorded **which store sold the cable**, so the dealer relationship was
 lost the moment the end buyer registered. Shopify B2B is now enabled, and B2B orders carry
@@ -192,8 +198,9 @@ Proven query shape (for reference, already implemented):
    `registered_at` fill in while `wholesale_company_gid` survives unchanged.
 4. Retail unaffected: scan a cable onto an ordinary (non-B2B) order — `shopify_gid` set,
    wholesale columns NULL.
-5. Inventory: `get_available_count_for_sku` already excludes anything with a
-   `registration_code`, so retail availability should be unmoved by the B2B sale.
+5. Inventory: a B2B sale should drop the SKU's available count by one, because
+   `wholesale_company_gid` is now set. A registration code on its own must NOT move the
+   count — see "Inventory semantics" below.
 
 ## Follow-ups, not in scope
 
@@ -201,3 +208,38 @@ Proven query shape (for reference, already implemented):
   `get_cables_for_company` is the building block — `registered_at IS NULL` means the cable
   is still on the dealer's shelf.
 - `custom.band_company` (a customer metafield) is unrelated to any of this. Leave it alone.
+
+
+## Inventory semantics (corrected 2026-08-30)
+
+A cable is in available inventory when:
+
+```sql
+test_passed = TRUE
+AND (shopify_gid IS NULL OR shopify_gid = '')
+AND wholesale_company_gid IS NULL
+```
+
+`registration_code` is **not** consulted anywhere. It is an attribute of a cable, not a
+state that removes it from stock.
+
+Two further things that shape how much any of this matters:
+
+- **Inventory counts are largely internal reporting.** The storefront continues selling
+  when out of stock and standard SKUs are built to order, so a low count does not block a
+  sale. LTD editions are the exception — finite, and can't be rebuilt.
+- **An order does not claim a cable when placed.** A cable is bound to an order at
+  fulfillment. That makes allocation the only point where an unfit cable can be caught,
+  which is why `assign_cable_to_order` and `assign_cable_to_customer` refuse untested
+  (`not_tested`) and failed (`qc_failed`) cables. The admin's `handleAssignCable` selects
+  `test_passed` but does not yet gate on it.
+
+### Agreed buckets
+
+| bucket | predicate |
+|---|---|
+| untested | `test_passed IS NULL` |
+| failed | `test_passed = FALSE` |
+| available | passed, no owner, no dealer |
+| sold retail | `shopify_gid` set |
+| sold wholesale | `wholesale_company_gid` set |

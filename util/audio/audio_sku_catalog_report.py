@@ -88,7 +88,11 @@ def get_variant_counts(kinds, group=None):
     """Return {kind: {sku_group: {variant_sku: {total, available, assigned, wholesale}}}}.
 
     Availability mirrors db.get_available_count_for_sku so this agrees with the
-    reconcile: available = passed QC, unassigned, not wholesale.
+    reconcile: available = passed QC, not sold to a customer, not sold to a
+    dealer. A registration_code does not affect any of these counts — a coded
+    cable is still ours and still sellable (a festival batch, say); only an
+    actual sale moves it. `wholesale` therefore means "sold to a dealer", not
+    "has a code".
     """
     where = "TRUE"
     params = []
@@ -104,14 +108,14 @@ def get_variant_counts(kinds, group=None):
                        COUNT(*) AS total,
                        COUNT(*) FILTER (
                            WHERE test_passed
-                             AND registration_code IS NULL
                              AND (shopify_gid IS NULL OR shopify_gid = '')
+                             AND wholesale_company_gid IS NULL
                        ) AS available,
                        COUNT(*) FILTER (
                            WHERE shopify_gid IS NOT NULL AND shopify_gid <> ''
                        ) AS assigned,
                        COUNT(*) FILTER (
-                           WHERE registration_code IS NOT NULL
+                           WHERE wholesale_company_gid IS NOT NULL
                        ) AS wholesale
                 FROM audio_cables
                 WHERE {where}

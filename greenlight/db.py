@@ -776,10 +776,18 @@ def get_cables_for_ltd_sku(ltd_group_sku):
 def get_available_count_for_sku(sku):
     """Get count of available cables for a SKU.
 
-    "Available" means passed QC, not assigned to a customer, and not allocated
-    to a wholesale/reseller channel. A registration_code marks a cable as
-    wholesale-bound, so it is excluded from shopify.com availability (it must
-    not be double-sold via the retail store).
+    "Available" means passed QC, not sold to a customer, and not sold to a
+    wholesale dealer.
+
+    A registration_code does NOT affect availability. Codes are printed for
+    cables we expect an end buyer to register — including batches we take to a
+    festival to sell direct — and those cables remain ours and sellable through
+    either channel until one actually sells. Only wholesale_company_gid (sold to
+    a dealer) or shopify_gid (sold to a customer) takes a cable out of stock.
+
+    Note these counts are largely for internal reporting: the storefront is set
+    to continue selling when out of stock and standard SKUs are built to order.
+    The real safeguard is the QC and ownership gate at allocation time.
 
     The input may be either a variant SKU (e.g. 'SC-12GL', 'SC-12GL-R',
     'SC-12-LTD-PHISH26-R') or a group/MISC/LTD SKU. Catalog and LTD variants
@@ -800,7 +808,6 @@ def get_available_count_for_sku(sku):
                     FROM audio_cables ac
                     WHERE ac.test_passed = TRUE
                       AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
-                      AND ac.registration_code IS NULL
                       AND ac.wholesale_company_gid IS NULL
                       AND ac.sku_group = %s
                       AND ac.prefix = %s
@@ -815,7 +822,6 @@ def get_available_count_for_sku(sku):
                     FROM audio_cables ac
                     WHERE ac.test_passed = TRUE
                       AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
-                      AND ac.registration_code IS NULL
                       AND ac.wholesale_company_gid IS NULL
                       AND ac.sku_group = %s
                 """, (sku,))
@@ -836,7 +842,8 @@ def assign_cable_to_customer(serial_number, customer_shopify_gid):
         with conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT serial_number, sku_group, shopify_gid, wholesale_company_gid
+                    SELECT serial_number, sku_group, shopify_gid, wholesale_company_gid,
+                           test_passed
                     FROM audio_cables
                     WHERE serial_number = %s
                 """, (formatted_serial,))
@@ -853,6 +860,14 @@ def assign_cable_to_customer(serial_number, customer_shopify_gid):
                         'error': 'already_assigned',
                         'message': f'Cable {formatted_serial} is already assigned to customer {existing[2]}',
                         'existing_customer_gid': existing[2]
+                    }
+
+                if existing[4] is not True:
+                    return {
+                        'error': 'qc_failed' if existing[4] is False else 'not_tested',
+                        'message': (f'Cable {formatted_serial} failed QC and cannot be assigned'
+                                    if existing[4] is False else
+                                    f'Cable {formatted_serial} has not passed QC yet'),
                     }
 
                 if existing[3]:
@@ -1198,7 +1213,6 @@ def get_available_inventory(series=None):
                 JOIN sku_group sg ON ac.sku_group = sg.sku
                 WHERE ac.test_passed = TRUE
                   AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
-                  AND ac.registration_code IS NULL
                   AND ac.wholesale_company_gid IS NULL
             """
             params = []
@@ -1270,7 +1284,8 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
                 cur.execute("""
                     SELECT ac.serial_number, ac.sku_group, ac.prefix,
                            ac.length, ac.connector_code,
-                           ac.shopify_gid, ac.shopify_order_gid
+                           ac.shopify_gid, ac.shopify_order_gid,
+                           ac.wholesale_company_gid, ac.test_passed
                     FROM audio_cables ac
                     WHERE ac.serial_number = %s
                 """, (formatted_serial,))
@@ -1283,7 +1298,27 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
                     }
 
                 (cable_serial, sku_group, prefix, length, connector_code,
-                 existing_customer_gid, existing_order_gid) = row
+                 existing_customer_gid, existing_order_gid,
+                 existing_company_gid, test_passed) = row
+
+                # A cable goes out to a customer only once it has passed QC.
+                # Inventory counts don't gate this — the store sells when out of
+                # stock and we build to order — so allocation is the only place
+                # an untested or failed cable can be caught before it ships.
+                if test_passed is not True:
+                    return {
+                        'error': 'qc_failed' if test_passed is False else 'not_tested',
+                        'message': (f'Cable {formatted_serial} failed QC and cannot be allocated'
+                                    if test_passed is False else
+                                    f'Cable {formatted_serial} has not passed QC yet'),
+                    }
+
+                if not company_gid and existing_company_gid:
+                    return {
+                        'error': 'sold_to_dealer',
+                        'message': (f'Cable {formatted_serial} is sold to a dealer and cannot '
+                                    f'be allocated to a retail order'),
+                    }
 
                 if company_gid and existing_customer_gid:
                     # shopify_gid means end owner, so this cable has already been
@@ -1472,48 +1507,13 @@ def get_cables_for_order(order_gid):
         pg_pool.putconn(conn)
 
 
-def assign_registration_code(serial_number, code):
-    """Assign a registration code to a cable for wholesale/reseller sales.
-
-    Args:
-        serial_number: Cable serial number
-        code: Registration code (format: XXXX-XXXX)
-
-    Returns:
-        dict with 'success' bool, or 'error'/'message' on failure
-    """
-    conn = pg_pool.getconn()
-    try:
-        formatted_serial = format_serial_number(serial_number)
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    UPDATE audio_cables
-                    SET registration_code = %s
-                    WHERE serial_number = %s
-                    RETURNING serial_number, registration_code
-                """, (code, formatted_serial))
-                result = cur.fetchone()
-                conn.commit()
-                if result:
-                    return {'success': True, 'serial_number': result[0], 'registration_code': result[1]}
-                return {'error': 'not_found', 'message': f'Cable {formatted_serial} not found'}
-    except Exception as e:
-        conn.rollback()
-        error_msg = str(e)
-        if 'unique' in error_msg.lower() or 'duplicate' in error_msg.lower():
-            return {'error': 'duplicate_code', 'message': f'Registration code {code} already in use'}
-        return {'error': 'database', 'message': error_msg}
-    finally:
-        pg_pool.putconn(conn)
-
-
 def clear_registration_code(serial_number):
-    """Remove a cable's registration code, returning it to retail availability.
+    """Detach a cable's registration code.
 
-    The inverse of assign_registration_code: a cable allocated to a
-    wholesale/reseller channel is pulled back into the shopify.com pool
-    (see get_available_count_for_sku, which excludes coded cables).
+    This does not change availability: a code is not a state that removes a
+    cable from stock (see get_available_count_for_sku). Use it to undo a
+    mis-scan, or to reissue under a new code — noting that any label already
+    printed with the old code stops working.
 
     Returns:
         dict with 'success' and the cleared code, or 'error'/'message'
@@ -1650,9 +1650,14 @@ def get_sku_stock_summary():
                     COUNT(*) FILTER (
                         WHERE ac.test_passed = TRUE
                         AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
+                        AND ac.wholesale_company_gid IS NULL
                     ) as available,
+                    -- Sold through either channel. A dealer sale leaves
+                    -- shopify_gid NULL for the end buyer, so counting only
+                    -- shopify_gid would report a sold cable as still in stock.
                     COUNT(*) FILTER (
-                        WHERE ac.shopify_gid IS NOT NULL AND ac.shopify_gid != ''
+                        WHERE (ac.shopify_gid IS NOT NULL AND ac.shopify_gid != '')
+                           OR ac.wholesale_company_gid IS NOT NULL
                     ) as sold,
                     COUNT(*) FILTER (
                         WHERE ac.test_passed = FALSE
@@ -1747,9 +1752,14 @@ def get_misc_summary():
                     COUNT(*) FILTER (
                         WHERE ac.test_passed = TRUE
                         AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
+                        AND ac.wholesale_company_gid IS NULL
                     ) as available,
+                    -- Sold through either channel. A dealer sale leaves
+                    -- shopify_gid NULL for the end buyer, so counting only
+                    -- shopify_gid would report a sold cable as still in stock.
                     COUNT(*) FILTER (
-                        WHERE ac.shopify_gid IS NOT NULL AND ac.shopify_gid != ''
+                        WHERE (ac.shopify_gid IS NOT NULL AND ac.shopify_gid != '')
+                           OR ac.wholesale_company_gid IS NOT NULL
                     ) as sold
                 FROM audio_cables ac
                 WHERE ac.sku_group ~ '-MISC-[0-9]+$'

@@ -246,22 +246,11 @@ class WholesaleBatchScreen(Screen):
                     printed_count += 1
                 time.sleep(0.3)  # Brief pause between prints
 
-        # Now that these cables are allocated to wholesale (registration_code set),
-        # push Shopify inventory down so they aren't also sold via the retail store.
-        # Dedupe by variant SKU — one absolute set per SKU is enough (idempotent).
-        from greenlight.shopify_client import sync_inventory_for_cable
-        synced_skus = set()
-        coded_serials = {r['serial_number'] for r in results_list}
-        for cable in batch:
-            if cable['serial_number'] not in coded_serials:
-                continue
-            variant_sku = cable.get('variant_sku') or cable.get('sku_group')
-            if not variant_sku or variant_sku in synced_skus:
-                continue
-            synced_skus.add(variant_sku)
-            ok, err = sync_inventory_for_cable(cable)
-            if not ok:
-                logger.warning("Shopify inventory sync failed for %s: %s", variant_sku, err)
+        # No inventory sync here. A registration code doesn't take a cable out of
+        # stock — it's just a code the end buyer registers with, and coded cables
+        # (a festival batch, say) stay ours and sellable through either channel
+        # until one actually sells. Availability moves when a cable is sold to a
+        # customer or a dealer, not when it's coded.
 
         # Show summary
         self.ui.console.clear()

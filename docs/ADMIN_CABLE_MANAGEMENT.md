@@ -154,23 +154,26 @@ seen.
 ## Phase 5 — Reporting and reconciliation
 
 ### Agree on the inventory buckets first
-Three places already count cable state and they do not agree:
-`util/audio/audio_sku_catalog_report.py`, the editions list (commit `167361ea`), and the
-admin inventory page. In particular `wholesale` currently means "has a registration code",
-which cannot distinguish a cable *allocated* for wholesale from one *actually sold* to a
-dealer. Those are different numbers the moment dealer data starts flowing.
+Greenlight's counts were aligned in commit `9a69e39f`. The admin's five predicates
+(`editions.server.js`, `app.cables.$sku.jsx`, `app.inventory.jsx` x2,
+`app.editions._index.jsx`) still carry `registration_code IS NULL` and need it removed to
+match.
 
-Proposed canonical set:
+Canonical set:
 
 | bucket | predicate |
 |---|---|
 | untested | `test_passed IS NULL` |
 | failed | `test_passed = FALSE` |
-| available (retail) | passed, no owner, no code, no dealer |
-| allocated (wholesale) | passed, has code, **no** dealer |
-| sold to dealer | `wholesale_company_gid IS NOT NULL`, `registered_at IS NULL` |
-| registered | `registered_at IS NOT NULL` |
-| assigned (retail) | `shopify_gid` set with no dealer |
+| available | passed, no owner, no dealer |
+| sold retail | `shopify_gid` set |
+| sold wholesale | `wholesale_company_gid` set |
+
+**Resolved 2026-08-30.** An earlier draft of this table had an `allocated (wholesale)`
+bucket for "passed, has code, no dealer". That distinction turned out not to exist: a
+registration code does not remove a cable from stock, so there is nothing to allocate.
+`registered_at` remains useful as a column (has the buyer claimed it?) but is not a
+bucket. See `WHOLESALE_ATTRIBUTION.md` -> Inventory semantics.
 
 Define once, use everywhere, and update `audio_sku_catalog_report.py` to match.
 

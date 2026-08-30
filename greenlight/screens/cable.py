@@ -976,11 +976,8 @@ class CableScreenBase(Screen):
             if results_list:
                 reg_code = results_list[0]['registration_code']
                 cable_record['registration_code'] = reg_code
-                # Cable is now allocated to wholesale — drop it from retail inventory.
-                from greenlight.shopify_client import sync_inventory_for_cable
-                ok, err = sync_inventory_for_cable(cable_record)
-                if not ok:
-                    logger.warning(f"Shopify inventory sync failed for {serial_number}: {err}")
+                # No inventory sync: a code doesn't remove a cable from stock.
+                # See get_available_count_for_sku.
             else:
                 errors = result.get('errors', [])
                 message = errors[0]['error'] if errors else result.get('message', 'Failed to generate registration code')
@@ -1176,6 +1173,75 @@ class CableScreenBase(Screen):
             self.ui.layout["body"].update(Panel(
                 f"[bold green]Cable {serial}: {released} released.[/bold green]",
                 title="Unassigned", style="green"
+            ))
+        else:
+            self.ui.layout["body"].update(Panel(
+                f"[red]Error: {result.get('message', 'Unknown error')}[/red]",
+                title="Error"
+            ))
+        self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
+        self.ui.render()
+        self.ui.wait_back()
+
+    def _clear_registration_code(self, operator, cable_record):
+        """Prompt for confirmation and clear a cable's registration code.
+
+        Clearing a code does not change availability — a coded cable is still
+        ours and still sellable (see db.get_available_count_for_sku). This just
+        detaches the code, e.g. after a mis-scan or a reprint under a new code.
+        """
+        from greenlight import db as db_mod
+
+        serial = cable_record['serial_number']
+        reg_code = cable_record.get('registration_code', '')
+
+        # A cable sold to a dealer shipped with a printed label carrying this
+        # code. Clearing it would leave the end buyer unable to register the
+        # cable they bought, with nothing on our side explaining why.
+        if cable_record.get('wholesale_company_gid'):
+            self.ui.header(operator)
+            self.ui.layout["body"].update(Panel(
+                f"[red]Cable {serial} has been sold to a dealer — its registration "
+                f"code can't be cleared.[/red]\n\n"
+                f"It shipped with a label carrying this code; clearing it would "
+                f"leave the buyer unable to register the cable.\n\n"
+                f"If this was a mistake, unassign the cable from its wholesale "
+                f"order first, then clear the code.",
+                title="Sold to Dealer", style="red"
+            ))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
+            self.ui.render()
+            self.ui.wait_back()
+            return
+
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(
+            f"[yellow]Clear registration code for {serial}?[/yellow]\n\n"
+            f"Current code: [cyan]{reg_code}[/cyan]\n\n"
+            f"[yellow]Any registration label already printed for this code "
+            f"will no longer work — destroy it.[/yellow]",
+            title="Clear Registration Code"
+        ))
+        self.ui.layout["footer"].update(Panel(
+            "[green]y[/green] = Confirm clear | [cyan]n[/cyan] = Cancel",
+            title="Confirm?"
+        ))
+        self.ui.render()
+
+        try:
+            choice = self.ui.console.input("").strip().lower()
+        except KeyboardInterrupt:
+            return
+
+        if choice not in ('y', 'yes'):
+            return
+
+        result = db_mod.clear_registration_code(serial)
+        if result.get('success'):
+            cable_record['registration_code'] = None
+            self.ui.layout["body"].update(Panel(
+                f"[bold green]Registration code {reg_code} cleared.[/bold green]",
+                title="Code Cleared", style="green"
             ))
         else:
             self.ui.layout["body"].update(Panel(
