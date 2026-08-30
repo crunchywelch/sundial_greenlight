@@ -170,7 +170,7 @@ export async function action({ request }) {
       const dbResult = await query(
         `SELECT sku_group, prefix, length, connector_code, COUNT(*) as count
          FROM audio_cables
-         WHERE (shopify_gid IS NULL OR shopify_gid = '') AND wholesale_company_gid IS NULL AND sku_group !~ '^LTD-'
+         WHERE (shopify_gid IS NULL OR shopify_gid = '') AND wholesale_company_gid IS NULL AND test_passed = TRUE AND sku_group !~ '^LTD-'
          GROUP BY sku_group, prefix, length, connector_code
          ORDER BY sku_group, prefix, length, connector_code`
       );
