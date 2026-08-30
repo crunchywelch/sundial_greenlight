@@ -101,10 +101,27 @@ export async function listEditions(filter = "active") {
   if (filter === "active") where.push("sg.archived_at IS NULL");
   else if (filter === "archived") where.push("sg.archived_at IS NOT NULL");
 
+  // Per-state cable counts per edition (each cable counted once; priority
+  // assigned > wholesale > QC outcome), matching the inventory hub.
   const result = await query(
     `SELECT sg.sku, sg.description, sg.archived_at,
-            (SELECT COUNT(*) FROM audio_cables ac WHERE ac.sku_group = sg.sku) AS cable_count
+            COALESCE(c.total, 0)     AS total,
+            COALESCE(c.retail, 0)    AS retail,
+            COALESCE(c.wholesale, 0) AS wholesale,
+            COALESCE(c.assigned, 0)  AS assigned,
+            COALESCE(c.failed, 0)    AS failed,
+            COALESCE(c.untested, 0)  AS untested
      FROM sku_group sg
+     LEFT JOIN (
+       SELECT sku_group,
+         COUNT(*) AS total,
+         COUNT(*) FILTER (WHERE shopify_gid IS NOT NULL AND shopify_gid != '') AS assigned,
+         COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NOT NULL) AS wholesale,
+         COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NULL AND test_passed = TRUE) AS retail,
+         COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NULL AND test_passed = FALSE) AS failed,
+         COUNT(*) FILTER (WHERE (shopify_gid IS NULL OR shopify_gid = '') AND registration_code IS NULL AND test_passed IS NULL) AS untested
+       FROM audio_cables GROUP BY sku_group
+     ) c ON c.sku_group = sg.sku
      WHERE ${where.join(" AND ")}
      ORDER BY (sg.archived_at IS NULL) DESC, sg.sku`
   );
@@ -117,7 +134,13 @@ export async function listEditions(filter = "active") {
       description: r.description,
       archived_at: r.archived_at,
       active: r.archived_at === null,
-      cable_count: parseInt(r.cable_count, 10),
+      cable_count: parseInt(r.total, 10),
+      total: parseInt(r.total, 10),
+      retail: parseInt(r.retail, 10),
+      wholesale: parseInt(r.wholesale, 10),
+      assigned: parseInt(r.assigned, 10),
+      failed: parseInt(r.failed, 10),
+      untested: parseInt(r.untested, 10),
     };
   });
 }

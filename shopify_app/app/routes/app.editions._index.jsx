@@ -159,6 +159,32 @@ const TAB_STYLE_ACTIVE = {
   fontWeight: "bold",
 };
 
+// Cable state columns, matching the inventory hub (colors from CableTable's
+// STATE_META). `drill` links the count into the cable view filtered by state.
+const STATE_COLS = [
+  { key: "retail", label: "Retail", color: "#008060", strong: true, drill: null, title: "Passed QC, unassigned, not wholesale — sellable on shopify.com" },
+  { key: "wholesale", label: "Wholesale", color: "#5c3d99", drill: "wholesale", title: "Reg-coded, allocated to a reseller" },
+  { key: "assigned", label: "Assigned", color: "#1a3d7c", drill: "assigned", title: "Shipped to a customer" },
+  { key: "failed", label: "Failed", color: "#d72c0d", drill: "failed", title: "Failed QC" },
+  { key: "untested", label: "Untested", color: "#bf5000", drill: "untested", title: "Registered but not yet tested" },
+  { key: "total", label: "Total", color: "#333", drill: null, title: "" },
+];
+const thR = { padding: "12px", textAlign: "right", borderBottom: "2px solid #ddd" };
+const tdNum = { padding: "12px", borderBottom: "1px solid #eee", textAlign: "right" };
+
+function StateCell({ n, color, strong, href }) {
+  if (!n) return <td style={tdNum}><span style={{ color: "#ccc" }}>0</span></td>;
+  return (
+    <td style={tdNum}>
+      {href ? (
+        <Link to={href} style={{ color, fontWeight: strong ? "bold" : 600, textDecoration: "none" }}>{n}</Link>
+      ) : (
+        <span style={{ color, fontWeight: strong ? "bold" : "normal" }}>{n}</span>
+      )}
+    </td>
+  );
+}
+
 export default function EditionsIndex() {
   const { editions, filter } = useLoaderData();
   const actionData = useActionData();
@@ -274,7 +300,9 @@ export default function EditionsIndex() {
               <tr style={{ backgroundColor: "#f5f5f5" }}>
                 <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #ddd" }}>Slug</th>
                 <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #ddd" }}>Description</th>
-                <th style={{ padding: "12px", textAlign: "right", borderBottom: "2px solid #ddd" }}>Cables</th>
+                {STATE_COLS.map((col) => (
+                  <th key={col.key} style={thR} title={col.title}>{col.label}</th>
+                ))}
                 <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #ddd" }}>Status</th>
               </tr>
             </thead>
@@ -288,7 +316,15 @@ export default function EditionsIndex() {
                     <div style={{ fontSize: "12px", fontWeight: "normal", color: "#999" }}>{e.sku}</div>
                   </td>
                   <td style={{ padding: "12px", borderBottom: "1px solid #eee" }}>{e.description}</td>
-                  <td style={{ padding: "12px", borderBottom: "1px solid #eee", textAlign: "right", fontWeight: "bold" }}>{e.cable_count}</td>
+                  {STATE_COLS.map((col) => (
+                    <StateCell
+                      key={col.key}
+                      n={e[col.key]}
+                      color={col.color}
+                      strong={col.strong}
+                      href={col.drill && e[col.key] > 0 ? linkTo(`/app/cables/${encodeURIComponent(e.sku)}`, { state: col.drill }) : null}
+                    />
+                  ))}
                   <td style={{ padding: "12px", borderBottom: "1px solid #eee" }}>
                     <span style={{
                       padding: "4px 8px",
