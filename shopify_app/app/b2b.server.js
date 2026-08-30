@@ -327,6 +327,31 @@ export async function createWholesaleDraftOrder({ purchasingCompany, lines, poNu
   }
 
   const draft = data.draftOrderCreate?.draftOrder;
+
+  // Email the invoice to the buyer so they always have a link back to it, even
+  // though it's a draft. Non-fatal: the order is already created; a send failure
+  // (e.g. missing email) shouldn't fail the whole request.
+  if (draft?.id) {
+    try {
+      const sendData = await adminGraphql(
+        `#graphql
+        mutation sendInvoice($id: ID!) {
+          draftOrderInvoiceSend(id: $id) {
+            draftOrder { id }
+            userErrors { field message }
+          }
+        }`,
+        { id: draft.id }
+      );
+      const sendErrs = sendData.draftOrderInvoiceSend?.userErrors ?? [];
+      if (sendErrs.length > 0) {
+        console.error("draftOrderInvoiceSend userErrors:", JSON.stringify(sendErrs));
+      }
+    } catch (e) {
+      console.error("draftOrderInvoiceSend failed:", e);
+    }
+  }
+
   return {
     orderName: draft?.name || null,
     invoiceUrl: draft?.invoiceUrl || null,
