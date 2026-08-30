@@ -1685,9 +1685,14 @@ def get_sku_stock_summary():
                     COUNT(*) FILTER (
                         WHERE ac.test_passed = TRUE
                         AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
+                        AND ac.wholesale_company_gid IS NULL
                     ) as available,
+                    -- Sold through either channel. A dealer sale leaves
+                    -- shopify_gid NULL for the end buyer, so counting only
+                    -- shopify_gid would report a sold cable as still in stock.
                     COUNT(*) FILTER (
-                        WHERE ac.shopify_gid IS NOT NULL AND ac.shopify_gid != ''
+                        WHERE (ac.shopify_gid IS NOT NULL AND ac.shopify_gid != '')
+                           OR ac.wholesale_company_gid IS NOT NULL
                     ) as sold,
                     COUNT(*) FILTER (
                         WHERE ac.test_passed = FALSE
@@ -1782,9 +1787,14 @@ def get_misc_summary():
                     COUNT(*) FILTER (
                         WHERE ac.test_passed = TRUE
                         AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
+                        AND ac.wholesale_company_gid IS NULL
                     ) as available,
+                    -- Sold through either channel. A dealer sale leaves
+                    -- shopify_gid NULL for the end buyer, so counting only
+                    -- shopify_gid would report a sold cable as still in stock.
                     COUNT(*) FILTER (
-                        WHERE ac.shopify_gid IS NOT NULL AND ac.shopify_gid != ''
+                        WHERE (ac.shopify_gid IS NOT NULL AND ac.shopify_gid != '')
+                           OR ac.wholesale_company_gid IS NOT NULL
                     ) as sold
                 FROM audio_cables ac
                 WHERE ac.sku_group ~ '-MISC-[0-9]+$'
