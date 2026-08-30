@@ -194,7 +194,7 @@ async function handleAssignCable({ serialNumber, orderId, customerId, companyId,
   // Look up the cable
   const result = await query(
     `SELECT ac.serial_number, ac.sku_group, ac.prefix, ac.length, ac.connector_code,
-            ac.shopify_gid, ac.shopify_order_gid
+            ac.shopify_gid, ac.shopify_order_gid, ac.wholesale_company_gid
      FROM audio_cables ac
      WHERE ac.serial_number = $1`,
     [serialNumber]
@@ -217,6 +217,16 @@ async function handleAssignCable({ serialNumber, orderId, customerId, companyId,
   if (companyId && cable.shopify_gid && cable.shopify_gid !== "") {
     return json(
       { error: "Cable is registered to an end owner and cannot be assigned to a dealer", code: "ALREADY_REGISTERED" },
+      { status: 409 }
+    );
+  }
+
+  // Symmetric guard: a cable already sold to a dealer has shopify_gid NULL by
+  // design, so a shopify_gid-only check would miss it and hand it to a retail
+  // customer — selling it twice. Mirrors the greenlight DB guard.
+  if (!companyId && cable.wholesale_company_gid && cable.wholesale_company_gid !== "") {
+    return json(
+      { error: "Cable is sold to a dealer and cannot be assigned to a retail customer", code: "SOLD_TO_DEALER" },
       { status: 409 }
     );
   }
