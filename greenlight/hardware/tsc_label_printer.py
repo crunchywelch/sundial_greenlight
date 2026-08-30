@@ -216,6 +216,8 @@ class TSCLabelPrinter(LabelPrinterInterface):
                 tspl = self._generate_bin_label_tspl(print_job.data)
             elif print_job.template == "text_label":
                 tspl = self._generate_text_label_tspl(print_job.data)
+            elif print_job.template == "prop65_label":
+                tspl = self._generate_prop65_label_tspl(print_job.data)
             else:
                 logger.error(f"Unknown template: {print_job.template}")
                 return False
@@ -968,6 +970,166 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         return "\r\n".join(tspl_commands).encode('utf-8')
 
+    def _generate_warning_triangle_bitmap(self, height: int = 88,
+                                          border: int = 9) -> Dict[str, Any]:
+        """Procedurally draw the Prop 65 warning symbol as a TSPL bitmap.
+
+        The TE210 only renders built-in bitmap fonts, so the exclamation-point
+        triangle can't be a glyph — we rasterize it here. Returns a dict shaped
+        like _generate_qr_bitmap output (width_bytes, height, data) with the
+        same convention: an "ink" pixel is bit=1, sent with BITMAP mode 0.
+
+        Args:
+            height: triangle height in dots
+            border: stroke thickness of the triangle outline in dots
+        """
+        import math
+
+        H = height
+        m = 4  # margin so the stroke isn't clipped at the edges
+        # Equilateral triangle: base width = 2 * height / sqrt(3).
+        base = 2.0 * (H - 2 * m) / math.sqrt(3)
+        W = int(math.ceil(base)) + 2 * m
+        cx = W / 2.0
+
+        # Vertices: apex top-center, base corners bottom-left / bottom-right.
+        ax, ay = cx, float(m)
+        bx, by = float(m), float(H - m)
+        dx, dy = float(W - m), float(H - m)
+        gx, gy = (ax + bx + dx) / 3.0, (ay + by + dy) / 3.0  # centroid
+
+        def inside(px, py, va, vb, vc):
+            """True if point is inside triangle va,vb,vc (edge sign test)."""
+            def sign(p1, p2, p3):
+                return ((p1[0] - p3[0]) * (p2[1] - p3[1]) -
+                        (p2[0] - p3[0]) * (p1[1] - p3[1]))
+            p = (px, py)
+            d1, d2, d3 = sign(p, va, vb), sign(p, vb, vc), sign(p, vc, va)
+            has_neg = (d1 < 0) or (d2 < 0) or (d3 < 0)
+            has_pos = (d1 > 0) or (d2 > 0) or (d3 > 0)
+            return not (has_neg and has_pos)
+
+        # Inner triangle = outer scaled toward the centroid, leaving a border of
+        # ~`border` dots. Scale so the inradius shrinks by `border`.
+        # inradius r = area / semiperimeter.
+        area = abs((bx - ax) * (dy - ay) - (dx - ax) * (by - ay)) / 2.0
+        peri = (math.dist((ax, ay), (bx, by)) +
+                math.dist((bx, by), (dx, dy)) +
+                math.dist((dx, dy), (ax, ay)))
+        r = area / (peri / 2.0)
+        s = max(0.0, 1.0 - border / r)
+
+        def shrink(vx, vy):
+            return (gx + s * (vx - gx), gy + s * (vy - gy))
+
+        ia, ib, ic = shrink(ax, ay), shrink(bx, by), shrink(dx, dy)
+
+        # Exclamation mark geometry (drawn black inside the white interior).
+        bar_half = max(3, border // 2)
+        bar_top = int(H * 0.34)
+        bar_bot = int(H * 0.62)
+        dot_cy = int(H * 0.75)
+        dot_r = bar_half + 1
+
+        width_bytes = (W + 7) // 8
+        data = bytearray()
+        for y in range(H):
+            row = bytearray(width_bytes)
+            for x in range(W):
+                in_outer = inside(x + 0.5, y + 0.5, (ax, ay), (bx, by), (dx, dy))
+                in_inner = inside(x + 0.5, y + 0.5, ia, ib, ic)
+                on_ring = in_outer and not in_inner
+                in_bar = (bar_top <= y <= bar_bot) and (abs(x - cx) <= bar_half)
+                in_dot = ((x - cx) ** 2 + (y - dot_cy) ** 2) <= dot_r ** 2
+                if on_ring or in_bar or in_dot:
+                    row[x // 8] |= (1 << (7 - (x % 8)))
+            data.extend(row)
+
+        return {'width_bytes': width_bytes, 'height': H, 'width': W,
+                'data': bytes(data)}
+
+    def _generate_prop65_label_tspl(self, data: Dict[str, Any]) -> bytes:
+        """Generate TSPL for a California Proposition 65 warning label.
+
+        Layout: the exclamation-point warning triangle (rasterized bitmap) at
+        left, "WARNING" beside it, and the warning statement below.
+
+        Args:
+            data: Dictionary with:
+                - form: "short" (default) or "long"
+                - chemical: optional chemical name (e.g. "lead", "DEHP")
+                - endpoints: "both" (default), "cancer", or "reproductive"
+                - quantity: number of copies (default 1)
+        """
+        form = (data.get('form') or 'short').lower()
+        chemical = (data.get('chemical') or '').strip()
+        endpoints = (data.get('endpoints') or 'both').lower()
+        quantity = max(1, int(data.get('quantity', 1) or 1))
+
+        def esc(t):
+            return t.replace('"', "'")
+
+        cmds = []
+        cmds.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
+        cmds.append("GAP 2 mm, 2 mm")
+        cmds.append("DIRECTION 1,0")
+        cmds.append("REFERENCE 0,0")
+        cmds.append("SET TEAR ON")
+        cmds.append("SET PEEL OFF")
+        cmds.append("CLS")
+        cmds.append("DENSITY 10")
+        cmds.append("SPEED 3")
+
+        # Warning triangle bitmap at top-left.
+        tri = self._generate_warning_triangle_bitmap(height=86, border=9)
+        tri_x, tri_y = 16, 18
+        bitmap_cmd = (f'BITMAP {tri_x},{tri_y},{tri["width_bytes"]},'
+                      f'{tri["height"]},0,').encode() + tri['data']
+
+        text_x = tri_x + tri['width'] + 18  # to the right of the triangle
+
+        # "WARNING" headline (font 4, double size) beside the triangle.
+        cmds.append(f'TEXT {text_x},22,"4",0,2,2,"WARNING"')
+
+        if form == 'long':
+            if endpoints == 'cancer':
+                harm = "cause cancer"
+            elif endpoints == 'reproductive':
+                harm = "cause birth defects or other reproductive harm"
+            else:
+                harm = "cause cancer and birth defects or other reproductive harm"
+            chem = chemical if chemical else "certain chemicals"
+            is_are = "which is" if chemical else "which are"
+            body = (f"This product can expose you to {chem}, {is_are} known to "
+                    f"the State of California to {harm}. For more information "
+                    f"go to www.P65Warnings.ca.gov")
+            y = 110  # below the triangle (which ends near y=104)
+            for line in self._split_text(body, 74):
+                cmds.append(f'TEXT 16,{y},"1",0,1,1,"{esc(line)}"')
+                y += 18
+        else:
+            # Short form.
+            if endpoints == 'cancer':
+                harm = "Cancer"
+            elif endpoints == 'reproductive':
+                harm = "Reproductive Harm"
+            else:
+                harm = "Cancer and Reproductive Harm"
+            cmds.append(f'TEXT {text_x},80,"2",0,1,1,"{esc(harm)}"')
+            next_y = 108
+            if chemical:
+                cmds.append(f'TEXT {text_x},{next_y},"2",0,1,1,"{esc("Chemical: " + chemical)}"')
+                next_y += 26
+            cmds.append(f'TEXT {text_x},{next_y},"3",0,1,1,"www.P65Warnings.ca.gov"')
+
+        cmds.append(f"PRINT {quantity},1")
+        cmds.append("")
+
+        # Join text commands, then splice the raw bitmap bytes in before PRINT.
+        head = "\r\n".join(cmds[:-2]).encode('utf-8') + b"\r\n"
+        tail = "\r\n".join(cmds[-2:]).encode('utf-8')
+        return head + bitmap_cmd + b"\r\n" + tail
+
     def get_status(self) -> Dict[str, Any]:
         """Get printer status"""
         status = {
@@ -1067,6 +1229,8 @@ class MockTSCLabelPrinter(LabelPrinterInterface):
             logger.debug("Mock TSPL commands would be generated for bin label")
         elif print_job.template == "text_label":
             logger.debug("Mock TSPL commands would be generated for text label")
+        elif print_job.template == "prop65_label":
+            logger.debug("Mock TSPL commands would be generated for prop65 label")
 
         return True
 
