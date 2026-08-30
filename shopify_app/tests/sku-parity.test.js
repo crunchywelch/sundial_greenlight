@@ -9,7 +9,7 @@
  *   - "round_trip": asserts formatVariantSku(parseVariantSku(sku)) === sku
  *
  * The same fixtures are consumed by the Python parity test
- * (tests/test_sku_parity.py) — same input, same output, enforced both sides.
+ * (util/cable/test_sku_parity.py) — same input, same output, enforced both sides.
  *
  * Run: npm test  (or node --test shopify_app/tests/sku-parity.test.js)
  */

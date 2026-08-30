@@ -102,6 +102,9 @@ BLOCK = (
 
 
 def main():
+    if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
+        print(__doc__)
+        sys.exit(0)
     (EXT / "assets").mkdir(parents=True, exist_ok=True)
     (EXT / "blocks").mkdir(parents=True, exist_ok=True)
 

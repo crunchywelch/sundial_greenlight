@@ -10,6 +10,7 @@ entry point; OPTS.addToCart makes it live (real /cart/add.js), absent = demo.
     venv/bin/python util/wire/cordset/build_prototype.py   # -> prototype.html
 """
 import json
+import sys
 from pathlib import Path
 
 D = Path(__file__).parent
@@ -717,6 +718,9 @@ ARTIFACT_MASTHEAD = r"""  <header class="masthead">
 
 
 def build_artifact():
+    if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
+        print(__doc__)
+        sys.exit(0)
     catalog = json.loads((D / "cordsets.catalog.json").read_text())
     cat_min = json.dumps(catalog, separators=(",", ":"))
     page = ('<div class="wrap cordset">\n' + ARTIFACT_MASTHEAD + APP_MARKUP + "</div>\n"

@@ -3,11 +3,11 @@
 Upload a bitmap file to the TSC label printer.
 
 Usage:
-    python util/upload_bitmap.py <bitmap_file> [printer_ip]
+    python util/printer/upload_bitmap.py <bitmap_file> [printer_ip]
 
 Example:
-    python util/upload_bitmap.py wire_mono.bmp
-    python util/upload_bitmap.py wire_mono.bmp 192.168.0.52
+    python util/printer/upload_bitmap.py wire_mono.bmp
+    python util/printer/upload_bitmap.py wire_mono.bmp 192.168.0.52
 """
 
 import socket
@@ -75,6 +75,10 @@ def list_printer_files(printer_ip: str):
 
 
 if __name__ == "__main__":
+    if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
+        print(__doc__)
+        sys.exit(0)
+
     if len(sys.argv) < 2:
         print(__doc__)
         sys.exit(1)

@@ -226,11 +226,36 @@ class CableScreenBase(Screen):
 
 [bold magenta]Assigned To:[/bold magenta]
   [yellow]ID: {customer_gid}[/yellow]"""
+        elif cable_record.get("wholesale_company_gid"):
+            # Sold to a dealer but not yet claimed: shopify_gid is deliberately
+            # NULL so the end buyer can register. "Not assigned" would read as
+            # though nothing had happened to the cable.
+            right += """
+
+[bold magenta]Owner:[/bold magenta]
+  [yellow]⏳ Awaiting end-buyer registration[/yellow]"""
         else:
             right += """
 
 [bold magenta]Assignment:[/bold magenta]
   [yellow]⏳ Not assigned[/yellow]"""
+
+        # Wholesale dealer. Independent of the customer block above: a cable sold
+        # to a dealer has no shopify_gid until its end buyer registers it, so both
+        # sections can show at once once that happens.
+        wholesale_company_gid = cable_record.get("wholesale_company_gid")
+        if wholesale_company_gid:
+            from greenlight import shopify_client
+            # Cached in shopify_client, so this doesn't hit the API on every render.
+            dealer = shopify_client.get_company_display(
+                wholesale_company_gid, cable_record.get("wholesale_location_gid")
+            ) or f"[yellow]{wholesale_company_gid}[/yellow]"
+            right += f"\n\n[bold yellow]🏪 Sold via:[/bold yellow]\n  {dealer}"
+            registered_at = cable_record.get("registered_at")
+            if registered_at:
+                right += f"\n  [dim]Registered {registered_at.strftime('%Y-%m-%d')}[/dim]"
+            else:
+                right += "\n  [dim]Not yet registered by end buyer[/dim]"
 
         # Two-column layout using Table
         layout_table = Table(show_header=False, show_edge=False, box=None, padding=(0, 2), expand=True)
@@ -1070,17 +1095,32 @@ class CableScreenBase(Screen):
 
         serial = cable_record['serial_number']
         customer_gid = cable_record.get('shopify_gid', '')
+        company_gid = cable_record.get('wholesale_company_gid', '')
 
-        # Look up customer name for the confirmation prompt
-        customer_name = "unknown customer"
-        try:
-            if customer_gid:
-                customer_numeric_id = customer_gid.split('/')[-1]
-                customer = shopify_client.get_customer_by_id(customer_numeric_id)
-                if customer:
-                    customer_name = customer.get('displayName') or customer_name
-        except:
-            pass
+        # A cable is committed to one channel or the other: an end owner
+        # (shopify_gid) or a wholesale dealer (wholesale_company_gid).
+        if company_gid:
+            dealer = shopify_client.get_company_display(
+                company_gid, cable_record.get('wholesale_location_gid')
+            ) or company_gid
+            holder = f"dealer [cyan]{dealer}[/cyan]"
+            extra = (
+                "\n[yellow]The cable keeps its registration code, so it stays out of "
+                "retail inventory. Clear the code separately if you want it back on "
+                "shopify.com.[/yellow]"
+            )
+        else:
+            customer_name = "unknown customer"
+            try:
+                if customer_gid:
+                    customer_numeric_id = customer_gid.split('/')[-1]
+                    customer = shopify_client.get_customer_by_id(customer_numeric_id)
+                    if customer:
+                        customer_name = customer.get('displayName') or customer_name
+            except:
+                pass
+            holder = f"[cyan]{customer_name}[/cyan]"
+            extra = ""
 
         has_order = bool(cable_record.get('shopify_order_gid'))
         order_note = "\n[yellow]This cable is also assigned to an order — both will be cleared.[/yellow]" if has_order else ""
@@ -1088,8 +1128,8 @@ class CableScreenBase(Screen):
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(
             f"[yellow]Unassign cable {serial}?[/yellow]\n\n"
-            f"Currently assigned to: [cyan]{customer_name}[/cyan]"
-            f"{order_note}\n\n"
+            f"Currently assigned to: {holder}"
+            f"{order_note}{extra}\n\n"
             f"This will return the cable to available inventory.",
             title="Unassign Cable"
         ))
@@ -1117,6 +1157,82 @@ class CableScreenBase(Screen):
             self.ui.layout["body"].update(Panel(
                 f"[bold green]Cable {serial} unassigned and returned to inventory.[/bold green]",
                 title="Unassigned", style="green"
+            ))
+        else:
+            self.ui.layout["body"].update(Panel(
+                f"[red]Error: {result.get('message', 'Unknown error')}[/red]",
+                title="Error"
+            ))
+        self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
+        self.ui.render()
+        self.ui.wait_back()
+
+    def _clear_registration_code(self, operator, cable_record):
+        """Prompt for confirmation and clear a cable's wholesale registration code.
+
+        The inverse of print_registration_label: the cable leaves the
+        wholesale/reseller allocation and returns to the retail pool, so
+        Shopify inventory is pushed back up.
+        """
+        from greenlight import db as db_mod
+
+        serial = cable_record['serial_number']
+        reg_code = cable_record.get('registration_code', '')
+
+        # A cable already sold to a dealer must keep its code: clearing it would
+        # put the cable back into shopify.com retail inventory while it sits on
+        # the store's shelf, and we'd sell it twice.
+        if cable_record.get('wholesale_company_gid'):
+            self.ui.header(operator)
+            self.ui.layout["body"].update(Panel(
+                f"[red]Cable {serial} has been sold to a dealer — its registration "
+                f"code can't be cleared.[/red]\n\n"
+                f"Returning it to retail inventory now would double-sell it.\n\n"
+                f"If this was a mistake, unassign the cable from its wholesale "
+                f"order first, then clear the code.",
+                title="Sold to Dealer", style="red"
+            ))
+            self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
+            self.ui.render()
+            self.ui.wait_back()
+            return
+
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(
+            f"[yellow]Clear registration code for {serial}?[/yellow]\n\n"
+            f"Current code: [cyan]{reg_code}[/cyan]\n\n"
+            f"This removes the cable from wholesale allocation and returns it\n"
+            f"to retail inventory on shopify.com.\n\n"
+            f"[yellow]Any registration label already printed for this code "
+            f"will no longer work — destroy it.[/yellow]",
+            title="Clear Registration Code"
+        ))
+        self.ui.layout["footer"].update(Panel(
+            "[green]y[/green] = Confirm clear | [cyan]n[/cyan] = Cancel",
+            title="Confirm?"
+        ))
+        self.ui.render()
+
+        try:
+            choice = self.ui.console.input("").strip().lower()
+        except KeyboardInterrupt:
+            return
+
+        if choice not in ('y', 'yes'):
+            return
+
+        result = db_mod.clear_registration_code(serial)
+        if result.get('success'):
+            # Cable is back in the retail pool — push the higher count to Shopify.
+            cable_record['registration_code'] = None
+            from greenlight.shopify_client import sync_inventory_for_cable
+            ok, err = sync_inventory_for_cable(cable_record)
+            if not ok:
+                logger.warning(f"Shopify inventory sync failed for {serial}: {err}")
+            self.ui.layout["body"].update(Panel(
+                f"[bold green]Registration code {reg_code} cleared.[/bold green]\n\n"
+                f"Cable {serial} is available for retail again.",
+                title="Code Cleared", style="green"
             ))
         else:
             self.ui.layout["body"].update(Panel(
@@ -1160,22 +1276,29 @@ class CableScreenBase(Screen):
             cable_tested = cable_record.get('test_passed') is True
             is_misc = cable_record.get('kind') == 'misc'
             is_assigned = bool(cable_record.get('shopify_gid'))
+            has_reg_code = bool(cable_record.get('registration_code'))
+            sold_to_dealer = bool(cable_record.get('wholesale_company_gid'))
+            # Committed either way: registered to an end owner, or sold to a
+            # dealer. Its SKU is now on someone's invoice and must not change.
+            is_committed = is_assigned or sold_to_dealer
 
             # Build footer options based on mode and hardware
             footer_options = []
             if tester_available:
                 footer_options.append("[cyan]'t'[/cyan] = Test cable")
-            if mode == 'lookup' and not is_assigned:
+            if mode == 'lookup' and not is_committed:
                 footer_options.append("[cyan]'a'[/cyan] = Assign cable")
-            if mode == 'lookup' and is_assigned:
+            if mode == 'lookup' and is_committed:
                 footer_options.append("[cyan]'u'[/cyan] = Unassign cable")
             if printer_available and cable_tested:
                 footer_options.append("[cyan]'p'[/cyan] = Print label")
             if printer_available:
                 footer_options.append("[cyan]'l'[/cyan] = Print reg label")
+            if mode == 'lookup' and has_reg_code:
+                footer_options.append("[cyan]'c'[/cyan] = Clear reg code")
             if is_misc:
                 footer_options.append("[cyan]'d'[/cyan] = Edit description")
-            if mode == 'lookup' and not is_assigned:
+            if mode == 'lookup' and not is_committed:
                 footer_options.append("[cyan]'e'[/cyan] = Re-register")
             footer_options.append("[bold green]Scan[/bold green] next cable")
             footer_options.append("[cyan]'q'[/cyan] = Back")
@@ -1198,7 +1321,7 @@ class CableScreenBase(Screen):
                     # Loop to show updated info
                     continue
 
-                elif choice_lower == 'a' and mode == 'lookup' and not is_assigned:
+                elif choice_lower == 'a' and mode == 'lookup' and not is_committed:
                     from greenlight.screens.orders import CustomerLookupScreen
                     # Set return flag on our own context so ScanCableLookupScreen
                     # re-enters cable_action_loop after popping back
@@ -1208,7 +1331,7 @@ class CableScreenBase(Screen):
                     new_context["assign_cable_sku"] = cable_record['variant_sku']
                     return {'action': 'navigate', 'screen_result': ScreenResult(NavigationAction.PUSH, CustomerLookupScreen, new_context)}
 
-                elif choice_lower == 'u' and mode == 'lookup' and is_assigned:
+                elif choice_lower == 'u' and mode == 'lookup' and is_committed:
                     self._unassign_cable(operator, cable_record)
                     continue
 
@@ -1220,12 +1343,16 @@ class CableScreenBase(Screen):
                     cable_record = self.print_registration_label(operator, cable_record)
                     continue
 
+                elif choice_lower == 'c' and mode == 'lookup' and has_reg_code:
+                    self._clear_registration_code(operator, cable_record)
+                    continue
+
                 elif choice_lower == 'd' and is_misc:
                     updated = self.edit_cable_description(operator, cable_record)
                     cable_record = updated
                     continue
 
-                elif choice_lower == 'e' and mode == 'lookup' and not is_assigned:
+                elif choice_lower == 'e' and mode == 'lookup' and not is_committed:
                     new_context = self.context.copy()
                     new_context["selection_mode"] = "intake"
                     new_context["prefill_serial"] = cable_record['serial_number']

@@ -95,11 +95,12 @@ The app is designed to be resilient - Shopify features gracefully degrade if una
 
 ## Manual Refresh (Optional)
 
-If you ever need to manually refresh the token:
+Token refresh is fully automatic (see `greenlight/shopify_client.py`), so the
+old standalone `refresh_shopify_token.py` script has been removed. In the rare
+case you need to force a refresh:
 
 ```bash
-source dev_env.sh
-python refresh_shopify_token.py
+python -c "from greenlight.shopify_client import get_access_token_from_client_credentials as r; print(r())"
 ```
 
 But this should rarely be necessary - the automatic refresh handles it.
@@ -112,7 +113,7 @@ This should automatically fix itself. If it doesn't:
 
 1. Check that `SHOPIFY_CLIENT_ID` and `SHOPIFY_CLIENT_SECRET` are correct in `.env`
 2. Verify the app has admin API access in Shopify
-3. Run `python refresh_shopify_token.py` manually
+3. Force a refresh manually (see "Manual Refresh" above)
 
 ### Customer Search Returns No Results
 

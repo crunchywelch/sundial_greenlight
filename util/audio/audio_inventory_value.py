@@ -132,7 +132,8 @@ def _series_from_item(item):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Report total cost of available Shopify inventory'
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument('--detail', action='store_true',
                         help='Show per-SKU breakdown')

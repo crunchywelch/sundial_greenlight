@@ -26,6 +26,9 @@ ACTIONS = [
 
 
 def main():
+    if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
+        print(__doc__)
+        sys.exit(0)
     while True:
         print()
         print("  Sundial Wire Data Utilities")

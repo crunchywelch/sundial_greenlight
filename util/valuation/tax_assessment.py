@@ -10,8 +10,8 @@ Products are grouped by category with subtotals. Only items with qty > 0
 are included.
 
 Usage:
-    python util/tax_assessment.py              # Generate report
-    python util/tax_assessment.py --year 2025  # Specify tax year
+    python util/valuation/tax_assessment.py              # Generate report
+    python util/valuation/tax_assessment.py --year 2025  # Specify tax year
 """
 
 import argparse
@@ -21,7 +21,7 @@ import random
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from util.wire.sundial_wire_db import DATA_DIR, get_db, init_db
 
 import shopify
@@ -433,7 +433,8 @@ def generate_report(conn, tax_year):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate Schedule E property tax assessment report"
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--year", type=int, default=2025,
                         help="Tax year (default: 2025)")

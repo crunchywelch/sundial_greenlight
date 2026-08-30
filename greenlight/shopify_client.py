@@ -54,6 +54,9 @@ SHOPIFY_WIRE_CLIENT_SECRET = os.getenv("SHOPIFY_WIRE_CLIENT_SECRET")
 _cached_location_id: Optional[str] = None
 _cached_publication_ids: Optional[list] = None
 _inventory_item_cache: Dict[str, str] = {}
+# B2B company lookups, keyed by company GID. Dealer names don't change, and the
+# cable detail panel resolves one on every render.
+_company_cache: Dict[str, Dict[str, Any]] = {}
 
 
 def get_access_token_from_client_credentials() -> Optional[str]:
@@ -371,6 +374,127 @@ def get_customer_by_id(customer_id: str) -> Optional[Dict[str, Any]]:
     except Exception as e:
         logger.error("Error fetching customer by ID: %s", e)
         return None
+    finally:
+        close_shopify_session()
+
+
+def get_company_by_id(company_id: str) -> Optional[Dict[str, Any]]:
+    """Look up a B2B company by Shopify ID (numeric or GID).
+
+    Companies are the wholesale dealers we sell to. A cable's
+    wholesale_company_gid points here — see docs/WHOLESALE_ATTRIBUTION.md.
+
+    Results are cached for the life of the process: dealer names effectively
+    never change, and the cable detail panel would otherwise hit the API on
+    every re-render of cable_action_loop.
+
+    Returns:
+        Dict with id/name/externalId and a `locations` list, or None if not found.
+    """
+    company_gid = company_id if company_id.startswith("gid://") else f"gid://shopify/Company/{company_id}"
+
+    if company_gid in _company_cache:
+        return _company_cache[company_gid]
+
+    try:
+        get_shopify_session()
+
+        query = """
+        query getCompany($id: ID!) {
+            company(id: $id) {
+                id
+                name
+                externalId
+                locations(first: 20) {
+                    edges { node { id name } }
+                }
+            }
+        }
+        """
+
+        result = shopify.GraphQL().execute(query, variables={"id": company_gid})
+        data = json.loads(result)
+
+        if "errors" in data:
+            logger.error("GraphQL errors fetching company: %s", data['errors'])
+            return None
+
+        company = data.get("data", {}).get("company")
+        if not company:
+            return None
+
+        company["locations"] = [
+            edge["node"] for edge in company.get("locations", {}).get("edges", [])
+        ]
+        _company_cache[company_gid] = company
+        return company
+
+    except Exception as e:
+        logger.error("Error fetching company by ID: %s", e)
+        return None
+    finally:
+        close_shopify_session()
+
+
+def get_company_display(company_gid: str, location_gid: Optional[str] = None) -> Optional[str]:
+    """Human-readable dealer label, e.g. "Mill River Music — 135 King St".
+
+    Falls back to the company name alone when the location can't be resolved,
+    and returns None if the company itself can't be looked up — callers should
+    show the raw GID in that case rather than nothing.
+    """
+    company = get_company_by_id(company_gid)
+    if not company:
+        return None
+
+    label = company.get("name") or company_gid
+    if location_gid:
+        for loc in company.get("locations", []):
+            if loc.get("id") == location_gid:
+                if loc.get("name"):
+                    label += f" — {loc['name']}"
+                break
+    return label
+
+
+def list_companies(limit: int = 100) -> list[Dict[str, Any]]:
+    """List all B2B companies (wholesale dealers) with their locations."""
+    try:
+        get_shopify_session()
+
+        query = """
+        query listCompanies($limit: Int!) {
+            companies(first: $limit) {
+                edges { node {
+                    id
+                    name
+                    externalId
+                    locations(first: 20) { edges { node { id name } } }
+                } }
+            }
+        }
+        """
+
+        result = shopify.GraphQL().execute(query, variables={"limit": limit})
+        data = json.loads(result)
+
+        if "errors" in data:
+            logger.error("GraphQL errors listing companies: %s", data['errors'])
+            return []
+
+        companies = []
+        for edge in data.get("data", {}).get("companies", {}).get("edges", []):
+            node = edge["node"]
+            node["locations"] = [
+                e["node"] for e in node.get("locations", {}).get("edges", [])
+            ]
+            _company_cache[node["id"]] = node
+            companies.append(node)
+        return companies
+
+    except Exception as e:
+        logger.error("Error listing companies: %s", e)
+        return []
     finally:
         close_shopify_session()
 
@@ -1033,7 +1157,10 @@ def get_all_product_skus() -> Dict[str, Dict[str, Any]]:
             variants = product.get("variants", {}).get("edges", [])
             for variant_edge in variants:
                 variant = variant_edge["node"]
-                sku = variant.get("sku", "").strip()
+                # Shopify returns sku: null (not a missing key) for variants
+                # with no SKU set, so the "" default doesn't apply — guard the
+                # None explicitly or .strip() aborts the whole fetch.
+                sku = (variant.get("sku") or "").strip()
 
                 if sku:
                     inv_item = variant.get("inventoryItem") or {}
@@ -1508,7 +1635,10 @@ def sync_inventory_for_cable(cable_record: Dict[str, Any]) -> Tuple[bool, Option
     Because the underlying set is absolute (not a delta), this is idempotent
     and safe to call as often as changes are made.
 
-    - LTD cables have no Shopify product and are skipped (returns success).
+    - LTD cables sync like catalog once their Shopify product exists. Editions
+      whose product hasn't been built yet just fail the inventory set here
+      ("No inventory item found"); that's fine and expected — the reconcile
+      catches them up the moment the product is created with matching SKUs.
     - MISC cables create/find their "Special Baby" product on demand.
 
     Returns (success, error_msg). Never raises.
@@ -1517,9 +1647,6 @@ def sync_inventory_for_cable(cable_record: Dict[str, Any]) -> Tuple[bool, Option
         from greenlight.db import get_available_count_for_sku
 
         kind = cable_record.get("kind")
-        if kind == "ltd":
-            return True, None  # LTD is never sold via Shopify — nothing to sync
-
         variant_sku = cable_record.get("variant_sku") or cable_record.get("sku_group")
         if not variant_sku:
             return False, "Cable record has no variant_sku / sku_group"

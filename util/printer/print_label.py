@@ -1,24 +1,27 @@
 #!/usr/bin/env python3
 """
-Test script for TSC TE210 label printer
+Print labels on the TSC TE210 label printer.
 
-This script tests the label printer by:
-1. Connecting to the printer
-2. Generating TSPL commands for a sample label
-3. Sending the label to the printer
+Primary use is printing arbitrary text labels (MAC addresses, asset tags,
+notes, etc.). Also includes a --self-test that prints built-in sample cable
+labels to verify the printer end to end.
 
 Usage:
-    python test_label_printer.py [--mock]
-    python test_label_printer.py --text "AA:BB:CC:DD:EE:FF"
-    python test_label_printer.py --text "MAC: AA:BB:CC:DD" --title "Tablet 3"
-    python test_label_printer.py --text "line one" "line two" "line three"
-    python test_label_printer.py --text "BIG LABEL" --scale 2
+    python util/printer/print_label.py "AA:BB:CC:DD:EE:FF"
+    python util/printer/print_label.py "MAC: AA:BB:CC:DD" --title "Tablet 3"
+    python util/printer/print_label.py "line one" "line two" "line three"
+    python util/printer/print_label.py "BIG LABEL" --scale 2
+    python util/printer/print_label.py --self-test          # sample cable labels
+    python util/printer/print_label.py --self-test --mock   # dry-run, no hardware
 
 Options:
-    --mock    Use mock printer (no actual hardware)
-    --text    Print arbitrary text on a label (remaining args are lines)
-    --title   Optional bold header line (used with --text)
-    --scale   Font size multiplier for text labels (default 1)
+    --title      Optional bold header line
+    --scale      Font size multiplier (default 1)
+    --mock       Use mock printer (no actual hardware)
+    --self-test  Print built-in sample cable labels
+    --text       Deprecated alias for positional text lines
+
+With no arguments, prints this help.
 """
 
 import sys
@@ -26,7 +29,7 @@ import os
 import argparse
 
 # Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from greenlight.hardware.tsc_label_printer import TSCLabelPrinter, MockTSCLabelPrinter
 from greenlight.hardware.interfaces import PrintJob
@@ -101,8 +104,8 @@ def print_text_label(lines, title=None, use_mock=False, scale=1):
     return success
 
 
-def test_label_printer(use_mock=False):
-    """Test the TSC label printer with sample cable labels"""
+def run_self_test(use_mock=False):
+    """Print built-in sample cable labels to verify the printer end to end."""
 
     print("=" * 60)
     print("TSC TE210 Label Printer Test")
@@ -206,23 +209,34 @@ def test_label_printer(use_mock=False):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="TSC TE210 Label Printer Test")
-    parser.add_argument("--mock", action="store_true", help="Use mock printer")
+    parser = argparse.ArgumentParser(
+        description="Print arbitrary text labels on the TSC TE210 "
+                    "(or run a printer self-test).")
+    parser.add_argument("lines", nargs="*", metavar="LINE",
+                        help="Text line(s) to print (each argument is one line)")
     parser.add_argument("--text", nargs="+", metavar="LINE",
-                        help="Print a text label with arbitrary content (each arg is a line)")
+                        help="Deprecated alias for positional LINE arguments")
     parser.add_argument("--title", type=str, default=None,
-                        help="Bold title line for text labels")
+                        help="Bold title/header line")
     parser.add_argument("--scale", type=int, default=1,
-                        help="Font size multiplier for text labels (default 1)")
+                        help="Font size multiplier (default 1)")
+    parser.add_argument("--mock", action="store_true",
+                        help="Use mock printer (no actual hardware)")
+    parser.add_argument("--self-test", action="store_true",
+                        help="Print built-in sample cable labels to verify the printer")
 
     args = parser.parse_args()
+    lines = args.text or args.lines
 
     try:
-        if args.text:
-            print_text_label(args.text, title=args.title, use_mock=args.mock,
+        if args.self_test:
+            run_self_test(args.mock)
+        elif lines:
+            print_text_label(lines, title=args.title, use_mock=args.mock,
                              scale=args.scale)
         else:
-            test_label_printer(args.mock)
+            parser.print_help()
+            sys.exit(1)
     except KeyboardInterrupt:
         print("\n\nInterrupted by user")
         sys.exit(0)

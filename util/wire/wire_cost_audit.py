@@ -196,7 +196,10 @@ def calc_cost(wire_per_ft, yarn_per_ft, qty, spool_cost):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Audit wire SKU costs")
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--all", action="store_true", help="Show all SKUs, not just mismatches")
     parser.add_argument("--pattern", help="Filter to a specific pattern (e.g. W182CT)")
     args = parser.parse_args()

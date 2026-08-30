@@ -6,14 +6,14 @@ Queries inventory_snapshots for a given date and breaks down value into
 four categories: Wire, Knob & Tube, Audio Cables, and Lamp Hardware.
 
 Usage:
-    python util/valuation_report.py                    # Most recent snapshot
-    python util/valuation_report.py 2026-03-18         # Specific date
+    python util/valuation/valuation_report.py                    # Most recent snapshot
+    python util/valuation/valuation_report.py 2026-03-18         # Specific date
 """
 
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from util.wire.sundial_wire_db import get_db
 
@@ -83,6 +83,9 @@ def run_report(conn, report_date):
 
 
 def main():
+    if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
+        print(__doc__)
+        sys.exit(0)
     report_date = sys.argv[1] if len(sys.argv) > 1 else None
 
     conn = get_db()

@@ -11,7 +11,7 @@ User=welch
 Group=welch
 WorkingDirectory=/home/welch/projects/sundial_greenlight
 Environment="PATH=/home/welch/projects/sundial_greenlight/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/home/welch/projects/sundial_greenlight/venv/bin/python util/nightly_valuation.py
+ExecStart=/home/welch/projects/sundial_greenlight/venv/bin/python util/valuation/nightly_valuation.py
 
 # Logging
 StandardOutput=journal

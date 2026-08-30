@@ -75,7 +75,7 @@ Same surface in Python (`greenlight/cable_config.py`) and JS
   `all_patterns` — YAML lookup helpers.
 
 Round-trip identity: `format_variant_sku(parse_variant_sku(s)) == s` for
-every variant. Enforced by `tests/sku_fixtures.json` (synthetic +
+every variant. Enforced by `util/cable/sku_fixtures.json` (synthetic +
 auto-generated prod) on both Python and JS sides.
 
 ## Resolved decisions
@@ -96,7 +96,7 @@ auto-generated prod) on both Python and JS sides.
 | LTD CRUD ownership | Shopify Remix app. Greenlight reads only. |
 | Catalog group seeding | Seeded once at migration time (the seven catalog groups). New patterns added later require a small follow-up migration; no auto-seeding helper exists. |
 | Active/archived | `sku_group.archived_at IS NULL` means active. Soft-delete primarily for retired LTD editions. |
-| Resolver location | Two parallel implementations (Python + JS), each ~150 lines, kept honest by `tests/sku_fixtures.json`. |
+| Resolver location | Two parallel implementations (Python + JS), each ~150 lines, kept honest by `util/cable/sku_fixtures.json`. |
 | YAML vs DB lookup tables | YAML is canonical. No DB-side mirror for series/patterns. |
 | LTD on inventory dashboard | Hidden. LTD editions are merch-table inventory, not website inventory. Filtered at SQL + merge time. |
 
@@ -108,8 +108,7 @@ util/product_lines/
   cable_lines.yaml          # APP RUNTIME — per-series sku_prefix, lengths, connectors
   materials.yaml            # APP RUNTIME (narrow) — per-foot/connector weights for MISC product creation
   back_office/
-    pricing.yaml            # back-office only — cost + price tables per series
-    weights.yaml            # back-office only — per-length finished-product weights
+    economics.yaml          # back-office only — price + cost + cost_ra + weight per (series, length)
 ```
 
 Audience separation is the point. App runtime files are tiny and rarely
@@ -184,31 +183,35 @@ discrete URL: `/app/scan`, `/app/assign`, `/app/customers`,
 `host` param via `<Link>` + location.search.
 
 ### Util scripts
-- `util/audio/audio_shopify_sku_sync.py` — variant-level SKU comparison
-  between DB and Shopify. Walks distinct `(sku_group, prefix, length,
-  connector_code)` tuples from `audio_cables`.
-- `util/audio/audio_shopify_inventory_reconcile.py` — same shape, counts
-  available cables per variant and compares to Shopify inventory.
+- `util/audio/audio_sku_catalog_report.py` — catalog-completeness report
+  across SKU kinds (catalog/LTD/MISC). Lists every variant in `audio_cables`
+  (walking distinct `(sku_group, prefix, length, connector_code)` tuples)
+  with total/available/assigned/wholesale counts, cross-referenced against
+  Shopify variants (flags missing / blank-SKU / phantom). Supersedes the old
+  `audio_shopify_sku_sync.py`.
+- `util/audio/audio_shopify_inventory_reconcile.py` — availability-focused:
+  counts *available* cables per variant and reconciles/fixes Shopify
+  inventory to match.
 - `util/audio/audio_shopify_price_sync.py` — sync prices/costs/weights
-  to Shopify. Reads `back_office/pricing.yaml` and `back_office/weights.yaml`
-  for catalog pricing; reads `audio_cables` for MISC variant lengths.
+  to Shopify. Reads `back_office/economics.yaml` for catalog price/cost/weight;
+  reads `audio_cables` for MISC variant lengths.
 - `util/audio/generate_sku_fixtures.py` — regenerates
-  `tests/sku_fixtures_prod.json` against current prod state. Run after
+  `util/cable/sku_fixtures_prod.json` against current prod state. Run after
   any YAML edit that touches back-compat surface area.
 
 ### Tests
-- `tests/test_sku_parity.py` and `shopify_app/tests/sku-parity.test.js`
-  — fixture-driven. Load `tests/sku_fixtures.json` (synthetic) +
-  `tests/sku_fixtures_prod.json` (auto-generated, optional). Both Python
+- `util/cable/test_sku_parity.py` and `shopify_app/tests/sku-parity.test.js`
+  — fixture-driven. Load `util/cable/sku_fixtures.json` (synthetic) +
+  `util/cable/sku_fixtures_prod.json` (auto-generated, optional). Both Python
   and JS parity tests share the same fixture file with `type` discriminator
   (`group` / `variant` / `round_trip`).
-- `tests/test_catalog_scan_flow.py` — end-to-end catalog flow.
-- `tests/test_misc_cable_length.py`, `tests/test_complete_misc_flow.py`,
-  `tests/test_misc_display.py` — MISC flows.
-- `tests/test_ltd_scan_flow.py` — LTD flow including archive lifecycle hooks.
-- `tests/test_order_fulfillment.py` — `assign_cable_to_order` SKU
+- `util/cable/test_catalog_scan_flow.py` — end-to-end catalog flow.
+- `util/cable/test_misc_cable_length.py`, `util/cable/test_complete_misc_flow.py`,
+  `util/cable/test_misc_display.py` — MISC flows.
+- `util/cable/test_ltd_scan_flow.py` — LTD flow including archive lifecycle hooks.
+- `util/shopify/test_order_fulfillment.py` — `assign_cable_to_order` SKU
   validation against line items: match, mismatch, duplicate, cross-order.
-- `tests/test_label_printer.py` — manual interactive label printing test.
+- `util/printer/print_label.py` — manual interactive label printing test.
 - `shopify_app/scripts/smoke-test-ltd.mjs` — end-to-end LTD CRUD smoke
   test against prod. Cleans up after itself. Useful regression check
   whenever the LTD code path changes.
@@ -269,3 +272,9 @@ git history.
   audience. Per-series files consolidated into `cable_lines.yaml` (app
   runtime); cost/pricing/weight tables moved to `back_office/`. Each
   file has a header documenting its audience and blast radius.
+- **Phase 7** (shipped 2026-07-14) — merged `back_office/pricing.yaml` +
+  `weights.yaml` into a single `back_office/economics.yaml` keyed by
+  (series, length) → {price, cost, cost_ra, weight}, so all money/weight for
+  a length lives in one place. `load_yaml_skus()` now validates that
+  economics lengths match `cable_lines.yaml` and warns on missing values
+  (surfaced a pre-existing SC-15 missing weight). Loader output unchanged.

@@ -73,7 +73,7 @@ For MISC (miscellaneous) cables with custom descriptions:
 ### Test with Mock Printer (No Hardware)
 
 ```bash
-python test_label_printer.py --mock
+python util/printer/print_label.py --self-test --mock
 ```
 
 This will simulate label printing without connecting to actual hardware.
@@ -85,7 +85,7 @@ This will simulate label printing without connecting to actual hardware.
 3. Run the test script:
 
 ```bash
-python test_label_printer.py
+python util/printer/print_label.py --self-test
 ```
 
 The script will:
@@ -93,6 +93,32 @@ The script will:
 - Generate sample labels for different cable types
 - Ask for confirmation before printing each label
 - Display status and results
+
+## Prop 65 Warning Labels
+
+California Proposition 65 warning labels require the exclamation-point warning
+triangle. Since the TE210 only renders built-in bitmap fonts, the triangle is
+rasterized as a bitmap by the driver (template `prop65_label`).
+
+```bash
+# Preview the triangle + TSPL without printing (recommended first)
+python util/printer/print_prop65.py --preview
+
+# Short-form label (default), naming a chemical
+python util/printer/print_prop65.py --chemical lead
+
+# Full warning statement
+python util/printer/print_prop65.py --form long --chemical DEHP
+
+# Cancer-only endpoint, 10 copies
+python util/printer/print_prop65.py --endpoints cancer --count 10
+
+# Dry-run against the mock printer
+python util/printer/print_prop65.py --mock
+```
+
+Options: `--form {short,long}`, `--chemical NAME`,
+`--endpoints {both,cancer,reproductive}`, `--count N`, `--preview`, `--mock`.
 
 ## Usage in Greenlight
 
@@ -230,7 +256,8 @@ PRINT qty,copies           # Print label
 
 - **Sample Label PDF**: `SC-20GL.pdf` - Reference design for label layout
 - **Printer Module**: `greenlight/hardware/tsc_label_printer.py`
-- **Test Script**: `test_label_printer.py`
+- **Text Label Script**: `util/printer/print_label.py`
+- **Prop 65 Label Script**: `util/printer/print_prop65.py`
 - **Configuration**: `greenlight/config.py`
 
 ## Support

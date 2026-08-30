@@ -6,8 +6,8 @@ which sales channels each is published to, and publishes to any missing channels
 
 Usage:
     source dev_env.sh
-    python scripts/publish_special_babies.py          # dry-run (default)
-    python scripts/publish_special_babies.py --apply   # actually publish
+    python util/shopify/publish_special_babies.py          # dry-run (default)
+    python util/shopify/publish_special_babies.py --apply   # actually publish
 """
 
 import sys
@@ -15,7 +15,7 @@ import os
 import json
 import argparse
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import shopify
 from greenlight.shopify_client import (

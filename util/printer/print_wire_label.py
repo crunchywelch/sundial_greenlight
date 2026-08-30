@@ -1,7 +1,11 @@
 """Test wire label printing through the same code path as the app."""
 
+import os
 import sys
 import logging
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 from greenlight.hardware.tsc_label_printer import TSCLabelPrinter
 from greenlight.hardware.interfaces import PrintJob
 
