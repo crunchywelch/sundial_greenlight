@@ -686,6 +686,7 @@ def get_available_count_for_sku(sku):
                     WHERE ac.test_passed = TRUE
                       AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
                       AND ac.registration_code IS NULL
+                      AND ac.wholesale_company_gid IS NULL
                       AND ac.sku_group = %s
                       AND ac.prefix = %s
                       AND ac.length = %s
@@ -700,6 +701,7 @@ def get_available_count_for_sku(sku):
                     WHERE ac.test_passed = TRUE
                       AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
                       AND ac.registration_code IS NULL
+                      AND ac.wholesale_company_gid IS NULL
                       AND ac.sku_group = %s
                 """, (sku,))
             return cur.fetchone()[0]
@@ -761,27 +763,29 @@ def assign_cable_to_customer(serial_number, customer_shopify_gid):
         pg_pool.putconn(conn)
 
 
-def unassign_cable(serial_number):
-    """Clear a cable's commercial assignment, returning it to inventory.
+def unassign_cable(serial_number, channel=None):
+    """Release a cable from one commercial channel, returning it to inventory.
 
-    Covers both channels, since a cable is committed one way or the other:
-      - retail / end owner  -> shopify_gid (+ shopify_order_gid, registered_at)
-      - wholesale dealer    -> wholesale_company_gid / wholesale_location_gid
+    A cable can be committed to both channels at once: sold to a dealer
+    (wholesale_company_gid) and later registered by the end buyer who bought it
+    from that dealer (shopify_gid). Clearing both together would destroy the
+    dealer attribution this feature exists to preserve, so the channel is
+    explicit whenever it is ambiguous.
 
-    registered_at is cleared alongside shopify_gid — a registration date with no
-    registered owner would be meaningless.
+    Args:
+        serial_number: Cable serial number
+        channel: 'retail' (release the end owner), 'wholesale' (release the
+            dealer), or None to infer when only one channel is set. None on a
+            cable committed to both is an error rather than a guess.
 
     Returns:
-        dict with 'success' and 'channel' ('retail' or 'wholesale'), or 'error'/'message'
+        dict with 'success' and 'channel', or 'error'/'message'
     """
     conn = pg_pool.getconn()
     try:
         formatted_serial = format_serial_number(serial_number)
         with conn:
             with conn.cursor() as cur:
-                # Read the prior state first — RETURNING would hand back the
-                # nulled-out row, and the caller wants to know which channel
-                # the cable was released from.
                 cur.execute("""
                     SELECT shopify_gid, wholesale_company_gid
                     FROM audio_cables WHERE serial_number = %s
@@ -797,24 +801,56 @@ def unassign_cable(serial_number):
                         'message': f'Cable {formatted_serial} is not assigned to anyone'
                     }
 
-                cur.execute("""
-                    UPDATE audio_cables
-                    SET shopify_gid = NULL,
-                        shopify_order_gid = NULL,
-                        wholesale_company_gid = NULL,
-                        wholesale_location_gid = NULL,
-                        registered_at = NULL,
-                        updated_timestamp = CURRENT_TIMESTAMP
-                    WHERE serial_number = %s
-                    RETURNING serial_number
-                """, (formatted_serial,))
+                if channel is None:
+                    if prior_customer and prior_company:
+                        return {
+                            'error': 'ambiguous_channel',
+                            'message': (f'Cable {formatted_serial} is both sold to a dealer and '
+                                        f'registered to an owner — specify which to release'),
+                        }
+                    channel = 'retail' if prior_customer else 'wholesale'
+
+                if channel not in ('retail', 'wholesale'):
+                    return {'error': 'bad_channel', 'message': f'Unknown channel {channel!r}'}
+
+                if channel == 'retail':
+                    if not prior_customer:
+                        return {
+                            'error': 'not_assigned',
+                            'message': f'Cable {formatted_serial} has no registered owner'
+                        }
+                    # The order gid belongs to whichever channel bought the cable.
+                    # On a dealer-sold cable it's the B2B order, so releasing the
+                    # end owner must leave it intact.
+                    cur.execute("""
+                        UPDATE audio_cables
+                        SET shopify_gid = NULL,
+                            registered_at = NULL,
+                            shopify_order_gid = CASE WHEN wholesale_company_gid IS NULL
+                                                     THEN NULL ELSE shopify_order_gid END,
+                            updated_timestamp = CURRENT_TIMESTAMP
+                        WHERE serial_number = %s
+                        RETURNING serial_number
+                    """, (formatted_serial,))
+                else:
+                    if not prior_company:
+                        return {
+                            'error': 'not_assigned',
+                            'message': f'Cable {formatted_serial} is not sold to a dealer'
+                        }
+                    cur.execute("""
+                        UPDATE audio_cables
+                        SET wholesale_company_gid = NULL,
+                            wholesale_location_gid = NULL,
+                            shopify_order_gid = NULL,
+                            updated_timestamp = CURRENT_TIMESTAMP
+                        WHERE serial_number = %s
+                        RETURNING serial_number
+                    """, (formatted_serial,))
+
                 result = cur.fetchone()
                 conn.commit()
-                return {
-                    'success': True,
-                    'serial_number': result[0],
-                    'channel': 'retail' if prior_customer else 'wholesale',
-                }
+                return {'success': True, 'serial_number': result[0], 'channel': channel}
     except Exception as e:
         logger.error("Error unassigning cable: %s", e)
         conn.rollback()
@@ -1024,6 +1060,8 @@ def get_available_inventory(series=None):
                 JOIN sku_group sg ON ac.sku_group = sg.sku
                 WHERE ac.test_passed = TRUE
                   AND (ac.shopify_gid IS NULL OR ac.shopify_gid = '')
+                  AND ac.registration_code IS NULL
+                  AND ac.wholesale_company_gid IS NULL
             """
             params = []
             if series:
@@ -1218,6 +1256,9 @@ def force_assign_cable_to_order(serial_number, customer_gid, order_gid,
                             wholesale_location_gid = %s,
                             shopify_order_gid = %s,
                             shopify_gid = NULL,
+                            -- The prior owner is being dropped, so their
+                            -- registration date must go with them.
+                            registered_at = NULL,
                             updated_timestamp = CURRENT_TIMESTAMP
                         WHERE serial_number = %s
                         RETURNING serial_number, sku_group

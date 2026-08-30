@@ -5,6 +5,7 @@ Shopify API integration for customer lookup, order information, and inventory ma
 import os
 import json
 import logging
+import time
 import shopify
 import requests
 import yaml
@@ -56,7 +57,10 @@ _cached_publication_ids: Optional[list] = None
 _inventory_item_cache: Dict[str, str] = {}
 # B2B company lookups, keyed by company GID. Dealer names don't change, and the
 # cable detail panel resolves one on every render.
-_company_cache: Dict[str, Dict[str, Any]] = {}
+_company_cache: Dict[str, Optional[Dict[str, Any]]] = {}
+# Transient lookup failures, GID -> monotonic timestamp of the last attempt.
+_company_error_backoff: Dict[str, float] = {}
+_COMPANY_ERROR_TTL = 60.0  # seconds
 
 
 def get_access_token_from_client_credentials() -> Optional[str]:
@@ -394,7 +398,11 @@ def get_company_by_id(company_id: str) -> Optional[Dict[str, Any]]:
     company_gid = company_id if company_id.startswith("gid://") else f"gid://shopify/Company/{company_id}"
 
     if company_gid in _company_cache:
-        return _company_cache[company_gid]
+        return _company_cache[company_gid]  # may be a cached None
+
+    last_error = _company_error_backoff.get(company_gid)
+    if last_error is not None and (time.monotonic() - last_error) < _COMPANY_ERROR_TTL:
+        return None
 
     try:
         get_shopify_session()
@@ -421,6 +429,10 @@ def get_company_by_id(company_id: str) -> Optional[Dict[str, Any]]:
 
         company = data.get("data", {}).get("company")
         if not company:
+            # Cache the miss. The cable detail panel resolves a dealer on every
+            # render, so an unresolvable GID would otherwise open a Shopify
+            # session per keystroke and stall the TUI.
+            _company_cache[company_gid] = None
             return None
 
         company["locations"] = [
@@ -430,7 +442,10 @@ def get_company_by_id(company_id: str) -> Optional[Dict[str, Any]]:
         return company
 
     except Exception as e:
+        # Transient (auth/network) rather than "no such company", so don't cache
+        # it permanently — but do back off, for the same per-render reason.
         logger.error("Error fetching company by ID: %s", e)
+        _company_error_backoff[company_gid] = time.monotonic()
         return None
     finally:
         close_shopify_session()
