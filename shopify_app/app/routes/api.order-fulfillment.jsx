@@ -1,5 +1,5 @@
 import { json } from "@remix-run/node";
-import { query } from "../db.server.js";
+import { query, getClient, recordCableEvent } from "../db.server.js";
 import { getLastScanEvent } from "../mqtt.server.js";
 import { getActiveGreenlightHosts } from "../mqtt.server.js";
 import {
@@ -244,21 +244,44 @@ async function handleAssignCable({ serialNumber, orderId, customerId, companyId,
     }
   }
 
-  if (companyId) {
-    // Wholesale: record the dealer; leave shopify_gid for the buyer to claim.
-    await query(
-      `UPDATE audio_cables
-       SET wholesale_company_gid = $1, wholesale_location_gid = $2, shopify_order_gid = $3, updated_timestamp = NOW()
-       WHERE serial_number = $4`,
-      [companyId, companyLocationId ?? null, orderId, serialNumber]
-    );
-  } else {
-    await query(
-      `UPDATE audio_cables
-       SET shopify_gid = $1, shopify_order_gid = $2, updated_timestamp = NOW()
-       WHERE serial_number = $3`,
-      [customerId, orderId, serialNumber]
-    );
+  // The mutation and its audit event commit together (or roll back together).
+  const client = await getClient();
+  try {
+    await client.query("BEGIN");
+    if (companyId) {
+      // Wholesale: record the dealer; leave shopify_gid for the buyer to claim.
+      await client.query(
+        `UPDATE audio_cables
+         SET wholesale_company_gid = $1, wholesale_location_gid = $2, shopify_order_gid = $3, updated_timestamp = NOW()
+         WHERE serial_number = $4`,
+        [companyId, companyLocationId ?? null, orderId, serialNumber]
+      );
+      await recordCableEvent(client, {
+        serialNumber,
+        event: "assigned_dealer",
+        actor: "admin",
+        detail: { from: null, to: companyId, location: companyLocationId ?? null, order: orderId, sku: cableVariantSku },
+      });
+    } else {
+      await client.query(
+        `UPDATE audio_cables
+         SET shopify_gid = $1, shopify_order_gid = $2, updated_timestamp = NOW()
+         WHERE serial_number = $3`,
+        [customerId, orderId, serialNumber]
+      );
+      await recordCableEvent(client, {
+        serialNumber,
+        event: "assigned_customer",
+        actor: "admin",
+        detail: { from: null, to: customerId, order: orderId, sku: cableVariantSku },
+      });
+    }
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
   }
 
   return json({
@@ -283,7 +306,7 @@ async function handleUnassignCable({ serialNumber, orderId }) {
   // release the dealer (keeping any end-owner registration); otherwise it's a
   // retail order and we release the owner. Mirrors greenlight unassign_cable.
   const found = await query(
-    `SELECT wholesale_company_gid FROM audio_cables
+    `SELECT shopify_gid, wholesale_company_gid FROM audio_cables
      WHERE serial_number = $1 AND shopify_order_gid = $2`,
     [serialNumber, orderId]
   );
@@ -295,25 +318,49 @@ async function handleUnassignCable({ serialNumber, orderId }) {
     );
   }
 
-  if (found.rows[0].wholesale_company_gid) {
-    await query(
-      `UPDATE audio_cables
-       SET wholesale_company_gid = NULL, wholesale_location_gid = NULL,
-           shopify_order_gid = NULL, updated_timestamp = NOW()
-       WHERE serial_number = $1 AND shopify_order_gid = $2`,
-      [serialNumber, orderId]
-    );
-    return json({ success: true, channel: "wholesale" });
+  const { shopify_gid, wholesale_company_gid } = found.rows[0];
+
+  const client = await getClient();
+  try {
+    await client.query("BEGIN");
+    if (wholesale_company_gid) {
+      await client.query(
+        `UPDATE audio_cables
+         SET wholesale_company_gid = NULL, wholesale_location_gid = NULL,
+             shopify_order_gid = NULL, updated_timestamp = NOW()
+         WHERE serial_number = $1 AND shopify_order_gid = $2`,
+        [serialNumber, orderId]
+      );
+      await recordCableEvent(client, {
+        serialNumber,
+        event: "unassigned_dealer",
+        actor: "admin",
+        detail: { from: wholesale_company_gid, to: null, order: orderId },
+      });
+    } else {
+      // Retail: no dealer on this cable, so the order is retail's — clear the
+      // owner, its registration, and the order together.
+      await client.query(
+        `UPDATE audio_cables
+         SET shopify_gid = NULL, registered_at = NULL,
+             shopify_order_gid = NULL, updated_timestamp = NOW()
+         WHERE serial_number = $1 AND shopify_order_gid = $2`,
+        [serialNumber, orderId]
+      );
+      await recordCableEvent(client, {
+        serialNumber,
+        event: "unassigned_customer",
+        actor: "admin",
+        detail: { from: shopify_gid, to: null, order: orderId },
+      });
+    }
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
   }
 
-  // Retail: no dealer on this cable, so the order is retail's — clear the owner,
-  // its registration, and the order together.
-  await query(
-    `UPDATE audio_cables
-     SET shopify_gid = NULL, registered_at = NULL,
-         shopify_order_gid = NULL, updated_timestamp = NOW()
-     WHERE serial_number = $1 AND shopify_order_gid = $2`,
-    [serialNumber, orderId]
-  );
-  return json({ success: true, channel: "retail" });
+  return json({ success: true, channel: wholesale_company_gid ? "wholesale" : "retail" });
 }

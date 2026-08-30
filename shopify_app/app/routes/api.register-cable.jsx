@@ -1,5 +1,5 @@
 import { json } from "@remix-run/node";
-import { query } from "../db.server.js";
+import { query, getClient, recordCableEvent } from "../db.server.js";
 import { parseGroupSku, seriesForPrefix, seriesDataForPrefix, formatVariantSku } from "../cable-config.server.js";
 
 // CORS is handled by nginx for all /api/ routes.
@@ -107,12 +107,31 @@ export async function action({ request }) {
       return json({ error: "This cable has already been registered", code: "ALREADY_REGISTERED" }, { status: 409 });
     }
 
-    await query(
-      `UPDATE audio_cables
-       SET shopify_gid = $1, registered_at = NOW(), updated_timestamp = NOW()
-       WHERE registration_code = $2 AND (shopify_gid IS NULL OR shopify_gid = '')`,
-      [customerId, normalizedCode]
-    );
+    // Register the owner and record the audit event in one transaction.
+    const client = await getClient();
+    try {
+      await client.query("BEGIN");
+      const upd = await client.query(
+        `UPDATE audio_cables
+         SET shopify_gid = $1, registered_at = NOW(), updated_timestamp = NOW()
+         WHERE registration_code = $2 AND (shopify_gid IS NULL OR shopify_gid = '')`,
+        [customerId, normalizedCode]
+      );
+      if (upd.rowCount > 0) {
+        await recordCableEvent(client, {
+          serialNumber: cable.serial_number,
+          event: "registered",
+          actor: "buyer",
+          detail: { from: null, to: customerId, code: normalizedCode },
+        });
+      }
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
 
     if (marketingOptIn) {
       try {
