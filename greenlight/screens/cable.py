@@ -1186,6 +1186,57 @@ class CableScreenBase(Screen):
         self.ui.render()
         self.ui.wait_back()
 
+    def show_cable_history(self, operator, cable_record):
+        """Show the cable_events audit trail for this cable."""
+        from greenlight.db import get_cable_events
+
+        serial = cable_record['serial_number']
+        events = get_cable_events(serial, limit=self.ui.page_size(reserved=22))
+
+        self.ui.console.clear()
+        self.ui.header(operator)
+
+        if events:
+            table = Table(show_header=True, header_style="bold magenta", expand=True)
+            table.add_column("When", style="dim", width=17)
+            table.add_column("Event", style="cyan", width=20)
+            table.add_column("By", width=8)
+            table.add_column("Detail", overflow="fold")
+
+            for e in events:
+                detail = e.get('detail') or {}
+                parts = []
+                for key in ('from', 'to'):
+                    if key in detail and detail[key] is not None:
+                        val = detail[key]
+                        if isinstance(val, dict):
+                            val = ' '.join(f"{k}={v}" for k, v in val.items() if v is not None)
+                        elif isinstance(val, str) and val.startswith('gid://'):
+                            # GIDs are unreadable in a table; the tail identifies it
+                            val = f"…/{val.rsplit('/', 1)[-1]}"
+                        parts.append(f"{key}: {val}")
+                for key, val in detail.items():
+                    if key not in ('from', 'to') and val is not None:
+                        parts.append(f"{key}={val}")
+                table.add_row(
+                    e['created_at'].strftime('%Y-%m-%d %H:%M'),
+                    e['event'],
+                    e.get('actor') or '—',
+                    '  '.join(parts),
+                )
+            body = table
+        else:
+            body = ("[dim]No recorded history for this cable.[/dim]\n\n"
+                    "[dim]Events are recorded from the point the audit trail was added; "
+                    "earlier changes were not captured.[/dim]")
+
+        self.ui.layout["body"].update(Panel(
+            body, title=f"📜 History — {serial}", style="cyan"
+        ))
+        self.ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
+        self.ui.render()
+        self.ui.wait_back()
+
     def cable_action_loop(self, operator, cable_record, mode='lookup'):
         """Show cable info + action menu. Loops until quit or new scan.
 
@@ -1243,6 +1294,7 @@ class CableScreenBase(Screen):
                 footer_options.append("[cyan]'d'[/cyan] = Edit description")
             if mode == 'lookup' and not is_committed:
                 footer_options.append("[cyan]'e'[/cyan] = Re-register")
+            footer_options.append("[cyan]'h'[/cyan] = History")
             footer_options.append("[bold green]Scan[/bold green] next cable")
             footer_options.append("[cyan]'q'[/cyan] = Back")
 
@@ -1301,6 +1353,10 @@ class CableScreenBase(Screen):
                     new_context["prefill_serial"] = cable_record['serial_number']
                     new_context["re_register"] = True
                     return {'action': 'navigate', 'screen_result': ScreenResult(NavigationAction.PUSH, SeriesSelectionScreen, new_context)}
+
+                elif choice_lower == 'h':
+                    self.show_cable_history(operator, cable_record)
+                    continue
 
                 elif choice_lower == 'q':
                     return {'action': 'quit'}

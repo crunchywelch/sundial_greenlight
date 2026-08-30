@@ -79,6 +79,31 @@ CREATE INDEX IF NOT EXISTS idx_audio_cables_wholesale_company
     ON audio_cables(wholesale_company_gid)
     WHERE wholesale_company_gid IS NOT NULL;
 
+-- cable_events — append-only audit log. Every commercial mutation on
+-- audio_cables overwrites in place, so without this there is no way to answer
+-- "who cleared this registration code?" or to notice that an assignment
+-- silently destroyed dealer attribution.
+--
+-- `event` is free text rather than an ENUM so Greenlight and the Shopify admin
+-- can add event kinds without coordinating a migration. Known values:
+--   assigned_customer, unassigned_customer, assigned_dealer, unassigned_dealer,
+--   code_generated, code_cleared, re_registered, qc_tested
+-- `actor` is an operator code from Greenlight ('ADW') or 'admin:<staff email>'
+-- from the Shopify app, so the two sources stay distinguishable.
+CREATE TABLE IF NOT EXISTS cable_events (
+    id BIGSERIAL PRIMARY KEY,
+    serial_number TEXT NOT NULL REFERENCES audio_cables(serial_number),
+    event TEXT NOT NULL,
+    actor TEXT,
+    detail JSONB,                -- conventionally {"from": ..., "to": ...}
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cable_events_serial
+    ON cable_events(serial_number, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cable_events_created
+    ON cable_events(created_at DESC);
+
 -- ============================================================================
 -- SEQUENCES
 -- ============================================================================
