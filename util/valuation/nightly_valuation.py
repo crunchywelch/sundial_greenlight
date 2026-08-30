@@ -8,15 +8,15 @@ PostgreSQL, then prints a valuation summary.
 Designed to run via systemd timer (nightly-valuation.timer).
 
 Usage:
-    python util/nightly_valuation.py                # Refresh and show report
-    python util/nightly_valuation.py --skip-refresh # Report only (use existing data)
+    python util/valuation/nightly_valuation.py                # Refresh and show report
+    python util/valuation/nightly_valuation.py --skip-refresh # Report only (use existing data)
 """
 
 import argparse
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / ".env")

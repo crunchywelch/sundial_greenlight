@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate tests/sku_fixtures_prod.json from real prod data (Phase 5).
+"""Generate util/cable/sku_fixtures_prod.json from real prod data (Phase 5).
 
 Walks both sku_group and audio_cables, emitting:
   - one 'group' fixture per sku_group row (parses sku via parse_group_sku)
@@ -33,7 +33,7 @@ from greenlight.cable_config import (  # noqa: E402
     parse_group_sku, parse_variant_sku, format_variant_sku,
 )
 
-FIXTURE_PATH = REPO_ROOT / "tests" / "sku_fixtures_prod.json"
+FIXTURE_PATH = REPO_ROOT / "util" / "cable" / "sku_fixtures_prod.json"
 
 
 def fetch_groups(conn):

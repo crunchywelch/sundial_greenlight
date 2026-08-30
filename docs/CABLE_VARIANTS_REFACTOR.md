@@ -75,7 +75,7 @@ Same surface in Python (`greenlight/cable_config.py`) and JS
   `all_patterns` — YAML lookup helpers.
 
 Round-trip identity: `format_variant_sku(parse_variant_sku(s)) == s` for
-every variant. Enforced by `tests/sku_fixtures.json` (synthetic +
+every variant. Enforced by `util/cable/sku_fixtures.json` (synthetic +
 auto-generated prod) on both Python and JS sides.
 
 ## Resolved decisions
@@ -96,7 +96,7 @@ auto-generated prod) on both Python and JS sides.
 | LTD CRUD ownership | Shopify Remix app. Greenlight reads only. |
 | Catalog group seeding | Seeded once at migration time (the seven catalog groups). New patterns added later require a small follow-up migration; no auto-seeding helper exists. |
 | Active/archived | `sku_group.archived_at IS NULL` means active. Soft-delete primarily for retired LTD editions. |
-| Resolver location | Two parallel implementations (Python + JS), each ~150 lines, kept honest by `tests/sku_fixtures.json`. |
+| Resolver location | Two parallel implementations (Python + JS), each ~150 lines, kept honest by `util/cable/sku_fixtures.json`. |
 | YAML vs DB lookup tables | YAML is canonical. No DB-side mirror for series/patterns. |
 | LTD on inventory dashboard | Hidden. LTD editions are merch-table inventory, not website inventory. Filtered at SQL + merge time. |
 
@@ -196,22 +196,22 @@ discrete URL: `/app/scan`, `/app/assign`, `/app/customers`,
   to Shopify. Reads `back_office/economics.yaml` for catalog price/cost/weight;
   reads `audio_cables` for MISC variant lengths.
 - `util/audio/generate_sku_fixtures.py` — regenerates
-  `tests/sku_fixtures_prod.json` against current prod state. Run after
+  `util/cable/sku_fixtures_prod.json` against current prod state. Run after
   any YAML edit that touches back-compat surface area.
 
 ### Tests
-- `tests/test_sku_parity.py` and `shopify_app/tests/sku-parity.test.js`
-  — fixture-driven. Load `tests/sku_fixtures.json` (synthetic) +
-  `tests/sku_fixtures_prod.json` (auto-generated, optional). Both Python
+- `util/cable/test_sku_parity.py` and `shopify_app/tests/sku-parity.test.js`
+  — fixture-driven. Load `util/cable/sku_fixtures.json` (synthetic) +
+  `util/cable/sku_fixtures_prod.json` (auto-generated, optional). Both Python
   and JS parity tests share the same fixture file with `type` discriminator
   (`group` / `variant` / `round_trip`).
-- `tests/test_catalog_scan_flow.py` — end-to-end catalog flow.
-- `tests/test_misc_cable_length.py`, `tests/test_complete_misc_flow.py`,
-  `tests/test_misc_display.py` — MISC flows.
-- `tests/test_ltd_scan_flow.py` — LTD flow including archive lifecycle hooks.
-- `tests/test_order_fulfillment.py` — `assign_cable_to_order` SKU
+- `util/cable/test_catalog_scan_flow.py` — end-to-end catalog flow.
+- `util/cable/test_misc_cable_length.py`, `util/cable/test_complete_misc_flow.py`,
+  `util/cable/test_misc_display.py` — MISC flows.
+- `util/cable/test_ltd_scan_flow.py` — LTD flow including archive lifecycle hooks.
+- `util/shopify/test_order_fulfillment.py` — `assign_cable_to_order` SKU
   validation against line items: match, mismatch, duplicate, cross-order.
-- `tests/test_label_printer.py` — manual interactive label printing test.
+- `util/printer/print_label.py` — manual interactive label printing test.
 - `shopify_app/scripts/smoke-test-ltd.mjs` — end-to-end LTD CRUD smoke
   test against prod. Cleans up after itself. Useful regression check
   whenever the LTD code path changes.

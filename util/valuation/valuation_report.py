@@ -6,14 +6,14 @@ Queries inventory_snapshots for a given date and breaks down value into
 four categories: Wire, Knob & Tube, Audio Cables, and Lamp Hardware.
 
 Usage:
-    python util/valuation_report.py                    # Most recent snapshot
-    python util/valuation_report.py 2026-03-18         # Specific date
+    python util/valuation/valuation_report.py                    # Most recent snapshot
+    python util/valuation/valuation_report.py 2026-03-18         # Specific date
 """
 
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from util.wire.sundial_wire_db import get_db
 

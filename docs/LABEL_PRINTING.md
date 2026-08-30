@@ -73,7 +73,7 @@ For MISC (miscellaneous) cables with custom descriptions:
 ### Test with Mock Printer (No Hardware)
 
 ```bash
-python test_label_printer.py --mock
+python util/printer/print_label.py --self-test --mock
 ```
 
 This will simulate label printing without connecting to actual hardware.
@@ -85,7 +85,7 @@ This will simulate label printing without connecting to actual hardware.
 3. Run the test script:
 
 ```bash
-python test_label_printer.py
+python util/printer/print_label.py --self-test
 ```
 
 The script will:
@@ -230,7 +230,7 @@ PRINT qty,copies           # Print label
 
 - **Sample Label PDF**: `SC-20GL.pdf` - Reference design for label layout
 - **Printer Module**: `greenlight/hardware/tsc_label_printer.py`
-- **Test Script**: `test_label_printer.py`
+- **Test Script**: `util/printer/print_label.py`
 - **Configuration**: `greenlight/config.py`
 
 ## Support

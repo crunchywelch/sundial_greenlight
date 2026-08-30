@@ -7,11 +7,11 @@ Instead we create a "possessed" effect by overlapping text at random offsets,
 mixing font sizes, and repeating characters with slight jitter.
 
 Usage:
-    python scripts/haunted_printer.py "HELP ME"
-    python scripts/haunted_printer.py "I SEE YOU" --style glitch
-    python scripts/haunted_printer.py "BEHIND YOU" --style scatter
-    python scripts/haunted_printer.py  # random message from built-in list
-    python scripts/haunted_printer.py --count 3  # print 3 labels in a row
+    python util/printer/haunted_printer.py "HELP ME"
+    python util/printer/haunted_printer.py "I SEE YOU" --style glitch
+    python util/printer/haunted_printer.py "BEHIND YOU" --style scatter
+    python util/printer/haunted_printer.py  # random message from built-in list
+    python util/printer/haunted_printer.py --count 3  # print 3 labels in a row
 """
 
 import argparse
@@ -21,7 +21,7 @@ import socket
 import sys
 
 # Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from greenlight.config import TSC_PRINTER_IP, TSC_PRINTER_PORT
 

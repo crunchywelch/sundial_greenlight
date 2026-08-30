@@ -1,6 +1,6 @@
 """
 Barcode scanner interface using evdev for direct HID input device access.
-Based on scantest.py - works well over SSH without GUI focus.
+Based on util/scanner/scantest.py - works well over SSH without GUI focus.
 """
 
 try:

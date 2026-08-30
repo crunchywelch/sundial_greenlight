@@ -19,7 +19,7 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from greenlight.cable_config import (
     parse_group_sku, parse_variant_sku, format_variant_sku,

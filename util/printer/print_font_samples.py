@@ -6,7 +6,7 @@ This script prints a sample label showing all available fonts
 so you can choose which ones look best.
 
 Usage:
-    python test_fonts.py
+    python util/printer/print_font_samples.py
 """
 
 import sys
@@ -14,7 +14,7 @@ import os
 import socket
 
 # Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from greenlight.config import TSC_PRINTER_IP, TSC_PRINTER_PORT, TSC_LABEL_WIDTH_MM, TSC_LABEL_HEIGHT_MM
 
