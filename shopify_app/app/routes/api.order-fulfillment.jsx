@@ -276,24 +276,44 @@ async function handleUnassignCable({ serialNumber, orderId }) {
     );
   }
 
-  // Only unassign if it belongs to this order. Clear both channels (retail owner
-  // and wholesale dealer) plus registered_at, since a registration date with no
-  // owner is meaningless.
-  const result = await query(
-    `UPDATE audio_cables
-     SET shopify_gid = NULL, shopify_order_gid = NULL,
-         wholesale_company_gid = NULL, wholesale_location_gid = NULL,
-         registered_at = NULL, updated_timestamp = NOW()
+  // A cable can be committed to both channels at once (sold to a dealer, then
+  // registered by the buyer who bought it from that dealer), so releasing one
+  // must not destroy the other. The order gid belongs to whichever channel
+  // bought the cable: if it carries a dealer, this is the wholesale order and we
+  // release the dealer (keeping any end-owner registration); otherwise it's a
+  // retail order and we release the owner. Mirrors greenlight unassign_cable.
+  const found = await query(
+    `SELECT wholesale_company_gid FROM audio_cables
      WHERE serial_number = $1 AND shopify_order_gid = $2`,
     [serialNumber, orderId]
   );
 
-  if (result.rowCount === 0) {
+  if (found.rows.length === 0) {
     return json(
       { error: "Cable not found or not assigned to this order" },
       { status: 404 }
     );
   }
 
-  return json({ success: true });
+  if (found.rows[0].wholesale_company_gid) {
+    await query(
+      `UPDATE audio_cables
+       SET wholesale_company_gid = NULL, wholesale_location_gid = NULL,
+           shopify_order_gid = NULL, updated_timestamp = NOW()
+       WHERE serial_number = $1 AND shopify_order_gid = $2`,
+      [serialNumber, orderId]
+    );
+    return json({ success: true, channel: "wholesale" });
+  }
+
+  // Retail: no dealer on this cable, so the order is retail's — clear the owner,
+  // its registration, and the order together.
+  await query(
+    `UPDATE audio_cables
+     SET shopify_gid = NULL, registered_at = NULL,
+         shopify_order_gid = NULL, updated_timestamp = NOW()
+     WHERE serial_number = $1 AND shopify_order_gid = $2`,
+    [serialNumber, orderId]
+  );
+  return json({ success: true, channel: "retail" });
 }
