@@ -87,9 +87,15 @@ CREATE INDEX IF NOT EXISTS idx_audio_cables_wholesale_company
 -- `event` is free text rather than an ENUM so Greenlight and the Shopify admin
 -- can add event kinds without coordinating a migration. Known values:
 --   assigned_customer, unassigned_customer, assigned_dealer, unassigned_dealer,
---   code_generated, code_cleared, re_registered, qc_tested
--- `actor` is an operator code from Greenlight ('ADW') or 'admin:<staff email>'
--- from the Shopify app, so the two sources stay distinguishable.
+--   code_generated, code_cleared, registered, sku_changed, qc_tested
+--
+-- `registered` (the end buyer claimed the cable, written by the public
+-- registration endpoint) and `sku_changed` (an operator corrected the cable's
+-- SKU/length/connector, what Greenlight's UI calls "re-register") are unrelated
+-- events despite the similar-sounding UI wording — hence the distinct names.
+--
+-- `actor` distinguishes the source: an operator code from Greenlight ('ADW'),
+-- 'admin' from the Shopify admin app, or 'buyer' from public registration.
 CREATE TABLE IF NOT EXISTS cable_events (
     id BIGSERIAL PRIMARY KEY,
     serial_number TEXT NOT NULL REFERENCES audio_cables(serial_number),

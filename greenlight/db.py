@@ -272,7 +272,7 @@ def register_scanned_cable(serial_number, sku_group, prefix, length, connector_c
                           operator, formatted_serial))
                     result = cur.fetchone()
                     record_cable_event(
-                        formatted_serial, 're_registered',
+                        formatted_serial, 'sku_changed',
                         detail={
                             'from': {'sku_group': existing[1], 'prefix': existing[2],
                                      'length': float(existing[3]) if existing[3] is not None else None,

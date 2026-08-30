@@ -50,8 +50,9 @@ CREATE TABLE cable_events (
     serial_number TEXT NOT NULL REFERENCES audio_cables(serial_number),
     event TEXT NOT NULL,           -- assigned_customer, unassigned_customer,
                                    -- assigned_dealer, unassigned_dealer,
-                                   -- code_generated, code_cleared, re_registered, qc_tested
-    actor TEXT,                    -- operator initials, or 'admin:<staff email>'
+                                   -- code_generated, code_cleared, registered,
+                                   -- sku_changed, qc_tested
+    actor TEXT,                    -- 'ADW' (operator), 'admin', or 'buyer'
     detail JSONB,                  -- {from: ..., to: ...}
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
