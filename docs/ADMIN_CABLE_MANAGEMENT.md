@@ -116,7 +116,8 @@ channel and refuses to guess.
 - Refuse dealer-assign on a cable that already has an end owner (`already_registered`)
 - Refuse clear-code on a dealer-sold cable — it would return a sold cable to retail
   inventory and double-sell it
-- Re-register stays out of the admin: it changes what the cable physically *is*, and
+- SKU correction (Greenlight's 'e') stays out of the admin: it changes what the cable
+  physically *is*, and
   should require having it in hand
 
 Every mutation writes a `cable_event`. Retire `app.assign.jsx` at the end of this phase.
@@ -187,7 +188,7 @@ Hardware-bound to the bench, not candidates for the admin:
 - Label printing (TSC printer)
 - Registration intake scanning — though note scans are already bridged to the admin over
   MQTT, so admin-side *lookup* by scan is viable
-- Re-register / SKU correction
+- Cable intake / SKU correction
 
 ## Suggested order of execution
 

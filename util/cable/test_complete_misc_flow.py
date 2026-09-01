@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, '/home/welch/projects/sundial_greenlight')
 
 from greenlight.db import (
-    register_scanned_cable, get_audio_cable, get_or_create_misc_sku, pg_pool,
+    intake_scanned_cable, get_audio_cable, get_or_create_misc_sku, pg_pool,
 )
 
 
@@ -39,7 +39,7 @@ def test_complete_misc_flow():
     # Step 2: Register cable with per-cable length and connector
     print(f"\n2. Registering cable {test_serial} as {misc_sku} ({test_length}ft)")
     print("-" * 70)
-    result = register_scanned_cable(
+    result = intake_scanned_cable(
         serial_number=test_serial,
         sku_group=misc_sku,
         prefix=test_series_prefix,

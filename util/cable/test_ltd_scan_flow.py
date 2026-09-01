@@ -15,7 +15,7 @@ sys.path.insert(0, '/home/welch/projects/sundial_greenlight')
 
 from greenlight.cable_config import format_variant_sku
 from greenlight.db import (
-    register_scanned_cable, get_audio_cable, sku_kind, pg_pool,
+    intake_scanned_cable, get_audio_cable, sku_kind, pg_pool,
     list_ltd_editions, get_ltd_edition,
 )
 
@@ -108,7 +108,7 @@ def test_ltd_scan_flow():
     print(f"\n5. Registering cable {TEST_SERIAL} as {TEST_SKU} "
           f"(prefix {TEST_PREFIX}, {TEST_LENGTH}ft, straight)")
     print("-" * 70)
-    result = register_scanned_cable(
+    result = intake_scanned_cable(
         serial_number=TEST_SERIAL,
         sku_group=TEST_SKU,
         prefix=TEST_PREFIX,

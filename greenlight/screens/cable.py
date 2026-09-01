@@ -15,7 +15,7 @@ from greenlight.cable import (
     get_distinct_color_patterns, get_distinct_lengths, get_distinct_connector_types,
     resolve_catalog_variant,
 )
-from greenlight.db import get_audio_cable, register_scanned_cable, format_serial_number, update_cable_test_results
+from greenlight.db import get_audio_cable, intake_scanned_cable, format_serial_number, update_cable_test_results
 from rich.table import Table
 import time
 
@@ -1359,7 +1359,7 @@ class CableScreenBase(Screen):
             if is_misc:
                 footer_options.append("[cyan]'d'[/cyan] = Edit description")
             if mode == 'lookup' and not is_committed:
-                footer_options.append("[cyan]'e'[/cyan] = Re-register")
+                footer_options.append("[cyan]'e'[/cyan] = Change SKU")
             footer_options.append("[cyan]'h'[/cyan] = History")
             footer_options.append("[bold green]Scan[/bold green] next cable")
             footer_options.append("[cyan]'q'[/cyan] = Back")
@@ -1417,7 +1417,7 @@ class CableScreenBase(Screen):
                     new_context = self.context.copy()
                     new_context["selection_mode"] = "intake"
                     new_context["prefill_serial"] = cable_record['serial_number']
-                    new_context["re_register"] = True
+                    new_context['sku_change'] = True
                     return {'action': 'navigate', 'screen_result': ScreenResult(NavigationAction.PUSH, SeriesSelectionScreen, new_context)}
 
                 elif choice_lower == 'h':
@@ -2611,8 +2611,8 @@ class ScanCableIntakeScreen(CableScreenBase):
 
                 self.ui.layout["body"].update(Panel(
                     scan_info,
-                    title="📦 Register Cables",
-                    subtitle="Scan barcode labels to register cables in database"
+                    title="📦 Cable Intake",
+                    subtitle="Scan barcode labels to take cables into inventory"
                 ))
 
                 # Check if evdev scanner is available
@@ -2652,15 +2652,16 @@ class ScanCableIntakeScreen(CableScreenBase):
             # Format the serial number (pad to 6 digits)
             formatted_serial = format_serial_number(serial_number)
 
-            # Re-registering an existing cable lets the operator update test/operator fields,
-            # but the SKU itself is locked once a cable has been registered (per design).
-            allow_update = self.context.get("re_register", False)
+            # Re-running intake on an existing cable lets the operator correct its
+            # SKU/length/connector. Distinct from the buyer registration flow —
+            # see the sku_changed cable event.
+            allow_update = self.context.get('sku_change', False)
 
-            # Register the cable in database. Phase 5: register_scanned_cable
+            # Take the cable into inventory. Phase 5: intake_scanned_cable
             # takes (serial, sku_group, prefix, length, connector_code, ...) —
             # prefix lives on audio_cables now since catalog/LTD group SKUs
             # dropped it.
-            result = register_scanned_cable(
+            result = intake_scanned_cable(
                 serial_number, cable_type.sku_group, cable_type.prefix,
                 length, connector_code,
                 operator=operator, update_if_exists=allow_update,
@@ -2686,8 +2687,8 @@ class ScanCableIntakeScreen(CableScreenBase):
                 self.ui.render()
                 time.sleep(0.8)  # Brief pause to show success
 
-                # Re-register mode: just update the one cable and return to its info screen
-                if self.context.get("re_register"):
+                # SKU-change mode: update the one cable and return to its info screen
+                if self.context.get('sku_change'):
                     self.context["return_to_cable_serial"] = saved_serial
                     break
 
@@ -2746,7 +2747,7 @@ class ScanCableIntakeScreen(CableScreenBase):
                             # User wants to quit scanning
                             break
                         elif user_choice == 'update':
-                            update_result = register_scanned_cable(
+                            update_result = intake_scanned_cable(
                                 serial_number, cable_type.sku_group, cable_type.prefix,
                                 length, connector_code,
                                 operator=operator, update_if_exists=True,

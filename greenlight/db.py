@@ -199,9 +199,15 @@ def format_serial_number(serial_number):
         return f"{prefix}{padded_number}"
     return serial_number
 
-def register_scanned_cable(serial_number, sku_group, prefix, length, connector_code,
-                           operator=None, update_if_exists=False, connector_finish=None):
-    """Register a cable with a scanned serial number (Phase 5 intake workflow).
+def intake_scanned_cable(serial_number, sku_group, prefix, length, connector_code,
+                         operator=None, update_if_exists=False, connector_finish=None):
+    """Take a cable into inventory against a SKU (Phase 5 intake workflow).
+
+    "Intake" deliberately, not "register": registration in this system means an
+    end buyer claiming a cable with its registration_code. This is the unrelated
+    production step where a physical cable's pre-printed serial is recorded
+    against a SKU. With update_if_exists it also corrects an existing cable's
+    SKU/length/connector, which emits a sku_changed event.
 
     Args:
         serial_number: The serial number from the cable label

@@ -140,7 +140,7 @@ After registering a cable, the system will automatically offer to print a label:
 ### Workflow Integration
 
 Label printing is integrated into these workflows:
-- **Register Cables** (primary workflow)
+- **Cable Intake** (primary workflow)
   - After each successful cable registration
   - Optional - can skip if not needed
 

@@ -145,7 +145,7 @@ def resolve_catalog_variant(series, color_pattern, length, connector_type):
     """Resolve catalog screen selections to (sku_group, prefix, length, connector_code).
 
     Catalog scan flow: operator picks series → pattern → length → connector,
-    we map those back to YAML codes and return what register_scanned_cable
+    we map those back to YAML codes and return what intake_scanned_cable
     needs. Phase 5: catalog group SKU is just the pattern code (e.g. 'GL');
     series prefix lives on audio_cables.prefix, so it's returned alongside.
 
@@ -190,7 +190,7 @@ class CableType:
     The screen layer always knows the prefix from the navigation context
     (operator just picked a series), so we accept it explicitly. Length and
     connector_code remain per-cable and are NOT carried here — the screen
-    threads those in context until register_scanned_cable is called.
+    threads those in context until intake_scanned_cable is called.
     """
 
     def __init__(self, sku_group=None, prefix=None, **kwargs):

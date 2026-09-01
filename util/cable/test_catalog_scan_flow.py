@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Test catalog scan flow (Phase 5): exercise resolve_catalog_variant +
-register_scanned_cable for a catalog combo.
+intake_scanned_cable for a catalog combo.
 
 Walks the same path the screen flow does:
   1. Operator picks (series, pattern, length, connector) from YAML lists.
   2. resolve_catalog_variant maps these to (sku_group, prefix, length,
      connector_code). Catalog group SKUs are seeded by the Phase 5 migration.
-  3. register_scanned_cable inserts the audio_cables row (prefix lives there).
+  3. intake_scanned_cable inserts the audio_cables row (prefix lives there).
   4. get_audio_cable returns the enriched record with variant_sku derived.
   5. Looking up by variant SKU also works (parse_variant_sku → sku_group).
 """
@@ -17,7 +17,7 @@ sys.path.insert(0, '/home/welch/projects/sundial_greenlight')
 from greenlight.cable import resolve_catalog_variant
 from greenlight.cable_config import format_variant_sku, parse_variant_sku
 from greenlight.db import (
-    register_scanned_cable, get_audio_cable, pg_pool,
+    intake_scanned_cable, get_audio_cable, pg_pool,
     get_available_count_for_sku,
 )
 
@@ -85,7 +85,7 @@ def test_catalog_scan_flow():
     print(f"\n3. Registering cable {TEST_SERIAL} as {sku_group} "
           f"(prefix {prefix}, {length}ft, connector {connector_code!r})")
     print("-" * 70)
-    result = register_scanned_cable(
+    result = intake_scanned_cable(
         serial_number=TEST_SERIAL,
         sku_group=sku_group,
         prefix=prefix,
@@ -161,7 +161,7 @@ def test_catalog_scan_flow():
     # Idempotency: re-register the same serial with update_if_exists=True
     print(f"\n7. Re-register same serial (update path)")
     print("-" * 70)
-    result2 = register_scanned_cable(
+    result2 = intake_scanned_cable(
         serial_number=TEST_SERIAL,
         sku_group=sku_group,
         prefix=prefix,

@@ -19,7 +19,7 @@ sys.path.insert(0, '/home/welch/projects/sundial_greenlight')
 
 from greenlight.cable import resolve_catalog_variant
 from greenlight.db import (
-    register_scanned_cable, assign_cable_to_order,
+    intake_scanned_cable, assign_cable_to_order,
     force_reassign_cable, unassign_cable, pg_pool,
 )
 
@@ -43,7 +43,7 @@ def setup_test_cable():
     )
     if not resolved:
         raise RuntimeError("resolve_catalog_variant returned None")
-    result = register_scanned_cable(
+    result = intake_scanned_cable(
         serial_number=TEST_SERIAL,
         sku_group=resolved['sku_group'],
         prefix=resolved['prefix'],

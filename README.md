@@ -34,7 +34,7 @@ deactivate
 
 ## Features
 
-### Register Cables
+### Cable Intake
 Select SKU and scan cable labels to register in database:
 1. Choose cable type (by SKU or attributes)
 2. Scan barcode with Zebra DS2208 scanner

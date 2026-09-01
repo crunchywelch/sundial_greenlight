@@ -104,7 +104,7 @@ Commit `5b3be3d2`. Schema migration is already applied on the host.
     `company_gid` / `location_gid` and branch exactly as Phase B should. **Mirror this
     branch in the JS**; these are the reference implementation.
 - `greenlight/screens/cable.py` — `is_committed = is_assigned or sold_to_dealer` gates
-  assign / unassign / re-register, and clear-reg-code is refused on a dealer-sold cable
+  assign / unassign / SKU-change, and clear-reg-code is refused on a dealer-sold cable
   (it would return a sold cable to retail inventory and double-sell it).
 
 ## Phase B — to do

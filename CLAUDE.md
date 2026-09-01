@@ -72,12 +72,19 @@ Database connection uses standard PostgreSQL environment variables with `GREENLI
 1. **Splash screen with operator selection** - Combined screen shows app logo and operator list
 2. **Main menu** - Cable QC, Inventory Management, Settings
 3. **Cable QC submenu**:
-   - Register Cables: Select SKU → Scan cable labels → Register in database
+   - Cable Intake: Select SKU → Scan cable labels → record in database
    - Test Cables: Scan serial number → Load from database → Run QC tests
 
 ### Cable Workflow
 
-**Register Cables** (Primary workflow):
+> **Intake vs registration — two unrelated things.** *Intake* is the production
+> step below: recording a physical cable's pre-printed serial against a SKU.
+> *Registration* is an end buyer claiming a cable with its `registration_code` at
+> sundialaudio.com/register. The code calls the first `intake_scanned_cable` and
+> emits `sku_changed`; the second sets `shopify_gid` + `registered_at` and emits
+> `registered`. Don't let the words drift back together.
+
+**Cable Intake** (Primary workflow):
 1. Select cable type:
    - Enter SKU: Choose series → Select from SKU list
    - Select by attributes: Choose series → color → length → connector
@@ -87,7 +94,7 @@ Database connection uses standard PostgreSQL environment variables with `GREENLI
 5. Press Enter to confirm and save to database (or 'n' to skip, 'q' to quit)
 6. System saves cable to database and returns to scanning mode
 7. Shows running count and last 5 scanned serial numbers
-8. Duplicate detection prevents re-registering existing serial numbers
+8. Duplicate detection prevents re-taking existing serial numbers
 9. Press 'q' at scan prompt when done to see summary report
 10. Supports batch scanning - scan multiple cables of same type in one session
 

@@ -40,7 +40,7 @@ stateDiagram-v2
     CableAction --> PrintBarcode: 'b' print barcode
     CableAction --> PrintRegLabel: 'l' print reg label
     CableAction --> EditDescription: 'd' edit desc (MISC)
-    CableAction --> SeriesSelect: 'e' re-register
+    CableAction --> SeriesSelect: 'e' change SKU
     CableAction --> CableAction: scan next serial
     CableAction --> Hub: 'q' back
 
