@@ -10,5 +10,5 @@ export async function loader({ request }) {
   await authenticate.admin(request);
   const url = new URL(request.url);
   const search = url.search ? url.search : "";
-  return redirect(`/app/scan${search}`);
+  return redirect(`/app/cables/serial${search}`);
 }

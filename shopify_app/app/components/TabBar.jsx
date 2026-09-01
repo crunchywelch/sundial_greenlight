@@ -1,9 +1,7 @@
 import { Link, useLocation } from "@remix-run/react";
 
 const TABS = [
-  { path: "/app/scan", label: "Scan Cable" },
-  { path: "/app/assign", label: "Assign Cable" },
-  { path: "/app/cables/serial", label: "Cable Lookup", matchPrefix: "/app/cables/serial" },
+  { path: "/app/cables/serial", label: "Cables", matchPrefix: "/app/cables/serial" },
   { path: "/app/customers", label: "Customer Lookup" },
   { path: "/app/inventory", label: "Inventory" },
   { path: "/app/editions", label: "Editions", matchPrefix: "/app/editions" },
