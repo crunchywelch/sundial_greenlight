@@ -10,6 +10,15 @@ import { CableLookup } from "../components/CableLookup";
 
 const numericId = (gid) => (gid ? String(gid).split("/").pop() : null);
 
+// Mirror of greenlight/db.py format_serial_number: pad the numeric part to 6
+// digits ("517" -> "000517", "SD123" -> "SD000123") so a typed short serial
+// matches the canonical stored form.
+function formatSerial(s) {
+  const raw = (s || "").trim();
+  const m = /^([A-Za-z]*)(\d+)$/.exec(raw);
+  return m ? `${m[1]}${m[2].padStart(6, "0")}` : raw;
+}
+
 // Mirror of greenlight/registration.py generate_registration_code: a
 // crypto-random XXXX-XXXX over an unambiguous alphabet.
 const CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -21,7 +30,7 @@ function generateRegistrationCode() {
 
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
-  const serial = decodeURIComponent(params.serial);
+  const serial = formatSerial(decodeURIComponent(params.serial));
 
   const res = await query(
     `SELECT ac.serial_number, ac.sku_group, ac.prefix, ac.length, ac.connector_code,
@@ -123,7 +132,7 @@ export async function loader({ request, params }) {
 // cable_event on the same transaction. Actor is "admin".
 export async function action({ request, params }) {
   const { admin } = await authenticate.admin(request);
-  const serial = decodeURIComponent(params.serial);
+  const serial = formatSerial(decodeURIComponent(params.serial));
   const form = await request.formData();
   const intent = form.get("intent");
 
