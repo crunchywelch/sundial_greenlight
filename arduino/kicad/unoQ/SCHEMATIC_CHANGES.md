@@ -9,30 +9,30 @@ Keep this open while editing in KiCad.
 
 | Signal               | Mega Pin | UNO Q Pin | Notes                        |
 |----------------------|----------|-----------|------------------------------|
-| TS_CONT_OUT_SLEEVE   | D2       | D2        | unchanged                    |
-| TS_CONT_OUT_TIP      | D3       | D3        | unchanged                    |
-| TS_CONT_IN_SLEEVE    | D4       | D4        | unchanged                    |
-| TS_CONT_IN_TIP       | D5       | D5        | unchanged                    |
-| RES_TEST_OUT         | D6       | D6        | unchanged                    |
-| K1_K2_RELAY          | D14      | D7        | **add PN2222A driver**       |
-| K3_RELAY             | D15      | D8        | **add PN2222A driver**       |
-| K4_RELAY             | D16      | D9        | **add PN2222A driver**       |
+| K1_K2_RELAY          | D14      | D2        | **add PN2222A driver**       |
+| K3_RELAY             | D15      | D3        | **add PN2222A driver**       |
+| K4_RELAY             | D16      | D4        | **add PN2222A driver**       |
+| TS_CONT_OUT_SLEEVE   | D2       | D5        |                              |
+| TS_CONT_OUT_TIP      | D3       | D6        |                              |
+| TS_CONT_IN_SLEEVE    | D4       | D7        |                              |
+| TS_CONT_IN_TIP       | D5       | D8        |                              |
+| RES_TEST_OUT         | D6       | D9        |                              |
 | K5_RELAY             | D63      | D10       | **add PN2222A driver**       |
 | K6_RELAY             | D62      | D11       | **add PN2222A driver**       |
 | XLR_CONT_OUT_PIN1    | D69      | D12       |                              |
-| XLR_CONT_OUT_PIN2    | D65      | D13       | shares LED_BUILTIN (cosmetic)|
-| XLR_CONT_OUT_PIN3    | D64      | D15 (A1)  |                              |
-| XLR_CONT_OUT_SHELL   | D61      | D16 (A2)  |                              |
-| XLR_CONT_IN_PIN1     | D68      | D17 (A3)  |                              |
-| XLR_CONT_IN_PIN2     | D67      | D18 (A4)  |                              |
-| XLR_CONT_IN_PIN3     | D66      | D19 (A5)  |                              |
-| XLR_CONT_IN_SHELL    | D60      | D20 (SDA) |                              |
+| STATUS_LED           | D13      | D13       | built-in LED                 |
 | RES_SENSE            | A0       | A0        | **circuit now powered by 3.3V** |
+| XLR_CONT_OUT_PIN3    | D64      | D15 (A1)  |                              |
+| XLR_CONT_OUT_PIN2    | D65      | D16 (A2)  |                              |
+| XLR_CONT_IN_PIN2     | D67      | D17 (A3)  |                              |
+| XLR_CONT_IN_PIN3     | D66      | D18 (A4)  |                              |
+| XLR_CONT_IN_PIN1     | D68      | D19 (A5)  |                              |
+| XLR_CONT_IN_SHELL    | D60      | D20 (SDA) |                              |
+| XLR_CONT_OUT_SHELL   | D61      | D21 (SCL) |                              |
 | LED_FAIL (red)       | D19      | D53 (PH13)| onboard LED4 R + external via 220Ω |
 | LED_PASS (green)     | D20      | D54 (PH14)| onboard LED4 G + external via 220Ω |
 | LED_ERROR (blue)     | D21      | D55 (PH15)| onboard LED4 B + external via 220Ω |
 | LED_STATUS (blue)    | —        | D52 (PH12)| onboard LED3 B + external via 220Ω |
-| (spare)              | —        | D21 (SCL) | available if needed          |
 
 ---
 
@@ -97,9 +97,9 @@ Base drive: (3.3V - 0.7V) / 1kΩ = 2.6mA — sufficient to saturate for relay co
 
 | Ref   | Value   | Drives      | GPIO |
 |-------|---------|-------------|------|
-| Q2    | PN2222A | K1+K2 coil  | D7   |
-| Q3    | PN2222A | K3 coil     | D8   |
-| Q4    | PN2222A | K4 coil     | D9   |
+| Q2    | PN2222A | K1+K2 coil  | D2   |
+| Q3    | PN2222A | K3 coil     | D3   |
+| Q4    | PN2222A | K4 coil     | D4   |
 | Q5    | PN2222A | K5 coil     | D10  |
 | Q6    | PN2222A | K6 coil     | D11  |
 | R14   | 1kΩ     | Q2 base     |      |

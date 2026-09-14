@@ -26,33 +26,33 @@
  *   RESET    - Reset circuit, returns OK:RESET
  *
  * Relay Configuration (all via PN2222A drivers, coils on 5V rail):
- *   K1+K2 (D7)     - Tied together. TS test mode. LOW = short far end + res path, HIGH = continuity
- *   K3 (D8)        - Resistance circuit. LOW = TS, HIGH = XLR
- *   K4 (D9)        - XLR resistance pin select. LOW = Pin 2, HIGH = Pin 3
+ *   K1+K2 (D3)     - Tied together. TS test mode. LOW = short far end + res path, HIGH = continuity
+ *   K3 (D4)        - Resistance circuit. LOW = TS, HIGH = XLR
+ *   K4 (D5)        - XLR resistance pin select. LOW = Pin 2, HIGH = Pin 3
  *   K5 (D10)       - XLR Pin 2 mode. LOW = continuity, HIGH = resistance (into K4)
  *   K6 (D11)       - XLR Pin 3 mode. LOW = continuity, HIGH = resistance (into K4)
  *
  * Pin Configuration:
- *   D2     - TS continuity signal, SLEEVE
- *   D3     - TS continuity signal, TIP
- *   D4     - TS continuity sense, SLEEVE
- *   D5     - TS continuity sense, TIP
- *   D6     - RES_TEST_OUT (PN2222A base drive via 330R, shared TS/XLR)
- *   D7     - K1_K2_DRIVE (via PN2222A)
- *   D8     - K3_DRIVE (via PN2222A)
- *   D9     - K4_DRIVE (via PN2222A)
+ *   D2     - STATUS LED (external)
+ *   D3     - K1_K2_DRIVE (via PN2222A)
+ *   D4     - K3_DRIVE (via PN2222A)
+ *   D5     - K4_DRIVE (via PN2222A)
+ *   D6     - TS continuity signal, SLEEVE
+ *   D7     - TS continuity signal, TIP
+ *   D8     - TS continuity sense, SLEEVE
+ *   D9     - TS continuity sense, TIP
  *   D10    - K5_DRIVE (via PN2222A)
  *   D11    - K6_DRIVE (via PN2222A)
  *   D12    - XLR_CONT_OUT_PIN1 (drive)
- *   D13    - XLR_CONT_OUT_PIN2 (drive)
+ *   D13    - RES_TEST_OUT (PN2222A base drive via 330R, shared TS/XLR)
+ *   A0     - RES_SENSE (analog input, 3.3V circuit only!)
  *   A1/D15 - XLR_CONT_OUT_PIN3 (drive)
- *   A2/D16 - XLR_CONT_OUT_SHELL (drive, near side)
- *   A3/D17 - XLR_CONT_IN_PIN1 (read)
- *   A4/D18 - XLR_CONT_IN_PIN2 (read)
- *   A5/D19 - XLR_CONT_IN_PIN3 (read)
+ *   A2/D16 - XLR_CONT_OUT_PIN2 (drive)
+ *   A3/D17 - XLR_CONT_IN_PIN2 (read)
+ *   A4/D18 - XLR_CONT_IN_PIN3 (read)
+ *   A5/D19 - XLR_CONT_IN_PIN1 (read)
  *   D20    - XLR_CONT_IN_SHELL (read, far side)
- *   D21    - (spare)
- *   A0/D14 - RES_SENSE (analog input, 3.3V circuit only!)
+ *   D21    - XLR_CONT_OUT_SHELL (drive, near side)
  */
 
 #include "Arduino_RouterBridge.h"
@@ -60,31 +60,34 @@
 
 // ===== PIN DEFINITIONS =====
 
-// --- TS Cable Testing ---
-#define TS_CONT_OUT_SLEEVE   2
-#define TS_CONT_OUT_TIP      3
-#define TS_CONT_IN_SLEEVE    4
-#define TS_CONT_IN_TIP       5
-
-// --- Resistance (shared TS/XLR via K3/K4 relay switching) ---
-#define RES_TEST_OUT         6
-#define RES_SENSE            A0
+// --- Status LED ---
+#define STATUS_LED           2
 
 // --- Relay Drives (all via PN2222A, GPIO -> 1k -> base) ---
-#define K1_K2_RELAY          7
-#define K3_RELAY             8
-#define K4_RELAY             9
+#define K1_K2_RELAY          3
+#define K3_RELAY             4
+#define K4_RELAY             5
 #define K5_RELAY            10
 #define K6_RELAY            11
 
+// --- TS Cable Testing ---
+#define TS_CONT_OUT_SLEEVE   6
+#define TS_CONT_OUT_TIP      7
+#define TS_CONT_IN_SLEEVE    8
+#define TS_CONT_IN_TIP       9
+
+// --- Resistance (shared TS/XLR via K3/K4 relay switching) ---
+#define RES_TEST_OUT        13
+#define RES_SENSE            A0
+
 // --- XLR Cable Testing ---
 #define XLR_CONT_OUT_PIN1   12
-#define XLR_CONT_IN_PIN1    17   // A3
-#define XLR_CONT_OUT_PIN2   13
-#define XLR_CONT_IN_PIN2    18   // A4
+#define XLR_CONT_IN_PIN1    19   // A5
+#define XLR_CONT_OUT_PIN2   16   // A2
+#define XLR_CONT_IN_PIN2    17   // A3
 #define XLR_CONT_OUT_PIN3   15   // A1
-#define XLR_CONT_IN_PIN3    19   // A5
-#define XLR_CONT_OUT_SHELL  16   // A2
+#define XLR_CONT_IN_PIN3    18   // A4
+#define XLR_CONT_OUT_SHELL  21   // SCL
 #define XLR_CONT_IN_SHELL   20   // SDA
 
 // ===== LED MATRIX =====
@@ -101,14 +104,14 @@ const uint32_t FRAME_OFF[] = {0, 0, 0, 0};
 
 // Icon bitmaps as flat byte arrays (8 rows x 13 cols)
 const uint8_t ICON_PASS[] = {
-  0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,1,0,
-  0,0,0,0,0,0,0,0,0,0,1,1,0,
-  0,0,0,0,0,0,0,0,0,1,1,0,0,
-  0,1,0,0,0,0,0,0,1,1,0,0,0,
-  0,0,1,0,0,0,0,1,1,0,0,0,0,
-  0,0,0,1,0,0,1,1,0,0,0,0,0,
   0,0,0,0,1,1,1,0,0,0,0,0,0,
+  0,0,0,1,0,0,1,1,0,0,0,0,0,
+  0,0,1,0,0,0,0,1,1,0,0,0,0,
+  0,1,0,0,0,0,0,0,1,1,0,0,0,
+  0,0,0,0,0,0,0,0,0,1,1,0,0,
+  0,0,0,0,0,0,0,0,0,0,1,1,0,
+  0,0,0,0,0,0,0,0,0,0,0,1,0,
+  0,0,0,0,0,0,0,0,0,0,0,0,0,
 };
 const uint8_t ICON_FAIL[] = {
   0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -331,6 +334,10 @@ void setup() {
   // Set ADC resolution to 14-bit
   analogReadResolution(14);
 
+  // --- Status LED ---
+  pinMode(STATUS_LED, OUTPUT);
+  digitalWrite(STATUS_LED, LOW);
+
   // --- Relay outputs ---
   pinMode(K1_K2_RELAY, OUTPUT);
   pinMode(K3_RELAY, OUTPUT);
@@ -380,6 +387,7 @@ void setup() {
   // Self-test (LED cycle)
   if (selfTest()) {
     systemReady = true;
+    digitalWrite(STATUS_LED, HIGH);
   } else {
     systemReady = false;
     showResult(SHOW_ERROR);
@@ -465,17 +473,17 @@ String handleCommand(String cmd) {
   } else if (cmd == "K12") {
     bool state = !digitalRead(K1_K2_RELAY);
     digitalWrite(K1_K2_RELAY, state);
-    return String("DEBUG:K1+K2(D7):") + (state ? "HIGH" : "LOW");
+    return String("DEBUG:K1+K2(D3):") + (state ? "HIGH" : "LOW");
 
   } else if (cmd == "K3") {
     bool state = !digitalRead(K3_RELAY);
     digitalWrite(K3_RELAY, state);
-    return String("DEBUG:K3(D8):") + (state ? "HIGH" : "LOW");
+    return String("DEBUG:K3(D4):") + (state ? "HIGH" : "LOW");
 
   } else if (cmd == "K4") {
     bool state = !digitalRead(K4_RELAY);
     digitalWrite(K4_RELAY, state);
-    return String("DEBUG:K4(D9):") + (state ? "HIGH" : "LOW");
+    return String("DEBUG:K4(D5):") + (state ? "HIGH" : "LOW");
 
   } else if (cmd == "K5") {
     bool state = !digitalRead(K5_RELAY);
@@ -491,17 +499,17 @@ String handleCommand(String cmd) {
   } else if (cmd == "TSTIP") {
     bool state = !digitalRead(TS_CONT_OUT_TIP);
     digitalWrite(TS_CONT_OUT_TIP, state);
-    return String("DEBUG:TS_CONT_OUT_TIP(D3):") + (state ? "HIGH" : "LOW");
+    return String("DEBUG:TS_CONT_OUT_TIP(D7):") + (state ? "HIGH" : "LOW");
 
   } else if (cmd == "TSSLV") {
     bool state = !digitalRead(TS_CONT_OUT_SLEEVE);
     digitalWrite(TS_CONT_OUT_SLEEVE, state);
-    return String("DEBUG:TS_CONT_OUT_SLEEVE(D2):") + (state ? "HIGH" : "LOW");
+    return String("DEBUG:TS_CONT_OUT_SLEEVE(D6):") + (state ? "HIGH" : "LOW");
 
   } else if (cmd == "TSRES") {
     bool state = !digitalRead(RES_TEST_OUT);
     digitalWrite(RES_TEST_OUT, state);
-    return String("DEBUG:RES_TEST_OUT(D6):") + (state ? "HIGH" : "LOW");
+    return String("DEBUG:RES_TEST_OUT(D13):") + (state ? "HIGH" : "LOW");
 
   } else if (cmd == "XLR1") {
     bool state = !digitalRead(XLR_CONT_OUT_PIN1);
@@ -511,17 +519,17 @@ String handleCommand(String cmd) {
   } else if (cmd == "XLR2") {
     bool state = !digitalRead(XLR_CONT_OUT_PIN2);
     digitalWrite(XLR_CONT_OUT_PIN2, state);
-    return String("DEBUG:XLR_CONT_OUT_PIN2(D13):") + (state ? "HIGH" : "LOW");
+    return String("DEBUG:XLR_CONT_OUT_PIN2(D16/A2):") + (state ? "HIGH" : "LOW");
 
   } else if (cmd == "XLR3") {
     bool state = !digitalRead(XLR_CONT_OUT_PIN3);
     digitalWrite(XLR_CONT_OUT_PIN3, state);
-    return String("DEBUG:XLR_CONT_OUT_PIN3(D15/A1):") + (state ? "HIGH" : "LOW");
+    return String("DEBUG:XLR_CONT_OUT_PIN3(A1/D15):") + (state ? "HIGH" : "LOW");
 
   } else if (cmd == "XLRS") {
     bool state = !digitalRead(XLR_CONT_OUT_SHELL);
     digitalWrite(XLR_CONT_OUT_SHELL, state);
-    return String("DEBUG:XLR_CONT_OUT_SHELL(D16/A2):") + (state ? "HIGH" : "LOW");
+    return String("DEBUG:XLR_CONT_OUT_SHELL(D21):") + (state ? "HIGH" : "LOW");
 
   } else {
     return "ERROR:UNKNOWN_CMD:" + cmd;
