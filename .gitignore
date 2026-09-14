@@ -16,6 +16,7 @@ shopify_app/extensions/*/manifest.json
 shopify_app/extensions/*/shopify.d.ts
 data/imports/
 data/exports/
+data/wire_catalog/
 data/sundial.db
 data/sundial.db-wal
 data/sundial.db-shm
