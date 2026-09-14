@@ -6,8 +6,8 @@ and copies the catalog into the extension's assets so the block reads it.
 
 Live cart: the bootstrap in cordset.js posts real component variants to
 /cart/add.js, grouped by a `_cordset` line-item property; switch placement rides
-along as a line property. Labor is added only if the merchant picks an assembly
-product in the block settings.
+along as a line property. The assembly fee comes from the catalog (the ASSEMBLY
+SKU product); the block's labor product setting overrides it if set.
 
     venv/bin/python util/wire/cordset/build_extension.py
 """
@@ -28,7 +28,7 @@ BOOTSTRAP = r"""
 ;(function(){
   var app = document.querySelector('.cordset-app');
   if(!app || !window.startCordset) return;
-  var laborVar = app.getAttribute('data-labor-variant') || "";
+  var laborVar = app.getAttribute('data-labor-variant') || "";   // optional override of the catalog assembly line
   var laborPrice = parseFloat(app.getAttribute('data-labor-price') || "");   // Shopify price is in cents
   var laborTitle = app.getAttribute('data-labor-title') || "";
 
@@ -94,7 +94,7 @@ BLOCK = (
     '    { "type": "checkbox", "id": "constrain_width", "label": "Constrain width",\n'
     '      "info": "On = centered, max 1180px. Off = full width of its section.", "default": true },\n'
     '    { "type": "product", "id": "labor_product", "label": "Assembly labor product",\n'
-    '      "info": "Optional. Added as its own cart line per cord set. Leave empty to omit for now." }\n'
+    '      "info": "Optional override. Defaults to the ASSEMBLY SKU product from the catalog, added as its own cart line per cord set." }\n'
     "  ]\n"
     "}\n"
     "{% endschema %}\n"

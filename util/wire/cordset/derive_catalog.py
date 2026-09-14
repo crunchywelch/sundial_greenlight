@@ -99,6 +99,25 @@ def _compat_for(component, kind, overrides):
     return default_compat_classes(component, kind)
 
 
+# The assembly fee rides as its own cart line per cord set. It is a real Shopify
+# product so it prices/reports like any other line; the bench work order hides it
+# by this SKU.
+LABOR_SKU = "ASSEMBLY"
+
+
+def _labor(products):
+    """Resolve the assembly-fee line from the live catalog (by variant SKU)."""
+    for p in products:
+        if p.get("status") != "ACTIVE":
+            continue
+        for v in _vars(p):
+            if (v.get("sku") or "").strip().upper() == LABOR_SKU:
+                return {"variantId": _num_id(v["id"]), "sku": v.get("sku"),
+                        "price": float(v["price"]), "title": p["title"]}
+    return {"note": f"no ACTIVE variant with SKU {LABOR_SKU} - assembly line omitted",
+            "variantId": None, "price": 0.0}
+
+
 def build_catalog(products, overrides=None):
     """Pure build: raw product nodes -> (catalog dict, diagnostics dict)."""
     wires, dropped = [], []
@@ -192,8 +211,7 @@ def build_catalog(products, overrides=None):
         sockets.append(rec)
 
     catalog = {
-        "labor": {"note": "STUB — create a real Shopify assembly product & set price",
-                  "variantId": None, "price": 5.00},
+        "labor": _labor(products),
         "wireClasses": [c["id"] for c in WIRE_CLASSES],
         "compatSource": "verified-overrides" if overrides else "auto-derived",
         "wires": wires, "plugs": plugs, "switches": switches, "sockets": sockets,
@@ -206,6 +224,7 @@ def build_catalog(products, overrides=None):
         "missingMaterial": [w["title"] for w in wires if w["material"] is None],
         "byClass": dict(Counter(w["classId"] for w in wires)),
         "plugs": len(plugs), "switches": len(switches), "sockets": len(sockets),
+        "labor": catalog["labor"],
     }
     return catalog, diagnostics
 
@@ -214,6 +233,9 @@ def print_diagnostics(diag):
     print(f"wires={diag['wireCount']}  plugs={diag['plugs']}  "
           f"switches={diag['switches']}  sockets={diag['sockets']}")
     print("by class:", diag["byClass"])
+    lab = diag.get("labor") or {}
+    print("assembly fee:", f"{lab.get('title', '(none)')} ${lab.get('price', 0):.2f}"
+          if lab.get("variantId") else f"MISSING ({lab.get('note')})")
     for k in ("droppedUnclassified", "missingConductors", "missingGauge", "missingMaterial"):
         n = len(diag[k])
         if n:

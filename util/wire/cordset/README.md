@@ -76,5 +76,12 @@ per-variant by Ian's CSV). The form gates on `wire.classId ∈ component.compatC
 
 App: `sundial-cordsets` on the `sundial-wire` store (org 186855317). The block is
 "Cord Set Builder" — added to a page via an OS 2.0 JSON template + a host section that
-accepts `@app` blocks. Settings: paper background, constrain width, and the assembly
-**labor product** (its variant/price/name feed the labor cart line; omit to skip labor).
+accepts `@app` blocks. Settings: paper background, constrain width, and an optional
+**labor product** override.
+
+The **assembly fee** is a real Shopify product resolved by variant SKU `ASSEMBLY`
+(`LABOR_SKU` in `derive_catalog.py`) during the catalog build, so its price is whatever
+Shopify says (currently $10.00) and a price change flows through the next sync. It rides
+as its own cart line per cord set; the bench work order hides it by that same SKU. The
+block's labor product setting overrides it; if no ACTIVE `ASSEMBLY` variant exists the
+line is omitted and the sync prints a MISSING warning.

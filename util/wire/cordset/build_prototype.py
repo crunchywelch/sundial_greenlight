@@ -711,8 +711,8 @@ ARTIFACT_MASTHEAD = r"""  <header class="masthead">
     <p class="lede">Build a cloth-covered cord set from real stock &mdash; choose the wire,
       terminate each end, add a switch if you like. Every part is a live catalog item;
       the ticket on the right is exactly what lands in the cart.</p>
-    <p class="proto-note">Prototype &middot; prices &amp; inventory are live catalog data &middot;
-      labor is a placeholder &middot; nothing is ordered.</p>
+    <p class="proto-note">Prototype &middot; prices, assembly fee &amp; inventory are live
+      catalog data &middot; nothing is ordered.</p>
   </header>
 """
 
