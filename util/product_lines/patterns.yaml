@@ -38,6 +38,11 @@ patterns:
     fabric_type: rayon
     description: Solid white rayon braid
 
+  - code: MB
+    name: Midnight Black
+    fabric_type: rayon
+    description: Solid black rayon braid
+
   # ========================================
   # COTTON PATTERNS
   # ========================================

@@ -60,6 +60,16 @@
     }
   },
   {
+    "name": "group catalog: Midnight Black",
+    "type": "group",
+    "sku": "MB",
+    "expected": {
+      "kind": "catalog",
+      "pattern_code": "MB",
+      "pattern_name": "Midnight Black"
+    }
+  },
+  {
     "name": "group misc: SC variant 42 (still series-scoped)",
     "type": "group",
     "sku": "SC-MISC-42",
@@ -292,6 +302,54 @@
     }
   },
   {
+    "name": "variant catalog: SC 12ft Midnight Black straight",
+    "type": "variant",
+    "sku": "SC-12MB",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "MB",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 12,
+      "pattern_code": "MB",
+      "pattern_name": "Midnight Black",
+      "connector_code": "",
+      "connector_display": "TS–TS"
+    }
+  },
+  {
+    "name": "variant catalog: SC 12ft Midnight Black right-angle",
+    "type": "variant",
+    "sku": "SC-12MB-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "MB",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 12,
+      "pattern_code": "MB",
+      "pattern_name": "Midnight Black",
+      "connector_code": "-R",
+      "connector_display": "RA–TS"
+    }
+  },
+  {
+    "name": "variant catalog: SV 20ft Midnight Black (XLR-XLR)",
+    "type": "variant",
+    "sku": "SV-20MB",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "MB",
+      "prefix": "SV",
+      "series": "Studio Vocal Classic",
+      "length": 20,
+      "pattern_code": "MB",
+      "pattern_name": "Midnight Black",
+      "connector_code": "",
+      "connector_display": "XLR–XLR"
+    }
+  },
+  {
     "name": "variant misc: passes through as group",
     "type": "variant",
     "sku": "SC-MISC-42",
@@ -419,6 +477,21 @@
     "name": "round-trip: TV 6ft Firefly",
     "type": "round_trip",
     "sku": "TV-6FF"
+  },
+  {
+    "name": "round-trip: SC 12ft Midnight Black straight",
+    "type": "round_trip",
+    "sku": "SC-12MB"
+  },
+  {
+    "name": "round-trip: SC 12ft Midnight Black right-angle",
+    "type": "round_trip",
+    "sku": "SC-12MB-R"
+  },
+  {
+    "name": "round-trip: SV 20ft Midnight Black",
+    "type": "round_trip",
+    "sku": "SV-20MB"
   },
   {
     "name": "round-trip: MISC variant",
