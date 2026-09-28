@@ -86,6 +86,16 @@
     }
   },
   {
+    "name": "prod group: MB",
+    "type": "group",
+    "sku": "MB",
+    "expected": {
+      "kind": "catalog",
+      "pattern_code": "MB",
+      "pattern_name": "Midnight Black"
+    }
+  },
+  {
     "name": "prod group: NJ",
     "type": "group",
     "sku": "NJ",
@@ -222,6 +232,28 @@
       "prefix": "TC",
       "series": "Tour Classic",
       "misc_seq": 10
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-108",
+    "type": "group",
+    "sku": "TC-MISC-108",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 108
+    }
+  },
+  {
+    "name": "prod group: TC-MISC-109",
+    "type": "group",
+    "sku": "TC-MISC-109",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 109
     }
   },
   {
@@ -643,6 +675,72 @@
     }
   },
   {
+    "name": "prod group: TV-MISC-110",
+    "type": "group",
+    "sku": "TV-MISC-110",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 110
+    }
+  },
+  {
+    "name": "prod group: TV-MISC-111",
+    "type": "group",
+    "sku": "TV-MISC-111",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 111
+    }
+  },
+  {
+    "name": "prod group: TV-MISC-112",
+    "type": "group",
+    "sku": "TV-MISC-112",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 112
+    }
+  },
+  {
+    "name": "prod group: TV-MISC-113",
+    "type": "group",
+    "sku": "TV-MISC-113",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 113
+    }
+  },
+  {
+    "name": "prod group: TV-MISC-114",
+    "type": "group",
+    "sku": "TV-MISC-114",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 114
+    }
+  },
+  {
+    "name": "prod group: TV-MISC-115",
+    "type": "group",
+    "sku": "TV-MISC-115",
+    "expected": {
+      "kind": "misc",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 115
+    }
+  },
+  {
     "name": "prod group: TV-MISC-12",
     "type": "group",
     "sku": "TV-MISC-12",
@@ -1035,6 +1133,54 @@
     }
   },
   {
+    "name": "prod variant: TC-15FF",
+    "type": "variant",
+    "sku": "TC-15FF",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "FF",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 15,
+      "pattern_code": "FF",
+      "pattern_name": "Firefly",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TV-6FF",
+    "type": "variant",
+    "sku": "TV-6FF",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "FF",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 6,
+      "pattern_code": "FF",
+      "pattern_name": "Firefly",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TV-15FF",
+    "type": "variant",
+    "sku": "TV-15FF",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "FF",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 15,
+      "pattern_code": "FF",
+      "pattern_name": "Firefly",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
     "name": "prod variant: SC-1GL",
     "type": "variant",
     "sku": "SC-1GL",
@@ -1144,6 +1290,22 @@
       "pattern_name": "Goldline",
       "connector_code": "",
       "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: SC-10GL-R",
+    "type": "variant",
+    "sku": "SC-10GL-R",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "GL",
+      "prefix": "SC",
+      "series": "Studio Classic",
+      "length": 10,
+      "pattern_code": "GL",
+      "pattern_name": "Goldline",
+      "connector_code": "-R",
+      "connector_display": "RA\u2013TS"
     }
   },
   {
@@ -1574,6 +1736,21 @@
     }
   },
   {
+    "name": "prod variant: TC-9-LTD-LISTONS2026",
+    "type": "variant",
+    "sku": "TC-9-LTD-LISTONS2026",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-LISTONS2026",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 9,
+      "slug": "LISTONS2026",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
     "name": "prod variant: TC-15-LTD-LISTONS2026",
     "type": "variant",
     "sku": "TC-15-LTD-LISTONS2026",
@@ -1586,6 +1763,21 @@
       "slug": "LISTONS2026",
       "connector_code": "",
       "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TV-14-LTD-LISTONS2026",
+    "type": "variant",
+    "sku": "TV-14-LTD-LISTONS2026",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-LISTONS2026",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 14,
+      "slug": "LISTONS2026",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
     }
   },
   {
@@ -1694,6 +1886,36 @@
     }
   },
   {
+    "name": "prod variant: TV-12-LTD-THECITIEPODCAST",
+    "type": "variant",
+    "sku": "TV-12-LTD-THECITIEPODCAST",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-THECITIEPODCAST",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 12,
+      "slug": "THECITIEPODCAST",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TC-12-LTD-VINTAGEINTHEVALLEY2026",
+    "type": "variant",
+    "sku": "TC-12-LTD-VINTAGEINTHEVALLEY2026",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-VINTAGEINTHEVALLEY2026",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 12,
+      "slug": "VINTAGEINTHEVALLEY2026",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
     "name": "prod variant: TC-15-LTD-VINTAGEINTHEVALLEY2026",
     "type": "variant",
     "sku": "TC-15-LTD-VINTAGEINTHEVALLEY2026",
@@ -1724,6 +1946,21 @@
     }
   },
   {
+    "name": "prod variant: TV-14-LTD-VINTAGEINTHEVALLEY2026",
+    "type": "variant",
+    "sku": "TV-14-LTD-VINTAGEINTHEVALLEY2026",
+    "expected": {
+      "kind": "ltd",
+      "group_sku": "LTD-VINTAGEINTHEVALLEY2026",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 14,
+      "slug": "VINTAGEINTHEVALLEY2026",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
     "name": "prod variant: TV-15-LTD-VINTAGEINTHEVALLEY2026",
     "type": "variant",
     "sku": "TV-15-LTD-VINTAGEINTHEVALLEY2026",
@@ -1749,6 +1986,38 @@
       "series": "Tour Vocal Classic",
       "length": 20,
       "slug": "VINTAGEINTHEVALLEY2026",
+      "connector_code": "",
+      "connector_display": "XLR\u2013XLR"
+    }
+  },
+  {
+    "name": "prod variant: TC-15NJ",
+    "type": "variant",
+    "sku": "TC-15NJ",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "NJ",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "length": 15,
+      "pattern_code": "NJ",
+      "pattern_name": "Neon Jungle",
+      "connector_code": "",
+      "connector_display": "TS\u2013TS"
+    }
+  },
+  {
+    "name": "prod variant: TV-15NJ",
+    "type": "variant",
+    "sku": "TV-15NJ",
+    "expected": {
+      "kind": "catalog",
+      "group_sku": "NJ",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "length": 15,
+      "pattern_code": "NJ",
+      "pattern_name": "Neon Jungle",
       "connector_code": "",
       "connector_display": "XLR\u2013XLR"
     }
@@ -2382,6 +2651,18 @@
     }
   },
   {
+    "name": "prod variant: TC-MISC-108",
+    "type": "variant",
+    "sku": "TC-MISC-108",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TC-MISC-108",
+      "prefix": "TC",
+      "series": "Tour Classic",
+      "misc_seq": 108
+    }
+  },
+  {
     "name": "prod variant: TC-MISC-11",
     "type": "variant",
     "sku": "TC-MISC-11",
@@ -2802,6 +3083,78 @@
     }
   },
   {
+    "name": "prod variant: TV-MISC-110",
+    "type": "variant",
+    "sku": "TV-MISC-110",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TV-MISC-110",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 110
+    }
+  },
+  {
+    "name": "prod variant: TV-MISC-111",
+    "type": "variant",
+    "sku": "TV-MISC-111",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TV-MISC-111",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 111
+    }
+  },
+  {
+    "name": "prod variant: TV-MISC-112",
+    "type": "variant",
+    "sku": "TV-MISC-112",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TV-MISC-112",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 112
+    }
+  },
+  {
+    "name": "prod variant: TV-MISC-113",
+    "type": "variant",
+    "sku": "TV-MISC-113",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TV-MISC-113",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 113
+    }
+  },
+  {
+    "name": "prod variant: TV-MISC-114",
+    "type": "variant",
+    "sku": "TV-MISC-114",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TV-MISC-114",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 114
+    }
+  },
+  {
+    "name": "prod variant: TV-MISC-115",
+    "type": "variant",
+    "sku": "TV-MISC-115",
+    "expected": {
+      "kind": "misc",
+      "group_sku": "TV-MISC-115",
+      "prefix": "TV",
+      "series": "Tour Vocal Classic",
+      "misc_seq": 115
+    }
+  },
+  {
     "name": "prod variant: TV-MISC-12",
     "type": "variant",
     "sku": "TV-MISC-12",
@@ -2993,6 +3346,21 @@
     "sku": "TV-25EH"
   },
   {
+    "name": "prod round-trip: TC-15FF",
+    "type": "round_trip",
+    "sku": "TC-15FF"
+  },
+  {
+    "name": "prod round-trip: TV-6FF",
+    "type": "round_trip",
+    "sku": "TV-6FF"
+  },
+  {
+    "name": "prod round-trip: TV-15FF",
+    "type": "round_trip",
+    "sku": "TV-15FF"
+  },
+  {
     "name": "prod round-trip: SC-1GL",
     "type": "round_trip",
     "sku": "SC-1GL"
@@ -3026,6 +3394,11 @@
     "name": "prod round-trip: SC-10GL",
     "type": "round_trip",
     "sku": "SC-10GL"
+  },
+  {
+    "name": "prod round-trip: SC-10GL-R",
+    "type": "round_trip",
+    "sku": "SC-10GL-R"
   },
   {
     "name": "prod round-trip: SC-12GL",
@@ -3163,9 +3536,19 @@
     "sku": "TC-6-LTD-LISTONS2026"
   },
   {
+    "name": "prod round-trip: TC-9-LTD-LISTONS2026",
+    "type": "round_trip",
+    "sku": "TC-9-LTD-LISTONS2026"
+  },
+  {
     "name": "prod round-trip: TC-15-LTD-LISTONS2026",
     "type": "round_trip",
     "sku": "TC-15-LTD-LISTONS2026"
+  },
+  {
+    "name": "prod round-trip: TV-14-LTD-LISTONS2026",
+    "type": "round_trip",
+    "sku": "TV-14-LTD-LISTONS2026"
   },
   {
     "name": "prod round-trip: TV-15-LTD-LISTONS2026",
@@ -3203,6 +3586,16 @@
     "sku": "SV-25-LTD-THECITIEPODCAST"
   },
   {
+    "name": "prod round-trip: TV-12-LTD-THECITIEPODCAST",
+    "type": "round_trip",
+    "sku": "TV-12-LTD-THECITIEPODCAST"
+  },
+  {
+    "name": "prod round-trip: TC-12-LTD-VINTAGEINTHEVALLEY2026",
+    "type": "round_trip",
+    "sku": "TC-12-LTD-VINTAGEINTHEVALLEY2026"
+  },
+  {
     "name": "prod round-trip: TC-15-LTD-VINTAGEINTHEVALLEY2026",
     "type": "round_trip",
     "sku": "TC-15-LTD-VINTAGEINTHEVALLEY2026"
@@ -3213,6 +3606,11 @@
     "sku": "TC-15-LTD-VINTAGEINTHEVALLEY2026-R"
   },
   {
+    "name": "prod round-trip: TV-14-LTD-VINTAGEINTHEVALLEY2026",
+    "type": "round_trip",
+    "sku": "TV-14-LTD-VINTAGEINTHEVALLEY2026"
+  },
+  {
     "name": "prod round-trip: TV-15-LTD-VINTAGEINTHEVALLEY2026",
     "type": "round_trip",
     "sku": "TV-15-LTD-VINTAGEINTHEVALLEY2026"
@@ -3221,6 +3619,16 @@
     "name": "prod round-trip: TV-20-LTD-VINTAGEINTHEVALLEY2026",
     "type": "round_trip",
     "sku": "TV-20-LTD-VINTAGEINTHEVALLEY2026"
+  },
+  {
+    "name": "prod round-trip: TC-15NJ",
+    "type": "round_trip",
+    "sku": "TC-15NJ"
+  },
+  {
+    "name": "prod round-trip: TV-15NJ",
+    "type": "round_trip",
+    "sku": "TV-15NJ"
   },
   {
     "name": "prod round-trip: SC-1PW",
@@ -3428,6 +3836,11 @@
     "sku": "TC-MISC-10"
   },
   {
+    "name": "prod round-trip: TC-MISC-108",
+    "type": "round_trip",
+    "sku": "TC-MISC-108"
+  },
+  {
     "name": "prod round-trip: TC-MISC-11",
     "type": "round_trip",
     "sku": "TC-MISC-11"
@@ -3601,6 +4014,36 @@
     "name": "prod round-trip: TC-MISC-9",
     "type": "round_trip",
     "sku": "TC-MISC-9"
+  },
+  {
+    "name": "prod round-trip: TV-MISC-110",
+    "type": "round_trip",
+    "sku": "TV-MISC-110"
+  },
+  {
+    "name": "prod round-trip: TV-MISC-111",
+    "type": "round_trip",
+    "sku": "TV-MISC-111"
+  },
+  {
+    "name": "prod round-trip: TV-MISC-112",
+    "type": "round_trip",
+    "sku": "TV-MISC-112"
+  },
+  {
+    "name": "prod round-trip: TV-MISC-113",
+    "type": "round_trip",
+    "sku": "TV-MISC-113"
+  },
+  {
+    "name": "prod round-trip: TV-MISC-114",
+    "type": "round_trip",
+    "sku": "TV-MISC-114"
+  },
+  {
+    "name": "prod round-trip: TV-MISC-115",
+    "type": "round_trip",
+    "sku": "TV-MISC-115"
   },
   {
     "name": "prod round-trip: TV-MISC-12",
