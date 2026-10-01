@@ -48,7 +48,8 @@ BOOTSTRAP = r"""
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ items: items })
     }).then(function(r){
-      if(!r.ok) return r.json().then(function(e){ throw new Error((e && e.description) || 'add failed'); });
+      if(!r.ok) return r.json().catch(function(){ return null; }).then(function(e){
+        throw new Error((e && (e.description || e.message)) || ('cart error '+r.status)); });
       return r.json();
     }).then(function(){ window.location.href = '/cart'; });
   }

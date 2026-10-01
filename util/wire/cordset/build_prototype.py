@@ -31,14 +31,8 @@ APP_MARKUP = r"""
         <div class="wirelist" id="wireList" role="listbox" aria-label="Wire options"></div>
       </fieldset>
 
-      <fieldset class="step optional" id="step-plug" disabled>
-        <legend><span class="num">2</span> Plug <span class="endhint">(line-cord end)</span></legend>
-        <div class="optgrid" id="plugList"></div>
-        <div class="variantpick" id="plugVar" hidden></div>
-      </fieldset>
-
       <fieldset class="step" id="step-length" disabled>
-        <legend><span class="num">3</span> Length</legend>
+        <legend><span class="num">2</span> Length</legend>
         <div class="lenrow">
           <div class="stepper">
             <button type="button" data-len="-1" aria-label="Less">&minus;</button>
@@ -48,6 +42,13 @@ APP_MARKUP = r"""
           <span class="lenunit">feet</span>
           <div class="chips" id="lenPresets"></div>
         </div>
+        <p class="lennote" id="lenNote" aria-live="polite"></p>
+      </fieldset>
+
+      <fieldset class="step optional" id="step-plug" disabled>
+        <legend><span class="num">3</span> Plug <span class="endhint">(line-cord end)</span></legend>
+        <div class="optgrid" id="plugList"></div>
+        <div class="variantpick" id="plugVar" hidden></div>
       </fieldset>
 
       <fieldset class="step optional" id="step-socket" disabled>
@@ -174,6 +175,7 @@ CSS = r"""
 .wireitem:last-child{border-bottom:0}
 .wireitem:hover{background:var(--paper-2)}
 .wireitem[aria-selected="true"]{background:color-mix(in srgb,var(--brass) 18%,var(--paper))}
+.wireitem[disabled]{cursor:not-allowed;opacity:.45;background:none}
 .sw{width:20px;height:20px;border-radius:5px;border:1px solid rgba(0,0,0,.25);flex:0 0 auto}
 .wsw{width:38px;height:38px;object-fit:cover;border-radius:6px;border:1px solid var(--line-2);flex:0 0 auto;background:var(--paper);display:block}
 .wname{font-size:.86rem;line-height:1.25}
@@ -205,6 +207,8 @@ CSS = r"""
 .stepper input{width:3.4rem;height:2.2rem;border:0;border-left:1px solid var(--line-2);border-right:1px solid var(--line-2);
   text-align:center;font:inherit;font-family:var(--mono);background:var(--paper);color:var(--ink);font-variant-numeric:tabular-nums}
 .lenunit{font-family:var(--mono);font-size:.8rem;color:var(--ink-soft)}
+.lennote{font-size:.72rem;color:var(--ink-soft);margin:.4rem 0 0}
+.lennote:empty{display:none}
 .chips{display:flex;gap:.3rem}
 
 .addbtn{width:100%;padding:.8rem;border:0;border-radius:9px;background:var(--patina);color:#fff;
@@ -265,6 +269,7 @@ CSS = r"""
 .variantpick{margin-top:.6rem;border-top:1px dashed var(--line-2);padding-top:.55rem}
 .variantpick[hidden]{display:none}
 .vchips{margin-top:.3rem}
+.vchip[disabled]{cursor:not-allowed;opacity:.45}
 .vsku{font-family:var(--mono);font-size:.62rem;color:var(--ink-soft);display:block;margin-top:.35rem;letter-spacing:.02em}
 .switchpos{margin-top:.7rem;border-top:1px dashed var(--line-2);padding-top:.6rem}
 .switchpos[hidden]{display:none}
@@ -321,6 +326,29 @@ function swatchFor(t){
   var s=t.toLowerCase(),best=null;
   Object.keys(COLORS).forEach(function(k){ if(s.indexOf(k)>-1 && (!best||k.length>best.length)) best=k; });
   return best?COLORS[best]:"var(--line-2)";
+}
+// ---- stock: the store doesn't oversell, so out-of-stock items show greyed out
+// and can't be picked. In-stock wires sort first so they're never cut by the list cap.
+CAT.wires.forEach(function(w){ w._oos=(w.inventoryFeet!=null && w.inventoryFeet<=0); });
+CAT.wires.sort(function(a,b){ return a._oos-b._oos; });   // stable: catalog order kept within each group
+["plugs","switches","sockets"].forEach(function(k){ CAT[k].forEach(function(c){
+  c.variants=c.variants||[];
+  c.variants.forEach(function(v){ v._oos=(v.inventory!=null && v.inventory<=0); });
+  c._firstInStock=c.variants.filter(function(v){ return !v._oos; })[0]||null;
+  c._oos=!c._firstInStock;
+}); });
+// stock per variant, so the whole ticket can be checked before it goes to the cart
+var STOCK={}, STOCKNAME={};
+CAT.wires.forEach(function(w){ if(w.inventoryFeet!=null){ STOCK[w.variantId]=Math.floor(w.inventoryFeet); STOCKNAME[w.variantId]=w.title; } });
+["plugs","switches","sockets"].forEach(function(k){ CAT[k].forEach(function(c){ c.variants.forEach(function(v){
+  if(v.inventory!=null){ STOCK[v.variantId]=v.inventory; STOCKNAME[v.variantId]=c.title+(v.label&&v.label!=="Standard"?" ("+v.label+")":""); } }); }); });
+// first cart line whose total across all cord sets exceeds stock, or null
+function overStock(){
+  var need={};
+  cart.forEach(function(c){ c.lines.forEach(function(l){
+    if(l.variantId in STOCK) need[l.variantId]=(need[l.variantId]||0)+(l.quantity||1)*c.qty; }); });
+  for(var id in need){ if(need[id]>STOCK[id]) return {name:STOCKNAME[id],need:need[id],have:STOCK[id]}; }
+  return null;
 }
 CAT.wires.forEach(function(w){ w._label=labelFromTitle(w.title); w._hex=swatchFor(w.title);
   w._patterned=/zig|hound|tracer|bungalow|check|stripe/i.test(w.title); });
@@ -418,13 +446,13 @@ function renderWires(){
   list.slice(0,CAP).forEach(function(w){
     var b=document.createElement("button"); b.type="button"; b.className="wireitem"; b.setAttribute("role","option");
     b.setAttribute("aria-selected", String(sel.wire===w));
-    var oos = (w.inventoryFeet!=null && w.inventoryFeet<=0);
+    if(w._oos){ b.disabled=true; b.setAttribute("aria-disabled","true"); }
     var meta=(w.sku?w.sku+' &middot; ':'')+w.gauge+'/'+w.conductors+' '+w.style+(w._patterned?' &middot; pattern':(w.material?' &middot; '+w.material:''));
     var thumb=w.image?'<img class="wsw" src="'+sized(w.image,48)+'" alt="" loading="lazy">':'<span class="sw" style="background:'+w._hex+'"></span>';
     b.innerHTML=thumb+
       '<span class="wname">'+w._label+' <small>'+meta+'</small></span>'+
-      '<span class="wprice">'+money(w.pricePerFoot)+'<small>/ft'+(oos?' &middot; back-order':'')+'</small></span>';
-    b.addEventListener("click",function(){ pickWire(w); });
+      '<span class="wprice">'+money(w.pricePerFoot)+'<small>/ft'+(w._oos?' &middot; out of stock':'')+'</small></span>';
+    if(!w._oos) b.addEventListener("click",function(){ pickWire(w); });
     host.appendChild(b);
   });
 }
@@ -440,12 +468,14 @@ function pickWire(w){
   if(sel.plug && !plugOK(sel.plug).ok){ sel.plug=null; sel.plugVar=null; }
   if(sel.socket && !socketOK(sel.socket).ok){ sel.socket=null; sel.socketVar=null; }
   if(sel.switch && !switchOK(sel.switch).ok){ sel.switch=null; sel.switchVar=null; }
+  if(sel.length>maxLen()){ sel.length=maxLen(); $("lenInput").value=sel.length; }
+  syncLenChips();
   renderFilters(); renderWires(); enableSteps(); renderPlugs(); renderSockets(); renderSwitches(); update();
 }
 function matchMotion(){ return window.matchMedia("(prefers-reduced-motion:reduce)").matches?"auto":"smooth"; }
 
 function enableSteps(){
-  ["step-plug","step-length","step-socket","step-switch"].forEach(function(id){ $(id).disabled=!sel.wire; });
+  ["step-length","step-plug","step-socket","step-switch"].forEach(function(id){ $(id).disabled=!sel.wire; });
 }
 
 // ---- compatibility (data-driven: wire.classId in component.compatClasses) ---
@@ -457,9 +487,10 @@ function compatOK(item,kind){
     : "not rated for "+(sel.wire.classId||"this wire");
   return {ok:false,why:why};
 }
-function plugOK(p){ return compatOK(p,"plug"); }
-function switchOK(s){ return compatOK(s,"switch"); }
-function socketOK(s){ return compatOK(s,"socket"); }
+function stockOK(item,kind){ var st=compatOK(item,kind); return (st.ok && item._oos) ? {ok:false,why:"out of stock"} : st; }
+function plugOK(p){ return stockOK(p,"plug"); }
+function switchOK(s){ return stockOK(s,"switch"); }
+function socketOK(s){ return stockOK(s,"socket"); }
 
 // ---- variant (colour / finish) picker --------------------------------------
 function vlabel(v){ return (v && v.label && v.label!=="Standard") ? " ("+v.label+")" : ""; }
@@ -472,8 +503,8 @@ function renderVariantPick(kind){
   host.hidden=false; var cur=varOf(kind);
   var html='<span class="splabel">'+(comp.variantAxis||"Option")+'</span><div class="chips vchips">';
   comp.variants.forEach(function(v,i){
-    html+='<button type="button" class="chip vchip" data-i="'+i+'" aria-pressed="'+String(!!cur&&cur.variantId===v.variantId)+'">'+
-      v.label+(v.inventory<=0?' · b/o':'')+'</button>';
+    html+='<button type="button" class="chip vchip" data-i="'+i+'" aria-pressed="'+String(!!cur&&cur.variantId===v.variantId)+'"'+(v._oos?' disabled title="Out of stock"':'')+'>'+
+      v.label+(v._oos?' · out of stock':'')+'</button>';
   });
   var skuLine=(cur&&cur.sku)?'<span class="vsku">SKU '+cur.sku+'</span>':'';
   host.innerHTML=html+'</div>'+skuLine;
@@ -490,7 +521,7 @@ function optCard(item,label,price,state,onclick,tagText){
   // single-variant parts show their one SKU here; multi-variant show the
   // selected variant's SKU in the colour/finish picker instead
   var sku = (item.variants && item.variants.length===1 && item.sku) ? '<span class="oc-sku">'+item.sku+'</span>' : '';
-  b.innerHTML=img+'<span class="ot">'+label+'</span>'+sku+tag+'<span class="op">'+(price!=null?(price===0?'included':'+'+money(price)):'')+'</span>';
+  b.innerHTML=img+'<span class="ot">'+label+'</span>'+sku+tag+'<span class="op">'+(state.why==="out of stock"?'out of stock':(price!=null?(price===0?'included':'+'+money(price)):''))+'</span>';
   if(state.ok) b.addEventListener("click",onclick);
   return b;
 }
@@ -507,7 +538,7 @@ function renderPlugs(){
   CAT.plugs.forEach(function(p){ p._pressed=(sel.plug===p);
     var st=plugOK(p);
     host.appendChild(optCard(p, cleanPlug(p.title), p.price, st,
-      function(){ sel.plug=p; sel.plugVar=p.variants[0]; renderPlugs(); update(); },
+      function(){ sel.plug=p; sel.plugVar=p._firstInStock; renderPlugs(); update(); },
       (p.prong?p.prong+"-prong":"")+(p.polarized?" · pol":"")));
   });
   renderVariantPick("plug");
@@ -521,7 +552,7 @@ function renderSwitches(){
   host.appendChild(none);
   CAT.switches.forEach(function(s){ s._pressed=(sel.switch===s); var st=switchOK(s);
     host.appendChild(optCard(s, s.title.replace(/^SWITCH:\s*/i,""), s.price, st,
-      function(){ sel.switch=s; sel.switchVar=s.variants[0]; renderSwitches(); update(); }));
+      function(){ sel.switch=s; sel.switchVar=s._firstInStock; renderSwitches(); update(); }));
   });
   renderVariantPick("switch");
   renderSwitchPos();
@@ -560,7 +591,7 @@ function renderSockets(){
   host.appendChild(none);
   CAT.sockets.forEach(function(s){ s._pressed=(sel.socket===s); var st=socketOK(s);
     host.appendChild(optCard(s, s.title.replace(/^SOCKET:?\s*/i,"").replace(/^RING:/i,"Ring:"), s.price, st,
-      function(){ sel.socket=s; sel.socketVar=s.variants[0]; renderSockets(); update(); refreshEndLabels(); }, s.grounded?"grounded":""));
+      function(){ sel.socket=s; sel.socketVar=s._firstInStock; renderSockets(); update(); refreshEndLabels(); }, s.grounded?"grounded":""));
   });
   renderVariantPick("socket");
 }
@@ -660,9 +691,13 @@ $("addBtn").addEventListener("click",function(){
   toast("Added — "+lines.length+" cart lines grouped as cordset-"+GROUP);
 });
 $("checkoutBtn").addEventListener("click",function(){
+  var over=overStock();
+  if(over){ toast("Not enough stock: your cord sets need "+over.need+" of "+over.name+", only "+over.have+" available."); return; }
   if(OPTS.addToCart){
     var btn=$("checkoutBtn"); btn.disabled=true;
-    OPTS.addToCart(cart).catch(function(){ toast("Sorry — couldn't add to cart. Please try again."); btn.disabled=false; });
+    OPTS.addToCart(cart).catch(function(err){
+      if(window.console) console.error("cordset add to cart failed", err);
+      toast("Sorry — couldn't add to cart"+(err&&err.message?": "+err.message:". Please try again.")); btn.disabled=false; });
     return;
   }
   var lineCount=cart.reduce(function(a,c){return a+c.lines.length;},0);
@@ -672,14 +707,24 @@ $("checkoutBtn").addEventListener("click",function(){
 // ---- length ----------------------------------------------------------------
 [6,8,10,12,16].forEach(function(n){
   var b=document.createElement("button"); b.type="button"; b.className="chip"; b.textContent=n+"'";
-  b.addEventListener("click",function(){ sel.length=n; $("lenInput").value=n; syncLenChips(); update(); });
+  b.addEventListener("click",function(){ setLen(n); $("lenInput").value=sel.length; });
   $("lenPresets").appendChild(b);
 });
-function syncLenChips(){ Array.prototype.forEach.call($("lenPresets").children,function(c){
-  c.setAttribute("aria-pressed", String(parseInt(c.textContent)===sel.length)); }); }
-$("lenInput").addEventListener("input",function(){ var v=Math.max(1,Math.min(100,parseInt(this.value)||1)); sel.length=v; syncLenChips(); update(); });
+// longest cord the selected wire's stock allows
+function maxLen(){ return (sel.wire && sel.wire.inventoryFeet!=null) ? Math.max(1,Math.min(100,Math.floor(sel.wire.inventoryFeet))) : 100; }
+function setLen(n){ sel.length=Math.max(1,Math.min(maxLen(),n)); syncLenChips(); update(); }
+function syncLenChips(){
+  var max=maxLen();
+  Array.prototype.forEach.call($("lenPresets").children,function(c){
+    var n=parseInt(c.textContent); c.disabled=n>max;
+    c.setAttribute("aria-pressed", String(n===sel.length)); });
+  var inp=$("lenInput"); inp.max=max; if(parseInt(inp.value)!==sel.length && document.activeElement!==inp) inp.value=sel.length;
+  $("lenNote").textContent = max<100 ? "Only "+max+" ft in stock for this wire." : "";
+}
+$("lenInput").addEventListener("input",function(){ setLen(parseInt(this.value)||1); });
+$("lenInput").addEventListener("change",function(){ this.value=sel.length; });
 Array.prototype.forEach.call(document.querySelectorAll(".stepper button"),function(b){
-  b.addEventListener("click",function(){ var v=Math.max(1,Math.min(100,sel.length+parseInt(b.dataset.len))); sel.length=v; $("lenInput").value=v; syncLenChips(); update(); });
+  b.addEventListener("click",function(){ setLen(sel.length+parseInt(b.dataset.len)); $("lenInput").value=sel.length; });
 });
 
 // ---- toast -----------------------------------------------------------------
