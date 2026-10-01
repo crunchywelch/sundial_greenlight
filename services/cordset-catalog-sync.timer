@@ -1,0 +1,9 @@
+[Unit]
+Description=Sync the cord set catalog nightly at 4:00 AM (after inventory reconcile)
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
