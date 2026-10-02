@@ -50,7 +50,11 @@ The Wire store is reached via `greenlight.shopify_client.get_wire_shopify_sessio
 Never hand-edit `compat_overrides.json` — the next CSV import overwrites it.
 
 **Refresh the catalog** (new wire colors, price/stock changes, new products):
-`sync_catalog.py` → `build_extension.py` → `shopify app deploy`.
+automatic — `cordset-catalog-sync.timer` runs `sync_catalog.py` hourly, which publishes
+to `/var/www/cordset/` (nginx: `https://greenlight.sundialwire.com/cordset/cordsets.catalog.json`,
+see `services/nginx-cordset-catalog.conf`). The storefront builder loads that live copy,
+so no deploy is needed. The catalog bundled in the app is only the fallback (live copy
+unreachable / slow); `build_extension.py` refreshes it whenever you deploy.
 (New wire SKUs classify automatically; a genuinely new construction lands in
 `diagnostics.droppedUnclassified` — extend `classify()` + `WIRE_CLASSES` in `classes.py`.)
 

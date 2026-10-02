@@ -4,15 +4,17 @@ Scheduled catalog sync for the cordset configurator.
 
 Live-fetches Sundial Wire products (read-only GraphQL), builds the cordset
 catalog, folds in Ian's verified compatibility overrides if present, and writes
-cordsets.catalog.json — the artifact the configurator form and Sparky read.
+cordsets.catalog.json — the artifact the configurator form and Sparky read —
+then publishes a copy to PUBLISH_DIR, which the storefront builder fetches live.
 
-Run on a schedule (nightly) and on demand. Shopify stays authoritative for
+Run on a schedule (hourly, cordset-catalog-sync.timer) and on demand. Shopify stays authoritative for
 price/stock at checkout because the form adds real variants to the cart; this
 cache just drives the option universe + verified compatibility.
 
     venv/bin/python util/wire/cordset/sync_catalog.py
 """
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -24,6 +26,26 @@ from greenlight.shopify_client import get_wire_shopify_session, close_shopify_se
 from util.wire.cordset.derive_catalog import build_catalog, print_diagnostics
 
 D = Path(__file__).parent
+
+# Where nginx serves the live catalog the storefront builder fetches
+# (https://greenlight.sundialwire.com/cordset/cordsets.catalog.json), so catalog
+# updates reach the store without an app deploy. Skipped if the dir is absent.
+PUBLISH_DIR = Path(os.getenv("CORDSET_PUBLISH_DIR", "/var/www/cordset"))
+# Refuse to publish a catalog this thin — a partial fetch shouldn't empty the builder.
+MIN_WIRES = 50
+
+
+def publish(catalog):
+    if not PUBLISH_DIR.is_dir():
+        print(f"publish skipped: {PUBLISH_DIR} does not exist")
+        return
+    if len(catalog["wires"]) < MIN_WIRES:
+        sys.exit(f"refusing to publish: only {len(catalog['wires'])} wires (< {MIN_WIRES})")
+    dest = PUBLISH_DIR / "cordsets.catalog.json"
+    tmp = dest.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(catalog, separators=(",", ":")))
+    tmp.replace(dest)   # atomic: readers never see a half-written file
+    print("published", dest)
 
 PRODUCTS_QUERY = """
 query all($limit: Int!, $cursor: String) {
@@ -78,6 +100,7 @@ def main():
     print_diagnostics(diag)
     print("compat source:", catalog["compatSource"])
     print("wrote cordsets.catalog.json")
+    publish(catalog)
 
 
 if __name__ == "__main__":

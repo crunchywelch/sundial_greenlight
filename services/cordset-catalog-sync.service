@@ -1,5 +1,5 @@
 [Unit]
-Description=Nightly cord set catalog sync (stock/price/compat for the cord set builder)
+Description=Hourly cord set catalog sync (stock/price/compat for the cord set builder)
 Documentation=https://github.com/sundialwire/greenlight
 After=network-online.target
 Wants=network-online.target
@@ -7,15 +7,15 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 User=welch
-Group=welch
 WorkingDirectory=/home/welch/projects/sundial_greenlight
 Environment="PATH=/home/welch/projects/sundial_greenlight/venv/bin:/usr/local/bin:/usr/bin:/bin"
-# Live-fetch Wire products -> cordsets.catalog.json, then regenerate the theme
-# extension files into ~/projects/sundial-cordsets. Runs in order; stops on the
-# first failure. Commit + `shopify app deploy` stay manual: review the
-# sundial-cordsets diff (git status) to see what changed.
+# Live-fetch Wire products -> cordsets.catalog.json, then publish a copy to
+# /var/www/cordset/, served by nginx at
+# https://greenlight.sundialwire.com/cordset/cordsets.catalog.json. The storefront
+# builder loads that, so stock/price changes need no app deploy. (The copy
+# bundled with the app is the fallback; refresh it with build_extension.py
+# when deploying.)
 ExecStart=/home/welch/projects/sundial_greenlight/venv/bin/python util/wire/cordset/sync_catalog.py
-ExecStart=/home/welch/projects/sundial_greenlight/venv/bin/python util/wire/cordset/build_extension.py
 
 # Logging
 StandardOutput=journal

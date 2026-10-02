@@ -1,8 +1,9 @@
 [Unit]
-Description=Sync the cord set catalog nightly at 4:00 AM (after inventory reconcile)
+Description=Sync and publish the cord set catalog hourly
 
 [Timer]
-OnCalendar=*-*-* 04:00:00
+OnCalendar=hourly
+RandomizedDelaySec=120
 Persistent=true
 
 [Install]
