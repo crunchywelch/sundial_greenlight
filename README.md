@@ -24,7 +24,8 @@ python -m greenlight.main
 On startup:
 1. Splash screen displays with operator list
 2. Select your operator number
-3. Start working - no extra steps!
+3. You land on the scan hub: scan a cable to look it up or test it, or press
+   a key for intake, inventory, orders, wholesale codes and labels
 
 ### Deactivate Virtual Environment
 
@@ -35,8 +36,8 @@ deactivate
 ## Features
 
 ### Cable Intake
-Select SKU and scan cable labels to register in database:
-1. Choose cable type (by SKU or attributes)
+Record pre-labelled cables against a SKU (press `r` at the scan hub):
+1. Choose cable type (series → pattern → length → connector, or MISC/LTD)
 2. Scan barcode with Zebra DS2208 scanner
 3. Confirm serial number on screen
 4. Press Enter to save to database
@@ -44,31 +45,44 @@ Select SKU and scan cable labels to register in database:
 6. Type 'q' + Enter to finish and see summary
 
 ### Test Cables
-Scan registered cables and run QC tests:
-- Arduino-based electrical testing (resistance, capacitance, continuity)
+Scan a cable at the hub to run QC tests:
+- Arduino-based electrical testing (continuity, resistance, XLR shell bond)
 - Automatic pass/fail determination
 - Results saved to database
 
 ### Other Features
-- **Inventory Management** - Track cable inventory
-- **Settings** - System configuration
+- **Inventory** dashboard, LTD editions, dealer stock
+- **Orders**: customer lookup and order fulfillment
+- **Wholesale** registration codes, wire labels, box/UPC labels
 
-## Testing Scanner
+## Repository Layout
 
-Before using the full app, test if your Zebra DS2208 scanner is working:
+| Path | What lives there |
+|---|---|
+| `greenlight/` | The terminal app |
+| `shopify_app/` | Shopify Remix app + extensions |
+| `catalog/` | Hand-edited product catalog YAML (the source of truth) |
+| `data/` | Generated output and vendor input files |
+| `tools/` | Admin and back-office scripts, grouped by area |
+| `tests/` | SKU parity test + fixtures; `integration/` hits live services |
+| `services/` | systemd units |
+| `arduino/`, `ArduinoApps/` | Cable tester firmware and hardware docs |
+
+## Testing
 
 ```bash
-# Basic test (simplest)
-python test_scanner.py
-
-# Test with Rich console (same as app uses)
-python test_scanner_rich.py
-
-# Test the actual scanner class
-python test_scanner_hardware.py
+python tests/test_sku_parity.py      # Python SKU resolver, no DB needed
+(cd shopify_app && npm test)         # JS resolver against the same fixtures
 ```
 
-See [TEST_SCANNER_README.md](TEST_SCANNER_README.md) for detailed troubleshooting.
+Scripts in `tests/integration/` write to the live database / Shopify — read
+them before running.
+
+## Testing the Scanner
+
+```bash
+python tools/scanner/scantest.py
+```
 
 ## Database Setup
 
@@ -76,4 +90,5 @@ See `tools/audio/schema.sql` for the database schema.
 
 ## Configuration
 
-Edit `.env` file for database and operator configuration.
+Edit `.env` for database settings and hardware flags (`GREENLIGHT_*`).
+Operators are listed in `greenlight/config.py`.

@@ -35,60 +35,50 @@ deactivate
   `integration/` scripts hit live Postgres/Shopify
 - `services/` — systemd units; `arduino/`, `ArduinoApps/` — tester firmware
 
-### Core Components
+### Core Components (`greenlight/`)
 
-- **main.py**: Entry point with operator authentication and main application loop
-- **ui.py**: Base UI framework using Rich library with layout management (header/body/footer)
-- **cable.py**: Cable QC functionality and cable type management
-- **inventory.py**: Inventory management interface (placeholder implementation)
-- **settings.py**: Settings management interface (placeholder implementation)
-- **config.py**: Configuration management with environment variable parsing for operators and database
-- **db.py**: PostgreSQL connection pooling and database operations
-- **enums.py**: Database enum value fetching utilities
+- **main.py**: Entry point — hardware init, Shopify connection check, starts the `ScreenManager`
+- **screen_manager.py**: Stack-based navigation. Each screen's `run()` returns a
+  `ScreenResult` (`PUSH`/`POP`/`REPLACE`/`EXIT`) plus a context dict; no nested loops
+- **ui.py**: Shared Rich layout (header/body/footer) used by every screen
+- **screens/**: one module per area — `main.py` (splash/operator select),
+  `cable.py` (scan/lookup hub, intake, QC), `inventory.py`, `orders.py`
+  (customer lookup, fulfillment), `wholesale.py`, `wire.py` (wire labels),
+  `shopify_scan.py`, `settings.py`
+- **cable_config.py**: Loads + validates `catalog/` YAML; SKU parse/format
+  (mirrored in JS by `shopify_app/app/cable-config.server.js`)
+- **product_lines.py**: Back-office economics (price/cost/weight) on top of cable_config
+- **cable.py**: Cable catalog/variant lookups against the DB (UI lives in `screens/cable.py`)
+- **db.py**: Postgres connection pool and all cable/order/event queries
+- **shopify_client.py**: Shopify Admin API (audio store and wire store)
+- **gtin.py**, **registration.py**: UPC validation; registration code generation
+- **hardware/**: scanner, Arduino cable tester, TSC label printer, GPIO
+- **config.py**: Operators, feature flags and `GREENLIGHT_*` env settings
+- **log.py**: Central logging (call `setup_logging()` in every entry point)
 
-### Database Schema
+### Database
 
-The application uses PostgreSQL with:
-- Connection pooling via psycopg2.pool.SimpleConnectionPool
-- Custom ENUM types (cable_type: TS, TRS, XLR)
-- Tables: audio_cables, test_results, cable_skus
-- Environment-based configuration (GREENLIGHT_DB_*)
-
-### UI Flow Architecture
-
-The current architecture uses nested `while True` loops throughout:
-- **main.py:7**: Main application loop
-- **ui.py:65,96,123**: Operator menu, main menu, and footer menu loops
-- **cable.py:82,111**: Cable selection and QC process loops
-- **inventory.py:21** and **settings.py:21**: Module-specific menu loops
+PostgreSQL via `psycopg2.pool.SimpleConnectionPool`. Schema: `tools/audio/schema.sql`.
+Main tables: `sku_group`, `audio_cables` (one row per physical cable, including
+test results and ownership), `cable_events` (audit trail). Back-office/valuation
+tables (`products`, `inventory_snapshots`, `vendor_parts`, `wire_cost_params`, ...)
+are managed by `tools/sundial_db.py`.
 
 ### Configuration
 
-Operators are configured directly in `config.py`:
-```python
-OPERATORS = {
-    "ADW": "Aaron Welch",
-    "ISS": "Ian Smith", 
-    "EDR": "Ed Renauld",
-    "SDT": "Sam Tresler",
-}
-```
+Operators are configured directly in `config.py` (`OPERATORS`, code →
+name + Shopify user id). Everything else comes from `.env` with a
+`GREENLIGHT_` prefix: `GREENLIGHT_DB_{NAME,USER,PASS,HOST,PORT}`, hardware
+flags `GREENLIGHT_USE_REAL_{ARDUINO,SCANNER,PRINTERS,GPIO}`,
+`GREENLIGHT_ARDUINO_PORT`, `GREENLIGHT_TSC_PRINTER_IP`, `GREENLIGHT_LOG_LEVEL`.
 
-Database connection uses standard PostgreSQL environment variables with `GREENLIGHT_` prefix.
+### Navigation
 
-### Dependencies
-
-- **rich**: Terminal UI framework for layouts, panels, and styling
-- **psycopg2-binary**: PostgreSQL database adapter
-- **python-dotenv**: Environment variable management
-
-### Current Menu Structure
-
-1. **Splash screen with operator selection** - Combined screen shows app logo and operator list
-2. **Main menu** - Cable QC, Inventory Management, Settings
-3. **Cable QC submenu**:
-   - Cable Intake: Select SKU → Scan cable labels → record in database
-   - Test Cables: Scan serial number → Load from database → Run QC tests
+1. **Splash / operator select** → goes straight to the scan hub
+2. **Scan hub** (`ScanCableLookupScreen`): scan a serial to look up/test a cable,
+   or use a key — `r` intake, `i` inventory, `w` wholesale codes, `p` wire
+   labels, `s` Shopify scan mode, `f` fulfill order, `l` lookup customer,
+   `c` calibrate tester, `q` logout
 
 ### Cable Workflow
 
@@ -113,15 +103,16 @@ Database connection uses standard PostgreSQL environment variables with `GREENLI
 9. Press 'q' at scan prompt when done to see summary report
 10. Supports batch scanning - scan multiple cables of same type in one session
 
-**Test Cables**:
+**Test Cables** (from the scan hub):
 1. Scan serial number from cable label
 2. System looks up cable record in database
-3. If not tested yet, run Arduino QC tests (resistance, capacitance, continuity)
-4. Save test results to database
-5. Optionally print QC card with results
+3. If not tested yet, run Arduino QC tests (continuity, resistance, and XLR
+   shell bond unless the connector finish skips it)
+4. Save test results to `audio_cables`
 
 **Key Features**:
-- No label printing - cables arrive with pre-printed labels
+- Cables arrive with pre-printed serial labels; the app prints box/UPC and
+  wire labels on the TSC printer (see `docs/LABEL_PRINTING.md`)
 - Scanner-first workflow optimized for rapid data entry
 - Real-time feedback on successful scans and errors
 - Manual entry fallback if scanner unavailable
