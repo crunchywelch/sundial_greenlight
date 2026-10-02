@@ -1,7 +1,7 @@
 /**
  * Parity test for the JS SKU resolver (Phase 4).
  *
- * Loads tests/sku_fixtures.json (and tests/sku_fixtures_prod.json if present)
+ * Loads tests/fixtures/sku_fixtures.json (and sku_fixtures_prod.json if present)
  * and dispatches each entry on its `type` discriminator:
  *
  *   - "group":      asserts parseGroupSku(sku) deepEquals expected
@@ -9,7 +9,7 @@
  *   - "round_trip": asserts formatVariantSku(parseVariantSku(sku)) === sku
  *
  * The same fixtures are consumed by the Python parity test
- * (util/cable/test_sku_parity.py) — same input, same output, enforced both sides.
+ * (tests/test_sku_parity.py) — same input, same output, enforced both sides.
  *
  * Run: npm test  (or node --test shopify_app/tests/sku-parity.test.js)
  */
@@ -28,7 +28,7 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const FIXTURES_DIR = resolve(__dirname, "..", "..", "tests");
+const FIXTURES_DIR = resolve(__dirname, "..", "..", "tests", "fixtures");
 const FIXTURE_FILES = ["sku_fixtures.json", "sku_fixtures_prod.json"];
 
 const fixtures = [];

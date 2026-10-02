@@ -1,9 +1,9 @@
 """Cable config resolver — single source of truth for cable attributes.
 
-Loads the YAML config under util/product_lines/ at import time and exposes
+Loads the YAML config under catalog/ at import time and exposes
 helpers to resolve series, patterns, and SKU structure. Mirrors the JS
 resolver in shopify_app/app/cable-config.server.js — both are kept honest
-by tests/sku_fixtures.json.
+by tests/fixtures/sku_fixtures.json.
 
 SKU model (Phase 5):
 
@@ -58,7 +58,7 @@ def _validate(data, schema, file_label):
     raise ValueError(f"Invalid {file_label}:\n" + "\n".join(lines))
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_PRODUCT_LINES_DIR = _REPO_ROOT / "util" / "product_lines"
+_PRODUCT_LINES_DIR = _REPO_ROOT / "catalog"
 
 # Group SKU regexes (Phase 5)
 _RE_GROUP_MISC = re.compile(r'^([A-Z]{2,3})-MISC-(\d+)$')

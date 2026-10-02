@@ -28,7 +28,7 @@ import shopify
 from greenlight.shopify_client import get_shopify_session, close_shopify_session
 
 OUTPUT_DIR = DATA_DIR / "exports"
-EXCLUDED_SKUS_FILE = DATA_DIR / "excluded_skus.txt"
+EXCLUDED_SKUS_FILE = DATA_DIR.parent / "catalog" / "back_office" / "excluded_skus.txt"
 
 
 def load_excluded_skus():

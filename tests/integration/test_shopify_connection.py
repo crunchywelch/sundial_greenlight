@@ -2,7 +2,8 @@
 """Test Shopify API connection and customer search"""
 
 import sys
-sys.path.insert(0, '/home/welch/projects/sundial_greenlight')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from greenlight import shopify_client
 import os

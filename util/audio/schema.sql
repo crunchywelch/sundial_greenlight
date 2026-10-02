@@ -19,7 +19,7 @@
 --
 -- Series, construction (core_cable, braid_material), connector options, and
 -- pattern names are derived from the SKU + the YAML config under
--- util/product_lines/. See greenlight/cable_config.py and
+-- catalog/. See greenlight/cable_config.py and
 -- shopify_app/app/cable-config.server.js for the resolver.
 --
 -- description carries:

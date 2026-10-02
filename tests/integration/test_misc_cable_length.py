@@ -3,7 +3,8 @@
 length + description round-trip through audio_cables → cable_skus."""
 
 import sys
-sys.path.insert(0, '/home/welch/projects/sundial_greenlight')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from greenlight.db import (
     intake_scanned_cable, get_audio_cable, get_or_create_misc_sku, pg_pool, sku_kind,

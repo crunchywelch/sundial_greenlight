@@ -12,7 +12,8 @@ Walks the same path the screen flow does:
 """
 
 import sys
-sys.path.insert(0, '/home/welch/projects/sundial_greenlight')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from greenlight.cable import resolve_catalog_variant
 from greenlight.cable_config import format_variant_sku, parse_variant_sku

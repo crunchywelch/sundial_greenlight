@@ -1366,7 +1366,7 @@ _SERIES_DISPLAY = {
 }
 
 # Load materials data for weight calculation
-_MATERIALS_PATH = Path(__file__).resolve().parent.parent / "util" / "product_lines" / "materials.yaml"
+_MATERIALS_PATH = Path(__file__).resolve().parent.parent / "catalog" / "materials.yaml"
 _materials_data: Optional[Dict] = None
 
 

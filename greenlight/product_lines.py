@@ -10,7 +10,7 @@ from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
-PRODUCT_LINES_DIR = Path(__file__).parent.parent / "util" / "product_lines"
+PRODUCT_LINES_DIR = Path(__file__).parent.parent / "catalog"
 
 PREFIX_MAP = {
     "SC": "Studio Classic",

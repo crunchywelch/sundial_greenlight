@@ -1,10 +1,10 @@
 /**
  * Cable config resolver — single source of truth for cable attributes.
  *
- * Loads the YAML config under util/product_lines/ at module init and exposes
+ * Loads the YAML config under catalog/ at module init and exposes
  * helpers to resolve series, patterns, and SKU structure. Mirrors the Python
  * resolver in greenlight/cable_config.py — both are kept honest by
- * tests/sku_fixtures.json.
+ * tests/fixtures/sku_fixtures.json.
  *
  * SKU model (Phase 4):
  *
@@ -48,7 +48,7 @@ function validate(data, validator, fileLabel) {
   throw new Error(`Invalid ${fileLabel}:\n${errors}`);
 }
 
-const PRODUCT_LINES_DIR = resolve(__dirname, "..", "..", "util", "product_lines");
+const PRODUCT_LINES_DIR = resolve(__dirname, "..", "..", "catalog");
 
 // App-runtime YAML files. Cost / pricing / weight tables live under
 // back_office/ and are intentionally NOT loaded here — they're back-office

@@ -28,7 +28,7 @@ from sundial_wire_db import (
 )
 
 # File paths
-YAML_PATH = DATA_DIR / "wire_cost_data.yaml"
+YAML_PATH = DATA_DIR.parent / "catalog" / "back_office" / "wire_cost_data.yaml"
 SATCO_CSV = DATA_DIR / "vendor" / "satco" / "Wire Inventory Worksheet - satco.csv"
 BP_CSV = DATA_DIR / "vendor" / "satco" / "Wire Inventory Worksheet - B&P.csv"
 

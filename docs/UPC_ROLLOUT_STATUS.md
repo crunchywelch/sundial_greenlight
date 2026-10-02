@@ -42,7 +42,7 @@ other seven label templates still generating; clean compile.
 
 ### 1. Confirm the GTIN capacity tier covers the catalog
 
-The catalog matrix from `util/product_lines/*.yaml` is **192 variants** today
+The catalog matrix from `catalog/*.yaml` is **192 variants** today
 (SC 56 + SV 28 + TC 72 + TV 36), before LTD editions, MISC, or cartons. A
 100-GTIN GS1 tier is not enough; the 1,000 tier (8-digit company prefix,
 3-digit item reference) is the minimum. This can't be fixed retroactively.

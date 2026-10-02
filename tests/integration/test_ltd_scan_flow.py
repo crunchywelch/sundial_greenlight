@@ -11,7 +11,8 @@ Phase 5 model:
 """
 
 import sys
-sys.path.insert(0, '/home/welch/projects/sundial_greenlight')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from greenlight.cable_config import format_variant_sku
 from greenlight.db import (

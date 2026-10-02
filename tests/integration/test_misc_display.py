@@ -2,7 +2,8 @@
 """Test script to verify MISC cable description display (Phase 4 shape)."""
 
 import sys
-sys.path.insert(0, '/home/welch/projects/sundial_greenlight')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from greenlight.db import get_audio_cable, get_cables_for_customer
 
