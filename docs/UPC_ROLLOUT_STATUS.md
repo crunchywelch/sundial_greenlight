@@ -40,43 +40,22 @@ other seven label templates still generating; clean compile.
 
 ## Next steps, in order
 
-### 1. Confirm the GTIN capacity tier covers the catalog
+### 1–3. GTIN tier, Shopify coverage, UPC load (done 2026-10-02)
 
-The catalog matrix from `catalog/*.yaml` is **192 variants** today
-(SC 56 + SV 28 + TC 72 + TV 36), before LTD editions, MISC, or cartons. A
-100-GTIN GS1 tier is not enough; the 1,000 tier (8-digit company prefix,
-3-digit item reference) is the minimum. This can't be fixed retroactively.
+All **222** catalog variants in Shopify now carry their UPC
+(`audio_upc_sync.py --coverage`: 222/222, 0 missing; the 76 MISC/LTD variants
+are excluded by SKU kind). Loaded from a Data Hub export, which needed:
 
-### 2. Check Shopify variant coverage BEFORE loading UPCs
+- Data Hub exports GTINs in the 14-digit field (`00` + UPC-A);
+  `normalize_gtin12` now strips the `00`.
+- Three Electric Houndstooth variants had wrong SKUs in **both** Shopify and
+  Data Hub (TV-12EH, TC-15EH, TC-15EH-R carried the 10/20 ft SKUs), so the
+  two sources agreed and were both wrong. Caught by checking each SKU against
+  its own Data Hub description and Shopify variant options; fixed in both.
+  Repeat that cross-check before loading any future batch.
 
-This is the step most likely to bite. `set_barcode_for_sku()` writes to an
-*existing* Shopify variant — it cannot create one. Expect a gap: the catalog
-config defines 192 variants, but prod `audio_cables` only yields 167 distinct
-variant SKUs, and the Shopify variant set may be smaller still.
-
-```bash
-# Read-only. Needs Shopify only, no DB.
-python tools/audio/audio_upc_sync.py --coverage
-
-# Needs DB + Shopify. The "✗ CREATE" column lists variants that exist in
-# Postgres with no matching Shopify variant — those must be created first.
-python tools/audio/audio_sku_catalog_report.py --std
-```
-
-Decide explicitly whether to assign GTINs to variants you haven't built yet.
-Reserving the full 192 in Data Hub is fine and arguably tidier (item references
-stay aligned with the catalog), but only variants that exist in Shopify can
-receive a `barcode`.
-
-### 3. Load the UPCs
-
-```bash
-python tools/audio/audio_upc_sync.py upcs.csv          # dry run — read it
-python tools/audio/audio_upc_sync.py upcs.csv --fix    # prompts for confirmation
-```
-
-A GS1 Data Hub export works unmodified. The loader refuses `--fix` outright if
-the dry run found any error, and never overwrites an existing UPC.
+The old "192 variants" figure came from `catalog/cable_lines.yaml`, which still
+omits the 12 ft Touring length that Shopify and GS1 both have — see Still open.
 
 ### 4. Verify the printer on real stock
 
@@ -107,6 +86,10 @@ UPC there fails as "not found" and can't create a row. Covered by
 `tests/test_serial_validation.py`.
 
 ## Still open (needs a decision)
+
+- **Touring lengths in `catalog/cable_lines.yaml`.** TC/TV list
+  `[3, 6, 10, 15, 20, 25]`, but every Touring pattern is sold at 12 ft too, so
+  intake can't offer 12 ft Touring and catalog-derived counts undercount.
 
 - **Cartons / multipacks.** If cables ship to retail in master cases, each case
   configuration needs its own GTIN, and GS1 wants ITF-14 or GS1-128 on the

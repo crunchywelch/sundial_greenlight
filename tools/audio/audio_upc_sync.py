@@ -41,16 +41,20 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from greenlight.log import setup_logging
 setup_logging()
 
+from greenlight.cable_config import parse_variant_sku
 from greenlight.gtin import validate_gtin12, normalize_gtin12
 from greenlight.shopify_client import get_all_product_skus, set_barcode_for_sku
 
 SKU_HEADERS = ("sku", "variantsku", "internalpartnumberorsku")
 UPC_HEADERS = ("upc", "gtin", "barcode", "gtin12")
 
-# Product types in the audio store that are expected to carry retail UPCs.
-# MISC ("Special Baby") one-offs and LTD editions are not retail-boxed, so
-# they are excluded from coverage reporting rather than flagged as gaps.
-RETAIL_PRODUCT_TYPES = ("Audio Cable",)
+
+def _is_retail(sku):
+    """Catalog variants carry retail UPCs. MISC ("Special Baby") one-offs and
+    LTD editions are not retail-boxed, so coverage reporting skips them rather
+    than flagging them as gaps. Keyed off the SKU, not Shopify's product type,
+    which is free text ("Studio Series", "Touring Series", ...)."""
+    return parse_variant_sku(sku).get("kind") == "catalog"
 
 
 def _norm_header(h):
@@ -180,12 +184,12 @@ def show_coverage(shopify_map):
     """List retail variants with and without a UPC."""
     retail = {
         sku: info for sku, info in shopify_map.items()
-        if info.get("product_type") in RETAIL_PRODUCT_TYPES
+        if _is_retail(sku)
     }
     with_upc = {s: i for s, i in retail.items() if i.get("barcode")}
     without = sorted(s for s in retail if s not in with_upc)
 
-    print(f"Retail variants ({'/'.join(RETAIL_PRODUCT_TYPES)}): {len(retail)}")
+    print(f"Retail (catalog) variants: {len(retail)}")
     print(f"  with a UPC:    {len(with_upc)}")
     print(f"  missing a UPC: {len(without)}")
     if without:
