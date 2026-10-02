@@ -71,12 +71,13 @@ Scan a cable at the hub to run QC tests:
 ## Testing
 
 ```bash
-python tests/test_sku_parity.py      # Python SKU resolver, no DB needed
+pytest                               # Python tests, no DB or network needed
 (cd shopify_app && npm test)         # JS resolver against the same fixtures
 ```
 
-Scripts in `tests/integration/` write to the live database / Shopify — read
-them before running.
+Scripts in `tests/integration/` write to the live database / Shopify, so
+pytest skips them unless `GREENLIGHT_RUN_INTEGRATION=1` is set. Read them
+before running.
 
 ## Testing the Scanner
 

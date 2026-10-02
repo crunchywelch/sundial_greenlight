@@ -31,8 +31,9 @@ deactivate
 - `data/` — generated output and vendor inputs only; nothing here is hand-edited config
 - `tools/` — admin/back-office CLI scripts by domain (`audio/`, `wire/`,
   `printer/`, `valuation/`, `shopify/`, `scanner/`); shared helper `tools/sundial_db.py`
-- `tests/` — `test_sku_parity.py` + `fixtures/` (no DB needed);
-  `integration/` scripts hit live Postgres/Shopify
+- `tests/` — run `pytest` (no DB needed) and `cd shopify_app && npm test`;
+  `integration/` hits live Postgres/Shopify and only runs with
+  `GREENLIGHT_RUN_INTEGRATION=1`
 - `services/` — systemd units; `arduino/`, `ArduinoApps/` — tester firmware
 
 ### Core Components (`greenlight/`)
