@@ -197,6 +197,8 @@ CSS = r"""
 .optcard .ot{font-size:.8rem;line-height:1.2}
 .optcard .op{font-family:var(--mono);font-size:.72rem;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 .optcard .why{font-family:var(--mono);font-size:.6rem;color:var(--danger);letter-spacing:.02em}
+.optcard .why.oos{color:var(--ink-soft)}
+.optcard .oc-var{font-size:.68rem;color:var(--ink-soft)}
 .optcard .tag{font-family:var(--mono);font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
 .none{font-size:.82rem;color:var(--ink-soft);padding:.3rem 0}
 
@@ -483,11 +485,11 @@ function compatOK(item,kind){
   if(!sel.wire) return {ok:false};
   if((item.compatClasses||[]).indexOf(sel.wire.classId)>-1) return {ok:true};
   var why = (kind==="socket" && item.grounded && sel.wire.conductors!==3)
-    ? "grounded needs 3-cond wire"
-    : "not rated for "+(sel.wire.classId||"this wire");
+    ? "Needs 3-conductor wire"
+    : "Doesn't fit "+(sel.wire.classId ? sel.wire.classId+" wire" : "this wire");
   return {ok:false,why:why};
 }
-function stockOK(item,kind){ var st=compatOK(item,kind); return (st.ok && item._oos) ? {ok:false,why:"out of stock"} : st; }
+function stockOK(item,kind){ var st=compatOK(item,kind); return (st.ok && item._oos) ? {ok:false,why:"Out of stock",oos:true} : st; }
 function plugOK(p){ return stockOK(p,"plug"); }
 function switchOK(s){ return stockOK(s,"switch"); }
 function socketOK(s){ return stockOK(s,"socket"); }
@@ -521,7 +523,13 @@ function optCard(item,label,price,state,onclick,tagText){
   // single-variant parts show their one SKU here; multi-variant show the
   // selected variant's SKU in the colour/finish picker instead
   var sku = (item.variants && item.variants.length===1 && item.sku) ? '<span class="oc-sku">'+item.sku+'</span>' : '';
-  b.innerHTML=img+'<span class="ot">'+label+'</span>'+sku+tag+'<span class="op">'+(state.why==="out of stock"?'out of stock':(price!=null?(price===0?'included':'+'+money(price)):''))+'</span>';
+  // a single-variant part still names its colour/finish (there's no picker for it)
+  var one = (item.variants && item.variants.length===1 && item.variants[0].label && item.variants[0].label!=="Standard")
+    ? '<span class="oc-var">'+(item.variantAxis?item.variantAxis+': ':'')+item.variants[0].label+'</span>' : '';
+  // why it can't be picked: out of stock (neutral) vs. doesn't fit this wire (warning)
+  var why = state.why ? '<span class="why'+(state.oos?' oos':'')+'">'+state.why+'</span>' : '';
+  if(state.why) b.title=state.why;
+  b.innerHTML=img+'<span class="ot">'+label+'</span>'+one+sku+tag+why+'<span class="op">'+(price!=null?(price===0?'included':'+'+money(price)):'')+'</span>';
   if(state.ok) b.addEventListener("click",onclick);
   return b;
 }
