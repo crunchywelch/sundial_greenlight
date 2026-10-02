@@ -15,7 +15,7 @@ from greenlight.db import (
 )
 from greenlight import shopify_client
 from greenlight.product_lines import (
-    PREFIX_MAP, LOW_STOCK_THRESHOLD,
+    LOW_STOCK_THRESHOLD,
     load_yaml_skus, build_sku, get_cost,
 )
 

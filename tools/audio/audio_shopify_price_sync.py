@@ -30,15 +30,6 @@ from greenlight.db import pg_pool
 
 WEIGHT_UNIT = "OUNCES"
 
-# Map base_sku prefix to YAML sku_prefix
-_PREFIX_MAP = {
-    "SC": "SC",
-    "TC": "TC",
-    "SV": "SV",
-    "TV": "TV",
-}
-
-
 def build_yaml_sku_map(product_lines_dir=None):
     """Build variant SKU -> {price, cost, weight} from YAML product line files.
 

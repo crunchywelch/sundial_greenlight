@@ -324,3 +324,8 @@ def all_prefixes() -> list:
 def all_patterns() -> list:
     """All known patterns (list of dicts)."""
     return list(_PATTERNS.values())
+
+
+def all_series() -> list:
+    """All series dicts from cable_lines.yaml, in file order."""
+    return list(_SERIES.values())

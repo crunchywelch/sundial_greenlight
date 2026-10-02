@@ -1,4 +1,8 @@
-"""Shared YAML loading and SKU construction for product lines.
+"""Back-office product line data: economics (price/cost/weight) and SKU building.
+
+Series and patterns come from greenlight.cable_config, which loads and
+validates catalog/cable_lines.yaml and catalog/patterns.yaml. This module only
+adds catalog/back_office/economics.yaml on top.
 
 Used by both the greenlight app and CLI utilities.
 """
@@ -8,16 +12,11 @@ import yaml
 from pathlib import Path
 from collections import defaultdict
 
+from greenlight.cable_config import all_patterns, all_series, prefix_for_series
+
 logger = logging.getLogger(__name__)
 
 PRODUCT_LINES_DIR = Path(__file__).parent.parent / "catalog"
-
-PREFIX_MAP = {
-    "SC": "Studio Classic",
-    "SV": "Studio Vocal",
-    "TC": "Tour Classic",
-    "TV": "Tour Vocal",
-}
 
 LOW_STOCK_THRESHOLD = 2
 
@@ -94,17 +93,11 @@ def load_yaml_skus():
     carries '{length}R' keys for right-angle) so downstream callers are
     unchanged — only the source file changed.
     """
-    patterns_path = PRODUCT_LINES_DIR / "patterns.yaml"
-    with open(patterns_path) as f:
-        patterns_data = yaml.safe_load(f)
-
     patterns_by_fabric = defaultdict(list)
-    for p in patterns_data["patterns"]:
+    for p in all_patterns():
         patterns_by_fabric[p["fabric_type"].lower()].append(p)
 
-    cable_lines_path = PRODUCT_LINES_DIR / "cable_lines.yaml"
-    with open(cable_lines_path) as f:
-        cable_lines_data = yaml.safe_load(f) or {}
+    cable_lines_data = {"series": all_series()}
 
     economics = _load_economics()
     _validate_economics(economics, cable_lines_data)
@@ -223,9 +216,7 @@ def get_cost_for_special_baby(series, length):
     lines = load_yaml_skus()
 
     # Map series name to prefix (e.g., "Studio Classic" -> "SC")
-    # PREFIX_MAP is prefix->name, we need name->prefix
-    name_to_prefix = {v.lower(): k for k, v in PREFIX_MAP.items()}
-    prefix = name_to_prefix.get(series.lower())
+    prefix = prefix_for_series(series)
     if not prefix:
         return None
 
