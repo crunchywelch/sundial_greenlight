@@ -1,5 +1,4 @@
-# Generated artifacts — rebuilt by the scripts (sync/derive/build_*).
+# Generated artifacts — rebuilt by the scripts (sync/derive/export).
 wire_products_all.json
 cordset_example.json
 cordsets.catalog.json
-prototype.html

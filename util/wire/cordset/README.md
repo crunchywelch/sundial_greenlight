@@ -7,7 +7,7 @@ Shopify component variants are added to their cart.
 ## Architecture (the important part)
 
 - **No backend.** The configurator is a **theme app extension** (an app block) in a
-  separate Shopify app. It reads a catalog file and calls the storefront
+  separate Shopify app. It loads the catalog this tooling publishes and calls the storefront
   `/cart/add.js` directly — no server, no App Proxy, no draft orders.
 - **Components-in-cart.** Each cord set adds its real component variants as separate
   cart lines — wire (`qty` = feet) + plug + optional socket + optional switch +
@@ -15,8 +15,9 @@ Shopify component variants are added to their cart.
   decrements real inventory and prices are always the live Shopify prices.
 - **The app repo is separate:** `~/projects/sundial-cordsets/` (its own git repo,
   extension-only app, installed on the `sundial-wire` store). The extension lives at
-  `extensions/cordset-configurator/`. The tooling here (in greenlight) generates the
-  extension's assets and the catalog it reads.
+  `extensions/cordset-configurator/`, and **all the builder's code lives there** —
+  edit it in that repo. The tooling here (in greenlight) only builds and publishes
+  the catalog it reads.
 
 ## Files here (`util/wire/cordset/`)
 
@@ -28,11 +29,9 @@ Shopify component variants are added to their cart.
 | `sync_catalog.py` | **Scheduled/prod entry:** live-fetch Wire products → build → write `cordsets.catalog.json`. Applies compat overrides if present. |
 | `make_compat_csv.py` | Generate `hardware_compat.csv` for Ian to verify (components × wire classes). |
 | `import_compat_csv.py` | Ian's edited CSV → `compat_overrides.json` (folded into the next build). |
-| `build_prototype.py` | **Shared UI source** (markup + CSS + JS `startCordset()`) + assembles the standalone Artifact demo `prototype.html`. |
-| `build_extension.py` | Emits the real theme-extension files into the app repo from the shared source, incl. the live `/cart/add.js` bootstrap. |
 
 Generated (not hand-edited): `cordsets.catalog.json`, `compat_overrides.json`,
-`hardware_compat.csv`, `wire_products_all.json`, `prototype.html`.
+`hardware_compat.csv`, `wire_products_all.json`.
 
 The Wire store is reached via `greenlight.shopify_client.get_wire_shopify_session()`
 (needs `SHOPIFY_WIRE_*` in the repo `.env`). Run scripts with the repo venv:
@@ -44,9 +43,9 @@ The Wire store is reached via `greenlight.shopify_client.get_wire_shopify_sessio
 1. Edit the cell(s) in `hardware_compat.csv` — keep it in sync with Ian's Google Sheet
    (his sheet is the human master; this CSV is what the importer reads).
 2. `venv/bin/python util/wire/cordset/import_compat_csv.py`  → `compat_overrides.json`
-3. `venv/bin/python util/wire/cordset/sync_catalog.py`       → catalog (`compatSource: verified-overrides`)
-4. `venv/bin/python util/wire/cordset/build_extension.py`    → repackage into the app
-5. `cd ~/projects/sundial-cordsets && shopify app deploy`
+3. `venv/bin/python util/wire/cordset/sync_catalog.py`       → catalog (`compatSource: verified-overrides`),
+   published live — the store picks it up within minutes, no deploy (or just wait for
+   the hourly timer).
 Never hand-edit `compat_overrides.json` — the next CSV import overwrites it.
 
 **Refresh the catalog** (new wire colors, price/stock changes, new products):
@@ -54,15 +53,13 @@ automatic — `cordset-catalog-sync.timer` runs `sync_catalog.py` hourly, which 
 to `/var/www/cordset/` (nginx: `https://greenlight.sundialwire.com/cordset/cordsets.catalog.json`,
 see `services/nginx-cordset-catalog.conf`). The storefront builder loads that live copy,
 so no deploy is needed. The catalog bundled in the app is only the fallback (live copy
-unreachable / slow); `build_extension.py` refreshes it whenever you deploy.
+unreachable / slow); `npm run deploy` in the app repo refreshes it from the live copy.
 (New wire SKUs classify automatically; a genuinely new construction lands in
 `diagnostics.droppedUnclassified` — extend `classify()` + `WIRE_CLASSES` in `classes.py`.)
 
 **Iterate on the UI** (layout, behavior, copy):
-Edit `build_prototype.py` (the shared markup/CSS/JS — it feeds both the demo and the
-extension), then `build_prototype.py` (preview the Artifact) and `build_extension.py`
-(update the app) → `shopify app deploy`. Sanity-check JS with
-`node --check ~/projects/sundial-cordsets/extensions/cordset-configurator/assets/cordset.js`.
+Not here — edit `extensions/cordset-configurator/` in `~/projects/sundial-cordsets`
+directly, then `npm run deploy` there (see its CLAUDE.md).
 
 **Add a new wire class** (e.g. a new construction Ian wants rated separately):
 Add it to `WIRE_CLASSES` in `classes.py`, teach `classify()` how to route wires into
