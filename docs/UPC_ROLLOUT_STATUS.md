@@ -54,8 +54,9 @@ are excluded by SKU kind). Loaded from a Data Hub export, which needed:
   its own Data Hub description and Shopify variant options; fixed in both.
   Repeat that cross-check before loading any future batch.
 
-The old "192 variants" figure came from `catalog/cable_lines.yaml`, which still
-omits the 12 ft Touring length that Shopify and GS1 both have — see Still open.
+The old "192 variants" figure came from `catalog/cable_lines.yaml`, which was
+missing 1' Studio and 12' Touring; fixed 2026-10-02 along with economics.yaml
+(prices = Shopify, weights = GS1 gross, costs = cost sheet), all synced to Shopify.
 
 ### 4. Verify the printer on real stock
 
@@ -86,10 +87,6 @@ UPC there fails as "not found" and can't create a row. Covered by
 `tests/test_serial_validation.py`.
 
 ## Still open (needs a decision)
-
-- **Touring lengths in `catalog/cable_lines.yaml`.** TC/TV list
-  `[3, 6, 10, 15, 20, 25]`, but every Touring pattern is sold at 12 ft too, so
-  intake can't offer 12 ft Touring and catalog-derived counts undercount.
 
 - **Cartons / multipacks.** If cables ship to retail in master cases, each case
   configuration needs its own GTIN, and GS1 wants ITF-14 or GS1-128 on the
