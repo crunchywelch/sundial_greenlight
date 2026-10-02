@@ -90,8 +90,11 @@ def is_valid_gtin12(upc) -> bool:
 def normalize_gtin12(raw):
     """Coerce assorted real-world UPC spellings into a canonical GTIN-12.
 
-    Handles the three forms we actually see:
+    Handles the forms we actually see:
       - 12 digits — validated and returned as-is.
+      - 14 digits with two leading zeros — GS1 Data Hub exports every GTIN
+        in the 14-digit GTIN-14 field, so a UPC-A arrives as 00 + 12 digits.
+        The zeros are stripped.
       - 13 digits with a leading zero — an EAN-13-configured scanner reporting
         a UPC-A. The leading zero is stripped.
       - 11 digits — a spreadsheet that dropped the check digit (or Excel
@@ -114,7 +117,9 @@ def normalize_gtin12(raw):
     if not s or not _RE_DIGITS.match(s):
         return None
 
-    if len(s) == 13 and s[0] == '0':
+    if len(s) == 14 and s.startswith('00'):
+        s = s[2:]
+    elif len(s) == 13 and s[0] == '0':
         s = s[1:]
     elif len(s) == 11:
         s = s + str(check_digit(s))
@@ -160,6 +165,6 @@ def looks_like_gtin12(raw) -> bool:
     if not isinstance(raw, str):
         return False
     s = re.sub(r'[\s\-]', '', raw.strip())
-    if len(s) not in (12, 13):
+    if len(s) not in (12, 13, 14):
         return False
     return normalize_gtin12(s) is not None

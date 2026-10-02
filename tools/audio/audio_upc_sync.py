@@ -10,6 +10,7 @@ Data Hub export can be fed in unmodified. Recognized headers (case- and
 space-insensitive):
     SKU:  sku, variant_sku, internal part number or sku
     UPC:  upc, gtin, barcode, gtin12
+Data Hub's 14-digit GTINs (00 + UPC-A) are normalized to the 12-digit UPC.
 
 Runs as a dry run by default and prints exactly what it would change. Nothing
 is written to Shopify without --fix.
