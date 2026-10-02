@@ -9,6 +9,7 @@ from rich.panel import Panel
 
 from greenlight.screen_manager import Screen, ScreenResult, NavigationAction
 from greenlight.config import APP_NAME, EXIT_MESSAGE
+from greenlight.cable_config import prefix_for_series
 from greenlight.cable_catalog import (
     CableType, get_distinct_series, get_distinct_color_patterns,
     get_distinct_lengths, resolve_catalog_variant,
@@ -105,7 +106,6 @@ class LtdEditionPickerScreen(Screen):
         operator = self.context.get("operator", "")
         selected_series = self.context.get("selected_series")
         from greenlight.db import list_ltd_editions
-        from greenlight.cable_config import prefix_for_series
 
         # LTD editions are series-agnostic (Phase 5): the series picked
         # earlier in the flow only drives the per-cable prefix attached at
@@ -268,15 +268,6 @@ class ColorPatternSelectionScreen(Screen):
         return ScreenResult(NavigationAction.REPLACE, ColorPatternSelectionScreen, self.context)
 
 
-SERIES_PREFIX_MAP = {
-    'Studio Classic': 'SC',
-    'Studio Patch': 'SP',
-    'Studio Vocal Classic': 'SV',
-    'Tour Classic': 'TC',
-    'Tour Vocal Classic': 'TV',
-}
-
-
 def _format_length(length):
     """Render a length value as e.g. '10ft' or '10.5ft'."""
     try:
@@ -292,7 +283,7 @@ class MiscVariantPickerScreen(Screen):
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
         selected_series = self.context.get("selected_series")
-        series_prefix = SERIES_PREFIX_MAP.get(selected_series)
+        series_prefix = prefix_for_series(selected_series)
 
         if not series_prefix:
             self.ui.header(operator)
@@ -407,7 +398,7 @@ class MiscVariantCreateScreen(Screen):
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
         selected_series = self.context.get("selected_series")
-        series_prefix = SERIES_PREFIX_MAP.get(selected_series)
+        series_prefix = prefix_for_series(selected_series)
 
         if not series_prefix:
             self.ui.header(operator)
