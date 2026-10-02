@@ -154,10 +154,10 @@ UPC-A only renders at whole-dot module widths, so 2" stock gives 113.7%
 magnification (in spec) while 1" is forced to 75.8%, the GS1 thermal-print
 floor, with no room for branding. The TE210 has one media path, so batch them.
 
-**Scan-loop hazard:** serial numbers are purely numeric
-(`db.validate_serial_number`), so a scanned 12-digit UPC will be accepted and
-zero-padded into a bogus serial. `gtin.looks_like_gtin12()` exists to reject
-that, but **is not yet wired into the intake scan loops.**
+**Scan-loop guard:** serial numbers are purely numeric, so a scanned 12-digit
+UPC would otherwise be zero-padded into a bogus serial.
+`db.validate_serial_number` rejects anything `gtin.looks_like_gtin12()`
+matches; any new serial-entry path should go through it.
 
 ### Scanner Operation
 

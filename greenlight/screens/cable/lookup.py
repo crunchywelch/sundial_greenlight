@@ -1,6 +1,7 @@
 """Scan hub: scan a serial to look up/test a cable, or jump to other areas."""
 
 import logging
+import time
 
 from rich.panel import Panel
 
@@ -158,8 +159,13 @@ class ScanCableLookupScreen(CableScreenBase):
 
             # Validate input looks like a serial number (must be numeric)
             from greenlight.db import validate_serial_number
-            valid, _ = validate_serial_number(serial_number)
+            valid, error_msg = validate_serial_number(serial_number)
             if not valid:
+                # Stay quiet for stray keystrokes, but explain a scanned UPC
+                from greenlight.gtin import looks_like_gtin12
+                if looks_like_gtin12(serial_number):
+                    self.ui.console.print(f"[red]⚠️  {error_msg}[/red]")
+                    time.sleep(1.5)
                 continue
 
             # Otherwise treat as serial number lookup

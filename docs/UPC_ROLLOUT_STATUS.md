@@ -95,17 +95,16 @@ Also confirm the scanner's symbology config: it may report UPC-A as 12 digits
 or as EAN-13 with a leading zero. `gtin.normalize_gtin12()` handles both, but
 note which one you get.
 
-### 5. Wire the scan-loop guard (not done)
+### 5. Wire the scan-loop guard (done 2026-10-02)
 
-`gtin.looks_like_gtin12()` exists but is not called anywhere. Until it is, a box
-label scanned at a cable-intake prompt passes `db.validate_serial_number` (both
-are purely numeric) and gets zero-padded into a bogus serial. Candidate call
-sites: `greenlight/screens/cable/` (`lookup.py` scan hub, `intake_scan.py` scan loop),
-`greenlight/ui.py` (~217), `greenlight/screens/wholesale.py` (~143),
-`greenlight/screens/orders.py` (~910, ~1087).
-
-This was left undone deliberately — it's a behavior change in the hot
-production intake path and deserves its own review, not a bundle.
+`db.validate_serial_number` now rejects anything `gtin.looks_like_gtin12()`
+matches, with a "product UPC, not a cable serial" message. That covers the
+intake scan loop (`screens/cable/intake_scan.py`), the scan hub
+(`screens/cable/lookup.py`, which also shows the message instead of offering
+intake for a bogus serial) and order fulfillment (`screens/orders.py`).
+Wholesale batches and customer assignment only look up existing cables, so a
+UPC there fails as "not found" and can't create a row. Covered by
+`tests/test_serial_validation.py`.
 
 ## Still open (needs a decision)
 

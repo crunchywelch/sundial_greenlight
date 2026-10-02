@@ -180,6 +180,11 @@ def validate_serial_number(serial_number):
     s = serial_number.strip()
     if not s.isdigit():
         return False, f"Invalid serial number '{s}' — must be numeric"
+    # A retail box UPC is numeric too and would be zero-padded into a bogus
+    # serial. Reject it here so every scan loop gets the check.
+    from greenlight.gtin import looks_like_gtin12
+    if looks_like_gtin12(s):
+        return False, f"'{s}' is a product UPC, not a cable serial — scan the serial label"
     return True, None
 
 
