@@ -8,7 +8,7 @@
 # drifted — SC 15ft had a price but no weight; see the null below.)
 #
 # NOT read by greenlight or the Shopify Remix app at runtime — consumed only by
-# util/audio scripts that sync price/cost/weight to Shopify, via
+# tools/audio scripts that sync price/cost/weight to Shopify, via
 # greenlight/product_lines.py load_yaml_skus(). Editing changes nothing live
 # until the sync script runs; Shopify is canonical once pushed.
 #

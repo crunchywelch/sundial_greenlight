@@ -56,11 +56,11 @@ variant SKUs, and the Shopify variant set may be smaller still.
 
 ```bash
 # Read-only. Needs Shopify only, no DB.
-python util/audio/audio_upc_sync.py --coverage
+python tools/audio/audio_upc_sync.py --coverage
 
 # Needs DB + Shopify. The "✗ CREATE" column lists variants that exist in
 # Postgres with no matching Shopify variant — those must be created first.
-python util/audio/audio_sku_catalog_report.py --std
+python tools/audio/audio_sku_catalog_report.py --std
 ```
 
 Decide explicitly whether to assign GTINs to variants you haven't built yet.
@@ -71,8 +71,8 @@ receive a `barcode`.
 ### 3. Load the UPCs
 
 ```bash
-python util/audio/audio_upc_sync.py upcs.csv          # dry run — read it
-python util/audio/audio_upc_sync.py upcs.csv --fix    # prompts for confirmation
+python tools/audio/audio_upc_sync.py upcs.csv          # dry run — read it
+python tools/audio/audio_upc_sync.py upcs.csv --fix    # prompts for confirmation
 ```
 
 A GS1 Data Hub export works unmodified. The loader refuses `--fix` outright if
@@ -81,8 +81,8 @@ the dry run found any error, and never overwrites an existing UPC.
 ### 4. Verify the printer on real stock
 
 ```bash
-python util/printer/print_box_label.py SC-20GL --preview        # geometry report
-python util/printer/print_box_label.py SC-20GL --count 1        # one real label
+python tools/printer/print_box_label.py SC-20GL --preview        # geometry report
+python tools/printer/print_box_label.py SC-20GL --count 1        # one real label
 ```
 
 Then **scan the printed label with the Zebra DS2208** and confirm the digits
@@ -119,7 +119,7 @@ production intake path and deserves its own review, not a bundle.
 ## Sandbox gotcha, unrelated to this work
 
 `greenlight/log.py:58` builds a `SysLogHandler` over TCP to `localhost:1514`;
-with no syslog listener it blocks for minutes. Every `util/audio/*` script
+with no syslog listener it blocks for minutes. Every `tools/audio/*` script
 calls `setup_logging()` at import, so they all hang on a host without it.
 Similarly, importing `greenlight.db` opens the connection pool at module
 import, so anything touching it times out without the tunnel — which is why

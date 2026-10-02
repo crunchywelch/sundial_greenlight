@@ -26,10 +26,10 @@ GREENLIGHT_USE_REAL_PRINTERS=true
 ping 192.168.0.52
 
 # Test printer with mock mode (no actual printing)
-python util/printer/print_label.py --self-test --mock
+python tools/printer/print_label.py --self-test --mock
 
 # Test with real printer (will print 3 sample labels)
-python util/printer/print_label.py --self-test
+python tools/printer/print_label.py --self-test
 
 ```
 
@@ -139,8 +139,8 @@ The system will simulate printing and log what would have been printed.
 | Action | Command |
 |--------|---------|
 | Test connection | `ping 192.168.0.52` |
-| Test mock printer | `python util/printer/print_label.py --self-test --mock` |
-| Test real printer | `python util/printer/print_label.py --self-test` |
+| Test mock printer | `python tools/printer/print_label.py --self-test --mock` |
+| Test real printer | `python tools/printer/print_label.py --self-test` |
 | Enable printer | Set `GREENLIGHT_USE_REAL_PRINTERS=true` in .env |
 | Disable printer | Set `GREENLIGHT_USE_REAL_PRINTERS=false` in .env |
 

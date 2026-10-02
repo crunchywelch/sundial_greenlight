@@ -15,7 +15,7 @@ Environment="PATH=/home/welch/projects/sundial_greenlight/venv/bin:/usr/local/bi
 # builder loads that, so stock/price changes need no app deploy. (The copy
 # bundled with the app is only a fallback; sundial-cordsets' `npm run deploy`
 # refreshes it from this published file.)
-ExecStart=/home/welch/projects/sundial_greenlight/venv/bin/python util/wire/cordset/sync_catalog.py
+ExecStart=/home/welch/projects/sundial_greenlight/venv/bin/python tools/wire/cordset/sync_catalog.py
 
 # Logging
 StandardOutput=journal

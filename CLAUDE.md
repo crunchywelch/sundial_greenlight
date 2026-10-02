@@ -20,6 +20,21 @@ deactivate
 
 **Greenlight** is a terminal-based QC (Quality Control) application for audio cable testing and inventory management. The application uses a PostgreSQL database backend and Rich library for terminal UI.
 
+### Repository Layout
+
+- `greenlight/` — the terminal app (Python package)
+- `shopify_app/` — the Shopify Remix app + extensions
+- `catalog/` — **hand-edited source of truth** (series, patterns, materials;
+  `back_office/` holds pricing/cost/weight, wire cost params, tax exclusions).
+  Read at runtime by both `greenlight/cable_config.py` and
+  `shopify_app/app/cable-config.server.js`.
+- `data/` — generated output and vendor inputs only; nothing here is hand-edited config
+- `tools/` — admin/back-office CLI scripts by domain (`audio/`, `wire/`,
+  `printer/`, `valuation/`, `shopify/`, `scanner/`); shared helper `tools/sundial_db.py`
+- `tests/` — `test_sku_parity.py` + `fixtures/` (no DB needed);
+  `integration/` scripts hit live Postgres/Shopify
+- `services/` — systemd units; `arduino/`, `ArduinoApps/` — tester firmware
+
 ### Core Components
 
 - **main.py**: Entry point with operator authentication and main application loop
@@ -138,8 +153,8 @@ Key pieces:
 - `shopify_client.get_audio_variant_by_sku()` / `set_barcode_for_sku()`.
   Note `get_product_by_sku()` queries the Sundial **Wire** store and will never
   find an audio SKU — a mistake that fails silently as "not found".
-- `util/audio/audio_upc_sync.py` — CSV → Shopify loader, dry run by default.
-- `util/printer/print_box_label.py --preview` — geometry report, no hardware.
+- `tools/audio/audio_upc_sync.py` — CSV → Shopify loader, dry run by default.
+- `tools/printer/print_box_label.py --preview` — geometry report, no hardware.
 
 Box labels need **2" × 3" stock**, not the 1" × 3" cable roll: at 203 DPI a
 UPC-A only renders at whole-dot module widths, so 2" stock gives 113.7%

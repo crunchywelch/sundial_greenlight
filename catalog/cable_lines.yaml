@@ -17,7 +17,7 @@
 # suite after changes to catch obvious breakage.
 #
 # Cost / pricing / weight tables LIVE ELSEWHERE — see back_office/. Those
-# are read by util/audio scripts that sync to Shopify, never by the apps.
+# are read by tools/audio scripts that sync to Shopify, never by the apps.
 # =============================================================================
 
 series:

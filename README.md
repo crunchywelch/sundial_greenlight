@@ -72,7 +72,7 @@ See [TEST_SCANNER_README.md](TEST_SCANNER_README.md) for detailed troubleshootin
 
 ## Database Setup
 
-See `./util/` directory for database initialization scripts.
+See `tools/audio/schema.sql` for the database schema.
 
 ## Configuration
 

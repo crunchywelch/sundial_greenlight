@@ -89,7 +89,7 @@ def _load_series():
     level `series:` list of dicts, each with sku_prefix / product_line /
     core_cable / braid_material / lengths / connectors. Cost / pricing /
     weight tables now live under back_office/ and are NOT loaded here —
-    they're back-office data, read only by util/audio scripts.
+    they're back-office data, read only by tools/audio scripts.
     """
     path = _PRODUCT_LINES_DIR / "cable_lines.yaml"
     with open(path) as f:

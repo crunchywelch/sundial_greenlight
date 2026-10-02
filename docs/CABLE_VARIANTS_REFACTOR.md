@@ -183,19 +183,19 @@ discrete URL: `/app/scan`, `/app/assign`, `/app/customers`,
 `host` param via `<Link>` + location.search.
 
 ### Util scripts
-- `util/audio/audio_sku_catalog_report.py` — catalog-completeness report
+- `tools/audio/audio_sku_catalog_report.py` — catalog-completeness report
   across SKU kinds (catalog/LTD/MISC). Lists every variant in `audio_cables`
   (walking distinct `(sku_group, prefix, length, connector_code)` tuples)
   with total/available/assigned/wholesale counts, cross-referenced against
   Shopify variants (flags missing / blank-SKU / phantom). Supersedes the old
   `audio_shopify_sku_sync.py`.
-- `util/audio/audio_shopify_inventory_reconcile.py` — availability-focused:
+- `tools/audio/audio_shopify_inventory_reconcile.py` — availability-focused:
   counts *available* cables per variant and reconciles/fixes Shopify
   inventory to match.
-- `util/audio/audio_shopify_price_sync.py` — sync prices/costs/weights
+- `tools/audio/audio_shopify_price_sync.py` — sync prices/costs/weights
   to Shopify. Reads `back_office/economics.yaml` for catalog price/cost/weight;
   reads `audio_cables` for MISC variant lengths.
-- `util/audio/generate_sku_fixtures.py` — regenerates
+- `tools/audio/generate_sku_fixtures.py` — regenerates
   `tests/fixtures/sku_fixtures_prod.json` against current prod state. Run after
   any YAML edit that touches back-compat surface area.
 
@@ -211,7 +211,7 @@ discrete URL: `/app/scan`, `/app/assign`, `/app/customers`,
 - `tests/integration/test_ltd_scan_flow.py` — LTD flow including archive lifecycle hooks.
 - `tests/integration/test_order_fulfillment.py` — `assign_cable_to_order` SKU
   validation against line items: match, mismatch, duplicate, cross-order.
-- `util/printer/print_label.py` — manual interactive label printing test.
+- `tools/printer/print_label.py` — manual interactive label printing test.
 - `shopify_app/scripts/smoke-test-ltd.mjs` — end-to-end LTD CRUD smoke
   test against prod. Cleans up after itself. Useful regression check
   whenever the LTD code path changes.

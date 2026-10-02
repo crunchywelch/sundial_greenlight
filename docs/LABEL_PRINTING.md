@@ -73,7 +73,7 @@ For MISC (miscellaneous) cables with custom descriptions:
 ### Test with Mock Printer (No Hardware)
 
 ```bash
-python util/printer/print_label.py --self-test --mock
+python tools/printer/print_label.py --self-test --mock
 ```
 
 This will simulate label printing without connecting to actual hardware.
@@ -85,7 +85,7 @@ This will simulate label printing without connecting to actual hardware.
 3. Run the test script:
 
 ```bash
-python util/printer/print_label.py --self-test
+python tools/printer/print_label.py --self-test
 ```
 
 The script will:
@@ -102,19 +102,19 @@ rasterized as a bitmap by the driver (template `prop65_label`).
 
 ```bash
 # Preview the triangle + TSPL without printing (recommended first)
-python util/printer/print_prop65.py --preview
+python tools/printer/print_prop65.py --preview
 
 # Short-form label (default), naming a chemical
-python util/printer/print_prop65.py --chemical lead
+python tools/printer/print_prop65.py --chemical lead
 
 # Full warning statement
-python util/printer/print_prop65.py --form long --chemical DEHP
+python tools/printer/print_prop65.py --form long --chemical DEHP
 
 # Cancer-only endpoint, 10 copies
-python util/printer/print_prop65.py --endpoints cancer --count 10
+python tools/printer/print_prop65.py --endpoints cancer --count 10
 
 # Dry-run against the mock printer
-python util/printer/print_prop65.py --mock
+python tools/printer/print_prop65.py --mock
 ```
 
 Options: `--form {short,long}`, `--chemical NAME`,
@@ -144,13 +144,13 @@ find audio cable SKUs. Use `get_audio_variant_by_sku()` for audio.
 
 ```bash
 # Dry run — validates check digits, duplicates, and Shopify conflicts
-python util/audio/audio_upc_sync.py upcs.csv
+python tools/audio/audio_upc_sync.py upcs.csv
 
 # Apply (prompts for confirmation; refuses to run if the dry run found errors)
-python util/audio/audio_upc_sync.py upcs.csv --fix
+python tools/audio/audio_upc_sync.py upcs.csv --fix
 
 # Which retail variants still have no UPC?
-python util/audio/audio_upc_sync.py --coverage
+python tools/audio/audio_upc_sync.py --coverage
 ```
 
 The CSV needs a SKU column and a UPC column; a GS1 Data Hub export works
@@ -184,17 +184,17 @@ roll and recalibrating, so batch them.
 
 ```bash
 # Geometry report + TSPL, no hardware, no printing
-python util/printer/print_box_label.py SC-20GL --preview
+python tools/printer/print_box_label.py SC-20GL --preview
 
 # Preview before UPCs are loaded into Shopify
-python util/printer/print_box_label.py --upc 036000291452 \
+python tools/printer/print_box_label.py --upc 036000291452 \
     --title "Studio Classic" --subtitle "20 ft - Goldline" --preview
 
 # Check what a different stock size would yield
-python util/printer/print_box_label.py SC-20GL --height-mm 25.4 --preview
+python tools/printer/print_box_label.py SC-20GL --height-mm 25.4 --preview
 
 # Print 12 on the real printer
-python util/printer/print_box_label.py SC-20GL --count 12
+python tools/printer/print_box_label.py SC-20GL --count 12
 ```
 
 `--preview` prints the magnification, quiet zones, and an overlap check, so
@@ -349,8 +349,8 @@ PRINT qty,copies           # Print label
 
 - **Sample Label PDF**: `SC-20GL.pdf` - Reference design for label layout
 - **Printer Module**: `greenlight/hardware/tsc_label_printer.py`
-- **Text Label Script**: `util/printer/print_label.py`
-- **Prop 65 Label Script**: `util/printer/print_prop65.py`
+- **Text Label Script**: `tools/printer/print_label.py`
+- **Prop 65 Label Script**: `tools/printer/print_prop65.py`
 - **Configuration**: `greenlight/config.py`
 
 ## Support

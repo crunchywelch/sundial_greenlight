@@ -89,7 +89,7 @@ semantically correct — do **not** loosen it.
 
 Commit `5b3be3d2`. Schema migration is already applied on the host.
 
-- `util/audio/schema.sql` — the three columns + `idx_audio_cables_wholesale_company`.
+- `tools/audio/schema.sql` — the three columns + `idx_audio_cables_wholesale_company`.
 - `greenlight/db.py`
   - `get_audio_cable` selects the new columns.
   - `unassign_cable(serial, channel=...)` releases **one** channel — `'retail'` (the end

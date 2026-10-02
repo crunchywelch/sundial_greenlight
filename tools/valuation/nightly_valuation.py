@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""
+Nightly inventory data refresh.
+
+Refreshes product data from both Shopify stores (wire + audio) into
+PostgreSQL, then prints a valuation summary.
+
+Designed to run via systemd timer (nightly-valuation.timer).
+
+Usage:
+    python tools/valuation/nightly_valuation.py                # Refresh and show report
+    python tools/valuation/nightly_valuation.py --skip-refresh # Report only (use existing data)
+"""
+
+import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent.parent / ".env")
+
+from greenlight.log import setup_logging
+setup_logging()
+
+from tools.sundial_db import get_db, init_db
+from tools.valuation.valuation_report import run_report, get_latest_date
+
+
+def refresh_shopify_data(conn):
+    """Refresh product data from both Shopify stores."""
+    print("Refreshing wire store...")
+    from tools.wire.wire_refresh_products import refresh_from_shopify as wire_refresh
+    wire_refresh(conn)
+
+    print("Refreshing audio store...")
+    from tools.audio.audio_refresh_products import refresh_from_shopify as audio_refresh
+    audio_refresh(conn)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--skip-refresh", action="store_true",
+        help="Skip Shopify refresh (use existing data)"
+    )
+    args = parser.parse_args()
+
+    conn = get_db()
+    init_db(conn)
+
+    if not args.skip_refresh:
+        refresh_shopify_data(conn)
+    else:
+        print("Skipping Shopify refresh (using cached data)")
+    print()
+
+    report_date = get_latest_date(conn)
+    if report_date:
+        run_report(conn, report_date)
+    else:
+        print("No snapshot data found.")
+
+    conn.close()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main() or 0)

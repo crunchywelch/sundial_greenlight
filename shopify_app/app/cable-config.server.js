@@ -52,7 +52,7 @@ const PRODUCT_LINES_DIR = resolve(__dirname, "..", "..", "catalog");
 
 // App-runtime YAML files. Cost / pricing / weight tables live under
 // back_office/ and are intentionally NOT loaded here — they're back-office
-// data consumed only by util/audio sync scripts.
+// data consumed only by tools/audio sync scripts.
 const PATTERNS_FILE = "patterns.yaml";
 const CABLE_LINES_FILE = "cable_lines.yaml";
 
