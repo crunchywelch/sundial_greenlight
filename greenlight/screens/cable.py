@@ -1414,7 +1414,10 @@ class CableScreenBase(Screen):
                     continue
 
                 elif choice_lower == 'e' and mode == 'lookup' and not is_committed:
+                    # Return to this cable's info screen when the edit flow pops back
+                    self.context["return_to_cable_serial"] = cable_record['serial_number']
                     new_context = self.context.copy()
+                    new_context.pop("return_to_cable_serial", None)
                     new_context["selection_mode"] = "intake"
                     new_context["prefill_serial"] = cable_record['serial_number']
                     new_context['sku_change'] = True
@@ -1660,6 +1663,13 @@ class ScanCableLookupScreen(CableScreenBase):
             return None
 
 
+# Context keys set by the intake selection flow (series → ... → scan)
+_INTAKE_SELECTION_KEYS = (
+    "selected_color_pattern", "selected_length", "selected_connector",
+    "connector_code", "connector_finish", "cable_type",
+)
+
+
 class SeriesSelectionScreen(Screen):
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
@@ -1714,6 +1724,10 @@ class SeriesSelectionScreen(Screen):
             if 0 <= choice_idx < len(series_options):
                 selected_series = series_options[choice_idx]
                 new_context = self.context.copy()
+                # Drop selections left over from a previous intake so a stale
+                # cable_type can't make the catalog flow look like MISC/LTD
+                for key in _INTAKE_SELECTION_KEYS:
+                    new_context.pop(key, None)
                 new_context["selected_series"] = selected_series
                 # Always go to attribute selection (color pattern)
                 return ScreenResult(NavigationAction.REPLACE, ColorPatternSelectionScreen, new_context)
@@ -2687,9 +2701,9 @@ class ScanCableIntakeScreen(CableScreenBase):
                 self.ui.render()
                 time.sleep(0.8)  # Brief pause to show success
 
-                # SKU-change mode: update the one cable and return to its info screen
+                # SKU-change mode: update the one cable and return to its info
+                # screen (the lookup screen set return_to_cable_serial on 'e')
                 if self.context.get('sku_change'):
-                    self.context["return_to_cable_serial"] = saved_serial
                     break
 
                 # Show cable info with action menu
@@ -2777,8 +2791,10 @@ class ScanCableIntakeScreen(CableScreenBase):
                     self.ui.render()
                     time.sleep(1.5)  # Longer pause for errors
 
-        # Go back to main scan screen
-        return ScreenResult(NavigationAction.REPLACE, ScanCableLookupScreen, self.context)
+        # Pop back to the lookup screen underneath. Don't REPLACE with our own
+        # context — it carries this intake's cable_type/selections, which
+        # would leak into the next intake flow.
+        return ScreenResult(NavigationAction.POP, pop_to=ScanCableLookupScreen)
 
     def show_duplicate_prompt(self, operator, cable_type, existing_record):
         """Show duplicate record prompt and ask if user wants to update it
