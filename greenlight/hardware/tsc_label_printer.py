@@ -214,6 +214,8 @@ class TSCLabelPrinter(LabelPrinterInterface):
                 tspl = self._generate_barcode_label_tspl(print_job.data)
             elif print_job.template == "bin_label":
                 tspl = self._generate_bin_label_tspl(print_job.data)
+            elif print_job.template == "box_label":
+                tspl = self._generate_box_label_tspl(print_job.data)
             elif print_job.template == "text_label":
                 tspl = self._generate_text_label_tspl(print_job.data)
             elif print_job.template == "prop65_label":
@@ -774,6 +776,178 @@ class TSCLabelPrinter(LabelPrinterInterface):
         tspl_commands.append("")
 
         return "\r\n".join(tspl_commands).encode('utf-8')
+
+    # UPC-A geometry. A UPC-A symbol is 95 modules of bars plus a 9-module
+    # quiet zone each side. At 203 DPI the module width ("narrow") can only be
+    # a whole number of dots, so magnification comes in jumps:
+    #   narrow=2 -> X=0.250mm, 75.8% — legal ONLY under the GS1 carve-out for
+    #               on-demand thermal printing (75% floor), with no margin.
+    #   narrow=3 -> X=0.375mm, 113.7% — comfortably mid-spec, but the
+    #               proportional bar height (1.02") will not fit 1" stock.
+    # Hence narrow=3 on taller stock as the default; see BOX_LABEL_*_MM below.
+    UPCA_MODULES = 95
+    UPCA_NOMINAL_X_IN = 0.013      # X-dimension at 100% magnification
+    UPCA_NOMINAL_BARS_IN = 0.9     # bar height at 100%, excluding the digits
+
+    # Retail box labels use their own, taller stock than the 1"x3" cable roll.
+    BOX_LABEL_WIDTH_MM = 76.2      # 3"
+    BOX_LABEL_HEIGHT_MM = 50.8     # 2"
+
+    def _generate_box_label_tspl(self, data: Dict[str, Any]) -> bytes:
+        """Generate TSPL commands for a retail box label with a UPC-A barcode.
+
+        Customer-facing, for cables boxed for sale through retail stores. The
+        UPC is what a store's POS scans, so the symbol is sized to spec and
+        anchored to the bottom of the label at a fixed position — a barcode
+        that moves around between SKUs is a barcode that gets mis-scanned.
+        Text flows from the top and is allowed to wrap into the space left.
+
+        Label layout (2" x 3" default):
+        +---------------------------------------------------+
+        |  SUNDIAL AUDIO                         SC-20GL    |
+        |  -----------------------------------------------  |
+        |  Studio Classic                                   |
+        |  20 ft - Goldline - TS-TS                         |
+        |                                                   |
+        |         ||| || |||| | || ||| || |||| |            |
+        |         0 36000 29145 2                           |
+        +---------------------------------------------------+
+
+        Args:
+            data: Dictionary with:
+                - upc: str (required) — a valid GTIN-12; the printer is handed
+                  the first 11 digits and derives the check digit itself
+                - product_title / title: str (optional) — top text line
+                - subtitle: str (optional) — spec line (length/pattern/conn)
+                - sku: str (optional) — printed small at top right
+                - label_width_mm / label_height_mm: float (optional) — stock
+                  size override, defaulting to the box-label stock constants
+                  rather than this printer's cable-roll size
+
+        Returns:
+            TSPL commands as bytes
+
+        Raises:
+            ValueError: if `upc` is missing or not a valid GTIN-12. A box
+                label with a wrong barcode is worse than no label, so this
+                refuses rather than printing something unscannable.
+        """
+        from greenlight.gtin import upca_payload
+
+        upc = (data.get('upc') or '').strip()
+        if not upc:
+            raise ValueError("box_label requires a 'upc' (GTIN-12)")
+        # Raises ValueError with the specific reason on a bad check digit.
+        payload = upca_payload(upc)
+
+        title = data.get('product_title') or data.get('title') or ''
+        subtitle = data.get('subtitle') or ''
+        sku = (data.get('sku') or '').strip()
+
+        # Box stock is taller than the cable roll this printer is configured
+        # for, so these templates carry their own size rather than inheriting
+        # self.label_*_mm.
+        width_mm = float(data.get('label_width_mm') or self.BOX_LABEL_WIDTH_MM)
+        height_mm = float(data.get('label_height_mm') or self.BOX_LABEL_HEIGHT_MM)
+        width_dots = int(width_mm * self.dpi / 25.4)
+        height_dots = int(height_mm * self.dpi / 25.4)
+
+        # Pick the largest in-spec module width the stock can actually hold,
+        # falling back to the thermal-only 75% floor on short stock so a 1"
+        # roll still produces something rather than nothing.
+        narrow = 3
+        bars_h = int(self.UPCA_NOMINAL_BARS_IN * (narrow / self.dpi)
+                     / self.UPCA_NOMINAL_X_IN * self.dpi)
+        hri_h = 28          # room under the bars for the human-readable digits
+        if bars_h + hri_h + 60 > height_dots:
+            narrow = 2
+            bars_h = int(self.UPCA_NOMINAL_BARS_IN * (narrow / self.dpi)
+                         / self.UPCA_NOMINAL_X_IN * self.dpi)
+            logger.warning(
+                "Box label stock is %.1fmm tall — falling back to narrow=2 "
+                "(75.8%% magnification, the GS1 thermal-print floor). 2in "
+                "stock is strongly preferred for retail UPCs.", height_mm
+            )
+
+        tspl_commands = []
+        tspl_commands.append(f"SIZE {width_mm:.1f} mm, {height_mm:.1f} mm")
+        tspl_commands.append("GAP 2 mm, 2 mm")
+        tspl_commands.append("DIRECTION 1,0")
+        tspl_commands.append("REFERENCE 0,0")
+        tspl_commands.append("SET TEAR ON")
+        tspl_commands.append("SET PEEL OFF")
+        tspl_commands.append("CLS")
+        tspl_commands.append("DENSITY 10")
+        tspl_commands.append("SPEED 3")
+
+        x_left = 20
+
+        # The barcode is the one element that must be geometrically correct,
+        # so it is placed first, a fixed distance up from the bottom edge, and
+        # the text gets whatever is left above it. HEADER_H is the brand line
+        # plus its divider rule; if that won't fit above the bars, the label
+        # degrades to barcode-only rather than printing text over the bars.
+        HEADER_H = 46
+        barcode_y = height_dots - bars_h - hri_h - 14
+        y = 10
+
+        if barcode_y >= y + HEADER_H:
+            tspl_commands.append(f'TEXT {x_left},{y},"3",0,1,1,"SUNDIAL"')
+            tspl_commands.append('__WIRE_LOGO__')
+            tspl_commands.append(f'TEXT {x_left + 190},{y},"3",0,1,1,"AUDIO"')
+            if sku:
+                # Right-aligned-ish: font "2" is 12 dots wide per character.
+                sku_x = max(x_left + 300, width_dots - 20 - len(sku) * 12)
+                tspl_commands.append(f'TEXT {sku_x},{y + 6},"2",0,1,1,"{sku}"')
+            y += 32
+            tspl_commands.append(f'BAR {x_left},{y},{width_dots - 2 * x_left},2')
+            y += 14
+
+            if title:
+                for part in self._split_text(title, max_length=30)[:2]:
+                    if barcode_y - y < 28:
+                        break
+                    safe = part.replace('"', "'")
+                    tspl_commands.append(f'TEXT {x_left},{y},"3",0,1,1,"{safe}"')
+                    y += 28
+            if subtitle and barcode_y - y >= 26:
+                safe = subtitle.replace('"', "'")
+                tspl_commands.append(f'TEXT {x_left},{y},"2",0,1,1,"{safe}"')
+        else:
+            # Too short for branding — center the symbol and print nothing
+            # else. Keeps a 1" roll usable as a plain UPC sticker.
+            barcode_y = max(4, (height_dots - bars_h - hri_h) // 2)
+            logger.warning(
+                "Box label stock is only %d dots tall — printing barcode-only "
+                "(no brand/title). Use 2in stock for a full retail label.",
+                height_dots
+            )
+
+        # Center the bars on the label. TSPL does not add quiet zones itself,
+        # but centering a 95-module symbol on 3" stock leaves far more than
+        # the 9 modules required on each side.
+        bars_w = self.UPCA_MODULES * narrow
+        barcode_x = max(x_left, (width_dots - bars_w) // 2)
+        # BARCODE x,y,"code type",height,human readable,rotation,narrow,wide,"content"
+        tspl_commands.append(
+            f'BARCODE {barcode_x},{barcode_y},"UPCA",{bars_h},1,0,{narrow},'
+            f'{narrow},"{payload}"'
+        )
+
+        tspl_commands.append("PRINT 1")
+        tspl_commands.append("")
+
+        # Build output as bytes, handling the inline logo bitmap
+        output = b''
+        for cmd in tspl_commands:
+            if cmd == '__WIRE_LOGO__':
+                bitmap_cmd = self._get_bitmap_command(x_left + 120, 12)
+                if bitmap_cmd:
+                    output += bitmap_cmd + b'\r\n'
+            else:
+                output += cmd.encode('utf-8') + b'\r\n'
+
+        return output
 
     def _format_connector_type(self, connector_type: str) -> str:
         """Format connector type for display on label"""

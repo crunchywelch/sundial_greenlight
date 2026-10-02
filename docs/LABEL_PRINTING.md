@@ -120,6 +120,99 @@ python util/printer/print_prop65.py --mock
 Options: `--form {short,long}`, `--chemical NAME`,
 `--endpoints {both,cancer,reproductive}`, `--count N`, `--preview`, `--mock`.
 
+## Retail Box Labels (UPC-A)
+
+Cables boxed for sale through retail stores carry a box label with a UPC-A
+barcode (template `box_label`). The UPC is a GTIN-12 issued against our GS1 US
+company prefix.
+
+### Where the UPC lives
+
+**Shopify's variant `barcode` field is the source of truth.** There is
+deliberately no UPC column in Postgres — Shopify already holds the per-variant
+row plus the brand, weight and dimension data that GS1 Data Hub wants, so
+splitting UPCs across two systems would just create drift.
+
+- Read one: `shopify_client.get_audio_variant_by_sku(sku)` → `["barcode"]`
+- Read all: `shopify_client.get_all_product_skus()` → `[sku]["barcode"]`
+- Write one: `shopify_client.set_barcode_for_sku(sku, upc)`
+
+Note `get_product_by_sku()` queries the Sundial **Wire** store — it will not
+find audio cable SKUs. Use `get_audio_variant_by_sku()` for audio.
+
+### Loading UPCs from GS1
+
+```bash
+# Dry run — validates check digits, duplicates, and Shopify conflicts
+python util/audio/audio_upc_sync.py upcs.csv
+
+# Apply (prompts for confirmation; refuses to run if the dry run found errors)
+python util/audio/audio_upc_sync.py upcs.csv --fix
+
+# Which retail variants still have no UPC?
+python util/audio/audio_upc_sync.py --coverage
+```
+
+The CSV needs a SKU column and a UPC column; a GS1 Data Hub export works
+unmodified (`Internal Part Number or SKU` / `GTIN` are both recognized).
+The loader never overwrites an existing UPC — a GTIN assignment is permanent.
+
+### Label stock: use 2" x 3", not the 1" cable roll
+
+A UPC-A symbol is 95 modules wide plus a 9-module quiet zone each side, and at
+203 DPI the module width can only be a whole number of dots. That makes
+magnification jump in large steps:
+
+| Module width | X-dimension | Magnification | Symbol size | Verdict |
+|---|---|---|---|---|
+| 2 dots | 0.250 mm | 75.8% | 1.11" x 0.77" | GS1's thermal-print floor is 75% — legal, but zero margin for head wear |
+| 3 dots | 0.375 mm | 113.7% | 1.67" x 1.02" | Comfortably in spec — **needs 2" stock** |
+
+`box_label` picks 3 dots when the stock can hold it and falls back to 2 dots on
+short stock, logging a warning. On stock too short for both the barcode and the
+branding (1" and 1.5" both qualify) it degrades to a barcode-only sticker
+rather than printing text over the bars.
+
+The barcode is anchored a fixed distance from the bottom edge so its position
+doesn't shift between SKUs — a barcode that moves is a barcode that gets
+mis-scanned. Text flows from the top into whatever room is left.
+
+Because the TE210 has one media path, printing box labels means swapping the
+roll and recalibrating, so batch them.
+
+### Previewing and printing
+
+```bash
+# Geometry report + TSPL, no hardware, no printing
+python util/printer/print_box_label.py SC-20GL --preview
+
+# Preview before UPCs are loaded into Shopify
+python util/printer/print_box_label.py --upc 036000291452 \
+    --title "Studio Classic" --subtitle "20 ft - Goldline" --preview
+
+# Check what a different stock size would yield
+python util/printer/print_box_label.py SC-20GL --height-mm 25.4 --preview
+
+# Print 12 on the real printer
+python util/printer/print_box_label.py SC-20GL --count 12
+```
+
+`--preview` prints the magnification, quiet zones, and an overlap check, so
+verify a new stock size there before committing a roll to it.
+
+### Check digits
+
+`greenlight/gtin.py` holds the GTIN-12 arithmetic. TSPL's `UPCA` type takes
+**11 digits and computes the check digit itself**, so we store and validate all
+12 and hand the printer the first 11 — making the printer's arithmetic an
+independent cross-check on ours. `box_label` refuses to render an invalid
+GTIN-12 rather than printing something unscannable.
+
+`gtin.looks_like_gtin12()` exists for scan loops: cable serial numbers are
+purely numeric too (see `db.validate_serial_number`), so a scanned 12-digit UPC
+would otherwise be zero-padded into a bogus serial. Scan handlers that accept
+serials should reject UPCs with it first.
+
 ## Usage in Greenlight
 
 ### During Cable Registration

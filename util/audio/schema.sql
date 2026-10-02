@@ -6,10 +6,16 @@
 -- ============================================================================
 
 -- sku_group — the kind-of-cable identity table.
--- One row per group. Group SKU patterns:
---   catalog: '{prefix}-{pattern_code}'      (e.g. 'SC-GL', 'TC-HP')
+-- One row per group. Group SKU patterns (catalog and LTD are series-agnostic
+-- — the series prefix lives per-cable on audio_cables, not in the group SKU):
+--   catalog: '{pattern_code}'               (e.g. 'GL', 'HP')
 --   misc:    '{prefix}-MISC-{seq}'          (e.g. 'SC-MISC-42')
---   ltd:     '{prefix}-LTD-{slug}'          (e.g. 'TC-LTD-PHISH26')
+--   ltd:     'LTD-{slug}'                   (e.g. 'LTD-PHISH26')
+--
+-- A group is therefore NOT a trade item: the catalog group 'GL' spans every
+-- series/length/connector combination built in Goldline (21 of them). Anything
+-- that must be per-variant — a retail UPC, for instance — belongs at variant
+-- grain, keyed by the SKU that format_variant_sku() produces ('SC-20GL-R').
 --
 -- Series, construction (core_cable, braid_material), connector options, and
 -- pattern names are derived from the SKU + the YAML config under

@@ -872,6 +872,7 @@ def get_all_products(limit: int = 250) -> list[Dict[str, Any]]:
                                     id
                                     title
                                     sku
+                                    barcode
                                     price
                                     inventoryQuantity
                                     inventoryItem {
@@ -1186,6 +1187,10 @@ def get_all_product_skus() -> Dict[str, Dict[str, Any]]:
                         "product_type": product.get("productType"),
                         "variant_id": variant["id"],
                         "variant_title": variant.get("title"),
+                        # Retail UPC (GTIN-12). Shopify's barcode field is the
+                        # source of truth for UPCs — there is no UPC column in
+                        # Postgres. None/"" for variants with none assigned.
+                        "barcode": (variant.get("barcode") or "").strip() or None,
                         "price": variant.get("price"),
                         "inventory_quantity": variant.get("inventoryQuantity", 0),
                         "inventory_item_id": inv_item.get("id"),
@@ -1197,6 +1202,153 @@ def get_all_product_skus() -> Dict[str, Dict[str, Any]]:
     except Exception as e:
         logger.error("Error fetching product SKUs: %s", e)
         return {}
+
+
+def get_audio_variant_by_sku(variant_sku: str) -> Optional[Dict[str, Any]]:
+    """Look up one audio-store variant by SKU, including its retail UPC.
+
+    Deliberately separate from get_product_by_sku(), which queries the Sundial
+    *Wire* store — passing an audio cable SKU to that one silently finds
+    nothing. This hits the audio store via get_shopify_session().
+
+    Args:
+        variant_sku: a full variant SKU, e.g. 'SC-20GL' or 'TC-15BU-R'.
+
+    Returns:
+        {
+            "sku": "SC-20GL",
+            "barcode": "036000291452" | None,   # the retail UPC (GTIN-12)
+            "product_id": "gid://...",
+            "variant_id": "gid://...",
+            "product_title": "Studio Classic",
+            "variant_title": "20 ft / Goldline",
+        }
+        or None if the SKU isn't in the audio store.
+    """
+    query = """
+    query getAudioVariantBySku($query: String!) {
+        productVariants(first: 1, query: $query) {
+            edges {
+                node {
+                    id
+                    sku
+                    barcode
+                    title
+                    product { id title }
+                }
+            }
+        }
+    }
+    """
+    try:
+        get_shopify_session()
+        # Exact match only. Unlike the wire lookup there is no wildcard
+        # fallback: a UPC must bind to exactly one trade item, so quietly
+        # matching a prefix-similar SKU would be a labeling error.
+        result = shopify.GraphQL().execute(
+            query, variables={"query": f"sku:{variant_sku}"}
+        )
+        data = json.loads(result)
+
+        if "errors" in data:
+            logger.error("GraphQL errors looking up audio SKU %s: %s",
+                         variant_sku, data["errors"])
+            return None
+
+        edges = data.get("data", {}).get("productVariants", {}).get("edges", [])
+        if not edges:
+            return None
+
+        node = edges[0]["node"]
+        # Shopify's sku: filter is a text match, so confirm we got the exact
+        # SKU we asked for rather than a near neighbour.
+        if (node.get("sku") or "").strip() != variant_sku:
+            logger.warning("Audio SKU lookup for %s returned %s — ignoring",
+                           variant_sku, node.get("sku"))
+            return None
+
+        product = node.get("product") or {}
+        return {
+            "sku": node.get("sku"),
+            "barcode": (node.get("barcode") or "").strip() or None,
+            "product_id": product.get("id"),
+            "variant_id": node.get("id"),
+            "product_title": product.get("title", ""),
+            "variant_title": node.get("title", ""),
+        }
+
+    except Exception as e:
+        logger.error("Error looking up audio SKU %s: %s", variant_sku, e)
+        return None
+    finally:
+        close_shopify_session()
+
+
+def set_barcode_for_sku(variant_sku: str, upc: str) -> Tuple[bool, Optional[str]]:
+    """Write a retail UPC onto an audio variant's Shopify `barcode` field.
+
+    Validates the GTIN-12 before touching Shopify, and refuses to overwrite a
+    *different* UPC already on the variant — a GTIN is a permanent assignment,
+    so silently reassigning one is never the intent. Writing the same value
+    again is a no-op success, which keeps the sync script idempotent.
+
+    Args:
+        variant_sku: the variant SKU to update, e.g. 'SC-20GL'.
+        upc: a valid GTIN-12.
+
+    Returns:
+        (True, None) on success, (False, error_message) otherwise.
+    """
+    from greenlight.gtin import validate_gtin12
+
+    ok, err = validate_gtin12(upc)
+    if not ok:
+        return False, err
+
+    variant = get_audio_variant_by_sku(variant_sku)
+    if not variant:
+        return False, f"No audio Shopify variant found for SKU {variant_sku}"
+
+    existing = variant.get("barcode")
+    if existing == upc:
+        return True, None
+    if existing:
+        return False, (
+            f"{variant_sku} already has UPC {existing}; refusing to overwrite "
+            f"with {upc}. Clear it in Shopify admin first if this is intended."
+        )
+
+    mutation = """
+    mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+            productVariants { id barcode }
+            userErrors { field message }
+        }
+    }
+    """
+    try:
+        get_shopify_session()
+        result = shopify.GraphQL().execute(mutation, variables={
+            "productId": variant["product_id"],
+            "variants": [{"id": variant["variant_id"], "barcode": upc}],
+        })
+        data = json.loads(result)
+
+        if "errors" in data:
+            return False, str(data["errors"])
+
+        payload = data.get("data", {}).get("productVariantsBulkUpdate", {})
+        user_errors = payload.get("userErrors", [])
+        if user_errors:
+            return False, "; ".join(e["message"] for e in user_errors)
+
+        logger.info("Set UPC %s on %s", upc, variant_sku)
+        return True, None
+
+    except Exception as e:
+        return False, str(e)
+    finally:
+        close_shopify_session()
 
 
 # --- Special Baby (MISC cable) support ---

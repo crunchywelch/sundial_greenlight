@@ -111,6 +111,46 @@ Database connection uses standard PostgreSQL environment variables with `GREENLI
 - Real-time feedback on successful scans and errors
 - Manual entry fallback if scanner unavailable
 
+### Retail UPCs and Box Labels
+
+Cables boxed for retail carry a UPC-A barcode (GTIN-12) issued against our GS1
+US company prefix. See `docs/LABEL_PRINTING.md` for the full write-up.
+
+> **Shopify's variant `barcode` field is the source of truth for UPCs.** There
+> is deliberately NO UPC column in Postgres. Shopify already holds the
+> per-variant row plus the brand/weight/dimension data GS1 Data Hub wants, so a
+> second home would only create drift. Don't add one back.
+
+**UPCs are per-variant, and `sku_group` is the wrong grain for them.** A
+catalog group SKU is a bare pattern code (`GL`), and one group spans every
+series × length × connector built in that pattern — 21 distinct trade items for
+`GL` alone. GS1 requires a separate GTIN per length and per connector, so
+anything UPC-shaped keys off the *variant* SKU that
+`cable_config.format_variant_sku()` produces (`SC-20GL-R`). Variant SKUs are
+derived at runtime and are not rows anywhere in Postgres.
+
+Key pieces:
+- `greenlight/gtin.py` — check digits, validation, normalization. Pure
+  functions, no DB or network, so label printing works with Postgres down.
+- `tsc_label_printer._generate_box_label_tspl()` — the `box_label` template.
+  TSPL's `UPCA` type takes **11 digits** and computes the check digit itself;
+  we store/validate 12 and send 11, making the printer an independent check.
+- `shopify_client.get_audio_variant_by_sku()` / `set_barcode_for_sku()`.
+  Note `get_product_by_sku()` queries the Sundial **Wire** store and will never
+  find an audio SKU — a mistake that fails silently as "not found".
+- `util/audio/audio_upc_sync.py` — CSV → Shopify loader, dry run by default.
+- `util/printer/print_box_label.py --preview` — geometry report, no hardware.
+
+Box labels need **2" × 3" stock**, not the 1" × 3" cable roll: at 203 DPI a
+UPC-A only renders at whole-dot module widths, so 2" stock gives 113.7%
+magnification (in spec) while 1" is forced to 75.8%, the GS1 thermal-print
+floor, with no room for branding. The TE210 has one media path, so batch them.
+
+**Scan-loop hazard:** serial numbers are purely numeric
+(`db.validate_serial_number`), so a scanned 12-digit UPC will be accepted and
+zero-padded into a bogus serial. `gtin.looks_like_gtin12()` exists to reject
+that, but **is not yet wired into the intake scan loops.**
+
 ### Scanner Operation
 
 The Zebra DS2208 operates as a USB HID keyboard device:
