@@ -150,7 +150,7 @@ The Python resolver. Read-only on YAML; no DB dependency.
   `sku_group` row is expected to exist (seeded at migration time).
 - `get_distinct_*` discovery functions — YAML-backed (no DB queries).
 
-### `greenlight/screens/cable.py`
+### `greenlight/screens/cable/`
 Three scan flows; all converge on `register_scanned_cable(serial,
 sku_group, prefix, length, connector_code, ...)`:
 

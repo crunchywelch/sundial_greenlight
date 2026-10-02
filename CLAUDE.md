@@ -43,7 +43,8 @@ deactivate
   `ScreenResult` (`PUSH`/`POP`/`REPLACE`/`EXIT`) plus a context dict; no nested loops
 - **ui.py**: Shared Rich layout (header/body/footer) used by every screen
 - **screens/**: one module per area — `main.py` (splash/operator select),
-  `cable.py` (scan/lookup hub, intake, QC), `inventory.py`, `orders.py`
+  `cable/` (package: `base.py` lookup/QC, `lookup.py` scan hub,
+  `intake_select.py` + `intake_scan.py` intake), `inventory.py`, `orders.py`
   (customer lookup, fulfillment), `wholesale.py`, `wire.py` (wire labels),
   `shopify_scan.py`, `settings.py`
 - **cable_config.py**: Loads + validates `catalog/` YAML; SKU parse/format

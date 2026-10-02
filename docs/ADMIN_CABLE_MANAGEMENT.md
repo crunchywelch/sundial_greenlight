@@ -66,7 +66,7 @@ later gives you no history for the window you most need it.
 ### 0b. One shared cable-state serializer
 Greenlight and the admin currently each assemble their own view of a cable. They will
 drift. Define one shape — identity, QC, commercial state — and derive both from it.
-`greenlight/screens/cable.py:build_cable_info_panel` is the de-facto spec today.
+`greenlight/screens/cable/base.py:build_cable_info_panel` is the de-facto spec today.
 
 ### 0c. Fix the lookup primitives
 - Serial search: exact match, prefix-match fallback. Not `ILIKE '%…%'`.

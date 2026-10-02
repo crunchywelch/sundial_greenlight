@@ -100,7 +100,7 @@ note which one you get.
 `gtin.looks_like_gtin12()` exists but is not called anywhere. Until it is, a box
 label scanned at a cable-intake prompt passes `db.validate_serial_number` (both
 are purely numeric) and gets zero-padded into a bogus serial. Candidate call
-sites: `greenlight/screens/cable.py` (~line 71 intake, ~2623 scan loop),
+sites: `greenlight/screens/cable/` (`lookup.py` scan hub, `intake_scan.py` scan loop),
 `greenlight/ui.py` (~217), `greenlight/screens/wholesale.py` (~143),
 `greenlight/screens/orders.py` (~910, ~1087).
 
