@@ -231,7 +231,7 @@ def fetch_audio_inventory():
 
 
 def load_inventory(conn):
-    """Load all in-stock products with costs from SQLite."""
+    """Load all in-stock products with costs from Postgres."""
     rows = conn.execute("""
         SELECT
             p.sku, p.title, p.option, p.product_type, p.qty, p.price,

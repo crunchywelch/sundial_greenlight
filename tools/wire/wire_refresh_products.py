@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Refresh product quantities and costs from the Shopify Wire store into SQLite.
+Refresh product quantities and costs from the Shopify Wire store into Postgres.
 
 Fetches all products via GraphQL and updates the products table and
 inventory_snapshots with current data from Shopify.
@@ -130,7 +130,7 @@ def fetch_all_products():
 
 
 def refresh_from_shopify(conn):
-    """Fetch latest product data from Shopify and update SQLite.
+    """Fetch latest product data from Shopify and update Postgres.
 
     Returns (product_count, snapshot_count).
     """

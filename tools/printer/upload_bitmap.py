@@ -6,8 +6,8 @@ Usage:
     python tools/printer/upload_bitmap.py <bitmap_file> [printer_ip]
 
 Example:
-    python tools/printer/upload_bitmap.py wire_mono.bmp
-    python tools/printer/upload_bitmap.py wire_mono.bmp 192.168.0.52
+    python tools/printer/upload_bitmap.py tools/printer/assets/wire_mono.bmp
+    python tools/printer/upload_bitmap.py tools/printer/assets/wire_mono.bmp 192.168.0.52
 """
 
 import socket

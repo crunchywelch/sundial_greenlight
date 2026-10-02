@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Refresh audio cable products and costs from the audio Shopify store into SQLite.
+Refresh audio cable products and costs from the audio Shopify store into Postgres.
 
 Fetches all active products via GraphQL and updates the products table
 and inventory_snapshots with current data from Shopify.
@@ -131,7 +131,7 @@ def fetch_all_products():
 
 
 def refresh_from_shopify(conn):
-    """Fetch latest audio product data from Shopify and update SQLite.
+    """Fetch latest audio product data from Shopify and update Postgres.
 
     Returns (product_count, snapshot_count).
     """

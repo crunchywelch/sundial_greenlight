@@ -15,10 +15,7 @@ PYTHON = sys.executable
 
 ACTIONS = [
     ("Refresh products from Shopify", [PYTHON, UTIL_DIR / "wire_refresh_products.py"]),
-    ("Pull inventory events from Shopify", [PYTHON, UTIL_DIR / "wire_pull_inventory_events.py"]),
-    ("Generate cost audit CSVs", [PYTHON, UTIL_DIR / "wire_generate_cost_audit.py"]),
     ("Wire cost formula audit", [PYTHON, UTIL_DIR / "wire_cost_audit.py"]),
-    ("Export inventory events CSV", [PYTHON, UTIL_DIR / "wire_pull_inventory_events.py", "--export"]),
     ("Generate tax assessment (Schedule E)", [PYTHON, UTIL_DIR / ".." / "valuation" / "tax_assessment.py"]),
     ("Import vendor data and wire cost params", [PYTHON, UTIL_DIR / "wire_import_sundial_data.py"]),
     ("Audit inventory policies (sell when OOS)", [PYTHON, UTIL_DIR / "wire_audit_inventory_policy.py"]),

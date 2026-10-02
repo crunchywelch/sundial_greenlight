@@ -2,7 +2,7 @@
 """
 Audit wire SKU costs against formula calculations.
 
-Reads wire cost parameters from SQLite (loaded from wire_cost_data.yaml),
+Reads wire cost parameters from Postgres (loaded from wire_cost_data.yaml),
 decodes each W-prefix SKU, calculates expected cost using the formula:
 
     ROUND((sum(WIRECOST, YARNCOST) * QTY) + SPOOLCOST, 2)
@@ -97,7 +97,7 @@ SPOOL_COSTS = {
 
 
 def load_wire_skus(conn):
-    """Load W-prefix SKUs with costs from SQLite."""
+    """Load W-prefix SKUs with costs from Postgres."""
     rows = conn.execute("""
         SELECT p.sku, s.cost, p.option
         FROM products p
@@ -113,7 +113,7 @@ def load_wire_skus(conn):
 
 
 def load_yarn_costs(conn):
-    """Load yarn costs from SQLite wire_cost_params."""
+    """Load yarn costs from Postgres wire_cost_params."""
     rows = conn.execute(
         "SELECT key, value FROM wire_cost_params WHERE category = 'yarn_cost'"
     ).fetchall()

@@ -23,3 +23,10 @@ data/sundial.db-shm
 *:Zone.Identifier
 logs/
 
+
+# KiCad autosave backups, caches and per-user project state
+*-backups/
+fp-info-cache
+*.kicad_prl
+\#auto_saved_files\#
+*.lck

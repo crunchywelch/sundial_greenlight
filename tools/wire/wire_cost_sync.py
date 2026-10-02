@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Compare and sync product costs from SQLite to the Wire Shopify store.
+Compare and sync product costs from Postgres to the Wire Shopify store.
 
-Reads wire product costs from the SQLite database (inventory_snapshots) and
+Reads wire product costs from the Postgres database (inventory_snapshots) and
 compares against Shopify variant costs. Reports differences and optionally
 updates Shopify to match.
 
@@ -26,7 +26,7 @@ from tools.sundial_db import get_db
 
 
 def load_db_costs(conn):
-    """Load wire SKU costs from SQLite.
+    """Load wire SKU costs from Postgres.
 
     Returns dict of SKU -> {cost, option}.
     """
@@ -231,7 +231,7 @@ def main():
     print()
 
     # Load DB costs
-    print("Loading costs from SQLite...")
+    print("Loading costs from Postgres...")
     db_costs = load_db_costs(conn)
     conn.close()
     print(f"   {len(db_costs)} SKUs with cost data")

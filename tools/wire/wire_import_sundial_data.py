@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Import vendor data and wire cost parameters into the Sundial SQLite database.
+Import vendor data and wire cost parameters into the Sundial Postgres database.
 
 Imports wire cost calculation parameters from YAML and vendor part number
 mappings from CSV. Safe to re-run — uses INSERT OR REPLACE for all tables.
@@ -118,7 +118,7 @@ def main():
         print(__doc__)
         sys.exit(0)
     print("Importing vendor data and wire cost parameters...")
-    print(f"Database: {DATA_DIR / 'sundial.db'}")
+    print("Database: Postgres (greenlight)")
     print()
 
     conn = get_db()
