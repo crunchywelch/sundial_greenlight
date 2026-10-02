@@ -9,7 +9,8 @@ InDesign Data Merge conventions honored here:
   - First CSV row is the field names (used as placeholder names in InDesign).
   - The image column header is prefixed with ``@`` so InDesign treats the cell
     value as a path to an image to place.
-  - Image cells contain absolute local file paths (Data Merge cannot fetch URLs).
+  - Image cells contain paths relative to the CSV file (so the CSV + images/
+    folder can be moved together, and Windows/WSL path prefixes don't matter).
 
 Usage:
     python -m scripts.export_wire_catalog                # 50% off, all products
@@ -130,7 +131,7 @@ def _image_ext(url: str) -> str:
 
 
 def build_rows(products: list[dict], discount_pct: float, by: str,
-               active_only: bool, images_dir: Path) -> list[dict]:
+               active_only: bool, out_dir: Path, images_dir: Path) -> list[dict]:
     """Flatten product nodes into CSV rows, downloading images as we go."""
     rows = []
     for p in products:
@@ -144,7 +145,8 @@ def build_rows(products: list[dict], discount_pct: float, by: str,
         if img_url:
             dest = images_dir / f"{handle}{_image_ext(img_url)}"
             if download_image(img_url, dest):
-                img_path = str(dest.resolve())
+                # Relative to the CSV so InDesign resolves it locally on any OS.
+                img_path = dest.relative_to(out_dir).as_posix()
 
         variants = [e["node"] for e in p.get("variants", {}).get("edges", [])]
         prices = [v.get("price") for v in variants if v.get("price")]
@@ -227,7 +229,7 @@ def main() -> None:
     products = fetch_all_products()
     logger.info("Fetched %d products. Building rows / downloading images...", len(products))
 
-    rows = build_rows(products, args.discount, args.by, args.active_only, images_dir)
+    rows = build_rows(products, args.discount, args.by, args.active_only, out_dir, images_dir)
     csv_path = out_dir / "catalog.csv"
     write_csv(rows, csv_path)
 
