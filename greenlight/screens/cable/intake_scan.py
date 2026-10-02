@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class ScanCableIntakeScreen(CableScreenBase):
-    """Screen for scanning cables and registering them in the database"""
+    """Screen for scanning cables and recording them in the database (intake)"""
 
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
@@ -49,7 +49,7 @@ class ScanCableIntakeScreen(CableScreenBase):
 
     def scan_cables_loop(self, operator, cable_type, length, connector_code,
                          connector_finish=None):
-        """Main scanning loop for registering multiple cables.
+        """Main scanning loop for taking in multiple cables.
 
         Args:
             operator: Operator ID
@@ -61,7 +61,7 @@ class ScanCableIntakeScreen(CableScreenBase):
         """
         scanned_count = 0
         scanned_serials = []
-        # Use prefilled serial from "not found → register" flow if available
+        # Use prefilled serial from "not found → intake" flow if available
         self._pending_serial = self.context.get("prefill_serial")
 
         # Clear scanner queue at session start
@@ -168,7 +168,7 @@ class ScanCableIntakeScreen(CableScreenBase):
             )
 
             if result.get('success'):
-                # Successfully registered or updated
+                # Successfully taken in or updated
                 scanned_count += 1
                 saved_serial = result['serial_number']  # Use the formatted serial from database
                 scanned_serials.append(saved_serial)
@@ -202,7 +202,7 @@ class ScanCableIntakeScreen(CableScreenBase):
                     elif action_result['action'] == 'navigate':
                         return action_result['screen_result']
             else:
-                # Error registering
+                # Intake failed
                 error_type = result.get('error', 'unknown')
                 error_msg = result.get('message', 'Unknown error')
 
@@ -211,12 +211,12 @@ class ScanCableIntakeScreen(CableScreenBase):
                     cable_record = get_audio_cable(formatted_serial)
 
                     if cable_record:
-                        # Block re-registration if cable belongs to a customer
+                        # Block re-intake if cable belongs to a customer
                         if cable_record.get('shopify_gid'):
                             self.ui.header(operator)
                             self.ui.layout["body"].update(self.build_cable_info_panel(cable_record))
                             self.ui.layout["footer"].update(Panel(
-                                "[red]This cable is assigned to a customer and cannot be re-registered.[/red]\n"
+                                "[red]This cable is assigned to a customer and cannot be re-taken.[/red]\n"
                                 "Press [bold green]enter[/bold green] or [cyan]'q'[/cyan] to continue scanning",
                                 title="Assigned Cable"
                             ))
@@ -271,7 +271,7 @@ class ScanCableIntakeScreen(CableScreenBase):
 
                     self.ui.layout["footer"].update(Panel(
                         error_display,
-                        title="Registration Error", style=error_style
+                        title="Intake Error", style=error_style
                     ))
                     self.ui.render()
                     time.sleep(1.5)  # Longer pause for errors
@@ -308,7 +308,7 @@ class ScanCableIntakeScreen(CableScreenBase):
             f"  Serial: {existing_serial}\n"
             f"  SKU: {existing_sku}\n"
             f"  Operator: {existing_operator}\n"
-            f"  Registered: {timestamp_str}\n"
+            f"  Intake: {timestamp_str}\n"
             f"  Notes: {existing_notes}\n\n"
             f"[bold]New Cable Type:[/bold]\n"
             f"  Group: {cable_type.sku_group}\n"

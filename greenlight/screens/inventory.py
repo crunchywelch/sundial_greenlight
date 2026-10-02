@@ -483,7 +483,7 @@ class LTDEditionCablesScreen(Screen):
             table.add_column("Assigned To", width=26)   # owner, or dealer if sold through one
 
             if not cables:
-                table.add_row("", "[dim]No cables registered for this edition[/dim]", "", "", "")
+                table.add_row("", "[dim]No cables taken in for this edition[/dim]", "", "", "")
                 return table
 
             for i, cable in enumerate(page_cables, 1):

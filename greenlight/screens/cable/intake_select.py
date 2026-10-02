@@ -109,7 +109,7 @@ class LtdEditionPickerScreen(Screen):
 
         # LTD editions are series-agnostic (Phase 5): the series picked
         # earlier in the flow only drives the per-cable prefix attached at
-        # registration. Show every active edition here.
+        # intake. Show every active edition here.
         series_prefix = prefix_for_series(selected_series) if selected_series else None
         editions = list_ltd_editions(active_only=True)
 
@@ -144,7 +144,7 @@ class LtdEditionPickerScreen(Screen):
             cable_word = '' if n_cables == 1 else 's'
             body_lines.append(
                 f"  [green]{i}.[/green] [bold]{ed['slug']}[/bold] — {description}\n"
-                f"     {n_cables} cable{cable_word} registered"
+                f"     {n_cables} cable{cable_word} taken in"
             )
         body_lines.append("")
         body_lines.append("  [green]Q[/green]. Back")

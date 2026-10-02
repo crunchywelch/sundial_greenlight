@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class ScanCableLookupScreen(CableScreenBase):
-    """Main cable interface - scan to lookup, test, assign, or register cables"""
+    """Main cable interface - scan to look up, test, assign, or take in cables"""
 
     def enter(self):
         """Publish scanning status while operator is active"""
@@ -82,7 +82,7 @@ class ScanCableLookupScreen(CableScreenBase):
                 self.ui.header(operator)
                 self.ui.layout["body"].update(body_panel)
                 row1 = "🔍 [bold green]Scan barcode[/bold green]"
-                row2_parts = ["[cyan]'r'[/cyan] = Register cables"]
+                row2_parts = ["[cyan]'r'[/cyan] = Intake cables"]
                 if tester_available:
                     row2_parts.append("[cyan]'c'[/cyan] = Calibrate tester")
                 row3_parts = [
@@ -121,7 +121,7 @@ class ScanCableLookupScreen(CableScreenBase):
                 # Logout - go back to operator selection
                 return ScreenResult(NavigationAction.POP)
             elif input_lower == 'r':
-                # Go to register cables flow
+                # Go to intake flow
                 new_context = self.context.copy()
                 new_context["selection_mode"] = "intake"
                 return ScreenResult(NavigationAction.PUSH, SeriesSelectionScreen, new_context)
@@ -185,10 +185,10 @@ class ScanCableLookupScreen(CableScreenBase):
                     title="Greenlight Cable Station"
                 )
             else:
-                # Cable not found - offer to register
-                register_result = self.show_not_found_with_register(operator, formatted_serial)
-                if register_result:
-                    return register_result
+                # Cable not found - offer intake
+                intake_result = self.show_not_found_with_intake(operator, formatted_serial)
+                if intake_result:
+                    return intake_result
                 # If no result, continue scanning
                 body_panel = Panel(
                     "🔍 Ready to Scan\n\n"
@@ -196,22 +196,22 @@ class ScanCableLookupScreen(CableScreenBase):
                     title="Greenlight Cable Station"
                 )
 
-    def show_not_found_with_register(self, operator, serial_number):
-        """Show not found message with option to register the cable
+    def show_not_found_with_intake(self, operator, serial_number):
+        """Show not found message with option to take the cable in
 
         Returns:
-            ScreenResult if user chooses to register, None to continue scanning
+            ScreenResult if user chooses intake, None to continue scanning
         """
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(
             f"❌ [bold red]Cable Not Found[/bold red]\n\n"
             f"Serial Number: [yellow]{serial_number}[/yellow]\n\n"
             f"This cable is not in the database.\n"
-            f"Would you like to register it?",
+            f"Would you like to take it in?",
             title="Not in Database", style="red"
         ))
         self.ui.layout["footer"].update(Panel(
-            "[cyan]'r'[/cyan] = Register this cable | [cyan]Enter[/cyan] = Continue scanning",
+            "[cyan]'r'[/cyan] = Intake this cable | [cyan]Enter[/cyan] = Continue scanning",
             title="Options"
         ))
         self.ui.render()
@@ -220,7 +220,7 @@ class ScanCableLookupScreen(CableScreenBase):
             choice = self.ui.console.input("").strip().lower()
 
             if choice == 'r':
-                # Go to register flow with this serial number pre-filled
+                # Go to intake flow with this serial number pre-filled
                 new_context = self.context.copy()
                 new_context["selection_mode"] = "intake"
                 new_context["prefill_serial"] = serial_number

@@ -155,7 +155,7 @@ class CableScreenBase(Screen):
         # -- Left column: cable identity --
         left = f"""[bold yellow]Serial:[/bold yellow] {serial_number}
 [bold yellow]SKU:[/bold yellow] {variant_sku}
-[bold yellow]Registered:[/bold yellow] {updated_timestamp_str}
+[bold yellow]Updated:[/bold yellow] {updated_timestamp_str}
 
 [bold cyan]Cable Details:[/bold cyan]
   Series: {series}
