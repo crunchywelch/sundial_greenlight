@@ -49,7 +49,7 @@ deactivate
 - **cable_config.py**: Loads + validates `catalog/` YAML; SKU parse/format
   (mirrored in JS by `shopify_app/app/cable-config.server.js`)
 - **product_lines.py**: Back-office economics (price/cost/weight) on top of cable_config
-- **cable.py**: Cable catalog/variant lookups against the DB (UI lives in `screens/cable.py`)
+- **cable_catalog.py**: Cable catalog/variant lookups against the DB (UI lives in `screens/cable/`)
 - **db.py**: Postgres connection pool and all cable/order/event queries
 - **shopify_client.py**: Shopify Admin API (audio store and wire store)
 - **gtin.py**, **registration.py**: UPC validation; registration code generation

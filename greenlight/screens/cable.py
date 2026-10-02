@@ -10,7 +10,7 @@ import re
 
 from greenlight.screen_manager import Screen, ScreenResult, NavigationAction
 from greenlight.config import APP_NAME, EXIT_MESSAGE
-from greenlight.cable import (
+from greenlight.cable_catalog import (
     CableType, get_all_skus, filter_skus, get_distinct_series,
     get_distinct_color_patterns, get_distinct_lengths, get_distinct_connector_types,
     resolve_catalog_variant,

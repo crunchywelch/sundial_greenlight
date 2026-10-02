@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from greenlight.cable import resolve_catalog_variant
+from greenlight.cable_catalog import resolve_catalog_variant
 from greenlight.db import (
     intake_scanned_cable, assign_cable_to_order,
     force_reassign_cable, unassign_cable, pg_pool,

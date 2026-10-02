@@ -140,7 +140,7 @@ The Python resolver. Read-only on YAML; no DB dependency.
   sku_group description. Only fires for MISC variants (catalog descriptions
   are pattern names from YAML; LTD descriptions are managed via Shopify).
 
-### `greenlight/cable.py`
+### `greenlight/cable_catalog.py`
 - `CableType` — sku_group wrapper. `.sku_group`, `.kind`, `.pattern_name`,
   `.description`. **Prefix, length, and connector_code are NOT on
   CableType** — they're per-cable, captured in the screen flow's nav
