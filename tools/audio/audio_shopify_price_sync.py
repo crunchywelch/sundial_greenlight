@@ -9,6 +9,7 @@ optionally updates Shopify to match.
 Usage:
     python tools/audio/audio_shopify_price_sync.py           # Preview differences
     python tools/audio/audio_shopify_price_sync.py --fix     # Update Shopify to match YAML
+    python tools/audio/audio_shopify_price_sync.py --only weight --catalog-only   # one field, no MISC
 """
 
 import sys
@@ -25,10 +26,11 @@ setup_logging()
 
 import shopify
 from greenlight.shopify_client import get_shopify_session, close_shopify_session, SPECIAL_BABY_PRICE
-from greenlight.product_lines import interpolate_cost, load_yaml_skus, build_sku, get_cost
+from greenlight.product_lines import interpolate_cost, load_yaml_skus, build_sku, get_cost, get_weight
 from greenlight.db import pg_pool
 
 WEIGHT_UNIT = "OUNCES"
+FIELDS = ("price", "cost", "weight")
 
 def build_yaml_sku_map(product_lines_dir=None):
     """Build variant SKU -> {price, cost, weight} from YAML product line files.
@@ -42,14 +44,13 @@ def build_yaml_sku_map(product_lines_dir=None):
     sku_map = {}
     for prefix, line in lines.items():
         pricing = line.get('pricing', {})
-        weight_data = line.get('weight', {})  # may not be present in all lines
         for length in line['lengths']:
             price = pricing.get(length)
-            weight = weight_data.get(length)
             for pattern in line['patterns']:
                 for connector in line['connectors']:
                     sku = build_sku(prefix, length, pattern['code'], connector.get('code', ''))
                     cost = get_cost(line, length, connector.get('code', ''))
+                    weight = get_weight(line, length, connector.get('code', ''))
                     sku_map[sku] = {
                         'price': float(price) if price is not None else None,
                         'cost': float(cost) if cost is not None else None,
@@ -354,7 +355,12 @@ def main():
     )
     parser.add_argument('--fix', action='store_true',
                         help='Update Shopify to match YAML values')
+    parser.add_argument('--only', choices=FIELDS, action='append',
+                        help='Limit to these fields (repeatable); default all')
+    parser.add_argument('--catalog-only', action='store_true',
+                        help='Skip MISC (special baby) SKUs')
     args = parser.parse_args()
+    fields = set(args.only or FIELDS)
 
     product_lines_dir = Path(__file__).parent.parent / 'product_lines'
 
@@ -368,9 +374,12 @@ def main():
     print(f"   {len(yaml_map)} standard SKUs from YAML")
 
     # Add special baby types (cost/weight interpolated from YAML)
-    special_map = build_special_baby_sku_map(product_lines_dir)
-    yaml_map.update(special_map)
-    print(f"   {len(special_map)} special baby SKUs from DB")
+    if args.catalog_only:
+        print("   special baby SKUs skipped (--catalog-only)")
+    else:
+        special_map = build_special_baby_sku_map(product_lines_dir)
+        yaml_map.update(special_map)
+        print(f"   {len(special_map)} special baby SKUs from DB")
     print(f"   {len(yaml_map)} total SKUs")
     print()
 
@@ -382,6 +391,13 @@ def main():
 
     # Find differences
     diffs = find_differences(yaml_map, shopify_map)
+    for d in diffs:
+        for field in FIELDS:
+            if field not in fields:
+                d[f'{field}_diff'] = False
+    diffs = [d for d in diffs if any(d[f'{f}_diff'] for f in FIELDS)]
+    if fields != set(FIELDS):
+        print(f"Limited to: {', '.join(f for f in FIELDS if f in fields)}")
 
     # Count by type
     price_diffs = [d for d in diffs if d['price_diff']]
@@ -435,7 +451,7 @@ def main():
 
     if not args.fix:
         print(f"Run with --fix to update Shopify.")
-        print(f"   Command: python tools/audio/audio_shopify_price_sync.py --fix")
+        print(f"   Command: python tools/audio/audio_shopify_price_sync.py {' '.join(sys.argv[1:] + ['--fix'])}")
         return 0
 
     # Apply fixes

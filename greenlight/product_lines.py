@@ -66,8 +66,10 @@ def _validate_economics(economics, cable_lines_data):
             for field in ("price", "cost", "weight"):
                 if entry.get(field) is None:
                     warnings.append(f"{prefix}-{length}: missing {field}")
-            if has_ra and entry.get("cost_ra") is None:
-                warnings.append(f"{prefix}-{length}: missing cost_ra (series has a right-angle connector)")
+            if has_ra:
+                for field in ("cost_ra", "weight_ra"):
+                    if entry.get(field) is None:
+                        warnings.append(f"{prefix}-{length}: missing {field} (series has a right-angle connector)")
 
     if warnings:
         logger.warning(
@@ -85,12 +87,12 @@ def load_yaml_skus():
       cable_lines.yaml           — runtime: sku_prefix, product_line, lengths,
                                    connectors, braid_material
       patterns.yaml              — runtime: pattern catalog
-      back_office/economics.yaml — back-office: price + cost + cost_ra + weight
+      back_office/economics.yaml — back-office: price, cost(_ra), weight(_ra)
                                    per (series, length) (merged pricing+weights)
 
     Returns dict: sku_prefix -> {name, lengths, connectors, patterns, pricing, cost, weight}.
     The pricing/cost/weight sub-dicts keep the pre-consolidation shape (cost
-    carries '{length}R' keys for right-angle) so downstream callers are
+    and weight carry '{length}R' keys for right-angle) so downstream callers are
     unchanged — only the source file changed.
     """
     patterns_by_fabric = defaultdict(list)
@@ -125,6 +127,8 @@ def load_yaml_skus():
                 cost[f"{length}R"] = entry["cost_ra"]
             if entry.get("weight") is not None:
                 weight[length] = entry["weight"]
+            if entry.get("weight_ra") is not None:
+                weight[f"{length}R"] = entry["weight_ra"]
 
         lines[prefix] = {
             "name": data["product_line"],
@@ -154,6 +158,16 @@ def get_cost(line, length, connector_code):
         if key in cost_map:
             return cost_map[key]
     return cost_map.get(length)
+
+
+def get_weight(line, length, connector_code):
+    """Look up packaged weight (oz) from YAML weight map; right-angle aware."""
+    weight_map = line.get("weight", {})
+    if connector_code == "-R":
+        key = f"{length}R"
+        if key in weight_map:
+            return weight_map[key]
+    return weight_map.get(length)
 
 
 def interpolate_cost(lengths_map, target_length):
