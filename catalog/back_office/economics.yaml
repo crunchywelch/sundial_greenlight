@@ -30,30 +30,29 @@
 #            1'=$49 (Studio only), 3'=$59, 6'=$69, 10'=$79, 12'/15'=$89,
 #            20'=$99, 25'=$109.
 #   weight — GS1 Data Hub GrossWeight per SKU (identical across patterns).
-#   cost   — unchanged from 2026-07-14, except SC/SV 1' (restored from the
-#            July values) and TC/TV 12' (linear between 10' and 15').
+#   cost   — cost sheet (2026-10-02).
 # =============================================================================
 
 series:
   SC:                                                              # Studio Classic — instrument, TS / right-angle
     1:  { price:  49.00, cost:  9.22, cost_ra: 11.21, weight:  3.1, weight_ra:  3.5 }
     3:  { price:  59.00, cost: 10.78, cost_ra: 12.77, weight:  4.3, weight_ra:  4.7 }
-    6:  { price:  69.00, cost: 13.12, cost_ra: 15.11, weight:  6.1, weight_ra:  6.5 }
-    10: { price:  79.00, cost: 16.24, cost_ra: 18.23, weight:  8.5, weight_ra:  8.7 }
-    12: { price:  89.00, cost: 17.80, cost_ra: 19.79, weight: 10.2, weight_ra: 10.6 }
-    15: { price:  89.00, cost: 20.14, cost_ra: 22.13, weight: 11.9, weight_ra: 12.3 }
-    20: { price:  99.00, cost: 24.04, cost_ra: 26.03, weight: 14.6, weight_ra: 15.0 }
-    25: { price: 109.00, cost: 25.90, cost_ra: 27.74, weight: 17.3, weight_ra: 17.7 }
+    6:  { price:  69.00, cost: 13.13, cost_ra: 15.12, weight:  6.1, weight_ra:  6.5 }
+    10: { price:  79.00, cost: 16.26, cost_ra: 18.25, weight:  8.5, weight_ra:  8.7 }
+    12: { price:  89.00, cost: 17.82, cost_ra: 19.81, weight: 10.2, weight_ra: 10.6 }
+    15: { price:  89.00, cost: 20.16, cost_ra: 22.15, weight: 11.9, weight_ra: 12.3 }
+    20: { price:  99.00, cost: 24.07, cost_ra: 26.06, weight: 14.6, weight_ra: 15.0 }
+    25: { price: 109.00, cost: 27.98, cost_ra: 29.97, weight: 17.3, weight_ra: 17.7 }
 
   SV:                                                              # Studio Vocal — XLR
     1:  { price:  49.00, cost:  9.04, weight:  3.6 }
     3:  { price:  59.00, cost: 10.13, weight:  4.8 }
-    6:  { price:  69.00, cost: 11.76, weight:  6.6 }
-    10: { price:  79.00, cost: 13.94, weight:  8.8 }
-    12: { price:  89.00, cost: 15.03, weight: 10.7 }
-    15: { price:  89.00, cost: 16.66, weight: 12.4 }
-    20: { price:  99.00, cost: 19.38, weight: 15.1 }
-    25: { price: 109.00, cost: 18.43, weight: 17.8 }
+    6:  { price:  69.00, cost: 11.77, weight:  6.6 }
+    10: { price:  79.00, cost: 13.95, weight:  8.8 }
+    12: { price:  89.00, cost: 15.04, weight: 10.7 }
+    15: { price:  89.00, cost: 16.68, weight: 12.4 }
+    20: { price:  99.00, cost: 19.41, weight: 15.1 }
+    25: { price: 109.00, cost: 22.14, weight: 17.8 }
 
   TC:                                                              # Tour Classic — instrument, TS / right-angle
     3:  { price:  59.00, cost:  9.80, cost_ra: 11.64, weight:  4.3, weight_ra:  4.7 }

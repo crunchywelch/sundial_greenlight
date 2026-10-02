@@ -232,8 +232,9 @@ def _convert_weight_to_ounces(value, unit):
     return round(value * factor, 2)
 
 
-def _floats_differ(a, b, tol=0.01):
-    """Compare two floats (either may be None)."""
+def _floats_differ(a, b, tol=0.005):
+    """Compare two floats (either may be None). Values are in cents or 0.01 oz,
+    so half a cent avoids float noise deciding whether a 1-cent change counts."""
     if a is None and b is None:
         return False
     if a is None or b is None:
