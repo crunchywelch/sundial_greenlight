@@ -741,6 +741,151 @@ def get_customer_orders(customer_id: str, limit: int = 10) -> list[Dict[str, Any
         close_shopify_session()
 
 
+_DRAFT_ORDER_FIELDS = """
+    id
+    name
+    status
+    createdAt
+    customer { id displayName email }
+    totalPriceSet { shopMoney { amount currencyCode } }
+    lineItems(first: 100) {
+        edges {
+            node {
+                title
+                quantity
+                sku
+                variant { id sku }
+            }
+        }
+    }
+"""
+
+
+def _flatten_draft_order(node: Dict[str, Any]) -> Dict[str, Any]:
+    """Lift lineItems out of the GraphQL edge/node nesting.
+
+    A line item's own `sku` is the one to trust: it is a snapshot taken when
+    the draft was created, so it survives the variant being renamed or
+    deleted afterwards. `variant.sku` is the fallback for a line whose own
+    sku was never set.
+    """
+    items = []
+    for edge in (node.get("lineItems") or {}).get("edges", []):
+        item = edge["node"]
+        variant = item.get("variant") or {}
+        items.append({
+            "sku": item.get("sku") or variant.get("sku") or "",
+            "quantity": int(item.get("quantity") or 0),
+            "title": item.get("title") or "",
+            "variant_id": variant.get("id"),
+        })
+    flat = dict(node)
+    flat["line_items"] = items
+    return flat
+
+
+def get_draft_orders(limit: int = 25,
+                     customer_id: Optional[str] = None) -> list[Dict[str, Any]]:
+    """Recent DRAFT orders, newest first, with their line items flattened.
+
+    Draft orders are a separate GraphQL root from orders, so none of the
+    `get_customer_orders` paths can see them. The wholesale flow needs this
+    one: `shopify_app/app/b2b.server.js` creates a draft and emails an
+    invoice, and never completes it -- the buyer paying the invoice is what
+    turns it into an Order. So a wholesale order is a draft for as long as it
+    is unpaid, which is when its labels get printed.
+
+    Args:
+        limit: how many to fetch (newest first)
+        customer_id: optionally filter to one customer (numeric ID or GID)
+
+    Returns:
+        List of draft order dicts, each with a `line_items` list of
+        {sku, quantity, title, variant_id}.
+    """
+    try:
+        get_shopify_session()
+
+        query = """
+        query getDraftOrders($limit: Int!, $query: String) {
+            draftOrders(first: $limit, reverse: true, query: $query) {
+                edges { node { %s } }
+            }
+        }
+        """ % _DRAFT_ORDER_FIELDS
+
+        search = None
+        if customer_id:
+            numeric = customer_id.rsplit("/", 1)[-1]
+            search = f"customer_id:{numeric}"
+
+        result = shopify.GraphQL().execute(
+            query, variables={"limit": limit, "query": search})
+
+        import json
+        data = json.loads(result)
+
+        if "errors" in data:
+            logger.error("GraphQL errors: %s", data['errors'])
+            return []
+
+        edges = data.get("data", {}).get("draftOrders", {}).get("edges", [])
+        return [_flatten_draft_order(e["node"]) for e in edges]
+
+    except Exception as e:
+        logger.error("Error fetching draft orders: %s", e)
+        return []
+    finally:
+        close_shopify_session()
+
+
+def get_draft_order_by_name(name: str) -> Optional[Dict[str, Any]]:
+    """One draft order by its name, e.g. "#D12" or "D12" or "12".
+
+    An operator printing labels has an order number in hand, not a customer,
+    which is why this exists alongside the customer-filtered listing.
+    """
+    if not name:
+        return None
+    wanted = name.strip().lstrip("#").upper()
+    if not wanted:
+        return None
+
+    try:
+        get_shopify_session()
+
+        query = """
+        query findDraftOrder($query: String!) {
+            draftOrders(first: 10, query: $query) {
+                edges { node { %s } }
+            }
+        }
+        """ % _DRAFT_ORDER_FIELDS
+
+        result = shopify.GraphQL().execute(
+            query, variables={"query": f"name:{wanted}"})
+
+        import json
+        data = json.loads(result)
+        if "errors" in data:
+            logger.error("GraphQL errors: %s", data['errors'])
+            return None
+
+        edges = data.get("data", {}).get("draftOrders", {}).get("edges", [])
+        for edge in edges:
+            node = edge["node"]
+            # `name:` is a prefix-ish search, so confirm the exact one.
+            if (node.get("name") or "").lstrip("#").upper() == wanted:
+                return _flatten_draft_order(node)
+        return _flatten_draft_order(edges[0]["node"]) if edges else None
+
+    except Exception as e:
+        logger.error("Error fetching draft order %s: %s", name, e)
+        return None
+    finally:
+        close_shopify_session()
+
+
 def get_product_by_sku(sku: str) -> Optional[Dict[str, Any]]:
     """
     Look up a single product variant by SKU from the Sundial Wire Shopify store.

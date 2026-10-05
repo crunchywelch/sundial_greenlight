@@ -465,6 +465,55 @@ rather than growing the label.
 
 ## Printing a batch
 
+### Printing a wholesale order
+
+```bash
+python tools/printer/print_order_labels.py --list          # recent drafts
+python tools/printer/print_order_labels.py D14 --preview    # the plan
+python tools/printer/print_order_labels.py D14 --labels side
+python tools/printer/print_order_labels.py D14
+```
+
+**Wholesale orders are Shopify DRAFT orders.** `shopify_app/app/b2b.server.js`
+creates a draft and emails an invoice, and never completes it — the buyer
+paying is what turns it into an Order. So an unpaid wholesale order is a
+draft for its whole working life, including when its labels get printed, and
+`get_customer_orders()` cannot see it: drafts are a separate GraphQL root.
+Hence `shopify_client.get_draft_orders()` and `get_draft_order_by_name()`.
+
+**Which labels to print is asked per job**, not fixed, because it varies —
+not every retailer wants the UPC label, and Prop 65 placement is unsettled.
+Deselecting one also changes what the run costs:
+
+```
+#D14, 24 cables over 6 SKUs
+  --labels upc,side   48 labels, 12 jobs, 1 roll swap
+  --labels side       24 labels,  6 jobs, 0 roll swaps
+```
+
+`greenlight/label_batch.py` does the planning, with no printer, DB or
+Shopify, so the awkward parts are testable. Two things shape its output:
+
+- **Grain.** The retail labels are per *variant*: four identical cables are
+  one job with `PRINT 4`, not four jobs. That is why a 24-cable order is 12
+  connections. `registration_label` is deliberately **not** planned here —
+  it carries a unique code per physical cable, keyed to serials that live in
+  Postgres rather than in the order, so it belongs with the cable batch in
+  `screens/wholesale.py` where the serials already are.
+- **Stock.** Jobs are grouped by stock and printed one group at a time, so a
+  mixed run costs one roll swap rather than one per label.
+
+**Lines that cannot be printed warn rather than vanish.** A wholesale order
+that quietly prints 20 labels instead of 24 is worse than one that refuses:
+
+| Line | Outcome |
+|---|---|
+| MISC / LTD build (e.g. `TC-MISC-51`) | skipped, warned — no retail UPC, and no catalog length or connector, so most of a side label would be blank |
+| SKU the catalog doesn't know | skipped, warned |
+| Catalog SKU with no UPC in Shopify | UPC label skipped, **side label still prints** |
+
+Those cases are real: order `#D4` in the store is five MISC one-offs.
+
 ### Copies are the printer's job
 
 `PrintJob(quantity=N)` prints N labels from **one** connection: TSPL's

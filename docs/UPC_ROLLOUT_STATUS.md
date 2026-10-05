@@ -198,9 +198,13 @@ template; `LABEL_STOCK` declares each template's stock; one `TEMPLATES`
 dispatch table shared by the real printer and the mock. See
 `LABEL_PRINTING.md` § Printing a batch.
 
-**Phase 2 — batch a Shopify order.** Group by SKU, then by stock: all the 2"
-work, one roll swap, then all the 1" work. Variant-grain labels go as single
-jobs with `PRINT N`; registration labels are per-cable and unique.
+**Phase 2 — done 2026-10-05, as a CLI.** `tools/printer/print_order_labels.py`
+plans and prints a draft order's retail labels; `greenlight/label_batch.py`
+holds the planning. Verified end to end against real draft orders: `#D14` (24
+cables over 6 SKUs) plans 48 labels as 12 jobs with one roll swap, and `#D3`
+printed. Draft-order support added to `shopify_client` — the B2B flow never
+completes its drafts, so `get_customer_orders()` could not see a wholesale
+order at all. Still CLI-only; a TUI screen is the remaining piece.
 
 **Phase 3 — a second printer**, one per stock size. Not bought yet, so this is
 a note rather than a plan. The shape: a second `GREENLIGHT_TSC_*_PRINTER_IP`,
