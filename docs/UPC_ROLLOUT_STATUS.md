@@ -160,6 +160,48 @@ Wholesale batches and customer assignment only look up existing cables, so a
 UPC there fails as "not found" and can't create a row. Covered by
 `tests/test_serial_validation.py`.
 
+## Pre-launch audit
+
+```bash
+python tools/audio/audio_catalog_audit.py          # exits 1 on any problem
+```
+
+Read-only cross-check of catalog/ against Shopify. Run it before a wholesale
+launch, after loading UPCs, and after editing catalog/. It exists for the
+class of error where **two sources agree and are both wrong** — the three
+Electric Houndstooth variants that carried the 10/20 ft SKUs in Shopify *and*
+in Data Hub, so neither contradicted the other. Only checking each SKU
+against its own Shopify naming found them.
+
+Checks: coverage both ways; every catalog variant has a valid GTIN-12; no UPC
+shared by two SKUs; no MISC/LTD carrying a UPC; Shopify's own variant naming
+agrees with each SKU on length, right-angle, instrument/microphone and
+pattern; prices match economics.yaml to the cent.
+
+**Clean as of 2026-10-05**: 298 Shopify SKUs, 222 catalog variants all
+present with valid unique UPCs, 76 MISC/LTD correctly carrying none, all 222
+prices matching. The 222/76 split agreeing with the UPC load independently is
+itself a useful signal.
+
+Not covered: packaged weight (Shopify's bulk SKU fetch doesn't return it, and
+it matters for Data Hub rather than for labels), unit costs, inventory, and
+the Data Hub side — its API is deferred, see the decision log.
+
+### Known noise: the token validation probe
+
+Every `get_shopify_session()` validates the cached `SHOPIFY_ACCESS_TOKEN`
+with a `{ shop { name } }` probe before using it. Client-credentials tokens
+are short-lived, so a fresh process usually finds an expired one, the probe
+fails, and it refreshes and persists a new token. That works — but it prints
+`[API] Invalid API key or access token` to stderr, which reads like a
+credentials failure and isn't one, and it costs two extra round trips per
+process.
+
+It is the **audio** store, not Wire. Worth replacing the proactive probe with
+"use the token, and on an auth error refresh and retry once" —
+`_is_shopify_auth_error()` already exists for that shape. Left alone for now
+because it is auth plumbing every call path depends on.
+
 ## Still open (needs a decision)
 
 - **GS1 "short description" on the box label.** Currently the label prints

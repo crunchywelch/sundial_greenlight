@@ -117,7 +117,7 @@ def test_describe_variant_right_angle():
     # Both ends really are TS, one of them angled — so the product-facing
     # designation says so rather than inventing a second pair name.
     assert d["connector_label"] == "TS-TS Right Angle"
-    assert d["headline"] == "Tour Classic - Houndstooth Putty"
+    assert d["headline"] == "Touring Classic - Houndstooth Putty"
 
 
 def test_describe_variant_mic_says_nothing_about_xlr_gender():

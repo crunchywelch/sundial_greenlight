@@ -50,7 +50,7 @@ series:
 
   - sku_prefix: TC
     retail_family: Touring
-    product_line: Tour Classic
+    product_line: Touring Classic
     core_cable: Canare GS-6
     braid_material: Cotton
     lengths: [3, 6, 10, 12, 15, 20, 25]
@@ -62,7 +62,7 @@ series:
 
   - sku_prefix: TV
     retail_family: Touring
-    product_line: Tour Vocal Classic
+    product_line: Touring Vocal Classic
     core_cable: Canare L-4E6S
     braid_material: Cotton
     lengths: [3, 6, 10, 12, 15, 20, 25]
