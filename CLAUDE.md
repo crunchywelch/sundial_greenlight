@@ -148,11 +148,44 @@ Key pieces:
   find an audio SKU — a mistake that fails silently as "not found".
 - `tools/audio/audio_upc_sync.py` — CSV → Shopify loader, dry run by default.
 - `tools/printer/print_box_label.py --preview` — geometry report, no hardware.
+- `tools/printer/print_shelf_label.py --preview` — box-side label, no hardware.
 
 Box labels need **2" × 3" stock**, not the 1" × 3" cable roll: at 203 DPI a
 UPC-A only renders at whole-dot module widths, so 2" stock gives 113.7%
 magnification (in spec) while 1" is forced to 75.8%, the GS1 thermal-print
 floor, with no room for branding. The TE210 has one media path, so batch them.
+
+**A boxed cable wears three stickers**, and only one of them is a UPC: the
+*front* gets a pre-printed pattern sticker (Goldline, Silverline, ...), the
+*back* gets the 2" × 3" `box_label` with the UPC-A, and the *side* gets the
+1" × 3" `shelf_label`. The side is the only face visible once boxes are racked
+spine-out, so that template leads with length and connector and deliberately
+carries **no barcode** — the back's UPC is what a POS scans. Its text comes
+from `cable_config.describe_variant()`, pure `catalog/` YAML with no DB or
+Shopify, so shelf labels print with the tunnel down.
+
+It prints six rows — `Sundial Audio Studio Series`, the pattern,
+`20' Instrument Cable` (the largest), `TS-TS - Canare GS-6`, then the SKU
+bottom-right. **There is deliberately no braid description**: the pattern row
+says the same thing in one word, and at up to three rows it left only 4 dots
+between rows, which read as a wall of text. `describe_variant()` still returns
+that copy as `detail` for callers with room — the label doesn't print it. The
+brand line uses a
+**`retail_family`** field in `cable_lines.yaml` (`Studio`, `Touring`), coarser
+than `product_line` on purpose: the boxes are generic, the pattern is a front
+sticker, and the spec line already says Instrument or Microphone. Adding a
+field there means mirroring it in `shopify_app/app/cable-config-schemas.js`,
+whose per-series shape is `additionalProperties: false`.
+
+The cable type and the connector name both come from `RETAIL_CABLE_TYPES`.
+The connector row is the *product-facing* pair name, so a right-angle cable
+reads `TS-TS Right Angle` and the internal `RA-TS` shorthand never reaches a
+label. Nothing on the label restates a default — no row says a mic cable is
+XLR male-to-female, because it always is. No inch marks anywhere either: TSPL
+can't escape a double quote, so feet use the prime (`20'`). A new series with
+a new connector display needs an entry added; the sweep in
+`tests/test_shelf_label.py` fails if one is missing, and also renders every
+catalog variant to catch text that runs off the label or over its neighbour.
 
 **Scan-loop guard:** serial numbers are purely numeric, so a scanned 12-digit
 UPC would otherwise be zero-padded into a bogus serial.

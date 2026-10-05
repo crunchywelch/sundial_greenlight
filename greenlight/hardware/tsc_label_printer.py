@@ -35,6 +35,33 @@ WIRE_LOGO_BMP_DATA = (
 )
 
 
+def _tspl_safe(text: Optional[str]) -> str:
+    """Make a string safe to drop inside a TSPL TEXT command's quotes.
+
+    Two hazards. TSPL delimits TEXT content with `"` and offers no escape for
+    one, so a stray quote truncates the command and the rest of the line ends
+    up interpreted as TSPL. And the TE210's built-in bitmap fonts render a
+    single-byte codepage, so multi-byte UTF-8 prints as garbage — which the
+    catalog YAML would hand us, since it writes connector displays with
+    en-dashes ('TS–TS').
+
+    So: fold the dashes and smart quotes to ASCII, drop anything still
+    non-ASCII, then swap `"` for `'`.
+    """
+    if not text:
+        return ''
+    folded = (text.replace('\u2013', '-').replace('\u2014', '-')
+                  .replace('\u2018', "'").replace('\u2019', "'")
+                  .replace('\u201c', '"').replace('\u201d', '"')
+                  # Prime / double prime: Shopify titles use these for feet
+                  # and inches. Folding beats dropping them, which turned
+                  # "20\u2032" into a bare "20".
+                  .replace('\u2032', "'").replace('\u2033', '"'))
+    ascii_only = ''.join(c for c in folded if 32 <= ord(c) < 127)
+    return ascii_only.replace('"', "'")
+
+
+
 class TSCLabelPrinter(LabelPrinterInterface):
     """TSC TE210 thermal transfer label printer"""
 
@@ -67,6 +94,36 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         # Parse embedded wire logo bitmap
         self.wire_logo_data = self._parse_bitmap(WIRE_LOGO_BMP_DATA)
+
+    # Inter-label gap, in mm. In TSPL `GAP m,n`, m is the gap between labels
+    # and n is the gap OFFSET -- and n must be 0 for ordinary die-cut stock.
+    # Every template here used to send `GAP 2 mm, 2 mm`, so a 2 mm offset
+    # (16 dots at 203 DPI) pushed every label this app printed that far down
+    # its stock. On the 1" cable roll that reads as "labels sit a bit low",
+    # which is not the sort of thing anyone reports.
+    #
+    # The 2 mm itself is right: the printer's own SELFTEST reports the
+    # measured gap as 0.08 in = 2.03 mm. Re-check it when changing stock,
+    # and never set m to 0 -- `GAP 0,0` means continuous media, which leaves
+    # the printer no top-of-form to register against at all.
+    GAP_MM = 2.0
+
+    # Horizontal advance per character, in dots, MEASURED on this printer --
+    # see tools/printer/calibrate_media.py --measure, which prints a vertical
+    # line where each font is predicted to end so the reading is unambiguous.
+    #
+    # All five are read off a printed calibration label. Fonts "1" and "2"
+    # advance 2 dots more than the TSPL manual documents (10 and 14, against
+    # 8 and 12); "3", "4" and "5" match it exactly. There is no pattern: the
+    # first theory was a uniform "cell width + 2" inferred from font "2"
+    # alone, and it was wrong for three of the five. Measure, don't infer --
+    # tools/printer/calibrate_media.py --measure prints a vertical line where
+    # each font is predicted to end, so the reading is unambiguous.
+    #
+    # Any template placing text by character count must use these: box_label
+    # was laid out with the manual's figures and put "SUNDIAL" 6 dots into
+    # the logo and a long SKU 18 dots off the edge.
+    FONT_ADVANCE = {"1": 10, "2": 14, "3": 16, "4": 24, "5": 32}
 
     def _parse_bitmap(self, data: bytes) -> Optional[Dict[str, Any]]:
         """Parse a 1-bit BMP and prepare it for inline BITMAP command."""
@@ -216,6 +273,8 @@ class TSCLabelPrinter(LabelPrinterInterface):
                 tspl = self._generate_bin_label_tspl(print_job.data)
             elif print_job.template == "box_label":
                 tspl = self._generate_box_label_tspl(print_job.data)
+            elif print_job.template == "shelf_label":
+                tspl = self._generate_shelf_label_tspl(print_job.data)
             elif print_job.template == "text_label":
                 tspl = self._generate_text_label_tspl(print_job.data)
             elif print_job.template == "prop65_label":
@@ -328,7 +387,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         # Set printing gap (gap between labels, offset from edge)
         # Gap of 2-3mm works well, with 2mm offset to prevent first label cutoff
-        tspl_commands.append("GAP 2 mm, 2 mm")
+        tspl_commands.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
 
         # Set printing direction and origin
         tspl_commands.append("DIRECTION 1,0")  # Normal orientation
@@ -549,7 +608,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
         # Start TSPL commands
         tspl_commands = []
         tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
-        tspl_commands.append("GAP 2 mm, 2 mm")
+        tspl_commands.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
         tspl_commands.append("DIRECTION 1,0")
         tspl_commands.append("REFERENCE 0,0")
         tspl_commands.append("SET TEAR ON")
@@ -639,7 +698,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
         # Start TSPL commands
         tspl_commands = []
         tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
-        tspl_commands.append("GAP 2 mm, 2 mm")
+        tspl_commands.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
         tspl_commands.append("DIRECTION 1,0")
         tspl_commands.append("REFERENCE 0,0")
         tspl_commands.append("SET TEAR ON")
@@ -736,7 +795,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         tspl_commands = []
         tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
-        tspl_commands.append("GAP 2 mm, 2 mm")
+        tspl_commands.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
         tspl_commands.append("DIRECTION 1,0")
         tspl_commands.append("REFERENCE 0,0")
         tspl_commands.append("SET TEAR ON")
@@ -792,6 +851,16 @@ class TSCLabelPrinter(LabelPrinterInterface):
     # Retail box labels use their own, taller stock than the 1"x3" cable roll.
     BOX_LABEL_WIDTH_MM = 76.2      # 3"
     BOX_LABEL_HEIGHT_MM = 50.8     # 2"
+
+    # Dots at the bottom of the stock to keep clear. This was 14, and on the
+    # first box label ever printed the UPC's human-readable digits came out
+    # cut off -- which GS1 requires to be legible, so it is a compliance
+    # failure and not a cosmetic one. A calibration label put the last
+    # reliably-printing row at about y=370 of the declared 406, and the
+    # digits need to end above that. 41 made them fully visible but sitting
+    # right on the edge, which is no margin at all once registration drifts
+    # -- so 55, putting the digits at 324..352.
+    BOX_LABEL_BOTTOM_MARGIN = 55
 
     def _generate_box_label_tspl(self, data: Dict[str, Any]) -> bytes:
         """Generate TSPL commands for a retail box label with a UPC-A barcode.
@@ -871,7 +940,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         tspl_commands = []
         tspl_commands.append(f"SIZE {width_mm:.1f} mm, {height_mm:.1f} mm")
-        tspl_commands.append("GAP 2 mm, 2 mm")
+        tspl_commands.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
         tspl_commands.append("DIRECTION 1,0")
         tspl_commands.append("REFERENCE 0,0")
         tspl_commands.append("SET TEAR ON")
@@ -888,30 +957,57 @@ class TSCLabelPrinter(LabelPrinterInterface):
         # plus its divider rule; if that won't fit above the bars, the label
         # degrades to barcode-only rather than printing text over the bars.
         HEADER_H = 46
-        barcode_y = height_dots - bars_h - hri_h - 14
+        barcode_y = height_dots - bars_h - hri_h - self.BOX_LABEL_BOTTOM_MARGIN
         y = 10
+        usable = width_dots - 2 * x_left
+        logo_w = self.wire_logo_data['width'] if self.wire_logo_data else 0
+        logo_gap = 12
 
         if barcode_y >= y + HEADER_H:
+            # Brand block: "SUNDIAL" [logo] "AUDIO". Each piece is placed
+            # after the measured end of the one before it -- hardcoded
+            # offsets had "SUNDIAL" running 6 dots into the logo, because
+            # they were derived from the manual's font widths rather than
+            # the printer's actual advance.
+            brand_adv = self.FONT_ADVANCE["3"]
             tspl_commands.append(f'TEXT {x_left},{y},"3",0,1,1,"SUNDIAL"')
-            tspl_commands.append('__WIRE_LOGO__')
-            tspl_commands.append(f'TEXT {x_left + 190},{y},"3",0,1,1,"AUDIO"')
+            logo_x = x_left + len("SUNDIAL") * brand_adv + logo_gap
+            tspl_commands.append(f'__WIRE_LOGO__{logo_x}')
+            audio_x = logo_x + logo_w + logo_gap
+            tspl_commands.append(f'TEXT {audio_x},{y},"3",0,1,1,"AUDIO"')
+            brand_end = audio_x + len("AUDIO") * brand_adv
+
             if sku:
-                # Right-aligned-ish: font "2" is 12 dots wide per character.
-                sku_x = max(x_left + 300, width_dots - 20 - len(sku) * 12)
-                tspl_commands.append(f'TEXT {sku_x},{y + 6},"2",0,1,1,"{sku}"')
+                # Right-aligned in what the brand block leaves. Drops to
+                # font "1" rather than running off the edge or over "AUDIO",
+                # which a long LTD SKU ('SC-12-LTD-PHISH26-R') otherwise did.
+                for sku_font in ("2", "1"):
+                    adv = self.FONT_ADVANCE[sku_font]
+                    sku_x = width_dots - x_left - len(sku) * adv
+                    if sku_x >= brand_end + logo_gap:
+                        break
+                sku_x = max(brand_end + logo_gap, sku_x)
+                fits = max(1, (width_dots - x_left - sku_x) // adv)
+                tspl_commands.append(
+                    f'TEXT {sku_x},{y + 6},"{sku_font}",0,1,1,"{sku[:fits]}"')
             y += 32
-            tspl_commands.append(f'BAR {x_left},{y},{width_dots - 2 * x_left},2')
+            tspl_commands.append(f'BAR {x_left},{y},{usable},2')
             y += 14
 
+            # Both of these come from Shopify, so they can be any length and
+            # can carry en-dashes or smart quotes: clip to the row, and run
+            # them through _tspl_safe rather than only swapping quotes.
             if title:
-                for part in self._split_text(title, max_length=30)[:2]:
+                title_chars = max(1, usable // self.FONT_ADVANCE["3"])
+                for part in self._split_text(title, max_length=title_chars)[:2]:
                     if barcode_y - y < 28:
                         break
-                    safe = part.replace('"', "'")
+                    safe = _tspl_safe(part)[:title_chars]
                     tspl_commands.append(f'TEXT {x_left},{y},"3",0,1,1,"{safe}"')
                     y += 28
             if subtitle and barcode_y - y >= 26:
-                safe = subtitle.replace('"', "'")
+                sub_chars = max(1, usable // self.FONT_ADVANCE["2"])
+                safe = _tspl_safe(subtitle)[:sub_chars]
                 tspl_commands.append(f'TEXT {x_left},{y},"2",0,1,1,"{safe}"')
         else:
             # Too short for branding — center the symbol and print nothing
@@ -940,14 +1036,172 @@ class TSCLabelPrinter(LabelPrinterInterface):
         # Build output as bytes, handling the inline logo bitmap
         output = b''
         for cmd in tspl_commands:
-            if cmd == '__WIRE_LOGO__':
-                bitmap_cmd = self._get_bitmap_command(x_left + 120, 12)
+            if cmd.startswith('__WIRE_LOGO__'):
+                bitmap_cmd = self._get_bitmap_command(
+                    int(cmd[len('__WIRE_LOGO__'):]), 12)
                 if bitmap_cmd:
                     output += bitmap_cmd + b'\r\n'
             else:
                 output += cmd.encode('utf-8') + b'\r\n'
 
         return output
+
+    # Shelf-label geometry, in dots at 203 DPI on the 1" x 3" cable roll
+    # (609 x 203 dots). Positions are FIXED, not flowed: these labels sit side
+    # by side on a retail shelf, so a line has to land in the same spot on
+    # every box or a row of them reads as ragged. Fonts are the TE210's
+    # built-in bitmaps -- "1" 8x12, "2" 12x20, "3" 16x24, "4" 24x32, "5" 32x48.
+    SHELF_X_LEFT = 16
+    # Extra right margin for the SKU, on top of the left gutter. It sits alone
+    # in the corner, where a flush margin reads as a crop rather than as a
+    # choice -- but 40 dots pulled it too far in from the edge, so: 12, for a
+    # 28-dot margin against the 16-dot gutter.
+    SHELF_X_SKU_PAD = 12
+    # Eight rows of ink in 203 dots leaves about 4 between each, which the
+    # bitmap fonts' own leading makes read as a gap. Everything is spoken for:
+    # growing any row means shrinking another.
+    # Six rows in 203 dots, with roughly even gaps -- 8 to 16 dots, which the
+    # bitmap fonts' own leading widens a little further. An eight-row version
+    # of this label left 4 dots between rows and read as a wall of text.
+    # The pattern row deliberately does NOT sit tight against the spec row:
+    # grouping them that way made the pattern look like a label on the length
+    # rather than its own line.
+    SHELF_Y_BRAND = 10          # font "3"
+    SHELF_Y_RULE = 42
+    SHELF_Y_PATTERN = 54        # font "3"
+    SHELF_Y_SPEC = 92           # font "4" -- the headline of the label
+    SHELF_Y_CONNECTOR = 140     # font "2"
+    SHELF_Y_SKU = 172           # font "2", bottom-right, on its own row
+
+
+
+    def _generate_shelf_label_tspl(self, data: Dict[str, Any]) -> bytes:
+        """Generate TSPL commands for a retail SHELF label (box side).
+
+        Customer-facing, and the counterpart to `box_label`: a boxed cable
+        carries the pattern sticker on the front and the 2"x3" UPC label on
+        the back, but neither is visible once boxes are racked spine-out. This
+        is what a browsing customer actually reads.
+
+        Label layout (1" x 3"):
+        +---------------------------------------------------------------+
+        |  Sundial Audio Studio Series                                  |
+        |  -----------------------------------------------------------  |
+        |                                                               |
+        |  Goldline                                                     |
+        |  20' Instrument Cable                                         |
+        |                                                               |
+        |  TS-TS - Canare GS-6                                          |
+        |                                             SC-20GL           |
+        +---------------------------------------------------------------+
+
+        There is deliberately NO braid description ("Black rayon braid with
+        gold tracer"). The pattern row says the same thing in one word, and at
+        up to three rows it was the single biggest thing on the label -- the
+        space buys the gaps that stop the other six rows reading as a wall.
+        `describe_variant()` still returns that copy as `detail` for callers
+        that have room for it; this template just doesn't print it.
+
+        The connector row is the product-facing designation, not the
+        engineering shorthand: a right-angle cable is "TS-TS Right Angle",
+        since both of its ends really are TS with one of them angled. Nothing
+        states what can't be otherwise, so no row says a mic cable is XLR male
+        to female.
+
+        The core cable rides on that row rather than leading the description,
+        because the description prints at font "2" and the two together run to
+        110 characters against the 96 its two rows hold.
+
+        Deliberately NO barcode: the UPC on the back is what a POS scans, and
+        a second symbol here would eat the area that makes the label readable.
+        The SKU is printed small in the corner so staff can restock a shelf
+        without turning boxes over.
+
+        Prints on this printer's own 1" x 3" cable roll (unlike `box_label`,
+        which carries its own taller stock size).
+
+        Args:
+            data: Dictionary with (all optional -- any element missing is
+                simply left off, so a partial label still prints):
+                - brand_line: str, "Sundial Audio Studio Series" (font "3")
+                - pattern: str, "Goldline" (font "3"). Falls back to
+                  `headline` so a caller carrying series+pattern in one
+                  string still gets the row.
+                - spec_line: str, "20' Instrument Cable" (font "4", 24 chars
+                  max -- the largest row on the label)
+                - connector_line: str, "TS-TS - Canare GS-6" (font "2").
+                  Falls back to `connector_label` alone.
+                - sku: str, printed small at bottom right
+
+                `cable_config.describe_variant(sku)` returns exactly these
+                keys, so the usual call is
+                `PrintJob("shelf_label", describe_variant(sku))`.
+
+        Returns:
+            TSPL commands as bytes
+        """
+        brand = _tspl_safe(data.get('brand_line'))
+        # `headline` carries series+pattern in one string for callers that
+        # don't have the pattern split out.
+        pattern = (_tspl_safe(data.get('pattern'))
+                   or _tspl_safe(data.get('headline')))
+        spec = _tspl_safe(data.get('spec_line'))
+        connector = (_tspl_safe(data.get('connector_line'))
+                     or _tspl_safe(data.get('connector_label')))
+        sku = _tspl_safe(data.get('sku')).strip()
+
+        width_dots = self.label_width_dots
+        x_left = self.SHELF_X_LEFT
+        x_right = width_dots - x_left
+        usable = x_right - x_left
+
+        tspl_commands = []
+        tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
+        tspl_commands.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
+        tspl_commands.append("DIRECTION 1,0")
+        tspl_commands.append("REFERENCE 0,0")
+        tspl_commands.append("SET TEAR ON")
+        tspl_commands.append("SET PEEL OFF")
+        tspl_commands.append("CLS")
+        tspl_commands.append("DENSITY 10")
+        tspl_commands.append("SPEED 3")
+
+        # Every row is clipped to its own font's column width rather than
+        # wrapped: the vertical budget is spoken for, so a row that outgrew
+        # itself would have to push another off the label. The sweep in
+        # tests/test_shelf_label.py fails on any catalog string that doesn't
+        # fit, which is where a too-long name should be caught.
+        def row(text, y, font):
+            if not text:
+                return
+            advance = self.FONT_ADVANCE[font]
+            tspl_commands.append(
+                f'TEXT {x_left},{y},"{font}",0,1,1,'
+                f'"{text[:max(1, usable // advance)]}"')
+
+        row(brand, self.SHELF_Y_BRAND, "3")
+        tspl_commands.append(f'BAR {x_left},{self.SHELF_Y_RULE},{usable},2')
+        row(pattern, self.SHELF_Y_PATTERN, "3")
+        row(spec, self.SHELF_Y_SPEC, "4")
+        row(connector, self.SHELF_Y_CONNECTOR, "2")
+
+        # Bottom-right, on a row of its own. Sharing the connector's row
+        # would work for most variants but leaves the longest connector line
+        # ("TS-TS Right Angle - Canare GS-6", 31 characters) ending 5 dots
+        # short of the SKU -- and a third of the catalog is right-angle.
+        # Font "2" unless the SKU is long enough to need "1".
+        if sku:
+            advance = self.FONT_ADVANCE["2"]
+            sku_font = "2" if len(sku) * advance <= 160 else "1"
+            sku_x = max(x_left, x_right - self.SHELF_X_SKU_PAD
+                        - len(sku) * self.FONT_ADVANCE[sku_font])
+            tspl_commands.append(
+                f'TEXT {sku_x},{self.SHELF_Y_SKU},"{sku_font}",0,1,1,"{sku}"')
+
+        tspl_commands.append("PRINT 1")
+        tspl_commands.append("")
+
+        return "\r\n".join(tspl_commands).encode('utf-8')
 
     def _format_connector_type(self, connector_type: str) -> str:
         """Format connector type for display on label"""
@@ -1028,7 +1282,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         tspl_commands = []
         tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
-        tspl_commands.append("GAP 2 mm, 2 mm")
+        tspl_commands.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
         tspl_commands.append("DIRECTION 1,0")
         tspl_commands.append("REFERENCE 0,0")
         tspl_commands.append("SET TEAR ON")
@@ -1112,7 +1366,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         tspl_commands = []
         tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
-        tspl_commands.append("GAP 2 mm, 2 mm")
+        tspl_commands.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
         tspl_commands.append("DIRECTION 1,0")
         tspl_commands.append("REFERENCE 0,0")
         tspl_commands.append("SET TEAR ON")
@@ -1245,7 +1499,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         cmds = []
         cmds.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
-        cmds.append("GAP 2 mm, 2 mm")
+        cmds.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
         cmds.append("DIRECTION 1,0")
         cmds.append("REFERENCE 0,0")
         cmds.append("SET TEAR ON")
@@ -1401,6 +1655,10 @@ class MockTSCLabelPrinter(LabelPrinterInterface):
             logger.debug("Mock TSPL commands would be generated for barcode label")
         elif print_job.template == "bin_label":
             logger.debug("Mock TSPL commands would be generated for bin label")
+        elif print_job.template == "box_label":
+            logger.debug("Mock TSPL commands would be generated for box label")
+        elif print_job.template == "shelf_label":
+            logger.debug("Mock TSPL commands would be generated for shelf label")
         elif print_job.template == "text_label":
             logger.debug("Mock TSPL commands would be generated for text label")
         elif print_job.template == "prop65_label":

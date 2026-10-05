@@ -31,12 +31,18 @@ text-vs-barcode overlap); `box_label` refusing an invalid GTIN-12; CSV parsing
 with GS1 Data Hub headers; all five dedup/conflict guards in the loader; the
 other seven label templates still generating; clean compile.
 
-## What is NOT verified
+## What was NOT verified (now resolved)
 
-- **Every Shopify code path.** Zero API calls were made. `get_audio_variant_by_sku()`
-  and `set_barcode_for_sku()` are written against the same GraphQL shape
-  `audio_shopify_price_sync.py` already uses in production, but unexercised.
-- **Actual print output.** No printer and no 2" stock were available.
+Both of these are now verified (2026-10-05), see step 4:
+
+- ~~**Every Shopify code path.**~~ `get_audio_variant_by_sku()` is exercised:
+  `print_box_label.py SC-20GL` returns the real UPC and product naming.
+  `set_barcode_for_sku()` is still unexercised — the UPCs were loaded before
+  it existed. Note one store's credentials are being rejected
+  (`[API] Invalid API key or access token` on stderr); the audio store works,
+  so it is probably the Wire store, and worth chasing separately.
+- ~~**Actual print output.**~~ Printed on 2" x 3" stock and scanned with the
+  DS2208; reads back the UPC in Shopify.
 
 ## Next steps, in order
 
@@ -58,7 +64,62 @@ The old "192 variants" figure came from `catalog/cable_lines.yaml`, which was
 missing 1' Studio and 12' Touring; fixed 2026-10-02 along with economics.yaml
 (prices = Shopify, weights = GS1 gross, costs = cost sheet), all synced to Shopify.
 
-### 4. Verify the printer on real stock
+### 4. Verify the printer on real stock (done 2026-10-05)
+
+**The UPC scans.** A printed `SC-20GL` box label read back `810238920632`,
+matching Shopify. That closes the one thing pure-Python checks could not: the
+TE210 is handed 11 digits and derives the 12th itself, so its agreeing with
+`gtin.check_digit()` validates the whole GTIN chain and all 222 loaded UPCs.
+
+Four defects surfaced on the way, none of which could have been caught without
+printing — `box_label` had never been run on hardware:
+
+- **Font widths were wrong.** Every template placed text using the cell widths
+  in the TSPL manual. Measured on this printer, fonts `"1"` and `"2"` advance
+  2 dots more (10 and 14, not 8 and 12); `"3"`, `"4"` and `"5"` match. A first
+  attempt generalised a single font-`"2"` measurement into "cell width + 2",
+  which was wrong for three of the five — there is no pattern, so
+  `tools/printer/calibrate_media.py --measure` now prints a vertical line at
+  each font's predicted end and all five are read off a label. Consequences in
+  `box_label`: "SUNDIAL" overlapped the logo by 6 dots, and a 19-character LTD
+  SKU ran 18 dots off the right edge.
+- **`GAP 2 mm, 2 mm` in every template.** The second parameter is the gap
+  OFFSET, which must be 0 for die-cut stock; 2 mm of it shifted every label
+  this app has ever printed 16 dots down its stock. Now one constant,
+  `TSCLabelPrinter.GAP_MM`. The 2 mm gap itself is right — the printer's
+  SELFTEST reports 0.08 in = 2.03 mm.
+- **The UPC's human-readable digits were cut off**, which GS1 requires legible.
+  `box_label` left 14 dots below them; now `BOX_LABEL_BOTTOM_MARGIN = 55`.
+- **The subtitle was unclipped**, straight from Shopify at any length, and
+  carried Shopify's en-dashes and smart quotes into fonts that render a
+  single-byte codepage.
+
+`tests/test_box_label.py` covers all four. `print_box_label.py --preview` now
+checks horizontal bounds and element collisions too: it previously checked
+only the barcode band, which is why it reported "All checks passed" on a label
+with a 6-dot overlap.
+
+### Calibrating for a stock change
+
+`tools/printer/calibrate_media.py` (new). `printer_setup.sh` is a different
+job — it switches a factory-fresh printer from ZPL to TSPL, and its
+"calibration" step only sets SIZE and GAP without ever running a sensor
+detect.
+
+```bash
+python tools/printer/calibrate_media.py              # 2" x 3" box stock
+python tools/printer/calibrate_media.py --cable-roll # 1" x 3" cable roll
+python tools/printer/calibrate_media.py --measure    # font advance + rulers
+```
+
+**Never send `GAP 0,0`** — that is TSPL for continuous media, leaving the
+printer no top-of-form to register against, and content then lands tens of
+dots off. An early version of this tool did exactly that and took three
+`GAPDETECT` passes to recover, because no baseline had been recorded first.
+Read `SELFTEST` (which prints the printer's stored config) before changing
+media settings, not after. The printer also has a web UI on port 80.
+
+### 4a. Original instructions, kept for reference
 
 ```bash
 python tools/printer/print_box_label.py SC-20GL --preview        # geometry report
@@ -70,6 +131,19 @@ come back matching the UPC in Shopify. That closes the loop on the one thing
 pure-Python checks can't cover: whether the TE210's own check-digit arithmetic
 agrees with `gtin.check_digit()`. If the rendered digits differ from Shopify,
 stop — don't apply labels.
+
+The **shelf label** (box side, 1" x 3" cable roll) was iterated on real stock
+2026-10-02..05 and is in its final layout; see `LABEL_PRINTING.md`. The notes
+below are superseded. It has no barcode, so there is nothing to
+scan-check; what needs eyes is whether the font-"5" length and font-"1"
+materials line are actually legible at shelf distance, and whether the fixed
+positions look right across a row of boxes:
+
+```bash
+python tools/printer/print_shelf_label.py SC-20GL --preview
+python tools/printer/print_shelf_label.py SC-20GL --count 1
+python tools/printer/print_shelf_label.py TV-12NJ --count 1   # 2-line detail
+```
 
 Also confirm the scanner's symbology config: it may report UPC-A as 12 digits
 or as EAN-13 with a leading zero. `gtin.normalize_gtin12()` handles both, but
@@ -87,6 +161,20 @@ UPC there fails as "not found" and can't create a row. Covered by
 `tests/test_serial_validation.py`.
 
 ## Still open (needs a decision)
+
+- **GS1 "short description" on the box label.** Currently the label prints
+  Shopify's product title + variant title. Deferred 2026-10-05: printing the
+  GS1 short description instead would need somewhere for it to live, and the
+  options (generate it from `catalog/`, a Shopify variant metafield, or a
+  committed Data Hub CSV) trade off against the no-second-home rule in the
+  decision log above. Nothing in the repo holds those strings today — the UPC
+  loader only ever read the SKU and GTIN columns.
+- **Label stock feed reliability.** The 2" x 3" roll fed erratically during
+  verification. Separate from the `GAP 0,0` bug above, which is fixed. If it
+  recurs: check the media guides are snug (3" stock that wanders laterally
+  drifts off the gap sensor intermittently), and confirm the stock is
+  gap-sensed die-cut rather than black-mark or continuous, which need
+  `BLINEDETECT` or continuous mode respectively.
 
 - **Cartons / multipacks.** If cables ship to retail in master cases, each case
   configuration needs its own GTIN, and GS1 wants ITF-14 or GS1-128 on the

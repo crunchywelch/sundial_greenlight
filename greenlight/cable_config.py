@@ -316,6 +316,181 @@ def format_variant_sku(group_sku=None, prefix=None, length=None, connector_code=
     return f"{prefix}-{_length_str(length)}{parsed['pattern_code']}{cc}"
 
 
+# What KIND of cable this is, for retail, plus how its connectors are named.
+# A customer browsing a shelf is picking by length and by what it plugs into,
+# so `type` is the big line ("20' Instrument") and `label` is the connector
+# designation printed under it.
+#
+# `connector_display_for` returns the engineering shorthand ('RA-TS') that the
+# rest of the system runs on. `label` is the product-facing form of the same
+# thing: both ends of a right-angle cable really are TS, one of them angled,
+# so it reads "TS-TS Right Angle" rather than inventing a second pair name.
+# Keys are the ASCII-folded display strings from cable_lines.yaml.
+#
+# Nothing here states what can't be otherwise: a mic cable is always XLR male
+# to female, so no entry says so.
+#
+# Three rules for a new entry, each with a test behind it:
+#
+#   - `type` fits the spec row: that row is font "5" and holds 18 characters,
+#     and "25' " spends 4, so a type word has 14.
+#   - `label` fits its row: font "2", 48 characters.
+#   - No `"` in either. TSPL quotes TEXT content with double quotes and has no
+#     escape for one, so the templates substitute `'` — which would turn 1/4"
+#     into 1/4', i.e. feet. Feet use the prime (20'); inch marks never appear.
+RETAIL_CABLE_TYPES = {
+    # In the catalog today:
+    'TS-TS':   {'type': 'Instrument', 'label': 'TS-TS'},
+    'RA-TS':   {'type': 'Instrument', 'label': 'TS-TS Right Angle'},
+    'XLR-XLR': {'type': 'Microphone', 'label': 'XLR-XLR'},
+    # Not built yet; placeholders so a new series doesn't print a blank row.
+    # Revisit the wording when one actually ships.
+    'TRS-TRS': {'type': 'Instrument', 'label': 'TRS-TRS'},
+    'TS-TRS':  {'type': 'Instrument', 'label': 'TS-TRS'},
+    'XLR-TRS': {'type': 'Microphone', 'label': 'XLR-TRS'},
+}
+
+
+def _ascii_dashes(text: Optional[str]) -> Optional[str]:
+    """Fold en/em dashes to ASCII hyphens; cable_lines.yaml uses en-dashes."""
+    if not text:
+        return text
+    return text.replace('\u2013', '-').replace('\u2014', '-')
+
+
+def retail_cable_type(connector_display: str) -> dict:
+    """What a shopper calls this cable, from its connector display string.
+
+    Returns {'type': 'Instrument', 'label': 'TS-TS Right Angle'}, or
+    {'type': None, 'label': None} for an unmapped or missing connector.
+    """
+    if not connector_display:
+        return {'type': None, 'label': None}
+    entry = RETAIL_CABLE_TYPES.get(_ascii_dashes(connector_display))
+    return dict(entry) if entry else {'type': None, 'label': None}
+
+
+def _length_display(length) -> str:
+    """Feet as a label prints them: '20', and '2.5' rather than '2.5000'."""
+    if isinstance(length, float) and length.is_integer():
+        return str(int(length))
+    return str(length)
+
+
+def describe_variant(sku: str) -> Optional[dict]:
+    """Display strings for one variant SKU, for customer-facing labels.
+
+    Pure catalog lookup — no DB and no Shopify — so retail labels still print
+    with Postgres down and the tunnel off (the same constraint `gtin.py`
+    carries for box labels).
+
+    Returns None if the SKU doesn't parse. Otherwise, the atoms:
+
+        sku                 'SC-20GL' (as given)
+        kind                'catalog' | 'ltd' | 'misc'
+        length              '20' — bare feet, no unit (None for MISC)
+        cable_type          'Instrument' | 'Microphone' — the shopper's word
+        connector_label     'TS-TS' | 'TS-TS Right Angle' — the connector
+                            designation on its own
+        connector           'RA-TS'  (ASCII-folded engineering shorthand; NOT
+                            printed on retail labels)
+        retail_family       'Studio' | 'Touring' — coarse family name for the
+                            retail box, from cable_lines.yaml
+        series              'Studio Classic'
+        pattern             'Goldline'  (None for LTD/MISC)
+        pattern_description 'Black rayon braid with gold tracer'
+        core_cable          'Canare GS-6'
+        braid_material      'Rayon'
+
+    plus the four lines a retail shelf label prints verbatim, top to bottom:
+
+        brand_line          'Sundial Audio Studio Series'
+        pattern             'Goldline'  (None for LTD/MISC)
+        spec_line           "20' Instrument Cable"
+        connector_line      'TS-TS - Canare GS-6' — the connector designation
+                            plus the core cable. The core rides here rather
+                            than leading the description because the
+                            description prints large enough that the two
+                            together would overrun its two rows (110
+                            characters against 96).
+        detail              'Canare GS-6 core - black rayon braid with gold
+                             tracer'
+
+    `headline` ('Studio Classic - Goldline') is kept for callers that want
+    series and pattern in one string; the shelf label no longer uses it.
+    """
+    parsed = parse_variant_sku(sku)
+    kind = parsed.get('kind')
+    if kind is None:
+        return None
+
+    series_data = series_data_for_prefix(parsed['prefix']) or {}
+    series = parsed.get('series')
+    # Fall back to the full product_line if a series predates retail_family.
+    family = series_data.get('retail_family') or series
+    core_cable = series_data.get('core_cable')
+    braid = series_data.get('braid_material')
+
+    pattern = pattern_for_code(parsed['pattern_code']) if kind == 'catalog' else None
+    pattern_name = pattern.get('name') if pattern else None
+    pattern_desc = pattern.get('description') if pattern else None
+
+    length = parsed.get('length')
+    connector = _ascii_dashes(parsed.get('connector_display'))
+    cable_type = retail_cable_type(connector)
+
+    # Headline: what cable this is. LTD editions name the edition in place of
+    # a pattern; MISC one-offs have neither, so the series stands alone.
+    if pattern_name:
+        headline = f"{series} - {pattern_name}" if series else pattern_name
+    elif kind == 'ltd':
+        headline = f"{series} - {parsed['slug']}" if series else parsed['slug']
+    else:
+        headline = series or ''
+
+    # Detail: the braid copy, and nothing else. A catalog pattern's
+    # description already names its braid material, so a bare braid_material
+    # only stands in for LTD and MISC builds, which have no pattern.
+    detail = pattern_desc or (f"{braid} braid" if braid else '')
+
+    # "20' Instrument" uses the prime for feet, which is safe in TSPL -- only
+    # the double quote is unescapable, which is why no inch marks appear
+    # anywhere on these labels.
+    brand_line = f"Sundial Audio {family} Series" if family else "Sundial Audio"
+    spec_bits = []
+    if length is not None:
+        spec_bits.append(f"{_length_display(length)}'")
+    if cable_type['type']:
+        spec_bits.append(cable_type['type'])
+    spec_line = (' '.join(spec_bits) + ' Cable') if spec_bits else ''
+
+    # Connector designation plus the core cable. Canare is the part of the
+    # spec a customer recognizes, so it stays on the label -- just not at the
+    # head of the description, which now prints too large to carry both.
+    conn_bits = [b for b in (cable_type['label'], core_cable) if b]
+    connector_line = ' - '.join(conn_bits)
+
+    return {
+        'sku': sku,
+        'kind': kind,
+        'length': _length_display(length) if length is not None else None,
+        'cable_type': cable_type['type'],
+        'connector_label': cable_type['label'],
+        'connector_line': connector_line,
+        'connector': connector,
+        'retail_family': family,
+        'brand_line': brand_line,
+        'spec_line': spec_line,
+        'series': series,
+        'pattern': pattern_name,
+        'pattern_description': pattern_desc,
+        'core_cable': core_cable,
+        'braid_material': braid,
+        'headline': headline,
+        'detail': detail,
+    }
+
+
 def all_prefixes() -> list:
     """All known series prefixes (sorted)."""
     return sorted(_SERIES.keys())

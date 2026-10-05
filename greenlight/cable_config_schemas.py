@@ -55,6 +55,10 @@ CABLE_LINES_SCHEMA = {
                 "properties": {
                     "sku_prefix": {"type": "string", "pattern": "^[A-Z]{2,3}$"},
                     "product_line": {"type": "string", "minLength": 1},
+                    # Customer-facing family name for retail box labels
+                    # ("Studio", "Touring"). Optional: only shelf labels read
+                    # it, and they fall back to product_line without it.
+                    "retail_family": {"type": "string", "minLength": 1},
                     "core_cable": {"type": "string", "minLength": 1},
                     "braid_material": {"type": "string", "enum": ["Rayon", "Cotton"]},
                     "lengths": {

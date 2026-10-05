@@ -108,6 +108,11 @@ def build_data(args):
 
 # TSPL internal bitmap font heights in dots, for the geometry report.
 _FONT_H = {"1": 12, "2": 20, "3": 24, "4": 32, "5": 48}
+# Horizontal advance per character. NOT the manual's cell width -- see
+# TSCLabelPrinter.FONT_ADVANCE, which this mirrors. The report used to check
+# only the barcode band, so text running off the right edge was invisible
+# here; that is how the brand block shipped overlapping the logo.
+_FONT_W = TSCLabelPrinter.FONT_ADVANCE
 
 
 def preview(printer, data):
@@ -152,7 +157,10 @@ def preview(printer, data):
     print(f"  symbol             {bars_w} x {bh} dots at ({bx}, {by})")
     print(f"  quiet zones        left {bx}, right {w_dots - bx - bars_w} "
           f"dots (need {quiet_needed})")
-    print(f"  bottom clearance   {h_dots - by - bh - hri} dots below the digits")
+    clearance = h_dots - by - bh - hri
+    print(f"  bottom clearance   {clearance} dots below the digits", end="")
+    print("   [digits were being cut off at 14]"
+          if clearance >= TSCLabelPrinter.BOX_LABEL_BOTTOM_MARGIN else "")
 
     problems = []
     if bx < quiet_needed or (w_dots - bx - bars_w) < quiet_needed:
@@ -161,6 +169,37 @@ def preview(printer, data):
         problems.append("barcode overflows the label")
     if mag < 0.75:
         problems.append("magnification below the 75% thermal floor")
+
+    # Horizontal bounds and collisions. Every text box plus the logo bitmap,
+    # measured with the real advance, so an over-wide row fails here instead
+    # of on the stock.
+    boxes = []
+    for t in re.finditer(r'TEXT (\d+),(\d+),"(\d)",0,(\d+),(\d+),"([^"]*)"', txt):
+        x, y_ = int(t.group(1)), int(t.group(2))
+        xm, ym = int(t.group(4)), int(t.group(5))
+        text = t.group(6)
+        boxes.append((f"{text!r}", x, y_,
+                      len(text) * _FONT_W[t.group(3)] * xm,
+                      _FONT_H[t.group(3)] * ym))
+    for b in re.finditer(r"BITMAP (\d+),(\d+),(\d+),(\d+),", txt):
+        x, y_, wb, hb = (int(g) for g in b.groups())
+        boxes.append(("wire logo", x, y_, wb * 8, hb))
+
+    print("\nElements:\n")
+    for label, x, y_, bw, bh_ in boxes:
+        over = "  !! past the right edge" if x + bw > w_dots else ""
+        print(f"  ({x:3},{y_:3}) {bw:3}x{bh_:<3} {label}{over}")
+        if x + bw > w_dots:
+            problems.append(f"{label} runs {x + bw - w_dots} dots past the "
+                            f"right edge")
+        if x < 2:
+            problems.append(f"{label} starts off the left edge")
+
+    for i, a in enumerate(boxes):
+        for b in boxes[i + 1:]:
+            if (a[1] < b[1] + b[3] and b[1] < a[1] + a[3]
+                    and a[2] < b[2] + b[4] and b[2] < a[2] + a[4]):
+                problems.append(f"{a[0]} overlaps {b[0]}")
 
     # Overlap check: no text or rule may intrude into the barcode band.
     band = (by, by + bh + hri)

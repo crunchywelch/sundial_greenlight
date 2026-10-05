@@ -20,8 +20,14 @@
 # are read by tools/audio scripts that sync to Shopify, never by the apps.
 # =============================================================================
 
+# `retail_family` is the customer-facing family name printed on retail box
+# labels ("Sundial Audio Studio Series"). It is deliberately coarser than
+# product_line: the boxes are generic Studio / Touring, with the pattern on a
+# front sticker, and the shelf label already says Instrument or Microphone --
+# so "Studio Vocal Classic" would be both redundant and too long for the line.
 series:
   - sku_prefix: SC
+    retail_family: Studio
     product_line: Studio Classic
     core_cable: Canare GS-6
     braid_material: Rayon
@@ -33,6 +39,7 @@ series:
         display: RA–TS
 
   - sku_prefix: SV
+    retail_family: Studio
     product_line: Studio Vocal Classic
     core_cable: Canare L-4E6S
     braid_material: Rayon
@@ -42,6 +49,7 @@ series:
         display: XLR–XLR
 
   - sku_prefix: TC
+    retail_family: Touring
     product_line: Tour Classic
     core_cable: Canare GS-6
     braid_material: Cotton
@@ -53,6 +61,7 @@ series:
         display: RA–TS
 
   - sku_prefix: TV
+    retail_family: Touring
     product_line: Tour Vocal Classic
     core_cable: Canare L-4E6S
     braid_material: Cotton

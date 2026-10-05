@@ -51,6 +51,10 @@ export const CABLE_LINES_SCHEMA = {
         properties: {
           sku_prefix: { type: "string", pattern: "^[A-Z]{2,3}$" },
           product_line: { type: "string", minLength: 1 },
+          // Customer-facing family name for retail box labels ("Studio",
+          // "Touring"). Read only by the Python shelf-label template; mirrored
+          // here so additionalProperties=false doesn't reject the YAML.
+          retail_family: { type: "string", minLength: 1 },
           core_cable: { type: "string", minLength: 1 },
           braid_material: { type: "string", enum: ["Rayon", "Cotton"] },
           lengths: {
