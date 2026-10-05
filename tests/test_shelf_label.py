@@ -274,7 +274,7 @@ def test_shelf_label_contains_the_chosen_content(printer):
     assert ''',"4",0,1,1,"20' Instrument Cable"''' in txt      # 3. spec
     assert ',"2",0,1,1,"TS-TS - Canare GS-6"' in txt           # 4. connector
     assert '"SC-20GL"' in txt                                  # 5. corner SKU
-    assert txt.rstrip().endswith("PRINT 1")
+    assert txt.rstrip().endswith("PRINT 1,1")
 
 
 def test_shelf_label_rows_run_top_to_bottom_in_order(printer):
@@ -371,7 +371,7 @@ def test_shelf_label_omits_missing_fields(printer):
     txt = tspl.decode("latin-1")
     assert ',"4",0,1,1' not in txt         # no spec row at all
     assert '"Sundial Audio Studio Series"' in txt
-    assert txt.rstrip().endswith("PRINT 1")
+    assert txt.rstrip().endswith("PRINT 1,1")
 
 
 def test_shelf_label_prints_the_product_facing_connector_name(printer):
@@ -454,7 +454,7 @@ def test_shelf_label_survives_empty_data(printer):
     txt = printer._generate_shelf_label_tspl({}).decode("latin-1")
     assert "TEXT" not in txt
     assert "BAR " in txt
-    assert txt.rstrip().endswith("PRINT 1")
+    assert txt.rstrip().endswith("PRINT 1,1")
 
 
 def test_shelf_label_shrinks_the_sku_font_when_long(printer):

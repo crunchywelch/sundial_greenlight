@@ -35,6 +35,33 @@ WIRE_LOGO_BMP_DATA = (
 )
 
 
+# The two label stocks in use. The TE210 has one media path, so running both
+# means swapping the roll.
+CABLE_ROLL_MM = (76.2, 25.4)   # 1" x 3"
+BOX_STOCK_MM = (76.2, 50.8)    # 2" x 3"
+
+# The stock each template is designed for. This is data rather than an
+# `if template == "box_label"` branch because two things need it: batching a
+# job set by stock, so a run costs one roll swap instead of one per label; and
+# routing to a second printer by what it has loaded, once there is one.
+LABEL_STOCK = {
+    "cable_label":        CABLE_ROLL_MM,
+    "registration_label": CABLE_ROLL_MM,
+    "wire_label":         CABLE_ROLL_MM,
+    "barcode_label":      CABLE_ROLL_MM,
+    "bin_label":          CABLE_ROLL_MM,
+    "shelf_label":        CABLE_ROLL_MM,
+    "text_label":         CABLE_ROLL_MM,
+    "prop65_label":       CABLE_ROLL_MM,
+    "box_label":          BOX_STOCK_MM,
+}
+
+
+def stock_for_template(template: str) -> Optional[tuple]:
+    """(width_mm, height_mm) the template is designed for, or None."""
+    return LABEL_STOCK.get(template)
+
+
 def _tspl_safe(text: Optional[str]) -> str:
     """Make a string safe to drop inside a TSPL TEXT command's quotes.
 
@@ -95,6 +122,21 @@ class TSCLabelPrinter(LabelPrinterInterface):
         # Parse embedded wire logo bitmap
         self.wire_logo_data = self._parse_bitmap(WIRE_LOGO_BMP_DATA)
 
+    # template name -> generator method. One table, used by both this class
+    # and the mock, so a new template cannot be wired into one and not the
+    # other. Its keys must match LABEL_STOCK exactly; a test holds that.
+    TEMPLATES = {
+        "cable_label":        "_generate_cable_label_tspl",
+        "registration_label": "_generate_registration_label_tspl",
+        "wire_label":         "_generate_wire_label_tspl",
+        "barcode_label":      "_generate_barcode_label_tspl",
+        "bin_label":          "_generate_bin_label_tspl",
+        "shelf_label":        "_generate_shelf_label_tspl",
+        "box_label":          "_generate_box_label_tspl",
+        "text_label":         "_generate_text_label_tspl",
+        "prop65_label":       "_generate_prop65_label_tspl",
+    }
+
     # Inter-label gap, in mm. In TSPL `GAP m,n`, m is the gap between labels
     # and n is the gap OFFSET -- and n must be 0 for ordinary die-cut stock.
     # Every template here used to send `GAP 2 mm, 2 mm`, so a 2 mm offset
@@ -124,6 +166,20 @@ class TSCLabelPrinter(LabelPrinterInterface):
     # was laid out with the manual's figures and put "SUNDIAL" 6 dots into
     # the logo and a long SKU 18 dots off the edge.
     FONT_ADVANCE = {"1": 10, "2": 14, "3": 16, "4": 24, "5": 32}
+
+    @staticmethod
+    def _print_quantity(data: Dict[str, Any]) -> int:
+        """Copies to print, from `data['quantity']`, floored at 1.
+
+        TSPL `PRINT m,n` takes m sets of n copies, so the printer runs the
+        repeat itself. Every template used to hardcode `PRINT 1` while
+        print_labels logged that it had printed `print_job.quantity` -- so a
+        job for 12 labels produced one, and said it produced 12.
+        """
+        try:
+            return max(1, int(data.get('quantity', 1) or 1))
+        except (TypeError, ValueError):
+            return 1
 
     def _parse_bitmap(self, data: bytes) -> Optional[Dict[str, Any]]:
         """Parse a 1-bit BMP and prepare it for inline BITMAP command."""
@@ -259,35 +315,25 @@ class TSCLabelPrinter(LabelPrinterInterface):
             logger.error("Printer not connected and initialization failed")
             return False
 
-        try:
-            # Generate TSPL commands based on template
-            if print_job.template == "cable_label":
-                tspl = self._generate_cable_label_tspl(print_job.data)
-            elif print_job.template == "registration_label":
-                tspl = self._generate_registration_label_tspl(print_job.data)
-            elif print_job.template == "wire_label":
-                tspl = self._generate_wire_label_tspl(print_job.data)
-            elif print_job.template == "barcode_label":
-                tspl = self._generate_barcode_label_tspl(print_job.data)
-            elif print_job.template == "bin_label":
-                tspl = self._generate_bin_label_tspl(print_job.data)
-            elif print_job.template == "box_label":
-                tspl = self._generate_box_label_tspl(print_job.data)
-            elif print_job.template == "shelf_label":
-                tspl = self._generate_shelf_label_tspl(print_job.data)
-            elif print_job.template == "text_label":
-                tspl = self._generate_text_label_tspl(print_job.data)
-            elif print_job.template == "prop65_label":
-                tspl = self._generate_prop65_label_tspl(print_job.data)
-            else:
-                logger.error(f"Unknown template: {print_job.template}")
-                return False
+        generator = self.TEMPLATES.get(print_job.template)
+        if generator is None:
+            logger.error(f"Unknown template: {print_job.template}")
+            return False
 
-            # Send commands to printer
+        try:
+            # Copies are the printer's job: TSPL `PRINT m,n` runs them from a
+            # single command, so one connection prints the lot. The generators
+            # read the count from data, which is also how a caller can set it
+            # without going through PrintJob.
+            data = dict(print_job.data or {})
+            data.setdefault('quantity', print_job.quantity)
+            quantity = self._print_quantity(data)
+
+            tspl = getattr(self, generator)(data)
             success = self._send_tspl_commands(tspl)
 
             if success:
-                logger.info(f"Successfully printed {print_job.quantity} label(s)")
+                logger.info(f"Successfully printed {quantity} label(s)")
 
             return success
 
@@ -498,7 +544,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
             tspl_commands.append(f'TEXT {x_qc},{y_qc_op},"1",0,1,1,"QC: {operator}"')
 
         # Print the label
-        tspl_commands.append("PRINT 1")  # Print 1 copy
+        tspl_commands.append(f"PRINT {self._print_quantity(data)},1")
         tspl_commands.append("")  # Blank line to ensure command is processed
 
         # Build output as bytes, handling inline bitmap
@@ -655,7 +701,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
         tspl_commands.append("__QR_CODE__")
 
         # Print
-        tspl_commands.append("PRINT 1")
+        tspl_commands.append(f"PRINT {self._print_quantity(data)},1")
         tspl_commands.append("")
 
         # Build output as bytes
@@ -748,7 +794,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
         tspl_commands.append("__QR_CODE__")
 
         # Print
-        tspl_commands.append("PRINT 1")
+        tspl_commands.append(f"PRINT {self._print_quantity(data)},1")
         tspl_commands.append("")
 
         # Build output as bytes
@@ -831,7 +877,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
             f'BARCODE {barcode_x},{barcode_y},"128",{barcode_height},1,0,{narrow},{wide},"{sku}"'
         )
 
-        tspl_commands.append("PRINT 1")
+        tspl_commands.append(f"PRINT {self._print_quantity(data)},1")
         tspl_commands.append("")
 
         return "\r\n".join(tspl_commands).encode('utf-8')
@@ -849,8 +895,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
     UPCA_NOMINAL_BARS_IN = 0.9     # bar height at 100%, excluding the digits
 
     # Retail box labels use their own, taller stock than the 1"x3" cable roll.
-    BOX_LABEL_WIDTH_MM = 76.2      # 3"
-    BOX_LABEL_HEIGHT_MM = 50.8     # 2"
+    BOX_LABEL_WIDTH_MM, BOX_LABEL_HEIGHT_MM = BOX_STOCK_MM
 
     # Dots at the bottom of the stock to keep clear. This was 14, and on the
     # first box label ever printed the UPC's human-readable digits came out
@@ -1030,7 +1075,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
             f'{narrow},"{payload}"'
         )
 
-        tspl_commands.append("PRINT 1")
+        tspl_commands.append(f"PRINT {self._print_quantity(data)},1")
         tspl_commands.append("")
 
         # Build output as bytes, handling the inline logo bitmap
@@ -1198,7 +1243,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
             tspl_commands.append(
                 f'TEXT {sku_x},{self.SHELF_Y_SKU},"{sku_font}",0,1,1,"{sku}"')
 
-        tspl_commands.append("PRINT 1")
+        tspl_commands.append(f"PRINT {self._print_quantity(data)},1")
         tspl_commands.append("")
 
         return "\r\n".join(tspl_commands).encode('utf-8')
@@ -1328,7 +1373,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
             tspl_commands.append(f'TEXT {x_right},{y_detail},"2",0,1,1,"{connector_display}"')
 
         # Print
-        tspl_commands.append("PRINT 1")
+        tspl_commands.append(f"PRINT {self._print_quantity(data)},1")
         tspl_commands.append("")
 
         # Build output as bytes, handling inline bitmap
@@ -1393,7 +1438,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
             tspl_commands.append(f'TEXT {x},{y},"3",0,{scale},{scale},"{safe_line}"')
             y += 30 * scale
 
-        tspl_commands.append("PRINT 1,1")
+        tspl_commands.append(f"PRINT {self._print_quantity(data)},1")
         tspl_commands.append("")
 
         return "\r\n".join(tspl_commands).encode('utf-8')
@@ -1492,7 +1537,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
         form = (data.get('form') or 'short').lower()
         chemical = (data.get('chemical') or '').strip()
         endpoints = (data.get('endpoints') or 'both').lower()
-        quantity = max(1, int(data.get('quantity', 1) or 1))
+        quantity = self._print_quantity(data)
 
         def esc(t):
             return t.replace('"', "'")
@@ -1644,25 +1689,14 @@ class MockTSCLabelPrinter(LabelPrinterInterface):
         logger.info(f"  Template: {print_job.template}")
         logger.info(f"  Data: {print_job.data}")
 
-        # Simulate TSPL generation
-        if print_job.template == "cable_label":
-            logger.debug("Mock TSPL commands would be generated for cable label")
-        elif print_job.template == "registration_label":
-            logger.debug("Mock TSPL commands would be generated for registration label")
-        elif print_job.template == "wire_label":
-            logger.debug("Mock TSPL commands would be generated for wire label")
-        elif print_job.template == "barcode_label":
-            logger.debug("Mock TSPL commands would be generated for barcode label")
-        elif print_job.template == "bin_label":
-            logger.debug("Mock TSPL commands would be generated for bin label")
-        elif print_job.template == "box_label":
-            logger.debug("Mock TSPL commands would be generated for box label")
-        elif print_job.template == "shelf_label":
-            logger.debug("Mock TSPL commands would be generated for shelf label")
-        elif print_job.template == "text_label":
-            logger.debug("Mock TSPL commands would be generated for text label")
-        elif print_job.template == "prop65_label":
-            logger.debug("Mock TSPL commands would be generated for prop65 label")
+        # Same table as the real printer, so the two cannot drift -- the mock
+        # was silently missing box_label and shelf_label while the real one
+        # had them.
+        if print_job.template in TSCLabelPrinter.TEMPLATES:
+            logger.debug(f"Mock TSPL would be generated for {print_job.template}")
+        else:
+            logger.error(f"Unknown template: {print_job.template}")
+            return False
 
         return True
 

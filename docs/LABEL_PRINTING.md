@@ -463,6 +463,74 @@ those wrong silently, and you would only find out after a roll of stock. When a
 new catalog name doesn't fit, the test says so and names it — shorten the name
 rather than growing the label.
 
+## Printing a batch
+
+### Copies are the printer's job
+
+`PrintJob(quantity=N)` prints N labels from **one** connection: TSPL's
+`PRINT m,n` takes m sets of n copies, so the printer does the repeat.
+
+This did not work until 2026-10-05. Eight of the nine templates hardcoded
+`PRINT 1` while `print_labels()` logged *"Successfully printed
+{print_job.quantity} label(s)"* — so a job for 12 produced one and reported
+twelve, and every caller that wanted N had to loop, opening N sockets. For a
+wholesale order of 50 cables that is 150 round trips instead of a handful.
+
+The count reaches the template through `data['quantity']`, which
+`print_labels()` fills in from `PrintJob.quantity` with `setdefault` — so a
+caller that puts it in `data` directly still wins (that is how
+`print_prop65.py` has always passed it). It is floored at 1, and junk values
+fall back to 1 rather than raising inside a template.
+
+### Which stock a template needs
+
+`LABEL_STOCK` maps each template to the stock it is designed for:
+
+```python
+from greenlight.hardware.tsc_label_printer import stock_for_template
+stock_for_template("box_label")    # (76.2, 50.8) -- 2" x 3"
+stock_for_template("shelf_label")  # (76.2, 25.4) -- 1" x 3"
+```
+
+`box_label` is the only one wanting the tall stock, because a UPC-A renders
+only at whole-dot module widths and 1" forces it to the 75% thermal floor.
+
+This is data rather than an `if template == "box_label"` branch because two
+things need it. **Grouping a run by stock** keeps a mixed job set to one roll
+swap instead of one per label — the TE210 has a single media path:
+
+```python
+groups = {}
+for template in run:
+    groups.setdefault(stock_for_template(template), []).append(template)
+# print each group, swap the roll between them
+```
+
+And **routing to a second printer** by what it has loaded, once there is one
+(see the roadmap note in `UPC_ROLLOUT_STATUS.md`).
+
+### One dispatch table
+
+`TSCLabelPrinter.TEMPLATES` maps a template name to its generator method, and
+both the real printer and the mock use it. They were two parallel `if/elif`
+chains before, and had already drifted: the mock was silently missing
+`box_label` and `shelf_label`. `LABEL_STOCK` and `TEMPLATES` must have
+identical keys, which `tests/test_label_batching.py` asserts — so a new
+template cannot be added without a stock declaration.
+
+### Label grain, for a wholesale order
+
+The labels do not all repeat the same way, which is what makes a batch run
+two passes rather than one loop:
+
+| Label | Grain | For 10 x SC-20GL |
+|---|---|---|
+| `box_label`, `shelf_label` | per **variant** | 10 identical — one job, `PRINT 10` |
+| `registration_label` | per **cable** | 10 unique codes — 10 jobs |
+
+`greenlight/screens/wholesale.py` `_generate_and_print()` is the existing
+precedent for the per-cable half.
+
 ## Usage in Greenlight
 
 ### During Cable Registration

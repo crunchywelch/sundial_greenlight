@@ -183,6 +183,49 @@ UPC there fails as "not found" and can't create a row. Covered by
   `WireLabelScreen` (`greenlight/screens/wire.py` is the pattern) would put it
   in the operator flow.
 
+## Roadmap: printing a wholesale order
+
+Orders arrive as Shopify orders — entered by us, or placed by the customer
+through the existing Shopify wholesale app. `get_customer_orders()` already
+returns line items with `sku` and `quantity`, so the data path exists.
+
+Per retail-boxed cable: the **side label** (`shelf_label`), the **UPC back
+label** (`box_label`), and the **registration code label**. The pattern
+sticker on the front is pre-printed and not Greenlight's job.
+
+**Phase 1 — done 2026-10-05.** `PrintJob.quantity` is honoured by every
+template; `LABEL_STOCK` declares each template's stock; one `TEMPLATES`
+dispatch table shared by the real printer and the mock. See
+`LABEL_PRINTING.md` § Printing a batch.
+
+**Phase 2 — batch a Shopify order.** Group by SKU, then by stock: all the 2"
+work, one roll swap, then all the 1" work. Variant-grain labels go as single
+jobs with `PRINT N`; registration labels are per-cable and unique.
+
+**Phase 3 — a second printer**, one per stock size. Not bought yet, so this is
+a note rather than a plan. The shape: a second `GREENLIGHT_TSC_*_PRINTER_IP`,
+printers registered in `HardwareManager` **by the stock they have loaded**,
+and `get_label_printer(stock)` resolving against that — so a job routes on
+what it needs, not on a printer name. With one printer configured, jobs for
+absent stock keep today's behaviour of prompting for a roll swap.
+
+### Open: where the Prop 65 warning goes
+
+It needs to be on one of the stickers rather than a fourth. Geometrically
+there is room on the 2" x 3" back label: the UPC is centred with 162 dots of
+quiet zone each side against the 27 it needs, so shifting it left to x=40
+still leaves ~1.5x spec and frees a 237 x 235 dot column beside it.
+
+**The binding constraint is legal, not spatial.** Short-form Prop 65 requires
+the warning be at least 6 pt *and* no smaller than the largest type used for
+other consumer information on the same label. At 203 DPI font `"1"` is ~4.3 pt
+(non-compliant), `"2"` ~7.1 pt, `"3"` ~8.5 pt — and the back label's title is
+font `"3"`, so a strict reading of the second clause forces the warning to
+font `"3"` too, which fits that column only barely. The existing dedicated
+`prop65_label` sidesteps the whole question by having no competing text on it,
+which is why it remains the safe default until someone decides how to read
+that requirement.
+
 ## Sandbox gotcha, unrelated to this work
 
 `greenlight/log.py:58` builds a `SysLogHandler` over TCP to `localhost:1514`;

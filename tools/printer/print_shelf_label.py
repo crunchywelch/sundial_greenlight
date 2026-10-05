@@ -168,13 +168,12 @@ def main():
             printer.close()
             return 0
 
-    ok = True
-    for i in range(args.count):
-        job = PrintJob(template="shelf_label", data=data, quantity=1)
-        if not printer.print_labels(job):
-            print(f"Failed on label {i + 1} of {args.count}")
-            ok = False
-            break
+    # One job, not a loop: TSPL `PRINT m,n` does the copies, so this is a
+    # single connection rather than one per label.
+    job = PrintJob(template="shelf_label", data=data, quantity=args.count)
+    ok = printer.print_labels(job)
+    if not ok:
+        print("Failed to send the print job")
 
     if ok:
         print(f"Sent {args.count} label(s) successfully")
