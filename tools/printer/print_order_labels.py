@@ -9,7 +9,8 @@ unpaid wholesale order is a draft, which is the state its labels get printed
 in, and `get_customer_orders()` cannot see it.
 
 Which labels to print is asked per job rather than fixed, because it varies:
-not every retailer takes the UPC label, and Prop 65 placement is unsettled.
+not every retailer takes the UPC label, and the Prop 65 warning is only wanted
+on retail-boxed goods.
 
 Registration labels are NOT printed here. Those carry a unique code per
 physical cable, keyed to serial numbers that live in Postgres rather than in
@@ -19,12 +20,12 @@ where the serials already are.
 Usage:
     python tools/printer/print_order_labels.py --list
     python tools/printer/print_order_labels.py D14 --preview
-    python tools/printer/print_order_labels.py D14 --labels side
+    python tools/printer/print_order_labels.py D14 --labels side,prop65
     python tools/printer/print_order_labels.py D14
 
 Options:
     --list        Show recent draft orders and exit
-    --labels      Comma-separated: upc, side  (default: both)
+    --labels      Comma-separated: upc, side, prop65  (default: all three)
     --preview     Show the plan and exit, printing nothing
     --mock        Use the mock printer (no hardware)
 """
@@ -43,7 +44,8 @@ from greenlight.hardware.tsc_label_printer import (
 from greenlight.label_batch import describe_plan, plan_order
 
 # What --labels accepts, and the template each name maps to.
-LABEL_CHOICES = {"upc": "box_label", "side": "shelf_label"}
+LABEL_CHOICES = {"upc": "box_label", "side": "shelf_label",
+                 "prop65": "prop65_label"}
 
 
 def list_drafts(limit):

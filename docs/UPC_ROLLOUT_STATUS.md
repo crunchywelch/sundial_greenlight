@@ -246,7 +246,16 @@ holds the planning. Verified end to end against real draft orders: `#D14` (24
 cables over 6 SKUs) plans 48 labels as 12 jobs with one roll swap, and `#D3`
 printed. Draft-order support added to `shopify_client` — the B2B flow never
 completes its drafts, so `get_customer_orders()` could not see a wholesale
-order at all. Still CLI-only; a TUI screen is the remaining piece.
+order at all. A TUI screen landed 2026-10-06: **`o` from the scan hub**,
+`greenlight/screens/order_labels.py`. Its own hub key rather than a step
+inside `f`, because wholesale orders are drafts (which the fulfillment path
+never lists) and labelling boxes is a packaging job, not a fulfillment one.
+
+Worth knowing: `FulfillOrdersScreen` is an "Order Fulfillment" menu that
+**nothing navigates to** — the hub's `f` key goes straight to
+`CustomerLookupScreen`, and the menu only references itself on invalid input.
+It is dead code. Either wire it up as the `f` landing screen or delete it;
+leaving it invites someone to add a feature nobody can reach.
 
 **Phase 3 — a second printer**, one per stock size. Not bought yet, so this is
 a note rather than a plan. The shape: a second `GREENLIGHT_TSC_*_PRINTER_IP`,
@@ -255,7 +264,24 @@ and `get_label_printer(stock)` resolving against that — so a job routes on
 what it needs, not on a printer name. With one printer configured, jobs for
 absent stock keep today's behaviour of prompting for a roll swap.
 
-### Open: where the Prop 65 warning goes
+### Resolved 2026-10-06: Prop 65 goes on the 1" roll
+
+Its own sticker on the box back, using the existing `prop65_label`. Merging it
+into the 2"x3" UPC label was rejected on arithmetic:
+`www.P65Warnings.ca.gov` is 22 unbreakable characters, needing 23 per line,
+which only font `"1"` gives — and that is ~4.3 pt, below the 6 pt floor. A
+dedicated label also has no competing text, so the "no smaller than the
+largest type used for other consumer information" clause has nothing to bind
+against.
+
+It is planned per *order* rather than per variant (`UNIFORM_TEMPLATES` in
+`label_batch.py`) since its text says nothing about the cable, and it counts
+every box including MISC/LTD lines whose retail labels are skipped.
+
+The reasoning for the rejected option is kept below, because the geometry
+question will come back if the back label ever grows.
+
+### (Rejected) merging the Prop 65 warning into the UPC label
 
 It needs to be on one of the stickers rather than a fourth. Geometrically
 there is room on the 2" x 3" back label: the UPC is centred with 162 dots of

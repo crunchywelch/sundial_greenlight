@@ -7,13 +7,17 @@ testable without hardware.
 
 Two things shape the output.
 
-**Grain.** The retail labels are per *variant*, not per cable: four 12ft
-Goldline cables take four identical side labels and four identical UPC
-labels, so each is one job with `PRINT 4` rather than four jobs. Registration
-labels are the opposite -- a unique code per physical cable -- and they are
-deliberately NOT planned here. Codes attach to serial numbers that come from
-Postgres, not from the order, so that flow belongs with the cable batch in
-`screens/wholesale.py` where the serials already are.
+**Grain**, of which there are three:
+
+- *per variant* -- the UPC and side labels. Four 12ft Goldline cables take
+  four identical side labels, so that is one job with `PRINT 4` rather than
+  four jobs.
+- *per order* -- the Prop 65 warning. Its text says nothing about the cable,
+  so an order needs one job for its whole box count, not one per SKU.
+- *per cable* -- the registration label, a unique code each. Deliberately NOT
+  planned here: codes attach to serial numbers that come from Postgres rather
+  than from the order, so that flow belongs with the cable batch in
+  `screens/wholesale.py` where the serials already are.
 
 **Stock.** The TE210 has one media path, so a run that mixes 1" and 2" labels
 costs a roll swap. Grouping by stock keeps that to one swap for the whole
@@ -32,17 +36,23 @@ from greenlight.hardware.tsc_label_printer import stock_for_template
 
 logger = logging.getLogger(__name__)
 
-# The retail labels a boxed cable carries, in the order they are offered.
+# The retail labels a boxed cable can carry, in the order they are offered.
 # `registration_label` is absent on purpose -- see the module docstring.
-RETAIL_TEMPLATES = ("box_label", "shelf_label")
+RETAIL_TEMPLATES = ("box_label", "shelf_label", "prop65_label")
 
-# What each template is called where an operator can see it, and what it needs
-# from a variant beyond the catalog. A template needing a UPC cannot be
-# planned for a SKU that has none.
+# Templates whose content says nothing about the cable, so one job covers the
+# whole order rather than one per SKU. The Prop 65 warning is the same text on
+# every box; splitting it per variant would be six jobs printing identical
+# labels.
+UNIFORM_TEMPLATES = ("prop65_label",)
+
+# What each template is called where an operator can see it, where it goes,
+# and whether it needs a UPC -- a template that does cannot be planned for a
+# SKU that has none.
 TEMPLATE_LABELS = {
     "box_label": ("UPC label", "box back", True),
     "shelf_label": ("Side label", "box side", False),
-    "prop65_label": ("Prop 65", "warning", False),
+    "prop65_label": ("Prop 65", "box back", False),
 }
 
 
@@ -128,8 +138,22 @@ def plan_order(line_items,
         plan.warnings.append(
             f"Not label templates, ignored: {', '.join(unknown_templates)}")
     templates = [t for t in templates if stock_for_template(t) is not None]
+    rows = merge_line_items(line_items)
 
-    for row in merge_line_items(line_items):
+    # Per-order labels first, so they head the plan the way they head the
+    # physical job: the warning goes on every box regardless of what is in
+    # it, including SKUs whose retail labels get skipped below. A cable that
+    # ships without its Prop 65 warning is a compliance problem; one that
+    # ships without a side label is untidy.
+    boxed = sum(r["quantity"] for r in rows)
+    for template in templates:
+        if template in UNIFORM_TEMPLATES and boxed:
+            plan.jobs.append(LabelJob(
+                template=template, sku="(all)", quantity=boxed, data={},
+                stock=stock_for_template(template),
+            ))
+
+    for row in rows:
         sku, qty = row["sku"], row["quantity"]
         described = describe_variant(sku)
 
@@ -151,6 +175,8 @@ def plan_order(line_items,
             continue
 
         for template in templates:
+            if template in UNIFORM_TEMPLATES:
+                continue            # already planned once for the order
             needs_upc = TEMPLATE_LABELS.get(template, (None, None, False))[2]
             data = dict(described)
 

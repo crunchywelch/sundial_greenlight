@@ -467,6 +467,26 @@ rather than growing the label.
 
 ### Printing a wholesale order
 
+In Greenlight: **`o` from the scan hub** — "Order labels". Pick a draft order,
+toggle which labels you want, print. The toggles re-cost the plan live, so
+you can see that dropping the UPC label takes a mixed run from one roll swap
+to none before committing to it.
+
+Its own hub key rather than a step inside `f` (Fulfill order) for two
+reasons. Wholesale orders are **draft** orders, and the fulfillment path is
+customer → order filtered to *unfulfilled real orders*, so a draft never
+appears in it. And labelling boxes is a packaging job done at a different
+moment, with different stock loaded, from assigning cables to a paid order —
+putting it inside `f` would add a keystroke to the daily fulfillment path to
+reach something unrelated to it.
+
+(Note `FulfillOrdersScreen` in `screens/orders.py` is an "Order Fulfillment"
+menu that nothing navigates to — the hub's `f` goes straight to
+`CustomerLookupScreen`. It is dead code, and adding to it would have hidden
+this screen entirely.)
+
+Or from the command line:
+
 ```bash
 python tools/printer/print_order_labels.py --list          # recent drafts
 python tools/printer/print_order_labels.py D14 --preview    # the plan
@@ -487,8 +507,8 @@ Deselecting one also changes what the run costs:
 
 ```
 #D14, 24 cables over 6 SKUs
-  --labels upc,side   48 labels, 12 jobs, 1 roll swap
-  --labels side       24 labels,  6 jobs, 0 roll swaps
+  all three            72 labels, 13 jobs, 1 roll swap
+  side + prop65        48 labels,  7 jobs, 0 roll swaps
 ```
 
 `greenlight/label_batch.py` does the planning, with no printer, DB or
@@ -575,7 +595,21 @@ two passes rather than one loop:
 | Label | Grain | For 10 x SC-20GL |
 |---|---|---|
 | `box_label`, `shelf_label` | per **variant** | 10 identical — one job, `PRINT 10` |
+| `prop65_label` | per **order** | one job for the order's whole box count |
 | `registration_label` | per **cable** | 10 unique codes — 10 jobs |
+
+**Prop 65 goes on the 1" roll**, as its own sticker on the box back. It was
+considered for the 2"x3" UPC label and does not fit at a compliant type size:
+`www.P65Warnings.ca.gov` is 22 unbreakable characters, which needs 23 per line
+and so only font `"1"` — and that is ~4.3 pt, under the 6 pt floor. Its own
+label has no competing text, so the "no smaller than other consumer
+information" clause has nothing to bind against either.
+
+Its text says nothing about the cable, so it is **one job for the order**, not
+one per SKU — six variants would otherwise mean six jobs printing identical
+labels. It counts every box including MISC and LTD lines whose retail labels
+get skipped: shipping without the warning is a compliance problem, shipping
+without a side label is untidy.
 
 `greenlight/screens/wholesale.py` `_generate_and_print()` is the existing
 precedent for the per-cable half.

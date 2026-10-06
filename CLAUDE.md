@@ -79,8 +79,12 @@ flags `GREENLIGHT_USE_REAL_{ARDUINO,SCANNER,PRINTERS,GPIO}`,
 1. **Splash / operator select** → goes straight to the scan hub
 2. **Scan hub** (`ScanCableLookupScreen`): scan a serial to look up/test a cable,
    or use a key — `r` intake, `i` inventory, `w` wholesale codes, `p` wire
-   labels, `s` Shopify scan mode, `f` fulfill order, `l` lookup customer,
-   `c` calibrate tester, `q` logout
+   labels, `s` Shopify scan mode, `f` fulfill order, `o` order labels,
+   `l` lookup customer, `c` calibrate tester, `q` logout
+
+`FulfillOrdersScreen` is an "Order Fulfillment" menu that **nothing navigates
+to** — `f` goes straight to `CustomerLookupScreen`. It's dead code; don't add
+features to it expecting them to be reachable.
 
 ### Cable Workflow
 
@@ -155,7 +159,7 @@ UPC-A only renders at whole-dot module widths, so 2" stock gives 113.7%
 magnification (in spec) while 1" is forced to 75.8%, the GS1 thermal-print
 floor, with no room for branding. The TE210 has one media path, so batch them.
 
-**A boxed cable wears three stickers**, and only one of them is a UPC: the
+**A boxed cable wears up to four stickers**, and only one of them is a UPC: the
 *front* gets a pre-printed pattern sticker (Goldline, Silverline, ...), the
 *back* gets the 2" × 3" `box_label` with the UPC-A, and the *side* gets the
 1" × 3" `shelf_label`. The side is the only face visible once boxes are racked
@@ -186,6 +190,22 @@ can't escape a double quote, so feet use the prime (`20'`). A new series with
 a new connector display needs an entry added; the sweep in
 `tests/test_shelf_label.py` fails if one is missing, and also renders every
 catalog variant to catch text that runs off the label or over its neighbour.
+
+The fourth sticker is the **Prop 65 warning**, on the 1" roll on the box back.
+It is NOT merged into the UPC label: `www.P65Warnings.ca.gov` is 22
+unbreakable characters, which fits only font `"1"` at ~4.3 pt, under the 6 pt
+legal floor. Its own label has no competing text, so the "no smaller than
+other consumer information" clause has nothing to bind against either.
+
+**Printing a wholesale order's labels: `o` from the scan hub.** Wholesale
+orders are Shopify *draft* orders — `shopify_app/app/b2b.server.js` creates a
+draft and emails an invoice, never completing it, so `get_customer_orders()`
+cannot see one and the fulfillment path never lists it. Planning is in
+`greenlight/label_batch.py` (no printer, DB or Shopify in it), which groups
+jobs by stock so a mixed run costs one roll swap, and knows three label
+grains: per variant (UPC, side), per order (Prop 65 — its text says nothing
+about the cable), and per cable (registration codes, deliberately left in
+`screens/wholesale.py` where the serials are).
 
 **Scan-loop guard:** serial numbers are purely numeric, so a scanned 12-digit
 UPC would otherwise be zero-padded into a bogus serial.
