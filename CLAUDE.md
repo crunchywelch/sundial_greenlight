@@ -31,7 +31,8 @@ deactivate
 - `data/` — generated output and vendor inputs only; nothing here is hand-edited config
 - `tools/` — admin/back-office CLI scripts by domain (`audio/`, `wire/`,
   `printer/`, `valuation/`, `shopify/`, `scanner/`); shared helper `tools/sundial_db.py`
-- `tests/` — run `pytest` (no DB needed) and `cd shopify_app && npm test`;
+- `tests/` — run `pytest` (no DB needed); the JS suite is `cd shopify_app &&
+  npm test`, **on the DO host** where the app runs and `node_modules` lives;
   `integration/` hits live Postgres/Shopify and only runs with
   `GREENLIGHT_RUN_INTEGRATION=1`
 - `services/` — systemd units; `arduino/`, `ArduinoApps/` — tester firmware

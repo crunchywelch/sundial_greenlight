@@ -6,7 +6,7 @@
     "dev": "shopify app dev",
     "build": "shopify app build",
     "deploy": "shopify app deploy",
-    "test": "node --test tests/"
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
     "@preact/signals": "^2.5.1",
