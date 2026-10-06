@@ -187,6 +187,24 @@ Not covered: packaged weight (Shopify's bulk SKU fetch doesn't return it, and
 it matters for Data Hub rather than for labels), unit costs, inventory, and
 the Data Hub side — its API is deferred, see the decision log.
 
+### Shopify order search: measure the query, don't assume it
+
+`get_unfulfilled_orders()` filters with `-fulfillment_status:fulfilled`, which
+looks like the awkward way to say it. The obvious spellings are wrong, as
+measured against this store (22 orders, 2 of them unfulfilled):
+
+| query | orders returned |
+|---|---|
+| `status:open` | **0** — matches nothing here |
+| `fulfillment_status:unfulfilled` | **1** — misses one that displays as UNFULFILLED |
+| `fulfillment_status:partial` | 0 |
+| `-fulfillment_status:fulfilled` | **2** — correct |
+
+So the negation is the query, and a client-side check on
+`displayFulfillmentStatus` stays as the guarantee. Re-measure before trusting
+any order search string; `displayFulfillmentStatus` and the searchable
+fulfillment status are not the same vocabulary.
+
 ### Known noise: the token validation probe
 
 Every `get_shopify_session()` validates the cached `SHOPIFY_ACCESS_TOKEN`
@@ -251,11 +269,11 @@ order at all. A TUI screen landed 2026-10-06: **`o` from the scan hub**,
 inside `f`, because wholesale orders are drafts (which the fulfillment path
 never lists) and labelling boxes is a packaging job, not a fulfillment one.
 
-Worth knowing: `FulfillOrdersScreen` is an "Order Fulfillment" menu that
-**nothing navigates to** — the hub's `f` key goes straight to
-`CustomerLookupScreen`, and the menu only references itself on invalid input.
-It is dead code. Either wire it up as the `f` landing screen or delete it;
-leaving it invites someone to add a feature nobody can reach.
+`FulfillOrdersScreen` was a one-item wrapper menu that nothing navigated to
+(`f` skipped it and went straight to `CustomerLookupScreen`, which was its
+only option). It is now the `f` landing screen and lists every unfulfilled
+order across customers — see CLAUDE.md § Order fulfillment. The fulfillment
+*workflow* was never broken; only that wrapper was unreferenced.
 
 **Phase 3 — a second printer**, one per stock size. Not bought yet, so this is
 a note rather than a plan. The shape: a second `GREENLIGHT_TSC_*_PRINTER_IP`,

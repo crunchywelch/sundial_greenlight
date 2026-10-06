@@ -144,11 +144,14 @@ class ScanCableLookupScreen(CableScreenBase):
                 from greenlight.screens.shopify_scan import ShopifyScanModeScreen
                 return ScreenResult(NavigationAction.PUSH, ShopifyScanModeScreen, self.context.copy())
             elif input_lower == 'f':
-                # Fulfill order - go to customer lookup in fulfillment mode
-                from greenlight.screens.orders import CustomerLookupScreen
+                # Fulfill order. Lands on every unfulfilled order rather than
+                # a customer lookup: an operator with a bench of tested
+                # cables is asking what's outstanding, not who it's for.
+                # Customer lookup is still one key away from there.
+                from greenlight.screens.orders import FulfillOrdersScreen
                 new_context = self.context.copy()
                 new_context["fulfillment_mode"] = True
-                return ScreenResult(NavigationAction.PUSH, CustomerLookupScreen, new_context)
+                return ScreenResult(NavigationAction.PUSH, FulfillOrdersScreen, new_context)
             elif input_lower == 'o':
                 # Retail box labels for a wholesale order. Its own hub key
                 # rather than a step inside 'f': wholesale orders are Shopify

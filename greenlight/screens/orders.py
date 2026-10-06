@@ -33,32 +33,142 @@ def _assign_pop_target(context):
     return ScanCableLookupScreen
 
 
+def order_line_items(order):
+    """Flatten an order's lineItems to the shape the fulfillment flow wants.
+
+    Lines with no SKU are dropped: they are shipping, discounts and the like,
+    which no cable gets scanned against.
+    """
+    items = []
+    for edge in (order.get("lineItems") or {}).get("edges") or []:
+        node = edge.get("node") or {}
+        sku = node.get("sku") or (node.get("variant") or {}).get("sku")
+        if sku:
+            items.append({
+                "sku": sku,
+                "title": node.get("title") or "Unknown",
+                "quantity": node.get("quantity") or 0,
+            })
+    return items
+
+
 class FulfillOrdersScreen(Screen):
-    """Main order fulfillment menu"""
+    """Every unfulfilled order, across customers, newest first.
+
+    This is what `f` lands on. Fulfilling used to start from a customer
+    lookup, which asks "who is this for" -- but an operator with a bench of
+    tested cables wants the other question: what is outstanding. Customer
+    lookup is still one key away for when you do have a name.
+    """
+
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
-        menu_items = [
-            "Lookup Customer",
-            "Back (q)"
-        ]
 
-        rows = [
-            f"[green]{i + 1}.[/green] {name}"
-            for i, name in enumerate(menu_items)
-        ]
-
+        self.ui.console.clear()
         self.ui.header(operator)
-        self.ui.layout["body"].update(Panel("Process customer orders and fulfillment", title="Order Fulfillment"))
-        self.ui.layout["footer"].update(Panel("\n".join(rows), title="Available Operations"))
+        self.ui.layout["body"].update(Panel(
+            "[yellow]Loading unfulfilled orders from Shopify...[/yellow]",
+            title="Order Fulfillment"))
+        self.ui.layout["footer"].update(Panel("Please wait...", title=""))
         self.ui.render()
 
-        choice = self.ui.console.input("Choose: ")
-        if choice == "1":
-            return ScreenResult(NavigationAction.PUSH, CustomerLookupScreen, self.context)
-        elif choice in ["2", "q"]:
-            return ScreenResult(NavigationAction.POP)
-        else:
-            return ScreenResult(NavigationAction.REPLACE, FulfillOrdersScreen, self.context)
+        try:
+            orders = shopify_client.get_unfulfilled_orders(limit=50)
+        except Exception as e:
+            logger.error("Failed to load unfulfilled orders: %s", e)
+            orders = None
+
+        while True:
+            self.ui.console.clear()
+            self.ui.header(operator)
+
+            if orders is None:
+                body = Panel(
+                    "[bold red]Can't reach Shopify[/bold red]\n\n"
+                    "Unfulfilled orders could not be loaded. This is a\n"
+                    "connection or credentials issue.\n\n"
+                    "[dim]Customer lookup needs Shopify too, but try it if\n"
+                    "you have a name.[/dim]",
+                    title="Order Fulfillment", style="red")
+            elif not orders:
+                body = Panel(
+                    "[green]Nothing outstanding.[/green]\n\n"
+                    "[dim]No unfulfilled orders. Wholesale orders placed\n"
+                    "through the order form are draft orders until the\n"
+                    "invoice is paid, so they appear here only after\n"
+                    "payment — use 'o' from the hub for their box labels.[/dim]",
+                    title="Order Fulfillment")
+            else:
+                table = Table(show_header=True, header_style="bold cyan")
+                table.add_column("#", style="green", width=3)
+                table.add_column("Order", style="white", width=8)
+                table.add_column("Status", style="dim", width=13)
+                table.add_column("Customer", width=24)
+                table.add_column("Cables", justify="right", width=7)
+                for i, order in enumerate(orders, 1):
+                    customer = (order.get("customer") or {}).get("displayName") or "—"
+                    cables = sum(li["quantity"] for li in order_line_items(order))
+                    status = (order.get("displayFulfillmentStatus") or "")
+                    table.add_row(
+                        str(i), order.get("name") or "?",
+                        status.replace("_", " ").title(),
+                        customer[:24], str(cables))
+                body = Panel(
+                    table, title="Unfulfilled Orders",
+                    subtitle="Scan cables against an order to fulfill it")
+
+            self.ui.layout["body"].update(body)
+            hint = []
+            if orders:
+                hint.append(f"Enter [cyan]1-{len(orders)}[/cyan] to fulfill an order")
+            hint.append("[cyan]'l'[/cyan] = Lookup customer")
+            hint.append("[cyan]'q'[/cyan] = Back")
+            self.ui.layout["footer"].update(Panel(
+                " | ".join(hint), title="Order Fulfillment",
+                border_style="green"))
+            self.ui.render()
+
+            try:
+                choice = self.ui.console.input("Choose: ").strip().lower()
+            except KeyboardInterrupt:
+                return ScreenResult(NavigationAction.POP)
+
+            if choice in ("", "q"):
+                return ScreenResult(NavigationAction.POP)
+            if choice == "l":
+                return ScreenResult(NavigationAction.PUSH,
+                                    CustomerLookupScreen, self.context)
+            if orders and choice.isdigit() and 1 <= int(choice) <= len(orders):
+                result = self._fulfill(orders[int(choice) - 1])
+                if result:
+                    return result
+
+    def _fulfill(self, order):
+        """Set up context for one order and go to the scan screen.
+
+        OrderFulfillScanScreen reads `selected_customer` to assign cables, so
+        the order's own customer fills it -- that is the part the
+        customer-first path used to supply.
+        """
+        line_items = order_line_items(order)
+        if not line_items:
+            self.ui.layout["body"].update(Panel(
+                "[red]No cable items (with SKUs) in this order[/red]",
+                title="Order Fulfillment"))
+            self.ui.layout["footer"].update(Panel(
+                "Press [cyan]Enter[/cyan] to go back", title=""))
+            self.ui.render()
+            self.ui.wait_back()
+            return None
+
+        context = self.context.copy()
+        context["selected_customer"] = order.get("customer") or {}
+        context["order_id"] = order.get("id", "")
+        context["order_name"] = order.get("name", "")
+        context["line_items"] = line_items
+        context["scanned_cables"] = []
+        return ScreenResult(NavigationAction.PUSH, OrderFulfillScanScreen,
+                            context)
 
 
 class CustomerLookupScreen(Screen):

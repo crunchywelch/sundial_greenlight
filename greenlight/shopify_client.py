@@ -784,6 +784,83 @@ def _flatten_draft_order(node: Dict[str, Any]) -> Dict[str, Any]:
     return flat
 
 
+def get_unfulfilled_orders(limit: int = 50) -> list[Dict[str, Any]]:
+    """Open orders still awaiting fulfillment, newest first, across customers.
+
+    `get_customer_orders()` is customer-scoped, which means fulfilling starts
+    from "who is this for" -- but an operator with a bench of tested cables
+    wants the opposite: what is outstanding. This answers that.
+
+    Filtering is belt and braces: `-fulfillment_status:fulfilled` server-side
+    to narrow it, then a client-side check on displayFulfillmentStatus to be
+    certain. Shopify's order search was measured against this store rather
+    than assumed, because two obvious spellings are wrong:
+
+      status:open                     0 orders   (matches nothing here)
+      fulfillment_status:unfulfilled  1 order    (MISSES one that displays
+                                                  as UNFULFILLED)
+      -fulfillment_status:fulfilled   2 orders   correct
+
+    So the negation is the query, and the client-side filter stays as the
+    guarantee -- which is also what OrderSelectionScreen already does.
+
+    Each order carries `customer` (fulfillment needs it to assign cables) and
+    its line items.
+    """
+    try:
+        get_shopify_session()
+
+        query = """
+        query getUnfulfilledOrders($limit: Int!) {
+            orders(first: $limit, reverse: true,
+                   query: "-fulfillment_status:fulfilled") {
+                edges {
+                    node {
+                        id
+                        name
+                        createdAt
+                        displayFinancialStatus
+                        displayFulfillmentStatus
+                        customer { id displayName email }
+                        totalPriceSet { shopMoney { amount currencyCode } }
+                        lineItems(first: 100) {
+                            edges {
+                                node {
+                                    title
+                                    quantity
+                                    sku
+                                    variant { id sku }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        result = shopify.GraphQL().execute(query, variables={"limit": limit})
+
+        import json
+        data = json.loads(result)
+        if "errors" in data:
+            logger.error("GraphQL errors: %s", data['errors'])
+            return []
+
+        wanted = ("UNFULFILLED", "PARTIALLY_FULFILLED", "")
+        orders = []
+        for edge in data.get("data", {}).get("orders", {}).get("edges", []):
+            node = edge["node"]
+            status = (node.get("displayFulfillmentStatus") or "").upper()
+            if status in wanted:
+                orders.append(node)
+        return orders
+
+    except Exception as e:
+        logger.error("Error fetching unfulfilled orders: %s", e)
+        return []
+
+
 def get_draft_orders(limit: int = 25,
                      customer_id: Optional[str] = None) -> list[Dict[str, Any]]:
     """Recent DRAFT orders, newest first, with their line items flattened.

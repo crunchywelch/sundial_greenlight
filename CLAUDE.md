@@ -82,9 +82,23 @@ flags `GREENLIGHT_USE_REAL_{ARDUINO,SCANNER,PRINTERS,GPIO}`,
    labels, `s` Shopify scan mode, `f` fulfill order, `o` order labels,
    `l` lookup customer, `c` calibrate tester, `q` logout
 
-`FulfillOrdersScreen` is an "Order Fulfillment" menu that **nothing navigates
-to** — `f` goes straight to `CustomerLookupScreen`. It's dead code; don't add
-features to it expecting them to be reachable.
+### Order fulfillment
+
+`f` → `FulfillOrdersScreen`, which lists **every unfulfilled order** across
+customers, newest first. Pick one and it goes to `OrderFulfillScanScreen` to
+scan cables against its line items, then `AssignCablesScreen`. `l` from there
+is the customer-first route (`CustomerLookupScreen` →
+`CustomerSearchResultsScreen` → `OrderSelectionScreen`), which is still how
+you get there when you have a name rather than an order.
+
+It lands on the order list because an operator with a bench of tested cables
+is asking what's outstanding, not who it's for. `OrderFulfillScanScreen` reads
+`selected_customer` from the context to assign cables, so the order list
+fills it from the order's own customer — that's what the customer-first path
+used to supply.
+
+> **Wholesale orders do not appear here.** They are Shopify *draft* orders
+> until the invoice is paid (see § Retail UPCs). Use `o` for their box labels.
 
 ### Cable Workflow
 

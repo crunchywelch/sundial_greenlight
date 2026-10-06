@@ -480,10 +480,9 @@ moment, with different stock loaded, from assigning cables to a paid order —
 putting it inside `f` would add a keystroke to the daily fulfillment path to
 reach something unrelated to it.
 
-(Note `FulfillOrdersScreen` in `screens/orders.py` is an "Order Fulfillment"
-menu that nothing navigates to — the hub's `f` goes straight to
-`CustomerLookupScreen`. It is dead code, and adding to it would have hidden
-this screen entirely.)
+(`f` itself now lists every unfulfilled order — see CLAUDE.md § Order
+fulfillment. Wholesale drafts still never appear there, which is why box
+labels are their own key.)
 
 Or from the command line:
 
