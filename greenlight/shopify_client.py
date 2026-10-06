@@ -748,6 +748,11 @@ _DRAFT_ORDER_FIELDS = """
     createdAt
     customer { id displayName email }
     totalPriceSet { shopMoney { amount currencyCode } }
+    # Set once the draft has been completed -- by the buyer paying the
+    # invoice, or by hand in admin. Until then there is no Order, and only
+    # Orders can be fulfilled, so an unpaid wholesale order is invisible to
+    # the fulfillment flow by design.
+    order { id name displayFulfillmentStatus }
     lineItems(first: 100) {
         edges {
             node {

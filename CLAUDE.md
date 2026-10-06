@@ -98,8 +98,14 @@ is asking what's outstanding, not who it's for. `OrderFulfillScanScreen` reads
 fills it from the order's own customer — that's what the customer-first path
 used to supply.
 
-> **Wholesale orders do not appear here.** They are Shopify *draft* orders
-> until the invoice is paid (see § Retail UPCs). Use `o` for their box labels.
+> **Wholesale orders do not appear here until they are paid.** The B2B flow
+> creates a Shopify *draft* order and emails an invoice; a draft becomes an
+> Order only when it is completed — the buyer paying, or someone completing it
+> in admin — and **only Orders can be fulfilled**. So an unpaid wholesale
+> order is correctly invisible to `f`. Use `o` for its box labels, which is
+> the work you do before payment clears. The `o` screen shows each draft's
+> lifecycle ("Invoice Sent · not an order yet" vs "#1011 · Unfulfilled") so
+> this doesn't read as a missing order.
 
 ### Cable Workflow
 

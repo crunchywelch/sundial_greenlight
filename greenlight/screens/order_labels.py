@@ -31,10 +31,27 @@ from greenlight.screen_manager import NavigationAction, Screen, ScreenResult
 
 logger = logging.getLogger(__name__)
 
-# Draft statuses worth offering. A COMPLETED draft has already become a real
-# order, so its labels were presumably printed when it was boxed; keep it
-# visible but show the status so the operator can tell.
+# How many drafts to list, newest first. Completed ones stay in the list --
+# they have become real orders and their labels were presumably printed when
+# boxed, but reprints happen, and the lifecycle column says which is which.
 DRAFT_LIMIT = 25
+
+
+def draft_lifecycle(order) -> str:
+    """Where a draft has got to, in words an operator can act on.
+
+    The lifecycle trips people up: a draft becomes an Order only when it is
+    completed -- the buyer paying the invoice, or someone completing it in
+    admin -- and only Orders can be fulfilled. So an unpaid wholesale order
+    is correctly absent from the fulfillment screen, which looks like a bug
+    unless the screen says so.
+    """
+    became = order.get("order")
+    if became:
+        status = (became.get("displayFulfillmentStatus") or "").replace("_", " ")
+        return f"{became.get('name', 'order')} · {status.title() or 'order'}"
+    status = (order.get("status") or "").replace("_", " ").title()
+    return f"{status} · not an order yet" if status else "not an order yet"
 
 
 class OrderLabelScreen(Screen):
@@ -76,17 +93,16 @@ class OrderLabelScreen(Screen):
 
         table = Table(show_header=True, header_style="bold cyan")
         table.add_column("#", style="green", width=3)
-        table.add_column("Order", style="white", width=8)
-        table.add_column("Status", style="dim", width=14)
-        table.add_column("Customer", width=26)
+        table.add_column("Draft", style="white", width=7)
+        table.add_column("Customer", width=22)
         table.add_column("Cables", justify="right", width=7)
+        table.add_column("Where it is", style="dim", width=26)
 
         for i, order in enumerate(orders, 1):
             customer = (order.get("customer") or {}).get("displayName") or "—"
             cables = sum(li["quantity"] for li in order["line_items"])
-            table.add_row(str(i), order.get("name") or "?",
-                          (order.get("status") or "").replace("_", " ").title(),
-                          customer[:26], str(cables))
+            table.add_row(str(i), order.get("name") or "?", customer[:22],
+                          str(cables), draft_lifecycle(order))
 
         def pick(choice):
             if not choice.isdigit():

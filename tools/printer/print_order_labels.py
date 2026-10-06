@@ -55,11 +55,13 @@ def list_drafts(limit):
         print("\n  No draft orders found.\n")
         return 1
     print(f"\n  {len(rows)} recent draft order(s):\n")
+    from greenlight.screens.order_labels import draft_lifecycle
     for d in rows:
         customer = (d.get("customer") or {}).get("displayName") or "?"
         cables = sum(li["quantity"] for li in d["line_items"])
-        print(f"    {d['name']:8} {d.get('status', ''):14} {customer:24} "
-              f"{len(d['line_items'])} line(s), {cables} cable(s)")
+        print(f"    {d['name']:7} {customer:22} "
+              f"{len(d['line_items'])} line(s), {cables:3} cable(s)   "
+              f"{draft_lifecycle(d)}")
     print()
     return 0
 
