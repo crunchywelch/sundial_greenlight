@@ -137,18 +137,54 @@ class TSCLabelPrinter(LabelPrinterInterface):
         "prop65_label":       "_generate_prop65_label_tspl",
     }
 
-    # Inter-label gap, in mm. In TSPL `GAP m,n`, m is the gap between labels
-    # and n is the gap OFFSET -- and n must be 0 for ordinary die-cut stock.
-    # Every template here used to send `GAP 2 mm, 2 mm`, so a 2 mm offset
-    # (16 dots at 203 DPI) pushed every label this app printed that far down
-    # its stock. On the 1" cable roll that reads as "labels sit a bit low",
-    # which is not the sort of thing anyone reports.
-    #
-    # The 2 mm itself is right: the printer's own SELFTEST reports the
-    # measured gap as 0.08 in = 2.03 mm. Re-check it when changing stock,
-    # and never set m to 0 -- `GAP 0,0` means continuous media, which leaves
-    # the printer no top-of-form to register against at all.
+    # Inter-label gap, in mm. The printer's own SELFTEST reports the measured
+    # gap as 0.08 in = 2.03 mm. Never 0: `GAP 0,0` means continuous media,
+    # which leaves the printer no top-of-form to register against at all.
     GAP_MM = 2.0
+
+    # Vertical registration per stock, MEASURED on this printer with
+    # tools/printer/calibrate_media.py --measure:
+    #   gap_offset_mm -- the n in `GAP m,n`
+    #   shift         -- TSPL `SHIFT`, in dots (+ moves the image down)
+    #
+    # Both are sent with EVERY label (see _media_header), never left to the
+    # printer: SHIFT persists in the printer's memory, so a value sent while
+    # tuning one stock silently moves every label on the other. That is what
+    # broke the 1" roll in October 2026 -- a shift saved during the 2" work
+    # pushed 1" labels ~25 dots down and cut off the side label's SKU.
+    #
+    # The 1" figures are what the cable labels printed with for months, and
+    # were re-confirmed 2026-10-08 (ruler ticks flush to the top edge, 200 on
+    # the left ruler just clipped, of 203). An earlier change set the offset
+    # to 0 on the theory that die-cut stock needs none; on this printer it
+    # does, and the measurement is what counts.
+    MEDIA_REGISTRATION = {
+        CABLE_ROLL_MM: {"gap_offset_mm": 2.0, "shift": 0},
+        BOX_STOCK_MM:  {"gap_offset_mm": 2.0, "shift": 0},   # NOT yet measured
+    }
+
+    @classmethod
+    def _media_header(cls, width_mm: float, height_mm: float) -> list:
+        """The setup every label starts with: size, gap, registration.
+
+        One place, so the nine templates cannot drift apart, and explicit
+        about everything the printer would otherwise remember from the last
+        job (see MEDIA_REGISTRATION).
+        """
+        reg = cls.MEDIA_REGISTRATION.get(
+            (round(width_mm, 1), round(height_mm, 1)),
+            {"gap_offset_mm": 0.0, "shift": 0})
+        return [
+            f"SIZE {width_mm:.1f} mm, {height_mm:.1f} mm",
+            f"GAP {cls.GAP_MM:.1f} mm, {reg['gap_offset_mm']:.1f} mm",
+            "DIRECTION 1,0",
+            "REFERENCE 0,0",
+            # After SIZE: sent ahead of it, the printer discards the job.
+            f"SHIFT {reg['shift']}",
+            "SET TEAR ON",
+            "SET PEEL OFF",
+            "CLS",
+        ]
 
     # Horizontal advance per character, in dots, MEASURED on this printer --
     # see tools/printer/calibrate_media.py --measure, which prints a vertical
@@ -320,16 +356,8 @@ class TSCLabelPrinter(LabelPrinterInterface):
         if not self.connected and not self.initialize():
             return False
         width_mm, height_mm = stock
-        tspl = "\r\n".join([
-            f"SIZE {width_mm:.1f} mm, {height_mm:.1f} mm",
-            f"GAP {self.GAP_MM:.1f} mm, 0 mm",
-            "DIRECTION 1,0",
-            "REFERENCE 0,0",
-            "SET TEAR ON",
-            "SET PEEL OFF",
-            "GAPDETECT",
-            "",
-        ])
+        tspl = "\r\n".join(
+            self._media_header(width_mm, height_mm) + ["GAPDETECT", ""])
         if not self._send_tspl_commands(tspl):
             return False
         self.loaded_stock = (width_mm, height_mm)
@@ -464,22 +492,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
         tspl_commands = []
 
         # Set label size (width, height in mm)
-        tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
-
-        # Set printing gap (gap between labels, offset from edge)
-        # Gap of 2-3mm works well, with 2mm offset to prevent first label cutoff
-        tspl_commands.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
-
-        # Set printing direction and origin
-        tspl_commands.append("DIRECTION 1,0")  # Normal orientation
-        tspl_commands.append("REFERENCE 0,0")  # Set reference point
-
-        # Calibrate sensor before printing (helps with alignment)
-        tspl_commands.append("SET TEAR ON")
-        tspl_commands.append("SET PEEL OFF")
-
-        # Clear image buffer
-        tspl_commands.append("CLS")
+        tspl_commands.extend(self._media_header(self.label_width_mm, self.label_height_mm))
 
         # Set print density (0-15, where 8 is medium)
         tspl_commands.append("DENSITY 10")
@@ -688,13 +701,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         # Start TSPL commands
         tspl_commands = []
-        tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
-        tspl_commands.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
-        tspl_commands.append("DIRECTION 1,0")
-        tspl_commands.append("REFERENCE 0,0")
-        tspl_commands.append("SET TEAR ON")
-        tspl_commands.append("SET PEEL OFF")
-        tspl_commands.append("CLS")
+        tspl_commands.extend(self._media_header(self.label_width_mm, self.label_height_mm))
         tspl_commands.append("DENSITY 10")
         tspl_commands.append("SPEED 3")
 
@@ -778,13 +785,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
 
         # Start TSPL commands
         tspl_commands = []
-        tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
-        tspl_commands.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
-        tspl_commands.append("DIRECTION 1,0")
-        tspl_commands.append("REFERENCE 0,0")
-        tspl_commands.append("SET TEAR ON")
-        tspl_commands.append("SET PEEL OFF")
-        tspl_commands.append("CLS")
+        tspl_commands.extend(self._media_header(self.label_width_mm, self.label_height_mm))
         tspl_commands.append("DENSITY 10")
         tspl_commands.append("SPEED 3")
 
@@ -875,13 +876,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
         subtitle = data.get('subtitle') or ''
 
         tspl_commands = []
-        tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
-        tspl_commands.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
-        tspl_commands.append("DIRECTION 1,0")
-        tspl_commands.append("REFERENCE 0,0")
-        tspl_commands.append("SET TEAR ON")
-        tspl_commands.append("SET PEEL OFF")
-        tspl_commands.append("CLS")
+        tspl_commands.extend(self._media_header(self.label_width_mm, self.label_height_mm))
         tspl_commands.append("DENSITY 10")
         tspl_commands.append("SPEED 3")
 
@@ -1019,13 +1014,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
             )
 
         tspl_commands = []
-        tspl_commands.append(f"SIZE {width_mm:.1f} mm, {height_mm:.1f} mm")
-        tspl_commands.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
-        tspl_commands.append("DIRECTION 1,0")
-        tspl_commands.append("REFERENCE 0,0")
-        tspl_commands.append("SET TEAR ON")
-        tspl_commands.append("SET PEEL OFF")
-        tspl_commands.append("CLS")
+        tspl_commands.extend(self._media_header(width_mm, height_mm))
         tspl_commands.append("DENSITY 10")
         tspl_commands.append("SPEED 3")
 
@@ -1236,13 +1225,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
         usable = x_right - x_left
 
         tspl_commands = []
-        tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
-        tspl_commands.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
-        tspl_commands.append("DIRECTION 1,0")
-        tspl_commands.append("REFERENCE 0,0")
-        tspl_commands.append("SET TEAR ON")
-        tspl_commands.append("SET PEEL OFF")
-        tspl_commands.append("CLS")
+        tspl_commands.extend(self._media_header(self.label_width_mm, self.label_height_mm))
         tspl_commands.append("DENSITY 10")
         tspl_commands.append("SPEED 3")
 
@@ -1361,13 +1344,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
         connector_display = self._format_connector_type(connector_type) if connector_type else ''
 
         tspl_commands = []
-        tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
-        tspl_commands.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
-        tspl_commands.append("DIRECTION 1,0")
-        tspl_commands.append("REFERENCE 0,0")
-        tspl_commands.append("SET TEAR ON")
-        tspl_commands.append("SET PEEL OFF")
-        tspl_commands.append("CLS")
+        tspl_commands.extend(self._media_header(self.label_width_mm, self.label_height_mm))
         tspl_commands.append("DENSITY 10")
         tspl_commands.append("SPEED 3")
 
@@ -1445,13 +1422,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
         scale = max(1, int(data.get('scale', 1) or 1))
 
         tspl_commands = []
-        tspl_commands.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
-        tspl_commands.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
-        tspl_commands.append("DIRECTION 1,0")
-        tspl_commands.append("REFERENCE 0,0")
-        tspl_commands.append("SET TEAR ON")
-        tspl_commands.append("SET PEEL OFF")
-        tspl_commands.append("CLS")
+        tspl_commands.extend(self._media_header(self.label_width_mm, self.label_height_mm))
         tspl_commands.append("DENSITY 10")
         tspl_commands.append("SPEED 3")
 
@@ -1578,13 +1549,7 @@ class TSCLabelPrinter(LabelPrinterInterface):
             return t.replace('"', "'")
 
         cmds = []
-        cmds.append(f"SIZE {self.label_width_mm:.1f} mm, {self.label_height_mm:.1f} mm")
-        cmds.append(f"GAP {self.GAP_MM:.1f} mm, 0 mm")
-        cmds.append("DIRECTION 1,0")
-        cmds.append("REFERENCE 0,0")
-        cmds.append("SET TEAR ON")
-        cmds.append("SET PEEL OFF")
-        cmds.append("CLS")
+        cmds.extend(self._media_header(self.label_width_mm, self.label_height_mm))
         cmds.append("DENSITY 10")
         cmds.append("SPEED 3")
 

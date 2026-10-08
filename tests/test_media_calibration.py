@@ -45,7 +45,8 @@ def test_calibrate_sends_size_gap_and_gapdetect():
     assert printer.calibrate_media(BOX_STOCK_MM)
     (tspl,) = sent
     assert "SIZE 76.2 mm, 50.8 mm" in tspl
-    assert "GAP 2.0 mm, 0 mm" in tspl
+    assert "GAP 2.0 mm, 2.0 mm" in tspl
+    assert "SHIFT 0" in tspl
     assert "GAPDETECT" in tspl
     assert printer.loaded_stock == BOX_STOCK_MM
 
@@ -97,3 +98,34 @@ def test_stock_already_calibrated_is_not_recalibrated_unless_asked():
     calls = _run_print(printer, ["c", ""])
     assert [c[1] for c in calls if c[0] == "calibrate"] == [CABLE_ROLL_MM,
                                                              BOX_STOCK_MM]
+
+
+# Every template, from the table test_label_batching.py already keeps.
+from test_label_batching import TEMPLATE_DATA  # noqa: E402
+from greenlight.hardware.tsc_label_printer import stock_for_template  # noqa: E402
+
+
+def _header_lines(tspl):
+    lines = tspl.decode("latin-1").split("\r\n")
+    return lines[:lines.index("CLS") + 1]
+
+
+def test_every_template_sends_its_stocks_registration():
+    """SHIFT persists in the printer, so a template that doesn't send its own
+    inherits whatever the last job -- or a tuning session -- left behind."""
+    printer = TSCLabelPrinter("preview")
+    for template, method in TSCLabelPrinter.TEMPLATES.items():
+        stock = stock_for_template(template)
+        reg = TSCLabelPrinter.MEDIA_REGISTRATION[stock]
+        header = _header_lines(getattr(printer, method)(dict(TEMPLATE_DATA[template])))
+        assert f"SIZE {stock[0]:.1f} mm, {stock[1]:.1f} mm" in header, template
+        assert (f"GAP {TSCLabelPrinter.GAP_MM:.1f} mm, "
+                f"{reg['gap_offset_mm']:.1f} mm") in header, template
+        assert f"SHIFT {reg['shift']}" in header, template
+
+
+def test_one_inch_registration_is_the_measured_one():
+    """GAP 2,2 and no shift: what the cable labels printed with for months,
+    re-measured 2026-10-08. Changing it moves every 1" label."""
+    assert TSCLabelPrinter.MEDIA_REGISTRATION[CABLE_ROLL_MM] == {
+        "gap_offset_mm": 2.0, "shift": 0}

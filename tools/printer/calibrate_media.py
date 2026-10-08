@@ -66,28 +66,31 @@ RULER_ROWS = [("2", 38), ("2", 41), ("2", 44),
 FONT_H = {"1": 12, "2": 20, "3": 24, "4": 32, "5": 48}
 
 
+def header(width_mm, height_mm, shift=None, gap_mm=None):
+    """The app's own per-stock setup (TSCLabelPrinter._media_header), so a
+    measurement here is a measurement of what real labels print with.
+
+    `shift` / `gap_mm` override it, for trying a correction before writing
+    it into MEDIA_REGISTRATION.
+    """
+    cmds = TSCLabelPrinter._media_header(width_mm, height_mm)
+    if shift is not None:
+        cmds = [f"SHIFT {shift}" if c.startswith("SHIFT ") else c for c in cmds]
+    if gap_mm is not None:
+        offset = next(c for c in cmds if c.startswith("GAP ")).split(",")[1]
+        cmds = [f"GAP {gap_mm:.1f} mm,{offset}" if c.startswith("GAP ") else c
+                for c in cmds]
+    return cmds + ["DENSITY 10", "SPEED 3"]
+
+
 def media_commands(width_mm, height_mm, gap_mm, detect, shift=None):
     """TSPL to set the media size and (optionally) auto-detect the gap."""
-    # GAP m,n -- m is the gap between labels, n is the gap OFFSET. For
-    # ordinary die-cut stock n is 0. And m must NOT be 0: `GAP 0,0` means
-    # continuous media, which leaves the printer with no top-of-form to
-    # register against, so it prints wherever the paper happens to sit. That
-    # is what put the first calibration's content ~50 dots low.
-    cmds = [
-        f"SIZE {width_mm:.1f} mm, {height_mm:.1f} mm",
-        f"GAP {gap_mm if gap_mm is not None else DEFAULT_GAP_MM:.1f} mm, 0 mm",
-        "DIRECTION 1,0",
-        "REFERENCE 0,0",
-        "SET TEAR ON",
-        "SET PEEL OFF",
-        "DENSITY 10",
-        "SPEED 3",
-        "CLS",
-    ]
-    # SHIFT goes AFTER the setup commands: sent first, ahead of SIZE, the
-    # printer discarded the entire job and printed nothing.
-    if shift is not None:
-        cmds.append(f"SHIFT {shift}")
+    # GAP m,n -- m is the gap between labels, n is the gap offset, which this
+    # printer DOES need on die-cut stock (see MEDIA_REGISTRATION). And m must
+    # NOT be 0: `GAP 0,0` means continuous media, which leaves the printer
+    # with no top-of-form to register against, so it prints wherever the
+    # paper happens to sit. That put the first calibration ~50 dots low.
+    cmds = header(width_mm, height_mm, shift=shift, gap_mm=gap_mm)
     if detect:
         # Feeds a few labels while measuring the gap, then stores the result.
         cmds.append("GAPDETECT")
@@ -100,13 +103,7 @@ def alignment_label(width_mm, height_mm):
     h = int(height_mm * DPI / 25.4)
     x_left = 16
 
-    cmds = [
-        f"SIZE {width_mm:.1f} mm, {height_mm:.1f} mm",
-        "DIRECTION 1,0",
-        "REFERENCE 0,0",
-        "CLS",
-        "DENSITY 10",
-        "SPEED 3",
+    cmds = header(width_mm, height_mm) + [
         # BOX x_start,y_start,x_end,y_end,thickness -- 2 dots in from each
         # edge, so anything touching it is off the printable area.
         f"BOX 2,2,{w - 3},{h - 3},2",
@@ -148,17 +145,7 @@ def measurement_label(width_mm, height_mm, shift=None):
     w = int(width_mm * DPI / 25.4)
     h = int(height_mm * DPI / 25.4)
     adv = TSCLabelPrinter.FONT_ADVANCE
-    cmds = [
-        f"SIZE {width_mm:.1f} mm, {height_mm:.1f} mm",
-        f"GAP {DEFAULT_GAP_MM:.1f} mm, 0 mm",
-        "DIRECTION 1,0",
-        "REFERENCE 0,0",
-        "CLS",
-        "DENSITY 10",
-        "SPEED 3",
-    ]
-    if shift is not None:
-        cmds.append(f"SHIFT {shift}")
+    cmds = header(width_mm, height_mm, shift=shift)
 
     # Horizontal ruler: a tick every 50 dots, numbered every 100.
     for x in range(0, w, 50):
