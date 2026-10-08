@@ -83,11 +83,13 @@ printing — `box_label` had never been run on hardware:
   each font's predicted end and all five are read off a label. Consequences in
   `box_label`: "SUNDIAL" overlapped the logo by 6 dots, and a 19-character LTD
   SKU ran 18 dots off the right edge.
-- **`GAP 2 mm, 2 mm` in every template.** The second parameter is the gap
-  OFFSET, which must be 0 for die-cut stock; 2 mm of it shifted every label
-  this app has ever printed 16 dots down its stock. Now one constant,
-  `TSCLabelPrinter.GAP_MM`. The 2 mm gap itself is right — the printer's
-  SELFTEST reports 0.08 in = 2.03 mm.
+- **`GAP 2 mm, 2 mm` in every template** was changed to `GAP 2 mm, 0 mm`
+  on the theory that die-cut stock needs no gap offset. **That was wrong —
+  reverted 2026-10-08.** On this printer the offset is what registers the
+  1" roll; without it, plus a `SHIFT` that persisted from tuning the 2"
+  stock, 1" labels printed ~25 dots low and lost the side label's SKU. Both
+  stocks now send `GAP 2 mm, 2 mm` and `SHIFT 0` with every label, measured
+  on the printer — see `TSCLabelPrinter.MEDIA_REGISTRATION`.
 - **The UPC's human-readable digits were cut off**, which GS1 requires legible.
   `box_label` left 14 dots below them; now `BOX_LABEL_BOTTOM_MARGIN = 55`.
 - **The subtitle was unclipped**, straight from Shopify at any length, and
