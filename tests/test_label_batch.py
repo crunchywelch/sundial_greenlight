@@ -239,8 +239,8 @@ def test_the_side_job_carries_the_catalog_rows():
 
 def test_registration_labels_are_not_planned_here():
     """They are per-cable, keyed to serials that live in Postgres rather than
-    in the order, so they belong with the cable batch in screens/wholesale.py
-    where the serials already are."""
+    in the order, so the order scan screen prints each one as its cable is
+    scanned."""
     assert "registration_label" not in RETAIL_TEMPLATES
     plan = plan_order(D14, upc_by_sku=UPCS)
     assert all(j.template != "registration_label" for j in plan.jobs)

@@ -1036,6 +1036,8 @@ class OrderFulfillScanScreen(Screen):
         company_gid = self.context.get("company_gid")
         location_gid = self.context.get("location_gid")
         wholesale = bool(company_gid)
+        # One-shot status (e.g. a calibration result): shown once, then gone.
+        status_note = self.context.pop("status_note", None)
         order_id = self.context.get("order_id", "")
         order_name = self.context.get("order_name", "")
         line_items = self.context.get("line_items", [])
@@ -1089,6 +1091,8 @@ class OrderFulfillScanScreen(Screen):
 
         if all_complete:
             header_text += "\n\n[bold green]✅ All line items fulfilled![/bold green]"
+        if status_note:
+            header_text += f"\n\n{status_note}"
 
         from rich.console import Group
         body_content = Group(header_text, "", progress_table)
@@ -1133,9 +1137,9 @@ class OrderFulfillScanScreen(Screen):
             printer = hardware_manager.get_label_printer()
             ok = bool(printer) and printer.calibrate_media(CABLE_ROLL_MM)
             new_context = self.context.copy()
-            new_context["scanned_cables"] = scanned_cables + [
-                "[green]Calibrated for the 1\" roll[/green]" if ok
-                else "[red]Calibration failed: printer not reachable[/red]"]
+            new_context["status_note"] = (
+                "[green]Printer calibrated for the 1\" roll.[/green]" if ok
+                else "[red]Calibration failed: printer not reachable.[/red]")
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen,
                                 new_context)
 
@@ -1322,7 +1326,7 @@ class OrderFulfillScanScreen(Screen):
         Returns a short note for the recently-scanned list, so a label that
         did not print is visible right next to the cable it belongs to.
         """
-        from greenlight.screens.wholesale import (
+        from greenlight.screens.registration_codes import (
             ensure_registration_code, print_registration_label)
         code, created, error = ensure_registration_code(serial)
         if not code:

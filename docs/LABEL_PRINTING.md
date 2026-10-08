@@ -552,8 +552,8 @@ Shopify, so the awkward parts are testable. Two things shape its output:
   one job with `PRINT 4`, not four jobs. That is why a 24-cable order is 12
   connections. `registration_label` is deliberately **not** planned here —
   it carries a unique code per physical cable, keyed to serials that live in
-  Postgres rather than in the order, so it belongs with the cable batch in
-  `screens/wholesale.py` where the serials already are.
+  Postgres rather than in the order. The order scan screen prints each one
+  as its cable is scanned (helpers in `screens/registration_codes.py`).
 - **Stock.** Jobs are grouped by stock and printed one group at a time, so a
   mixed run costs one roll swap rather than one per label.
 
@@ -645,8 +645,9 @@ labels. It counts every box including MISC and LTD lines whose retail labels
 get skipped: shipping without the warning is a compliance problem, shipping
 without a side label is untidy.
 
-`greenlight/screens/wholesale.py` `_generate_and_print()` is the existing
-precedent for the per-cable half.
+The per-cable half is `OrderFulfillScanScreen._registration_label()`, one
+label as each cable is scanned, using `ensure_registration_code()` and
+`print_registration_label()` from `greenlight/screens/registration_codes.py`.
 
 ## Usage in Greenlight
 

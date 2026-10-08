@@ -61,7 +61,7 @@ def ensure_registration_code(serial):
                          else result.get('message', 'code generation failed'))
 
 
-class WholesaleBatchScreen(Screen):
+class RegistrationCodesScreen(Screen):
     """Scan a batch of cables, generate registration codes, print labels"""
 
     def run(self) -> ScreenResult:
@@ -70,6 +70,7 @@ class WholesaleBatchScreen(Screen):
         # Batch: list of cable records to process
         batch = []
         batch_serials = set()  # For fast duplicate check
+        status = None          # one-shot message, e.g. a calibration result
 
         while True:
             self.ui.console.clear()
@@ -101,8 +102,9 @@ class WholesaleBatchScreen(Screen):
             self.ui.layout["body"].update(Panel(
                 body_content,
                 title=f"Registration Codes ({len(batch)} cables)",
-                subtitle="Samples, festival sales -- not for orders (use 'f')"
+                subtitle=status or "Samples, festival sales -- not for orders (use 'f')"
             ))
+            status = None
 
             # Footer with available actions
             footer_parts = [
@@ -111,6 +113,7 @@ class WholesaleBatchScreen(Screen):
             if batch:
                 footer_parts.append("[cyan]'g'[/cyan] = Generate codes")
                 footer_parts.append("[cyan]'p'[/cyan] = Generate codes + print labels")
+            footer_parts.append("[cyan]'c'[/cyan] = Calibrate 1\" roll")
             footer_parts.append("[cyan]'q'[/cyan] = Cancel / go back")
 
             self.ui.layout["footer"].update(Panel(
@@ -129,6 +132,17 @@ class WholesaleBatchScreen(Screen):
 
             if input_lower == 'q':
                 return ScreenResult(NavigationAction.POP)
+
+            if input_lower == 'c':
+                # Labels print on the 1" roll; after box labels the 2" may
+                # have been in, and the sensor needs to find the new gaps.
+                from greenlight.hardware.interfaces import hardware_manager
+                from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
+                printer = hardware_manager.get_label_printer()
+                ok = bool(printer) and printer.calibrate_media(CABLE_ROLL_MM)
+                status = ("[green]Printer calibrated for the 1\" roll[/green]" if ok
+                          else "[red]Calibration failed: printer not reachable[/red]")
+                continue
 
             if input_lower == 'g' and batch:
                 # Generate codes only, no printing

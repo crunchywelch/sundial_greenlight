@@ -14,8 +14,8 @@ on retail-boxed goods.
 
 Registration labels are NOT printed here. Those carry a unique code per
 physical cable, keyed to serial numbers that live in Postgres rather than in
-the order, so they belong with the cable batch flow in screens/wholesale.py
-where the serials already are.
+the order, so Greenlight's order scan screen prints each one as its cable is
+scanned (`f`), and `w` prints them for cables not on an order.
 
 Usage:
     python tools/printer/print_order_labels.py --list

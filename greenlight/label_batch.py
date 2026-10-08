@@ -16,8 +16,8 @@ Two things shape the output.
   so an order needs one job for its whole box count, not one per SKU.
 - *per cable* -- the registration label, a unique code each. Deliberately NOT
   planned here: codes attach to serial numbers that come from Postgres rather
-  than from the order, so that flow belongs with the cable batch in
-  `screens/wholesale.py` where the serials already are.
+  than from the order, so the order scan screen prints each one as its
+  cable is scanned (helpers in `screens/registration_codes.py`).
 
 **Stock.** The TE210 has one media path, so a run that mixes 1" and 2" labels
 costs a roll swap. Grouping by stock keeps that to one swap for the whole

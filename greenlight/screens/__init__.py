@@ -41,8 +41,8 @@ from greenlight.screens.wire import (
 )
 
 # Wholesale screens
-from greenlight.screens.wholesale import (
-    WholesaleBatchScreen
+from greenlight.screens.registration_codes import (
+    RegistrationCodesScreen
 )
 
 # Shopify scan mode
@@ -76,7 +76,7 @@ __all__ = [
     # Wire
     'WireLabelScreen',
     # Wholesale
-    'WholesaleBatchScreen',
+    'RegistrationCodesScreen',
     # Shopify
     'ShopifyScanModeScreen',
     # Inventory

@@ -46,7 +46,8 @@ deactivate
 - **screens/**: one module per area — `main.py` (splash/operator select),
   `cable/` (package: `base.py` lookup/QC, `lookup.py` scan hub,
   `intake_select.py` + `intake_scan.py` intake), `inventory.py`, `orders.py`
-  (customer lookup, fulfillment), `wholesale.py`, `wire.py` (wire labels),
+  (customer lookup, fulfillment), `registration_codes.py` (`w`: codes for
+  cables not on an order), `wire.py` (wire labels),
   `shopify_scan.py`, `settings.py`
 - **cable_config.py**: Loads + validates `catalog/` YAML; SKU parse/format
   (mirrored in JS by `shopify_app/app/cable-config.server.js`)

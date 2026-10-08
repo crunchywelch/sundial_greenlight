@@ -130,8 +130,8 @@ class ScanCableLookupScreen(CableScreenBase):
                 # Registration codes for cables not on an order: samples,
                 # festival sales and the like. Wholesale orders get theirs
                 # from 'f', one per cable as it is scanned.
-                from greenlight.screens.wholesale import WholesaleBatchScreen
-                return ScreenResult(NavigationAction.PUSH, WholesaleBatchScreen, self.context.copy())
+                from greenlight.screens.registration_codes import RegistrationCodesScreen
+                return ScreenResult(NavigationAction.PUSH, RegistrationCodesScreen, self.context.copy())
             elif input_lower == 'i':
                 # Go to inventory dashboard
                 from greenlight.screens.inventory import InventoryDashboardScreen
