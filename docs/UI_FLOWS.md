@@ -20,7 +20,7 @@ stateDiagram-v2
     Hub --> SeriesSelect: 'r' register
     Hub --> Calibration: 'c' calibrate
     Hub --> InventoryDash: 'i' inventory
-    Hub --> Wholesale: 'w' wholesale
+    Hub --> Wholesale: 'w' registration codes (no order)
     Hub --> WireLabels: 'p' wire labels
     Hub --> ShopifyScan: 's' shopify scan
     Hub --> OrderList: 'f' fulfill orders
@@ -227,7 +227,7 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
-    state "Wholesale Batch<br/>(Scan Cables)" as Batch
+    state "Registration Codes<br/>(Scan Cables, no order)" as Batch
 
     Batch --> Batch: scan serial (add to batch)
     Batch --> GenerateCodes: 'g' generate codes only

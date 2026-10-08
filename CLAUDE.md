@@ -79,7 +79,7 @@ flags `GREENLIGHT_USE_REAL_{ARDUINO,SCANNER,PRINTERS,GPIO}`,
 
 1. **Splash / operator select** → goes straight to the scan hub
 2. **Scan hub** (`ScanCableLookupScreen`): scan a serial to look up/test a cable,
-   or use a key — `r` intake, `i` inventory, `w` wholesale codes, `p` wire
+   or use a key — `r` intake, `i` inventory, `w` registration codes (no order), `p` wire
    labels, `s` Shopify scan mode, `f` fulfill order (website and wholesale),
    `l` lookup customer, `c` calibrate tester, `q` logout
 
@@ -119,8 +119,13 @@ dealer handling.
 > listed themselves; their Order is.
 
 Greenlight never marks anything fulfilled in Shopify. Website orders are
-fulfilled when they ship; wholesale ones by hand. `w` (wholesale codes) is
-still there for registration codes that aren't tied to an order.
+fulfilled when they ship; wholesale ones by hand.
+
+`w` is **registration codes for cables not on an order** — samples, festival
+sales and the like. It's in regular use; don't fold it into `f`. Its
+cables stay ours and sellable (see `docs/WHOLESALE_ATTRIBUTION.md`). A
+cable coded there and later scanned into a wholesale order keeps its code,
+and its first scan doesn't print a second label — rescan to reprint.
 
 ### Cable Workflow
 

@@ -1,8 +1,13 @@
 """
-Wholesale batch registration code screen.
+Registration codes for cables that aren't on an order.
 
-Allows operator to scan cables going to wholesale/reseller,
-generate registration codes, and print registration labels.
+`w` from the scan hub: samples, festival sales and anything else we expect
+an end buyer to register without a Shopify order behind it. Scan a batch,
+generate codes, print labels. The cables stay ours and sellable.
+
+Wholesale ORDERS don't come through here. Their cables are scanned under `f`,
+which assigns them to the dealer and prints each registration label as the
+cable is scanned, using the helpers below.
 """
 
 import time
@@ -38,23 +43,26 @@ def ensure_registration_code(serial):
 
     Reuses an existing code rather than refusing: a cable coded earlier
     through the batch screen keeps its code, and any label already printed
-    for it stays valid. Returns (code, error message).
+    for it stays valid.
+
+    Returns (code, created, error). `created` is False for a code the cable
+    already had -- it most likely already wears that label.
     """
     cable = get_audio_cable(serial)
     if not cable:
-        return None, f"Cable {serial} not found"
+        return None, False, f"Cable {serial} not found"
     if cable.get('registration_code'):
-        return cable['registration_code'], None
+        return cable['registration_code'], False, None
     result = batch_assign_registration_codes([serial])
     if result.get('results'):
-        return result['results'][0]['registration_code'], None
+        return result['results'][0]['registration_code'], True, None
     errors = result.get('errors') or []
-    return None, (errors[0]['error'] if errors
-                  else result.get('message', 'code generation failed'))
+    return None, False, (errors[0]['error'] if errors
+                         else result.get('message', 'code generation failed'))
 
 
 class WholesaleBatchScreen(Screen):
-    """Scan cables for wholesale, generate registration codes, print labels"""
+    """Scan a batch of cables, generate registration codes, print labels"""
 
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
@@ -92,8 +100,8 @@ class WholesaleBatchScreen(Screen):
 
             self.ui.layout["body"].update(Panel(
                 body_content,
-                title=f"Wholesale Batch ({len(batch)} cables)",
-                subtitle="Scan cables to add to batch"
+                title=f"Registration Codes ({len(batch)} cables)",
+                subtitle="Samples, festival sales -- not for orders (use 'f')"
             ))
 
             # Footer with available actions
@@ -306,7 +314,7 @@ class WholesaleBatchScreen(Screen):
 
         self.ui.layout["body"].update(Panel(
             summary_table,
-            title=f"Wholesale Batch Complete - {len(results_list)} codes generated",
+            title=f"Registration Codes - {len(results_list)} generated",
             subtitle=f"{print_status}{error_text}",
             style="green"
         ))

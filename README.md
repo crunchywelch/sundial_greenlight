@@ -25,7 +25,7 @@ On startup:
 1. Splash screen displays with operator list
 2. Select your operator number
 3. You land on the scan hub: scan a cable to look it up or test it, or press
-   a key for intake, inventory, orders, wholesale codes and labels
+   a key for intake, inventory, orders, registration codes and labels
 
 ### Deactivate Virtual Environment
 

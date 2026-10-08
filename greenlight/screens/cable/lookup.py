@@ -88,7 +88,7 @@ class ScanCableLookupScreen(CableScreenBase):
                     row2_parts.append("[cyan]'c'[/cyan] = Calibrate tester")
                 row3_parts = [
                     "[cyan]'i'[/cyan] = Inventory",
-                    "[cyan]'w'[/cyan] = Wholesale codes",
+                    "[cyan]'w'[/cyan] = Registration codes",
                     "[cyan]'p'[/cyan] = Wire labels",
                     "[cyan]'s'[/cyan] = Shopify scan mode",
                 ]
@@ -127,7 +127,9 @@ class ScanCableLookupScreen(CableScreenBase):
                 new_context["selection_mode"] = "intake"
                 return ScreenResult(NavigationAction.PUSH, SeriesSelectionScreen, new_context)
             elif input_lower == 'w':
-                # Go to wholesale batch registration codes
+                # Registration codes for cables not on an order: samples,
+                # festival sales and the like. Wholesale orders get theirs
+                # from 'f', one per cable as it is scanned.
                 from greenlight.screens.wholesale import WholesaleBatchScreen
                 return ScreenResult(NavigationAction.PUSH, WholesaleBatchScreen, self.context.copy())
             elif input_lower == 'i':

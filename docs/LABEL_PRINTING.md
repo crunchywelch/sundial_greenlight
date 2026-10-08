@@ -470,7 +470,9 @@ rather than growing the label.
 In Greenlight: **`f` from the scan hub**, pick a Wholesale order, and scan
 its cables. Each cable's **registration label prints as it is scanned** (1"
 roll), because the code belongs to that one cable and printing it with the
-cable in hand is what keeps the two together; rescanning reprints it. Then
+cable in hand is what keeps the two together. A cable already coded under
+`w` (samples, festival stock) keeps its code and doesn't print a second label
+on its first scan; rescanning any cable in the order reprints its label. Then
 **`l`** opens the box labels: side + Prop 65 together on the 1" roll, UPC on
 the 2". Toggle which labels you want; the toggles re-cost the plan live, so
 you can see that dropping the UPC label takes a mixed run from one roll swap

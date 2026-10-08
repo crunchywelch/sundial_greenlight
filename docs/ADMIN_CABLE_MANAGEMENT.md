@@ -126,11 +126,11 @@ Every mutation writes a `cable_event`. Retire `app.assign.jsx` at the end of thi
 
 ## Phase 3 — Registration codes at scale
 
-Today codes can only be generated from Greenlight's wholesale batch screen, so making a
+Today codes can only be generated from Greenlight (`w`, or per cable when scanning a wholesale order under `f`), so making a
 cable sellable wholesale requires being at the bench with the Pi. Lift that:
 
 - Generate a code for a single cable from its detail page
-- Bulk-generate for a selected set (the wholesale batch screen, minus the bench)
+- Bulk-generate for a selected set (Greenlight's `w` screen, minus the bench)
 - Show the code and its registration URL so it can be reprinted from anywhere
 
 Label printing itself stays on the Pi (TSC printer). A print-queue that Greenlight drains

@@ -1022,9 +1022,11 @@ class OrderFulfillScanScreen(Screen):
     Wholesale orders (`company_gid` in context): each cable is assigned to the
     dealer instead, leaving shopify_gid for its end buyer to register, and its
     registration label prints as it is scanned -- the code belongs to that one
-    cable, so it goes on as the cable is in hand. Scanning a cable already in
-    the order reprints its label. `l` goes to the box labels (side + Prop 65
-    on the 1" roll, UPC on the 2"), which belong to the order, not a cable.
+    cable, so it goes on as the cable is in hand. A cable that already had a
+    code (coded under `w`) doesn't print again on its first scan; scanning a
+    cable already in the order reprints its label. `l` goes to the box labels
+    (side + Prop 65 on the 1" roll, UPC on the 2"), which belong to the order,
+    not a cable.
     """
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
@@ -1098,7 +1100,7 @@ class OrderFulfillScanScreen(Screen):
         if wholesale:
             keys = ("[cyan]'l'[/cyan] = box labels | " + keys
                     + "\n[dim]1\" roll: a registration label prints per cable. "
-                      "Rescan a cable to reprint its label.[/dim]")
+                      "Already-coded cables don't reprint; rescan to reprint.[/dim]")
         if all_complete:
             self.ui.layout["footer"].update(Panel(
                 f"[bold green]Order complete![/bold green] {keys}, or continue scanning",
@@ -1162,7 +1164,8 @@ class OrderFulfillScanScreen(Screen):
 
         if wholesale and result.get('error') == 'duplicate':
             scanned_cables.append(f"{formatted_serial} reprint"
-                                  + self._registration_label(formatted_serial))
+                                  + self._registration_label(formatted_serial,
+                                                             reprint=True))
             new_context["scanned_cables"] = scanned_cables
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, new_context)
 
@@ -1289,17 +1292,23 @@ class OrderFulfillScanScreen(Screen):
             time.sleep(ERROR_DISPLAY_SEC)
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
-    def _registration_label(self, serial, sku=""):
+    def _registration_label(self, serial, sku="", reprint=False):
         """Code the cable (reusing an existing code) and print its label.
+
+        A cable that already had a code -- coded under `w` for stock, say --
+        most likely already wears its label, so its first scan into the order
+        doesn't print another. `reprint` (a rescan) prints regardless.
 
         Returns a short note for the recently-scanned list, so a label that
         did not print is visible right next to the cable it belongs to.
         """
         from greenlight.screens.wholesale import (
             ensure_registration_code, print_registration_label)
-        code, error = ensure_registration_code(serial)
+        code, created, error = ensure_registration_code(serial)
         if not code:
             return f" [red]no code: {error}[/red]"
+        if not created and not reprint:
+            return f" {code} [yellow]already coded, rescan to reprint[/yellow]"
         from greenlight.hardware.interfaces import hardware_manager
         printer = hardware_manager.get_label_printer()
         if not printer or not printer.is_ready():
