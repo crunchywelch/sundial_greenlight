@@ -235,8 +235,11 @@ def main():
     print(f"  Printer:  {TSC_PRINTER_IP}:{TSC_PRINTER_PORT}")
     print(f"  Stock:    {args.width_mm} x {args.height_mm} mm "
           f"({w} x {h} dots @ {DPI} DPI)")
-    gap_shown = DEFAULT_GAP_MM if args.gap_mm is None else args.gap_mm
-    print(f"  Gap:      {gap_shown} mm, offset 0"
+    setup = header(args.width_mm, args.height_mm, shift=args.shift,
+                   gap_mm=args.gap_mm)
+    gap_line = next(c for c in setup if c.startswith("GAP "))
+    shift_line = next(c for c in setup if c.startswith("SHIFT "))
+    print(f"  Setup:    {gap_line}, {shift_line}"
           f"{' + GAPDETECT' if detect else ''}")
     print()
 

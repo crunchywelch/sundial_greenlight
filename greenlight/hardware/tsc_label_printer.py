@@ -160,8 +160,12 @@ class TSCLabelPrinter(LabelPrinterInterface):
     # does, and the measurement is what counts.
     MEDIA_REGISTRATION = {
         CABLE_ROLL_MM: {"gap_offset_mm": 2.0, "shift": 0},
-        BOX_STOCK_MM:  {"gap_offset_mm": 2.0, "shift": 0},   # NOT yet measured
+        BOX_STOCK_MM:  {"gap_offset_mm": 2.0, "shift": 0},
     }
+    # The 2" figures were measured the same day: after GAPDETECT on that roll
+    # the top ticks were whole, and an SC-20GL box label printed with the
+    # UPC digits whole and room to spare beneath them. Same printer, same
+    # sensor, same answer -- but measured, not assumed.
 
     @classmethod
     def _media_header(cls, width_mm: float, height_mm: float) -> list:
