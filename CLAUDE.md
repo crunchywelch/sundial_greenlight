@@ -80,17 +80,21 @@ flags `GREENLIGHT_USE_REAL_{ARDUINO,SCANNER,PRINTERS,GPIO}`,
 1. **Splash / operator select** → goes straight to the scan hub
 2. **Scan hub** (`ScanCableLookupScreen`): scan a serial to look up/test a cable,
    or use a key — `r` intake, `i` inventory, `w` wholesale codes, `p` wire
-   labels, `s` Shopify scan mode, `f` fulfill order, `o` order labels,
+   labels, `s` Shopify scan mode, `f` fulfill order (and order box labels),
    `l` lookup customer, `c` calibrate tester, `q` logout
 
 ### Order fulfillment
 
-`f` → `FulfillOrdersScreen`, which lists **every unfulfilled order** across
-customers, newest first. Pick one and it goes to `OrderFulfillScanScreen` to
-scan cables against its line items, then `AssignCablesScreen`. `l` from there
-is the customer-first route (`CustomerLookupScreen` →
-`CustomerSearchResultsScreen` → `OrderSelectionScreen`), which is still how
-you get there when you have a name rather than an order.
+`f` → `FulfillOrdersScreen`, which lists **everything outstanding** across
+customers, newest first: unfulfilled Orders *and* unpaid wholesale drafts
+(`#D…`, status in yellow). Pick an Order by number and it goes to
+`OrderFulfillScanScreen` to scan cables against its line items, then
+`AssignCablesScreen`. `p<n>` prints box labels for any row
+(`OrderLabelPrintScreen`); picking a draft by number goes straight there,
+since labels are all a draft can have. `l` from there is the customer-first
+route (`CustomerLookupScreen` → `CustomerSearchResultsScreen` →
+`OrderSelectionScreen`), which is still how you get there when you have a
+name rather than an order.
 
 It lands on the order list because an operator with a bench of tested cables
 is asking what's outstanding, not who it's for. `OrderFulfillScanScreen` reads
@@ -98,14 +102,14 @@ is asking what's outstanding, not who it's for. `OrderFulfillScanScreen` reads
 fills it from the order's own customer — that's what the customer-first path
 used to supply.
 
-> **Wholesale orders do not appear here until they are paid.** The B2B flow
-> creates a Shopify *draft* order and emails an invoice; a draft becomes an
-> Order only when it is completed — the buyer paying, or someone completing it
-> in admin — and **only Orders can be fulfilled**. So an unpaid wholesale
-> order is correctly invisible to `f`. Use `o` for its box labels, which is
-> the work you do before payment clears. The `o` screen shows each draft's
-> lifecycle ("Invoice Sent · not an order yet" vs "#1011 · Unfulfilled") so
-> this doesn't read as a missing order.
+> **Wholesale drafts can be labelled but not fulfilled until paid.** The B2B
+> flow creates a Shopify *draft* order and emails an invoice; a draft becomes
+> an Order only when it is completed — the buyer paying, or someone completing
+> it in admin — and **only Orders can be fulfilled**. Its boxes get labelled
+> before payment clears, which is why drafts are in the list at all. Completed
+> drafts are left out (`orders.outstanding_orders()`): their Order is already
+> listed if it still needs fulfilling. Box labels used to be a separate `o`
+> hub key; it was folded in here so there is one list of outstanding work.
 
 ### Cable Workflow
 
@@ -218,10 +222,11 @@ unbreakable characters, which fits only font `"1"` at ~4.3 pt, under the 6 pt
 legal floor. Its own label has no competing text, so the "no smaller than
 other consumer information" clause has nothing to bind against either.
 
-**Printing a wholesale order's labels: `o` from the scan hub.** Wholesale
-orders are Shopify *draft* orders — `shopify_app/app/b2b.server.js` creates a
-draft and emails an invoice, never completing it, so `get_customer_orders()`
-cannot see one and the fulfillment path never lists it. Planning is in
+**Printing an order's box labels: `f`, then `p<n>` (or a draft's number).**
+Wholesale orders are Shopify *draft* orders until paid —
+`shopify_app/app/b2b.server.js` creates a draft and emails an invoice, never
+completing it — and `get_customer_orders()` cannot see a draft, so the `f`
+list fetches drafts separately (`get_draft_orders()`). Planning is in
 `greenlight/label_batch.py` (no printer, DB or Shopify in it), which groups
 jobs by stock so a mixed run costs one roll swap, and knows three label
 grains: per variant (UPC, side), per order (Prop 65 — its text says nothing

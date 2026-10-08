@@ -467,22 +467,17 @@ rather than growing the label.
 
 ### Printing a wholesale order
 
-In Greenlight: **`o` from the scan hub** — "Order labels". Pick a draft order,
-toggle which labels you want, print. The toggles re-cost the plan live, so
-you can see that dropping the UPC label takes a mixed run from one roll swap
-to none before committing to it.
+In Greenlight: **`f` from the scan hub**, then `p<n>` for any row, or just
+the number for a wholesale draft. The `f` list carries unfulfilled Orders and
+unpaid wholesale drafts together (see CLAUDE.md § Order fulfillment); toggle
+which labels you want, print. The toggles re-cost the plan live, so you can
+see that dropping the UPC label takes a mixed run from one roll swap to none
+before committing to it.
 
-Its own hub key rather than a step inside `f` (Fulfill order) for two
-reasons. Wholesale orders are **draft** orders, and the fulfillment path is
-customer → order filtered to *unfulfilled real orders*, so a draft never
-appears in it. And labelling boxes is a packaging job done at a different
-moment, with different stock loaded, from assigning cables to a paid order —
-putting it inside `f` would add a keystroke to the daily fulfillment path to
-reach something unrelated to it.
-
-(`f` itself now lists every unfulfilled order — see CLAUDE.md § Order
-fulfillment. Wholesale drafts still never appear there, which is why box
-labels are their own key.)
+This used to be its own `o` hub key, because the fulfillment list showed only
+real Orders and a wholesale draft never appeared there. That left two lists of
+outstanding work that disagreed, so drafts now sit in the fulfillment list
+too, and fulfilling an Order is still a single number.
 
 Or from the command line:
 

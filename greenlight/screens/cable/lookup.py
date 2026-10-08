@@ -94,7 +94,6 @@ class ScanCableLookupScreen(CableScreenBase):
                 ]
                 row4_parts = [
                     "[cyan]'f'[/cyan] = Fulfill order",
-                    "[cyan]'o'[/cyan] = Order labels",
                     "[cyan]'l'[/cyan] = Lookup customer",
                     "[cyan]'q'[/cyan] = Logout",
                 ]
@@ -152,15 +151,6 @@ class ScanCableLookupScreen(CableScreenBase):
                 new_context = self.context.copy()
                 new_context["fulfillment_mode"] = True
                 return ScreenResult(NavigationAction.PUSH, FulfillOrdersScreen, new_context)
-            elif input_lower == 'o':
-                # Retail box labels for a wholesale order. Its own hub key
-                # rather than a step inside 'f': wholesale orders are Shopify
-                # DRAFT orders, which the fulfillment path never lists (it
-                # filters real orders to unfulfilled), and labelling boxes is
-                # a packaging job done at a different moment, with different
-                # stock loaded, from assigning cables to a paid order.
-                from greenlight.screens.order_labels import OrderLabelScreen
-                return ScreenResult(NavigationAction.PUSH, OrderLabelScreen, self.context.copy())
             elif input_lower == 'l':
                 # Standalone customer lookup (no fulfillment mode)
                 from greenlight.screens.orders import CustomerLookupScreen

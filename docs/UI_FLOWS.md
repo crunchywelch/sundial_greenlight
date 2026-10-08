@@ -23,7 +23,7 @@ stateDiagram-v2
     Hub --> Wholesale: 'w' wholesale
     Hub --> WireLabels: 'p' wire labels
     Hub --> ShopifyScan: 's' shopify scan
-    Hub --> CustLookup_F: 'f' fulfill orders
+    Hub --> OrderList: 'f' fulfill orders
     Hub --> CustLookup_L: 'l' customer lookup
     Hub --> Splash: 'q' logout
 
@@ -169,9 +169,16 @@ stateDiagram-v2
     state "Order Selection<br/>(Unfulfilled Orders)" as OrderSelect
     state "Order Fulfill Scan<br/>(Cable Scanning)" as FulfillScan
     state "Scan / Cable Lookup<br/>(Main Hub)" as Hub
+    state "Outstanding Orders<br/>(Unfulfilled + unpaid drafts)" as OrderList
+    state "Order Labels<br/>(Box / side / Prop 65)" as OrderLabels
 
     %% --- Entry from Hub 'f' (fulfillment mode) ---
-    Hub --> CustLookup: 'f' fulfill orders
+    Hub --> OrderList: 'f' fulfill orders
+    OrderList --> FulfillScan: number (Order)
+    OrderList --> OrderLabels: number (draft) / 'p<n>' (any)
+    OrderList --> CustLookup: 'l' lookup customer
+    OrderList --> [*]: 'q' back
+    OrderLabels --> OrderList: printed / 'q' back
 
     CustLookup --> CustResults: search
     CustLookup --> [*]: 'q' back

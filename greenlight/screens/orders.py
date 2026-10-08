@@ -52,13 +52,63 @@ def order_line_items(order):
     return items
 
 
+def outstanding_orders(orders, drafts):
+    """Merge unfulfilled Orders and still-open drafts into one list, newest first.
+
+    A wholesale order is a Shopify draft until its invoice is paid, and only
+    Orders can be fulfilled -- but its boxes still get labelled while it is
+    unpaid. So the fulfillment list carries both, and says which is which.
+
+    Completed drafts are left out: completing one creates an Order, which is
+    already in `orders` if it still needs fulfilling, and listing it twice
+    would offer the same boxes twice.
+
+    Each entry: {kind ("order"|"draft"), name, customer, created, status,
+    line_items, source}.
+    """
+    from greenlight.screens.order_labels import draft_lifecycle
+
+    merged = []
+    for order in orders or []:
+        status = order.get("displayFulfillmentStatus") or ""
+        merged.append({
+            "kind": "order",
+            "name": order.get("name") or "?",
+            "customer": order.get("customer") or {},
+            "created": order.get("createdAt") or "",
+            "status": status.replace("_", " ").title(),
+            "line_items": order_line_items(order),
+            "source": order,
+        })
+    for draft in drafts or []:
+        if (draft.get("status") or "").upper() == "COMPLETED":
+            continue
+        merged.append({
+            "kind": "draft",
+            "name": draft.get("name") or "?",
+            "customer": draft.get("customer") or {},
+            "created": draft.get("createdAt") or "",
+            "status": draft_lifecycle(draft),
+            "line_items": [li for li in draft.get("line_items") or []
+                           if li.get("sku")],
+            "source": draft,
+        })
+    merged.sort(key=lambda e: e["created"], reverse=True)
+    return merged
+
+
 class FulfillOrdersScreen(Screen):
-    """Every unfulfilled order, across customers, newest first.
+    """Everything outstanding, across customers, newest first.
 
     This is what `f` lands on. Fulfilling used to start from a customer
     lookup, which asks "who is this for" -- but an operator with a bench of
     tested cables wants the other question: what is outstanding. Customer
     lookup is still one key away for when you do have a name.
+
+    It lists unfulfilled Orders AND unpaid wholesale drafts. A draft can't be
+    fulfilled until it is paid, but its box labels can be printed, so a
+    number fulfills an Order and prints labels for a draft, and `p<n>` prints
+    labels for either. The daily path -- pick an order, scan -- stays one key.
     """
 
     def run(self) -> ScreenResult:
@@ -67,60 +117,62 @@ class FulfillOrdersScreen(Screen):
         self.ui.console.clear()
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(
-            "[yellow]Loading unfulfilled orders from Shopify...[/yellow]",
+            "[yellow]Loading outstanding orders from Shopify...[/yellow]",
             title="Order Fulfillment"))
         self.ui.layout["footer"].update(Panel("Please wait...", title=""))
         self.ui.render()
 
         try:
             orders = shopify_client.get_unfulfilled_orders(limit=50)
+            drafts = shopify_client.get_draft_orders(limit=50)
+            entries = outstanding_orders(orders, drafts)
         except Exception as e:
-            logger.error("Failed to load unfulfilled orders: %s", e)
-            orders = None
+            logger.error("Failed to load outstanding orders: %s", e)
+            entries = None
 
         while True:
             self.ui.console.clear()
             self.ui.header(operator)
 
-            if orders is None:
+            if entries is None:
                 body = Panel(
                     "[bold red]Can't reach Shopify[/bold red]\n\n"
-                    "Unfulfilled orders could not be loaded. This is a\n"
+                    "Outstanding orders could not be loaded. This is a\n"
                     "connection or credentials issue.\n\n"
                     "[dim]Customer lookup needs Shopify too, but try it if\n"
                     "you have a name.[/dim]",
                     title="Order Fulfillment", style="red")
-            elif not orders:
+            elif not entries:
                 body = Panel(
                     "[green]Nothing outstanding.[/green]\n\n"
-                    "[dim]No unfulfilled orders. Wholesale orders placed\n"
-                    "through the order form are draft orders until the\n"
-                    "invoice is paid, so they appear here only after\n"
-                    "payment — use 'o' from the hub for their box labels.[/dim]",
+                    "[dim]No unfulfilled orders and no unpaid wholesale\n"
+                    "drafts.[/dim]",
                     title="Order Fulfillment")
             else:
                 table = Table(show_header=True, header_style="bold cyan")
                 table.add_column("#", style="green", width=3)
-                table.add_column("Order", style="white", width=8)
-                table.add_column("Status", style="dim", width=13)
-                table.add_column("Customer", width=24)
-                table.add_column("Cables", justify="right", width=7)
-                for i, order in enumerate(orders, 1):
-                    customer = (order.get("customer") or {}).get("displayName") or "—"
-                    cables = sum(li["quantity"] for li in order_line_items(order))
-                    status = (order.get("displayFulfillmentStatus") or "")
-                    table.add_row(
-                        str(i), order.get("name") or "?",
-                        status.replace("_", " ").title(),
-                        customer[:24], str(cables))
+                table.add_column("Order", style="white", width=7)
+                table.add_column("Customer", width=22)
+                table.add_column("Cables", justify="right", width=6)
+                table.add_column("Status", width=30)
+                for i, entry in enumerate(entries, 1):
+                    customer = entry["customer"].get("displayName") or "—"
+                    cables = sum(li["quantity"] for li in entry["line_items"])
+                    status = entry["status"]
+                    if entry["kind"] == "draft":
+                        status = f"[yellow]{status}[/yellow]"
+                    table.add_row(str(i), entry["name"], customer[:22],
+                                  str(cables), status)
                 body = Panel(
-                    table, title="Unfulfilled Orders",
-                    subtitle="Scan cables against an order to fulfill it")
+                    table, title="Outstanding Orders",
+                    subtitle="Drafts (#D) are unpaid: labels only until paid")
 
             self.ui.layout["body"].update(body)
             hint = []
-            if orders:
-                hint.append(f"Enter [cyan]1-{len(orders)}[/cyan] to fulfill an order")
+            if entries:
+                hint.append(f"[cyan]1-{len(entries)}[/cyan] = fulfill "
+                            f"(labels for a draft)")
+                hint.append("[cyan]'p<n>'[/cyan] = print box labels")
             hint.append("[cyan]'l'[/cyan] = Lookup customer")
             hint.append("[cyan]'q'[/cyan] = Back")
             self.ui.layout["footer"].update(Panel(
@@ -138,19 +190,40 @@ class FulfillOrdersScreen(Screen):
             if choice == "l":
                 return ScreenResult(NavigationAction.PUSH,
                                     CustomerLookupScreen, self.context)
-            if orders and choice.isdigit() and 1 <= int(choice) <= len(orders):
-                result = self._fulfill(orders[int(choice) - 1])
-                if result:
-                    return result
 
-    def _fulfill(self, order):
+            labels = choice.startswith("p")
+            number = choice[1:].strip() if labels else choice
+            if not (entries and number.isdigit()
+                    and 1 <= int(number) <= len(entries)):
+                continue
+            entry = entries[int(number) - 1]
+            if labels or entry["kind"] == "draft":
+                return self._labels(entry)
+            result = self._fulfill(entry)
+            if result:
+                return result
+
+    def _labels(self, entry):
+        """Box labels for one order or draft."""
+        from greenlight.screens.order_labels import OrderLabelPrintScreen
+        context = self.context.copy()
+        context["label_order"] = {
+            "name": entry["name"],
+            "customer": entry["customer"],
+            "line_items": entry["line_items"],
+        }
+        return ScreenResult(NavigationAction.PUSH, OrderLabelPrintScreen,
+                            context)
+
+    def _fulfill(self, entry):
         """Set up context for one order and go to the scan screen.
 
         OrderFulfillScanScreen reads `selected_customer` to assign cables, so
         the order's own customer fills it -- that is the part the
         customer-first path used to supply.
         """
-        line_items = order_line_items(order)
+        order = entry["source"]
+        line_items = entry["line_items"]
         if not line_items:
             self.ui.layout["body"].update(Panel(
                 "[red]No cable items (with SKUs) in this order[/red]",

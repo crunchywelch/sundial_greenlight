@@ -1,22 +1,21 @@
 """
-Order Label Printing Screens
+Order Label Printing
 
-Prints the retail labels for a wholesale order: the UPC label for the box
-back, the side label for the spine, and the Prop 65 warning.
+Prints the retail labels for an order: the UPC label for the box back, the
+side label for the spine, and the Prop 65 warning.
 
-Wholesale orders are Shopify DRAFT orders. The B2B flow in
-shopify_app/app/b2b.server.js creates a draft and emails an invoice, and
-never completes it -- the buyer paying is what turns it into an Order. So an
-unpaid wholesale order is a draft for its whole working life, including when
-its boxes get labelled, which is why this reads draft orders rather than
-going through the customer/order fulfillment path.
+Reached from the fulfillment list (`f`, FulfillOrdersScreen), which carries
+both unfulfilled Orders and unpaid wholesale drafts. Wholesale orders are
+Shopify DRAFT orders until paid -- shopify_app/app/b2b.server.js creates a
+draft and emails an invoice, and never completes it -- and their boxes get
+labelled while they are still drafts, so the list has to show both.
 
 Registration labels are NOT printed here. Those carry a unique code per
 physical cable, keyed to serial numbers that live in Postgres rather than in
 the order, so they stay in WholesaleBatchScreen where the serials are.
 
 Planning lives in greenlight/label_batch.py, which has no printer, DB or
-Shopify in it; these screens are the operator's end of it.
+Shopify in it; this screen is the operator's end of it.
 """
 
 import logging
@@ -31,11 +30,6 @@ from greenlight.screen_manager import NavigationAction, Screen, ScreenResult
 
 logger = logging.getLogger(__name__)
 
-# How many drafts to list, newest first. Completed ones stay in the list --
-# they have become real orders and their labels were presumably printed when
-# boxed, but reprints happen, and the lifecycle column says which is which.
-DRAFT_LIMIT = 25
-
 
 def draft_lifecycle(order) -> str:
     """Where a draft has got to, in words an operator can act on.
@@ -43,8 +37,8 @@ def draft_lifecycle(order) -> str:
     The lifecycle trips people up: a draft becomes an Order only when it is
     completed -- the buyer paying the invoice, or someone completing it in
     admin -- and only Orders can be fulfilled. So an unpaid wholesale order
-    is correctly absent from the fulfillment screen, which looks like a bug
-    unless the screen says so.
+    can only have its labels printed, which looks like a bug unless the
+    screen says why.
     """
     became = order.get("order")
     if became:
@@ -52,99 +46,6 @@ def draft_lifecycle(order) -> str:
         return f"{became.get('name', 'order')} · {status.title() or 'order'}"
     status = (order.get("status") or "").replace("_", " ").title()
     return f"{status} · not an order yet" if status else "not an order yet"
-
-
-class OrderLabelScreen(Screen):
-    """Pick a wholesale draft order to print labels for."""
-
-    def run(self) -> ScreenResult:
-        operator = self.context.get("operator", "")
-
-        self.ui.console.clear()
-        self.ui.header(operator)
-        self.ui.layout["body"].update(Panel(
-            "[yellow]Loading wholesale draft orders from Shopify...[/yellow]",
-            title="Order Labels"
-        ))
-        self.ui.layout["footer"].update(Panel("Please wait...", title=""))
-        self.ui.render()
-
-        from greenlight.shopify_client import get_draft_orders
-        try:
-            orders = get_draft_orders(limit=DRAFT_LIMIT)
-        except Exception as e:
-            logger.error("Failed to load draft orders: %s", e)
-            orders = None
-
-        if orders is None:
-            return self._error(
-                operator,
-                "[bold red]Can't reach Shopify[/bold red]\n\n"
-                "Wholesale draft orders could not be loaded.\n"
-                "This is a connection or credentials issue.\n\n"
-                "Check the audio-store Shopify settings in .env.")
-
-        if not orders:
-            return self._error(
-                operator,
-                "[dim]No wholesale draft orders found.[/dim]\n\n"
-                "Wholesale orders arrive as draft orders — placed through the\n"
-                "wholesale order form, or created by hand in Shopify admin.")
-
-        table = Table(show_header=True, header_style="bold cyan")
-        table.add_column("#", style="green", width=3)
-        table.add_column("Draft", style="white", width=7)
-        table.add_column("Customer", width=22)
-        table.add_column("Cables", justify="right", width=7)
-        table.add_column("Where it is", style="dim", width=26)
-
-        for i, order in enumerate(orders, 1):
-            customer = (order.get("customer") or {}).get("displayName") or "—"
-            cables = sum(li["quantity"] for li in order["line_items"])
-            table.add_row(str(i), order.get("name") or "?", customer[:22],
-                          str(cables), draft_lifecycle(order))
-
-        def pick(choice):
-            if not choice.isdigit():
-                return None
-            index = int(choice)
-            return orders[index - 1] if 1 <= index <= len(orders) else None
-
-        while True:
-            self.ui.console.clear()
-            self.ui.header(operator)
-            self.ui.layout["body"].update(Panel(
-                table, title="Wholesale Draft Orders",
-                subtitle="Print box labels for an order"))
-            self.ui.layout["footer"].update(Panel(
-                f"Enter [cyan]1-{len(orders)}[/cyan] to choose an order, "
-                f"or [cyan]'q'[/cyan] to go back",
-                title="Order Labels", border_style="green"))
-            self.ui.render()
-
-            try:
-                choice = self.ui.console.input("Order: ").strip().lower()
-            except KeyboardInterrupt:
-                return ScreenResult(NavigationAction.POP)
-            if choice in ("", "q"):
-                return ScreenResult(NavigationAction.POP)
-
-            order = pick(choice)
-            if order:
-                context = self.context.copy()
-                context["label_order"] = order
-                return ScreenResult(NavigationAction.PUSH,
-                                    OrderLabelPrintScreen, context)
-
-    def _error(self, operator, message):
-        self.ui.console.clear()
-        self.ui.header(operator)
-        self.ui.layout["body"].update(Panel(message, title="Order Labels"))
-        self.ui.layout["footer"].update(Panel(
-            "Press [cyan]Enter[/cyan] to go back", title=""))
-        self.ui.render()
-        self.ui.wait_back()
-        return ScreenResult(NavigationAction.POP)
 
 
 class OrderLabelPrintScreen(Screen):

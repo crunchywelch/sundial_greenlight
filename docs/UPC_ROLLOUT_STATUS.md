@@ -264,10 +264,10 @@ holds the planning. Verified end to end against real draft orders: `#D14` (24
 cables over 6 SKUs) plans 48 labels as 12 jobs with one roll swap, and `#D3`
 printed. Draft-order support added to `shopify_client` — the B2B flow never
 completes its drafts, so `get_customer_orders()` could not see a wholesale
-order at all. A TUI screen landed 2026-10-06: **`o` from the scan hub**,
-`greenlight/screens/order_labels.py`. Its own hub key rather than a step
-inside `f`, because wholesale orders are drafts (which the fulfillment path
-never lists) and labelling boxes is a packaging job, not a fulfillment one.
+order at all. A TUI screen landed 2026-10-06 as its own `o` hub key, and was
+folded into `f` on 2026-10-08: the fulfillment list now carries unpaid drafts
+alongside unfulfilled Orders, and `p<n>` prints any row's box labels
+(`OrderLabelPrintScreen` in `greenlight/screens/order_labels.py`).
 
 `FulfillOrdersScreen` was a one-item wrapper menu that nothing navigated to
 (`f` skipped it and went straight to `CustomerLookupScreen`, which was its
