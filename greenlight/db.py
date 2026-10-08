@@ -1518,6 +1518,50 @@ def get_cables_for_order(order_gid):
         pg_pool.putconn(conn)
 
 
+def relink_order_cables(draft_to_order):
+    """Move cables scanned against a draft order onto the Order it became.
+
+    Wholesale orders get packed whether or not the invoice is paid yet, so
+    cables can be scanned against a DraftOrder GID. Completing the draft
+    creates an Order with a new GID, and everything downstream -- the admin
+    fulfillment extension, a later rescan -- looks cables up by the Order.
+
+    Args:
+        draft_to_order: {draft_gid: order_gid} for completed drafts
+
+    Returns:
+        Number of cables moved.
+    """
+    if not draft_to_order:
+        return 0
+    conn = pg_pool.getconn()
+    moved = 0
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                for draft_gid, order_gid in draft_to_order.items():
+                    cur.execute("""
+                        UPDATE audio_cables
+                        SET shopify_order_gid = %s,
+                            updated_timestamp = CURRENT_TIMESTAMP
+                        WHERE shopify_order_gid = %s
+                        RETURNING serial_number
+                    """, (order_gid, draft_gid))
+                    for (serial,) in cur.fetchall():
+                        record_cable_event(
+                            serial, 'order_relinked',
+                            detail={'from': draft_gid, 'to': order_gid},
+                            cur=cur)
+                        moved += 1
+        return moved
+    except Exception as e:
+        logger.error("Error relinking draft cables: %s", e)
+        conn.rollback()
+        return 0
+    finally:
+        pg_pool.putconn(conn)
+
+
 def clear_registration_code(serial_number):
     """Detach a cable's registration code.
 

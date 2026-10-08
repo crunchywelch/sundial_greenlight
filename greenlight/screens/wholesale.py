@@ -18,6 +18,41 @@ from greenlight.registration import generate_registration_url
 logger = logging.getLogger(__name__)
 
 
+def print_registration_label(printer, serial, reg_code, sku=""):
+    """Print one cable's registration label. Returns True if it printed."""
+    from greenlight.hardware.interfaces import PrintJob
+    return bool(printer.print_labels(PrintJob(
+        template="registration_label",
+        data={
+            'registration_code': reg_code,
+            'registration_url': generate_registration_url(reg_code),
+            'serial_number': serial,
+            'sku': sku,
+        },
+        quantity=1,
+    )))
+
+
+def ensure_registration_code(serial):
+    """The cable's registration code, generating one if it has none.
+
+    Reuses an existing code rather than refusing: a cable coded earlier
+    through the batch screen keeps its code, and any label already printed
+    for it stays valid. Returns (code, error message).
+    """
+    cable = get_audio_cable(serial)
+    if not cable:
+        return None, f"Cable {serial} not found"
+    if cable.get('registration_code'):
+        return cable['registration_code'], None
+    result = batch_assign_registration_codes([serial])
+    if result.get('results'):
+        return result['results'][0]['registration_code'], None
+    errors = result.get('errors') or []
+    return None, (errors[0]['error'] if errors
+                  else result.get('message', 'code generation failed'))
+
+
 class WholesaleBatchScreen(Screen):
     """Scan cables for wholesale, generate registration codes, print labels"""
 
@@ -204,7 +239,7 @@ class WholesaleBatchScreen(Screen):
         printer_available = False
         label_printer = None
         if print_labels:
-            from greenlight.hardware.interfaces import hardware_manager, PrintJob
+            from greenlight.hardware.interfaces import hardware_manager
             label_printer = hardware_manager.get_label_printer()
             printer_available = label_printer and label_printer.is_ready() if label_printer else False
 
@@ -219,7 +254,6 @@ class WholesaleBatchScreen(Screen):
             # Find cable record for SKU
             cable_record = next((c for c in batch if c['serial_number'] == serial), {})
             sku = cable_record.get('sku', '')
-            reg_url = generate_registration_url(reg_code)
 
             # Update progress
             self.ui.layout["body"].update(Panel(
@@ -231,18 +265,7 @@ class WholesaleBatchScreen(Screen):
             self.ui.render()
 
             if printer_available:
-                label_data = {
-                    'registration_code': reg_code,
-                    'registration_url': reg_url,
-                    'serial_number': serial,
-                    'sku': sku,
-                }
-                print_job = PrintJob(
-                    template="registration_label",
-                    data=label_data,
-                    quantity=1
-                )
-                if label_printer.print_labels(print_job):
+                if print_registration_label(label_printer, serial, reg_code, sku):
                     printed_count += 1
                 time.sleep(0.3)  # Brief pause between prints
 

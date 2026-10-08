@@ -80,36 +80,47 @@ flags `GREENLIGHT_USE_REAL_{ARDUINO,SCANNER,PRINTERS,GPIO}`,
 1. **Splash / operator select** → goes straight to the scan hub
 2. **Scan hub** (`ScanCableLookupScreen`): scan a serial to look up/test a cable,
    or use a key — `r` intake, `i` inventory, `w` wholesale codes, `p` wire
-   labels, `s` Shopify scan mode, `f` fulfill order (and order box labels),
+   labels, `s` Shopify scan mode, `f` fulfill order (website and wholesale),
    `l` lookup customer, `c` calibrate tester, `q` logout
 
 ### Order fulfillment
 
 `f` → `FulfillOrdersScreen`, which lists **everything outstanding** across
-customers, newest first: unfulfilled Orders *and* unpaid wholesale drafts
-(`#D…`, status in yellow). Pick an Order by number and it goes to
-`OrderFulfillScanScreen` to scan cables against its line items, then
-`AssignCablesScreen`. `p<n>` prints box labels for any row
-(`OrderLabelPrintScreen`); picking a draft by number goes straight there,
-since labels are all a draft can have. `l` from there is the customer-first
-route (`CustomerLookupScreen` → `CustomerSearchResultsScreen` →
-`OrderSelectionScreen`), which is still how you get there when you have a
-name rather than an order.
+customers, newest first, each row typed **Website** or **Wholesale**. Pick one
+and it goes to `OrderFulfillScanScreen`, which does the per-channel job:
 
-It lands on the order list because an operator with a bench of tested cables
-is asking what's outstanding, not who it's for. `OrderFulfillScanScreen` reads
-`selected_customer` from the context to assign cables, so the order list
-fills it from the order's own customer — that's what the customer-first path
-used to supply.
+- **Website order:** scan each cable; it's checked against the line items
+  (SKU and QC) and assigned to the customer. No labels.
+- **Wholesale order:** the same scan and checks, but the cable is assigned to
+  the **dealer** (`wholesale_company_gid`/`location_gid`) with `shopify_gid`
+  left NULL, and its **registration label prints as it is scanned**, since the
+  code belongs to that one cable. Rescanning a cable reprints its label. `l`
+  then prints the box labels (`OrderLabelPrintScreen`): side + Prop 65 in one
+  pass on the 1" roll, UPC on the 2".
 
-> **Wholesale drafts can be labelled but not fulfilled until paid.** The B2B
-> flow creates a Shopify *draft* order and emails an invoice; a draft becomes
-> an Order only when it is completed — the buyer paying, or someone completing
-> it in admin — and **only Orders can be fulfilled**. Its boxes get labelled
-> before payment clears, which is why drafts are in the list at all. Completed
-> drafts are left out (`orders.outstanding_orders()`): their Order is already
-> listed if it still needs fulfilling. Box labels used to be a separate `o`
-> hub key; it was folded in here so there is one list of outstanding work.
+Wholesale vs website comes from the buyer (`purchasingEntity` is a
+`PurchasingCompany`), not from whether it's a draft — see
+`shopify_client.wholesale_buyer()`. **Getting this wrong locks out the end
+buyer:** a wholesale cable assigned as retail gets `shopify_gid` set, and
+`api.register-cable.jsx` refuses any cable that already has one.
+
+`l` from the list is the customer-first route (`CustomerLookupScreen` →
+`CustomerSearchResultsScreen` → `OrderSelectionScreen`), for when you have a
+name rather than an order. It lands on the same scan screen, with the same
+dealer handling.
+
+> **Wholesale orders are packed paid or unpaid.** The B2B flow creates a
+> Shopify *draft* order and emails an invoice; a draft becomes an Order only
+> when completed (the buyer paying, or someone completing it in admin). The
+> list shows open drafts ("Invoice Sent · not an order yet") so packing doesn't
+> wait on payment. Cables scanned against a draft are stored under the
+> DraftOrder GID, and when the list loads, `db.relink_order_cables()` moves
+> them onto the Order any completed draft became. Completed drafts aren't
+> listed themselves; their Order is.
+
+Greenlight never marks anything fulfilled in Shopify. Website orders are
+fulfilled when they ship; wholesale ones by hand. `w` (wholesale codes) is
+still there for registration codes that aren't tied to an order.
 
 ### Cable Workflow
 
@@ -222,16 +233,17 @@ unbreakable characters, which fits only font `"1"` at ~4.3 pt, under the 6 pt
 legal floor. Its own label has no competing text, so the "no smaller than
 other consumer information" clause has nothing to bind against either.
 
-**Printing an order's box labels: `f`, then `p<n>` (or a draft's number).**
-Wholesale orders are Shopify *draft* orders until paid —
+**Printing a wholesale order's labels: `f`, pick the order, scan.** Each
+cable's registration label prints as it's scanned; `l` from the scan screen
+prints the box labels. Wholesale orders may still be Shopify *draft* orders —
 `shopify_app/app/b2b.server.js` creates a draft and emails an invoice, never
 completing it — and `get_customer_orders()` cannot see a draft, so the `f`
 list fetches drafts separately (`get_draft_orders()`). Planning is in
 `greenlight/label_batch.py` (no printer, DB or Shopify in it), which groups
 jobs by stock so a mixed run costs one roll swap, and knows three label
 grains: per variant (UPC, side), per order (Prop 65 — its text says nothing
-about the cable), and per cable (registration codes, deliberately left in
-`screens/wholesale.py` where the serials are).
+about the cable), and per cable (registration codes, printed one at a time
+by the scan screen as each cable is in hand).
 
 **Scan-loop guard:** serial numbers are purely numeric, so a scanned 12-digit
 UPC would otherwise be zero-padded into a bogus serial.

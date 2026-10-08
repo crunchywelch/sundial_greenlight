@@ -1,18 +1,15 @@
 """
 Order Label Printing
 
-Prints the retail labels for an order: the UPC label for the box back, the
-side label for the spine, and the Prop 65 warning.
+Prints the box labels for a wholesale order: the UPC label for the box
+back, the side label for the spine, and the Prop 65 warning. Side and Prop 65
+share the 1" roll, so they go in one pass; UPC is the 2" pass.
 
-Reached from the fulfillment list (`f`, FulfillOrdersScreen), which carries
-both unfulfilled Orders and unpaid wholesale drafts. Wholesale orders are
-Shopify DRAFT orders until paid -- shopify_app/app/b2b.server.js creates a
-draft and emails an invoice, and never completes it -- and their boxes get
-labelled while they are still drafts, so the list has to show both.
+Reached with `l` from a wholesale order's scan screen (OrderFulfillScanScreen,
+via `f`). Website orders don't get box labels.
 
-Registration labels are NOT printed here. Those carry a unique code per
-physical cable, keyed to serial numbers that live in Postgres rather than in
-the order, so they stay in WholesaleBatchScreen where the serials are.
+Registration labels are NOT printed here. Each carries a code for one
+physical cable, so the scan screen prints it as that cable is scanned.
 
 Planning lives in greenlight/label_batch.py, which has no printer, DB or
 Shopify in it; this screen is the operator's end of it.
@@ -36,9 +33,9 @@ def draft_lifecycle(order) -> str:
 
     The lifecycle trips people up: a draft becomes an Order only when it is
     completed -- the buyer paying the invoice, or someone completing it in
-    admin -- and only Orders can be fulfilled. So an unpaid wholesale order
-    can only have its labels printed, which looks like a bug unless the
-    screen says why.
+    admin -- and only Orders can be fulfilled in Shopify. Packing doesn't
+    wait for that, so the `f` list shows drafts too, and says how far each
+    has got.
     """
     became = order.get("order")
     if became:

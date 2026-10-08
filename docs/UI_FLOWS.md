@@ -169,16 +169,16 @@ stateDiagram-v2
     state "Order Selection<br/>(Unfulfilled Orders)" as OrderSelect
     state "Order Fulfill Scan<br/>(Cable Scanning)" as FulfillScan
     state "Scan / Cable Lookup<br/>(Main Hub)" as Hub
-    state "Outstanding Orders<br/>(Unfulfilled + unpaid drafts)" as OrderList
-    state "Order Labels<br/>(Box / side / Prop 65)" as OrderLabels
+    state "Outstanding Orders<br/>(Website + wholesale, incl. drafts)" as OrderList
+    state "Box Labels<br/>(Side + Prop 65 1in, UPC 2in)" as OrderLabels
 
     %% --- Entry from Hub 'f' (fulfillment mode) ---
     Hub --> OrderList: 'f' fulfill orders
-    OrderList --> FulfillScan: number (Order)
-    OrderList --> OrderLabels: number (draft) / 'p<n>' (any)
+    OrderList --> FulfillScan: number
     OrderList --> CustLookup: 'l' lookup customer
     OrderList --> [*]: 'q' back
-    OrderLabels --> OrderList: printed / 'q' back
+    FulfillScan --> OrderLabels: 'l' box labels (wholesale only)
+    OrderLabels --> FulfillScan: printed / 'q' back
 
     CustLookup --> CustResults: search
     CustLookup --> [*]: 'q' back
@@ -194,7 +194,8 @@ stateDiagram-v2
     OrderSelect --> [*]: 'q' back / no orders
 
     %% --- Fulfillment scanning loop ---
-    FulfillScan --> FulfillScan: scan cable (success, SKU matches)
+    FulfillScan --> FulfillScan: scan cable (success, SKU matches;<br/>wholesale prints its registration label)
+    FulfillScan --> FulfillScan: rescan (wholesale: reprint registration label)
     FulfillScan --> FulfillScan: scan cable (override assigned)
     FulfillScan --> FulfillScan: scan cable (error, continue)
     FulfillScan --> Hub: 'q' done (pop to hub)

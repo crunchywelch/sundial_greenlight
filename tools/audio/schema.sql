@@ -96,7 +96,8 @@ CREATE INDEX IF NOT EXISTS idx_audio_cables_wholesale_company
 -- `event` is free text rather than an ENUM so Greenlight and the Shopify admin
 -- can add event kinds without coordinating a migration. Known values:
 --   assigned_customer, unassigned_customer, assigned_dealer, unassigned_dealer,
---   code_generated, code_cleared, registered, sku_changed, qc_tested
+--   code_generated, code_cleared, registered, sku_changed, qc_tested,
+--   order_relinked (cables moved from a completed draft onto its Order)
 --
 -- `registered` (the end buyer claimed the cable, written by the public
 -- registration endpoint) and `sku_changed` (an operator corrected the cable's

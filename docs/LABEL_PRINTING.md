@@ -467,17 +467,18 @@ rather than growing the label.
 
 ### Printing a wholesale order
 
-In Greenlight: **`f` from the scan hub**, then `p<n>` for any row, or just
-the number for a wholesale draft. The `f` list carries unfulfilled Orders and
-unpaid wholesale drafts together (see CLAUDE.md § Order fulfillment); toggle
-which labels you want, print. The toggles re-cost the plan live, so you can
-see that dropping the UPC label takes a mixed run from one roll swap to none
-before committing to it.
+In Greenlight: **`f` from the scan hub**, pick a Wholesale order, and scan
+its cables. Each cable's **registration label prints as it is scanned** (1"
+roll), because the code belongs to that one cable and printing it with the
+cable in hand is what keeps the two together; rescanning reprints it. Then
+**`l`** opens the box labels: side + Prop 65 together on the 1" roll, UPC on
+the 2". Toggle which labels you want; the toggles re-cost the plan live, so
+you can see that dropping the UPC label takes a mixed run from one roll swap
+to none before committing to it.
 
-This used to be its own `o` hub key, because the fulfillment list showed only
-real Orders and a wholesale draft never appeared there. That left two lists of
-outstanding work that disagreed, so drafts now sit in the fulfillment list
-too, and fulfilling an Order is still a single number.
+Website orders get no box labels — they're scanned against the order and
+that's all. This used to be its own `o` hub key, which left two lists of
+outstanding work that disagreed; see CLAUDE.md § Order fulfillment.
 
 Or from the command line:
 

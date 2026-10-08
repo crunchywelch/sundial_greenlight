@@ -664,6 +664,41 @@ def get_customer_by_email(email: str) -> Optional[Dict[str, Any]]:
         close_shopify_session()
 
 
+# Who is buying. A B2B order (or B2B draft) resolves to PurchasingCompany; a
+# website order to the customer. Fulfillment needs this: a wholesale cable is
+# recorded against the dealer with shopify_gid left NULL, so the end buyer can
+# still register it -- see db.assign_cable_to_order.
+_PURCHASING_ENTITY = """
+    purchasingEntity {
+        __typename
+        ... on PurchasingCompany {
+            company { id name }
+            location { id name }
+        }
+    }
+"""
+
+
+def wholesale_buyer(order: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    """The dealer an order or draft is for, or None for a retail order.
+
+    Returns {company_gid, location_gid, display}.
+    """
+    entity = order.get("purchasingEntity") or {}
+    company = entity.get("company") or {}
+    if not company.get("id"):
+        return None
+    location = entity.get("location") or {}
+    display = company.get("name") or company["id"]
+    if location.get("name"):
+        display = f"{display} — {location['name']}"
+    return {
+        "company_gid": company["id"],
+        "location_gid": location.get("id"),
+        "display": display,
+    }
+
+
 def get_customer_orders(customer_id: str, limit: int = 10) -> list[Dict[str, Any]]:
     """
     Get recent orders for a customer
@@ -695,6 +730,7 @@ def get_customer_orders(customer_id: str, limit: int = 10) -> list[Dict[str, Any
                             createdAt
                             displayFinancialStatus
                             displayFulfillmentStatus
+                            %s
                             totalPriceSet {
                                 shopMoney {
                                     amount
@@ -719,7 +755,7 @@ def get_customer_orders(customer_id: str, limit: int = 10) -> list[Dict[str, Any
                 }
             }
         }
-        """
+        """ % _PURCHASING_ENTITY
 
         variables = {"id": customer_gid, "limit": limit}
         result = shopify.GraphQL().execute(query, variables=variables)
@@ -747,11 +783,12 @@ _DRAFT_ORDER_FIELDS = """
     status
     createdAt
     customer { id displayName email }
+    %s
     totalPriceSet { shopMoney { amount currencyCode } }
     # Set once the draft has been completed -- by the buyer paying the
-    # invoice, or by hand in admin. Until then there is no Order, and only
-    # Orders can be fulfilled, so an unpaid wholesale order is invisible to
-    # the fulfillment flow by design.
+    # invoice, or by hand in admin. Until then there is no Order. Cables
+    # scanned against the draft are moved onto this Order when it appears
+    # (db.relink_order_cables).
     order { id name displayFulfillmentStatus }
     lineItems(first: 100) {
         edges {
@@ -763,7 +800,7 @@ _DRAFT_ORDER_FIELDS = """
             }
         }
     }
-"""
+""" % _PURCHASING_ENTITY
 
 
 def _flatten_draft_order(node: Dict[str, Any]) -> Dict[str, Any]:
@@ -827,6 +864,7 @@ def get_unfulfilled_orders(limit: int = 50) -> list[Dict[str, Any]]:
                         displayFinancialStatus
                         displayFulfillmentStatus
                         customer { id displayName email }
+                        %s
                         totalPriceSet { shopMoney { amount currencyCode } }
                         lineItems(first: 100) {
                             edges {
@@ -842,7 +880,7 @@ def get_unfulfilled_orders(limit: int = 50) -> list[Dict[str, Any]]:
                 }
             }
         }
-        """
+        """ % _PURCHASING_ENTITY
 
         result = shopify.GraphQL().execute(query, variables={"limit": limit})
 
