@@ -195,24 +195,36 @@ class OrderLabelPrintScreen(Screen):
             self.ui.wait_back()
             return
 
-        groups = sorted(plan.by_stock.items(), key=lambda kv: -kv[0][1])
+        # Smallest stock first: a wholesale order's registration labels have
+        # just gone out on the 1" roll, so it is already loaded, and starting
+        # there makes the whole order one swap instead of two.
+        groups = sorted(plan.by_stock.items(), key=lambda kv: kv[0][1])
         printed = 0
         for stock, jobs in groups:
             w, h = stock
             inches = f'{w / 25.4:.0f}" x {h / 25.4:.0f}"'
             total = sum(j.quantity for j in jobs)
+            # Calibrate unless this session already calibrated for this
+            # stock. Without it the printer stays registered to the previous
+            # roll's gaps and the image lands off the label.
+            calibrate = tuple(stock) != getattr(printer, "loaded_stock", None)
 
             self.ui.console.clear()
             self.ui.header(operator)
+            note = ("The printer will feed a few labels to find the new\n"
+                    "roll's gaps before printing -- that is expected."
+                    if calibrate else
+                    "Calibrated for this stock already. If you've swapped\n"
+                    "or reloaded the roll since, press 'c'.")
             self.ui.layout["body"].update(Panel(
                 f"[bold]Load {inches} stock[/bold]\n\n"
                 f"{total} label(s) in {len(jobs)} job(s) to print on it.\n\n"
-                f"[dim]The TE210 has one media path, so each stock is its own\n"
-                f"pass. Calibrate after swapping the roll.[/dim]",
+                f"[dim]{note}[/dim]",
                 title=f"Order Labels — {inches}"))
             self.ui.layout["footer"].update(Panel(
                 "[cyan]Enter[/cyan] = print this stock | "
-                "[cyan]'s'[/cyan] = skip it | [cyan]'q'[/cyan] = stop",
+                + ("" if calibrate else "[cyan]'c'[/cyan] = calibrate + print | ")
+                + "[cyan]'s'[/cyan] = skip it | [cyan]'q'[/cyan] = stop",
                 title="", border_style="green"))
             self.ui.render()
 
@@ -224,6 +236,17 @@ class OrderLabelPrintScreen(Screen):
                 break
             if answer == "s":
                 continue
+            if (calibrate or answer == "c") and not printer.calibrate_media(stock):
+                self.ui.layout["body"].update(Panel(
+                    f"[bold red]Calibration failed[/bold red]\n\n"
+                    f"Couldn't reach the printer to calibrate for {inches}.\n"
+                    f"{printed} label(s) sent so far.",
+                    title="Order Labels", style="red"))
+                self.ui.layout["footer"].update(Panel(
+                    "Press [cyan]Enter[/cyan] to go back", title=""))
+                self.ui.render()
+                self.ui.wait_back()
+                return
 
             failed = None
             for job in jobs:

@@ -301,6 +301,41 @@ class TSCLabelPrinter(LabelPrinterInterface):
             logger.error(f"Failed to send TSPL commands: {e}")
             return False
 
+    def calibrate_media(self, stock) -> bool:
+        """Point the media sensor at a newly loaded roll.
+
+        Every template sends SIZE and GAP, but those only say how big a label
+        is -- not where the next one starts. After a roll swap the printer
+        is still registered to the old stock's gaps, so the image lands off
+        the label: on the 1" side label the SKU, 11 dots off the bottom, is
+        the first thing lost. `GAPDETECT` feeds a few labels while it
+        re-measures; that is expected, not a fault.
+
+        tools/printer/calibrate_media.py does the same from the command line,
+        plus an alignment label.
+
+        Args:
+            stock: (width_mm, height_mm), e.g. CABLE_ROLL_MM or BOX_STOCK_MM
+        """
+        if not self.connected and not self.initialize():
+            return False
+        width_mm, height_mm = stock
+        tspl = "\r\n".join([
+            f"SIZE {width_mm:.1f} mm, {height_mm:.1f} mm",
+            f"GAP {self.GAP_MM:.1f} mm, 0 mm",
+            "DIRECTION 1,0",
+            "REFERENCE 0,0",
+            "SET TEAR ON",
+            "SET PEEL OFF",
+            "GAPDETECT",
+            "",
+        ])
+        if not self._send_tspl_commands(tspl):
+            return False
+        self.loaded_stock = (width_mm, height_mm)
+        logger.info("Calibrated media for %.1f x %.1f mm", width_mm, height_mm)
+        return True
+
     def print_labels(self, print_job: PrintJob) -> bool:
         """
         Print cable labels
@@ -1681,6 +1716,12 @@ class MockTSCLabelPrinter(LabelPrinterInterface):
         """Mock initialization"""
         logger.info("Mock TSC printer: Simulating initialization")
         self.connected = True
+        return True
+
+    def calibrate_media(self, stock) -> bool:
+        """Mock calibration"""
+        logger.info(f"Mock TSC printer: Would calibrate for {stock} (GAPDETECT)")
+        self.loaded_stock = tuple(stock)
         return True
 
     def print_labels(self, print_job: PrintJob) -> bool:

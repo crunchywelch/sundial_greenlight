@@ -180,6 +180,16 @@ mis-scanned. Text flows from the top into whatever room is left.
 Because the TE210 has one media path, printing box labels means swapping the
 roll and recalibrating, so batch them.
 
+**A swap needs `GAPDETECT`, not just the right `SIZE`.** Every template sends
+SIZE and GAP, but those say how big a label is, not where the next one
+starts. Skip the sensor detect and the printer stays registered to the old
+roll's gaps: the image lands off the label, and on the 1" side label the
+SKU, 11 dots off the bottom, is the first thing lost.
+`TSCLabelPrinter.calibrate_media(stock)` runs it and remembers the stock for
+the session (`loaded_stock`); Greenlight calibrates on its own wherever it
+knows a swap happens (below). Anywhere else, run
+`tools/printer/calibrate_media.py [--cable-roll]` after swapping.
+
 ### Previewing and printing
 
 ```bash
@@ -477,6 +487,12 @@ on its first scan; rescanning any cable in the order reprints its label. Then
 the 2". Toggle which labels you want; the toggles re-cost the plan live, so
 you can see that dropping the UPC label takes a mixed run from one roll swap
 to none before committing to it.
+
+The 1" pass runs first, since the registration labels just went out on that
+roll, so a wholesale order costs one swap. Each pass calibrates the media
+sensor (a few labels feed) unless this session already calibrated for that
+stock; `c` at the prompt forces it. The scan screen also has `c` to calibrate
+the 1" roll, and warns if the printer was last set up for the 2".
 
 Website orders get no box labels — they're scanned against the order and
 that's all. This used to be its own `o` hub key, which left two lists of

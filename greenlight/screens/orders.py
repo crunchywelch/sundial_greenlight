@@ -1098,9 +1098,17 @@ class OrderFulfillScanScreen(Screen):
 
         keys = "[cyan]'q'[/cyan] = back"
         if wholesale:
-            keys = ("[cyan]'l'[/cyan] = box labels | " + keys
+            keys = ("[cyan]'l'[/cyan] = box labels | "
+                    "[cyan]'c'[/cyan] = calibrate 1\" roll | " + keys
                     + "\n[dim]1\" roll: a registration label prints per cable. "
                       "Already-coded cables don't reprint; rescan to reprint.[/dim]")
+            from greenlight.hardware.interfaces import hardware_manager
+            from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
+            loaded = getattr(hardware_manager.get_label_printer(),
+                             "loaded_stock", None)
+            if loaded and tuple(loaded) != CABLE_ROLL_MM:
+                keys = ("[bold yellow]Printer was last set up for the 2\" roll. "
+                        "Load the 1\" roll and press 'c'.[/bold yellow]\n" + keys)
         if all_complete:
             self.ui.layout["footer"].update(Panel(
                 f"[bold green]Order complete![/bold green] {keys}, or continue scanning",
@@ -1118,6 +1126,18 @@ class OrderFulfillScanScreen(Screen):
 
         if not serial_input or serial_input.lower() == 'q':
             return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
+
+        if wholesale and serial_input.lower() == 'c':
+            from greenlight.hardware.interfaces import hardware_manager
+            from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
+            printer = hardware_manager.get_label_printer()
+            ok = bool(printer) and printer.calibrate_media(CABLE_ROLL_MM)
+            new_context = self.context.copy()
+            new_context["scanned_cables"] = scanned_cables + [
+                "[green]Calibrated for the 1\" roll[/green]" if ok
+                else "[red]Calibration failed: printer not reachable[/red]"]
+            return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen,
+                                new_context)
 
         if wholesale and serial_input.lower() == 'l':
             from greenlight.screens.order_labels import OrderLabelPrintScreen

@@ -83,6 +83,15 @@ class LabelPrinterInterface(ABC):
         """Close printer connection"""
         pass
 
+    # The stock (width_mm, height_mm) the media sensor was last calibrated
+    # for in this session, or None if unknown.
+    loaded_stock = None
+
+    def calibrate_media(self, stock) -> bool:
+        """Re-find the label edges after a roll swap. No-op by default."""
+        self.loaded_stock = tuple(stock)
+        return True
+
 
 class CardPrinterInterface(ABC):
     """Abstract interface for card printers"""
