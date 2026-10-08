@@ -970,15 +970,15 @@ class TSCLabelPrinter(LabelPrinterInterface):
     # Retail box labels use their own, taller stock than the 1"x3" cable roll.
     BOX_LABEL_WIDTH_MM, BOX_LABEL_HEIGHT_MM = BOX_STOCK_MM
 
-    # Dots at the bottom of the stock to keep clear. This was 14, and on the
-    # first box label ever printed the UPC's human-readable digits came out
-    # cut off -- which GS1 requires to be legible, so it is a compliance
-    # failure and not a cosmetic one. A calibration label put the last
-    # reliably-printing row at about y=370 of the declared 406, and the
-    # digits need to end above that. 41 made them fully visible but sitting
-    # right on the edge, which is no margin at all once registration drifts
-    # -- so 55, putting the digits at 324..352.
-    BOX_LABEL_BOTTOM_MARGIN = 55
+    # Dots at the bottom of the stock to keep clear under the UPC's digits,
+    # which GS1 requires legible. History, because each number was a
+    # reaction to the one before: 14 cut the digits off; 55 was the fix --
+    # but the real cause was registration (labels printing ~25 dots low; see
+    # MEDIA_REGISTRATION), so 55 overcorrected once that was fixed. Measured
+    # 2026-10-08 with correct registration, the 2" roll prints reliably to
+    # ~y=390 of 406, so 30 puts the digits' bottom at 376 with 15 dots of
+    # slack, and centres the symbol between the text and the edge.
+    BOX_LABEL_BOTTOM_MARGIN = 30
 
     def _generate_box_label_tspl(self, data: Dict[str, Any]) -> bytes:
         """Generate TSPL commands for a retail box label with a UPC-A barcode.

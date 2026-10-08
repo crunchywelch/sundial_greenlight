@@ -159,8 +159,8 @@ def preview(printer, data):
           f"dots (need {quiet_needed})")
     clearance = h_dots - by - bh - hri
     print(f"  bottom clearance   {clearance} dots below the digits", end="")
-    print("   [digits were being cut off at 14]"
-          if clearance >= TSCLabelPrinter.BOX_LABEL_BOTTOM_MARGIN else "")
+    print("   [ok]" if clearance >= TSCLabelPrinter.BOX_LABEL_BOTTOM_MARGIN
+          else "   [TOO LOW — digits may be cut off]")
 
     problems = []
     if bx < quiet_needed or (w_dots - bx - bars_w) < quiet_needed:
