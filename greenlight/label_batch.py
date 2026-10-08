@@ -46,6 +46,18 @@ RETAIL_TEMPLATES = ("box_label", "shelf_label", "prop65_label")
 # labels.
 UNIFORM_TEMPLATES = ("prop65_label",)
 
+# What the Prop 65 label on every box says. The listed chemical comes from
+# the Canare cable's PVC jacket -- Neutrik connectors and our solder carry
+# nothing that requires a warning. Canare's distributor says a warning is
+# required but has not named the chemical; ask for their written Prop 65
+# statement and put it here (e.g. "DEHP"), with endpoints to match ("both",
+# "cancer" or "reproductive").
+#
+# Unnamed (None) prints the older short form, which is safe harbor for
+# products manufactured before 1 January 2028 -- after that date the named
+# form is required. See tsc_label_printer.prop65_warning().
+PROP65 = {"chemical": None, "endpoints": "both"}
+
 # What each template is called where an operator can see it, where it goes,
 # and whether it needs a UPC -- a template that does cannot be planned for a
 # SKU that has none.
@@ -149,7 +161,8 @@ def plan_order(line_items,
     for template in templates:
         if template in UNIFORM_TEMPLATES and boxed:
             plan.jobs.append(LabelJob(
-                template=template, sku="(all)", quantity=boxed, data={},
+                template=template, sku="(all)", quantity=boxed,
+                data=dict(PROP65) if template == "prop65_label" else {},
                 stock=stock_for_template(template),
             ))
 

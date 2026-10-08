@@ -89,6 +89,45 @@ def _tspl_safe(text: Optional[str]) -> str:
 
 
 
+def prop65_warning(form=None, chemical=None, endpoints=None):
+    """The Prop 65 warning as (signal word, sentence).
+
+    With a chemical named, the short form is the 2025 safe-harbor text
+    (27 CCR 25603(b)), which names one and may use "CA WARNING". It is
+    REQUIRED for products manufactured from 1 January 2028; until then the
+    old unnamed form below remains safe harbor, with unlimited sell-through
+    for stock made before that date.
+
+    The words are the regulation's, not ours -- check them against
+    25603(b) before changing anything here.
+    """
+    form = (form or "short").lower()
+    chemical = (chemical or "").strip()
+    endpoints = (endpoints or "both").lower()
+    url = "www.P65Warnings.ca.gov."
+
+    if form == "long":
+        harm = {"cancer": "cause cancer",
+                "reproductive": "cause birth defects or other reproductive harm",
+                }.get(endpoints,
+                      "cause cancer and birth defects or other reproductive harm")
+        chem = chemical or "chemicals"
+        is_are = "which is" if chemical else "which are"
+        return "WARNING", (f"This product can expose you to {chem}, {is_are} "
+                           f"known to the State of California to {harm}. For "
+                           f"more information go to {url}")
+
+    if chemical:
+        kind = {"cancer": "a carcinogen",
+                "reproductive": "a reproductive toxicant",
+                }.get(endpoints, "a carcinogen and reproductive toxicant")
+        return "CA WARNING", f"Can expose you to {chemical}, {kind}. See {url}"
+
+    harm = {"cancer": "Cancer", "reproductive": "Reproductive Harm",
+            }.get(endpoints, "Cancer and Reproductive Harm")
+    return "WARNING", f"{harm} - {url}"
+
+
 class TSCLabelPrinter(LabelPrinterInterface):
     """TSC TE210 thermal transfer label printer"""
 
@@ -1534,70 +1573,76 @@ class TSCLabelPrinter(LabelPrinterInterface):
     def _generate_prop65_label_tspl(self, data: Dict[str, Any]) -> bytes:
         """Generate TSPL for a California Proposition 65 warning label.
 
-        Layout: the exclamation-point warning triangle (rasterized bitmap) at
-        left, "WARNING" beside it, and the warning statement below.
+        One calm sentence beside a modest warning triangle, the way the
+        warning reads on most retail goods:
+
+            /!\\  CA WARNING: Can expose you to lead, a
+                 carcinogen and reproductive toxicant.
+                 See www.P65Warnings.ca.gov.
+
+        The previous layout put "WARNING" at double size with "Cancer and
+        Reproductive Harm" as a headline beneath it, which read as an alarm
+        rather than a disclosure. Nothing in the regulation asks for that:
+        the signal word must be bold capitals and the text at least 6 pt, and
+        a dedicated label has no other consumer text it must out-size. Font
+        "3" (~8.5 pt) where it fits, "2" (~7.1 pt) where it doesn't -- never
+        "1", which is ~4.3 pt. Bold is a double strike; the TE210's fonts
+        have no bold weight.
+
+        Wording is `prop65_warning()`'s -- see it for what each form says.
 
         Args:
             data: Dictionary with:
-                - form: "short" (default) or "long"
-                - chemical: optional chemical name (e.g. "lead", "DEHP")
+                - chemical: chemical name. Named -> the 2025 short form
+                  (required on products made from 2028); omitted -> the old
+                  "Cancer and Reproductive Harm" short form.
                 - endpoints: "both" (default), "cancer", or "reproductive"
+                - form: "short" (default) or "long"
                 - quantity: number of copies (default 1)
         """
-        form = (data.get('form') or 'short').lower()
-        chemical = (data.get('chemical') or '').strip()
-        endpoints = (data.get('endpoints') or 'both').lower()
+        signal, sentence = prop65_warning(
+            form=data.get('form'), chemical=data.get('chemical'),
+            endpoints=data.get('endpoints'))
         quantity = self._print_quantity(data)
-
-        def esc(t):
-            return t.replace('"', "'")
 
         cmds = []
         cmds.extend(self._media_header(self.label_width_mm, self.label_height_mm))
         cmds.append("DENSITY 10")
         cmds.append("SPEED 3")
 
-        # Warning triangle bitmap at top-left.
-        tri = self._generate_warning_triangle_bitmap(height=86, border=9)
-        tri_x, tri_y = 16, 18
-        bitmap_cmd = (f'BITMAP {tri_x},{tri_y},{tri["width_bytes"]},'
+        height = self.label_height_dots
+        tri = self._generate_warning_triangle_bitmap(height=64, border=6)
+        margin = 16
+        text_x = margin + tri['width'] + 16
+        usable = self.label_width_dots - margin - text_x
+
+        prefix = signal + ":"
+        for font, row_h in (("3", 32), ("2", 26)):
+            lines = self._wrap_with_prefix(
+                prefix, sentence, usable // self.FONT_ADVANCE[font])
+            block = len(lines) * row_h - (row_h - self.FONT_HEIGHT[font])
+            if block <= height - 2 * 12:
+                break
+
+        y0 = (height - block) // 2
+        adv = self.FONT_ADVANCE[font]
+        for i, line in enumerate(lines):
+            y = y0 + i * row_h
+            if i == 0:
+                # Signal word in bold: struck twice, a dot apart.
+                for dx in (0, 1):
+                    cmds.append(f'TEXT {text_x + dx},{y},"{font}",0,1,1,"{prefix}"')
+                rest = line[len(prefix):].lstrip()
+                if rest:
+                    cmds.append(f'TEXT {text_x + (len(prefix) + 1) * adv},{y},'
+                                f'"{font}",0,1,1,"{_tspl_safe(rest)}"')
+            else:
+                cmds.append(f'TEXT {text_x},{y},"{font}",0,1,1,"{_tspl_safe(line)}"')
+
+        # Triangle centred on the text block.
+        tri_y = max(4, y0 + (block - tri['height']) // 2)
+        bitmap_cmd = (f'BITMAP {margin},{tri_y},{tri["width_bytes"]},'
                       f'{tri["height"]},0,').encode() + tri['data']
-
-        text_x = tri_x + tri['width'] + 18  # to the right of the triangle
-
-        # "WARNING" headline (font 4, double size) beside the triangle.
-        cmds.append(f'TEXT {text_x},22,"4",0,2,2,"WARNING"')
-
-        if form == 'long':
-            if endpoints == 'cancer':
-                harm = "cause cancer"
-            elif endpoints == 'reproductive':
-                harm = "cause birth defects or other reproductive harm"
-            else:
-                harm = "cause cancer and birth defects or other reproductive harm"
-            chem = chemical if chemical else "certain chemicals"
-            is_are = "which is" if chemical else "which are"
-            body = (f"This product can expose you to {chem}, {is_are} known to "
-                    f"the State of California to {harm}. For more information "
-                    f"go to www.P65Warnings.ca.gov")
-            y = 110  # below the triangle (which ends near y=104)
-            for line in self._split_text(body, 74):
-                cmds.append(f'TEXT 16,{y},"1",0,1,1,"{esc(line)}"')
-                y += 18
-        else:
-            # Short form.
-            if endpoints == 'cancer':
-                harm = "Cancer"
-            elif endpoints == 'reproductive':
-                harm = "Reproductive Harm"
-            else:
-                harm = "Cancer and Reproductive Harm"
-            cmds.append(f'TEXT {text_x},80,"2",0,1,1,"{esc(harm)}"')
-            next_y = 108
-            if chemical:
-                cmds.append(f'TEXT {text_x},{next_y},"2",0,1,1,"{esc("Chemical: " + chemical)}"')
-                next_y += 26
-            cmds.append(f'TEXT {text_x},{next_y},"3",0,1,1,"www.P65Warnings.ca.gov"')
 
         cmds.append(f"PRINT {quantity},1")
         cmds.append("")
@@ -1606,6 +1651,26 @@ class TSCLabelPrinter(LabelPrinterInterface):
         head = "\r\n".join(cmds[:-2]).encode('utf-8') + b"\r\n"
         tail = "\r\n".join(cmds[-2:]).encode('utf-8')
         return head + bitmap_cmd + b"\r\n" + tail
+
+    # Glyph heights in dots, for vertical layout.
+    FONT_HEIGHT = {"1": 12, "2": 20, "3": 24, "4": 32, "5": 48}
+
+    @staticmethod
+    def _wrap_with_prefix(prefix: str, text: str, width: int) -> list:
+        """Word-wrap `prefix + " " + text` to `width` characters a line.
+
+        Words are never broken -- www.P65Warnings.ca.gov in particular must
+        stay whole -- so a word longer than the width gets a line to itself.
+        """
+        lines, line = [], prefix
+        for word in text.split():
+            if len(line) + 1 + len(word) <= width:
+                line = f"{line} {word}"
+            else:
+                lines.append(line)
+                line = word
+        lines.append(line)
+        return lines
 
     def get_status(self) -> Dict[str, Any]:
         """Get printer status"""

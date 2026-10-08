@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from greenlight.hardware.tsc_label_printer import BOX_STOCK_MM, CABLE_ROLL_MM
 from greenlight.label_batch import (
+    PROP65,
     RETAIL_TEMPLATES, UNIFORM_TEMPLATES, describe_plan, merge_line_items,
     plan_order,
 )
@@ -131,7 +132,8 @@ def test_prop65_only_for_misc_still_prints():
 def test_prop65_needs_no_upc_and_no_catalog_data():
     plan = plan_order([line("SC-20GL", 1)], templates=("prop65_label",),
                       upc_by_sku=None)
-    assert plan.jobs[0].data == {}
+    # Its data is the order-wide warning setting, nothing from the catalog.
+    assert plan.jobs[0].data == PROP65
     assert not plan.warnings
 
 

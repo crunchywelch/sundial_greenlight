@@ -100,6 +100,27 @@ California Proposition 65 warning labels require the exclamation-point warning
 triangle. Since the TE210 only renders built-in bitmap fonts, the triangle is
 rasterized as a bitmap by the driver (template `prop65_label`).
 
+The label is one sentence beside a modest triangle — a disclosure, not an
+alarm. The signal word is bold capitals (a double strike) at the same size
+as the text; the text is font `"3"` (~8.5 pt), or `"2"` (~7.1 pt) for the
+long form, never `"1"` (~4.3 pt, under the 6 pt floor).
+
+**What it says** comes from `prop65_warning()` in `tsc_label_printer.py`, in
+the regulation's own words (27 CCR 25603(b)):
+
+- **Chemical named** — the 2025 short form, e.g. "**CA WARNING:** Can expose
+  you to DEHP, a carcinogen and reproductive toxicant. See
+  www.P65Warnings.ca.gov." **Required for products manufactured from
+  1 January 2028.**
+- **No chemical** — the older "**WARNING:** Cancer and Reproductive Harm -
+  www.P65Warnings.ca.gov.", safe harbor for products made before then, with
+  unlimited sell-through.
+
+Order labels use `PROP65` in `greenlight/label_batch.py`. Our listed chemical
+comes from the Canare cable's PVC jacket (Neutrik connectors and our solder
+need no warning); the distributor says one is required but hasn't named it,
+so `chemical` is `None` until Canare's written Prop 65 statement says which.
+
 ```bash
 # Preview the triangle + TSPL without printing (recommended first)
 python tools/printer/print_prop65.py --preview
