@@ -19,40 +19,45 @@
  *   RES      - Run TS resistance test, returns RES:...
  *   XRES     - Run XLR resistance test (pin 2 + pin 3), returns XRES:...
  *   CAL      - Calibrate TS resistance (use short cable)
- *   XSHELL   - Run XLR shell bond test, returns XSHELL:...
+ *   XSHELL   - Not supported on this board (no shell wiring), returns ERROR:...
  *   XCAL     - Calibrate XLR resistance (use short cable)
  *   STATUS   - Get tester status, returns STATUS:...
  *   ID       - Get tester ID, returns ID:...
  *   RESET    - Reset circuit, returns OK:RESET
  *
+ * Pin assignments follow the stacked proto boards as built, not a tidy
+ * logical grouping. Source of truth: arduino/kicad/unoQ/greenlight-tester-unoQ.kicad_sch
+ *
  * Relay Configuration (all via PN2222A drivers, coils on 5V rail):
  *   K1+K2 (D3)     - Tied together. TS test mode. LOW = short far end + res path, HIGH = continuity
- *   K3 (D4)        - Resistance circuit. LOW = TS, HIGH = XLR
- *   K4 (D5)        - XLR resistance pin select. LOW = Pin 2, HIGH = Pin 3
+ *   K3 (D5)        - Resistance circuit. LOW = TS, HIGH = XLR
+ *   K4 (D12)       - XLR resistance pin select. LOW = Pin 2 (K5), HIGH = Pin 3 (K6)
  *   K5 (D10)       - XLR Pin 2 mode. LOW = continuity, HIGH = resistance (into K4)
  *   K6 (D11)       - XLR Pin 3 mode. LOW = continuity, HIGH = resistance (into K4)
+ *   K5/K6 each switch both ends of one conductor (J3 sense end, J4 drive end),
+ *   so XRES energizes both and K4 picks one — neither conductor touches a GPIO.
  *
  * Pin Configuration:
  *   D2     - STATUS LED (external)
  *   D3     - K1_K2_DRIVE (via PN2222A)
- *   D4     - K3_DRIVE (via PN2222A)
- *   D5     - K4_DRIVE (via PN2222A)
+ *   D4     - XLR_CONT_OUT_PIN1 (drive, J4 pin 1)
+ *   D5     - K3_DRIVE (via PN2222A)
  *   D6     - TS continuity signal, SLEEVE
  *   D7     - TS continuity signal, TIP
  *   D8     - TS continuity sense, SLEEVE
  *   D9     - TS continuity sense, TIP
  *   D10    - K5_DRIVE (via PN2222A)
  *   D11    - K6_DRIVE (via PN2222A)
- *   D12    - XLR_CONT_OUT_PIN1 (drive)
+ *   D12    - K4_DRIVE (via PN2222A)
  *   D13    - RES_TEST_OUT (PN2222A base drive via 330R, shared TS/XLR)
  *   A0     - RES_SENSE (analog input, 3.3V circuit only!)
- *   A1/D15 - XLR_CONT_OUT_PIN3 (drive)
- *   A2/D16 - XLR_CONT_OUT_PIN2 (drive)
- *   A3/D17 - XLR_CONT_IN_PIN2 (read)
- *   A4/D18 - XLR_CONT_IN_PIN3 (read)
- *   A5/D19 - XLR_CONT_IN_PIN1 (read)
- *   D20    - XLR_CONT_IN_SHELL (read, far side)
- *   D21    - XLR_CONT_OUT_SHELL (drive, near side)
+ *   A1/D15 - XLR_CONT_OUT_PIN3 (drive, via K6 NC -> J4 pin 3)
+ *   A2/D16 - XLR_CONT_OUT_PIN2 (drive, via K5 NC -> J4 pin 2)
+ *   A3/D17 - XLR_CONT_IN_PIN3 (read, via K6 NC <- J3 pin 3)
+ *   A4/D18 - XLR_CONT_IN_PIN2 (read, via K5 NC <- J3 pin 2)
+ *   A5/D19 - XLR_CONT_IN_PIN1 (read, J3 pin 1)
+ *   D20    - RESULT LED red   (D6 LED_RAGB via 220R)
+ *   D21    - RESULT LED green (D6 LED_RAGB via 220R)
  */
 
 #include "Arduino_RouterBridge.h"
@@ -63,10 +68,17 @@
 // --- Status LED ---
 #define STATUS_LED           2
 
+// --- Result LED (D6 LED_RAGB, red + green used, blue unconnected) ---
+#define RESULT_LED_RED      20   // SDA
+#define RESULT_LED_GREEN    21   // SCL
+// Common-anode part: anode on +3V3, GPIO LOW sinks current = LED on.
+// Set false if the fitted LED is common-cathode (anode/cathode on GND).
+const bool RESULT_LED_ACTIVE_LOW = true;
+
 // --- Relay Drives (all via PN2222A, GPIO -> 1k -> base) ---
 #define K1_K2_RELAY          3
-#define K3_RELAY             4
-#define K4_RELAY             5
+#define K3_RELAY             5
+#define K4_RELAY            12
 #define K5_RELAY            10
 #define K6_RELAY            11
 
@@ -80,15 +92,15 @@
 #define RES_TEST_OUT        13
 #define RES_SENSE            A0
 
-// --- XLR Cable Testing ---
-#define XLR_CONT_OUT_PIN1   12
+// --- XLR Cable Testing (J4 = drive end, J3 = sense end) ---
+// IN_PIN2/IN_PIN3 look swapped vs the analog numbering: the sense line for a
+// pin must sit on the same relay (K5 = pin 2, K6 = pin 3) as its drive line.
+#define XLR_CONT_OUT_PIN1    4
 #define XLR_CONT_IN_PIN1    19   // A5
 #define XLR_CONT_OUT_PIN2   16   // A2
-#define XLR_CONT_IN_PIN2    17   // A3
+#define XLR_CONT_IN_PIN2    18   // A4
 #define XLR_CONT_OUT_PIN3   15   // A1
-#define XLR_CONT_IN_PIN3    18   // A4
-#define XLR_CONT_OUT_SHELL  21   // SCL
-#define XLR_CONT_IN_SHELL   20   // SDA
+#define XLR_CONT_IN_PIN3    17   // A3
 
 // ===== LED MATRIX =====
 ArduinoLEDMatrix matrix;
@@ -299,22 +311,13 @@ struct XlrContResults {
   bool overallPass;
 };
 
-struct XlrShellResults {
-  bool nearShellBond;
-  bool farShellBond;
-  bool shellToShell;
-  bool shellToP2;
-  bool shellToP3;
-  bool overallPass;
-};
-
 // ===== FORWARD DECLARATIONS =====
 void showResult(int result = 0);
+void setResultLed(bool red, bool green);
 void resetCircuit();
 String handleCommand(String cmd);
 String runContinuityTest();
 String runXlrContinuityTest();
-String runXlrShellTest();
 String runResistanceTest();
 String runXlrResistanceTest();
 String runCalibration();
@@ -358,11 +361,14 @@ void setup() {
   pinMode(XLR_CONT_OUT_PIN1, OUTPUT);
   pinMode(XLR_CONT_OUT_PIN2, OUTPUT);
   pinMode(XLR_CONT_OUT_PIN3, OUTPUT);
-  pinMode(XLR_CONT_OUT_SHELL, OUTPUT);
   pinMode(XLR_CONT_IN_PIN1, INPUT);
   pinMode(XLR_CONT_IN_PIN2, INPUT);
   pinMode(XLR_CONT_IN_PIN3, INPUT);
-  pinMode(XLR_CONT_IN_SHELL, INPUT);
+
+  // --- Result LED ---
+  pinMode(RESULT_LED_RED, OUTPUT);
+  pinMode(RESULT_LED_GREEN, OUTPUT);
+  setResultLed(false, false);
 
   // --- LED Matrix ---
   matrix.begin();
@@ -380,7 +386,6 @@ void setup() {
   digitalWrite(XLR_CONT_OUT_PIN1, LOW);
   digitalWrite(XLR_CONT_OUT_PIN2, LOW);
   digitalWrite(XLR_CONT_OUT_PIN3, LOW);
-  digitalWrite(XLR_CONT_OUT_SHELL, LOW);
 
   showResult(SHOW_OFF);
 
@@ -434,8 +439,8 @@ String handleCommand(String cmd) {
     return runXlrContinuityTest();
 
   } else if (cmd == "XSHELL" || cmd == "XS") {
-    if (!systemReady) return "ERROR:NOT_READY";
-    return runXlrShellTest();
+    // D20/D21 went to the result LED; the shell contacts aren't wired on this board.
+    return "ERROR:NOT_SUPPORTED:XSHELL";
 
   } else if (cmd == "RES") {
     if (!systemReady) return "ERROR:NOT_READY";
@@ -478,12 +483,12 @@ String handleCommand(String cmd) {
   } else if (cmd == "K3") {
     bool state = !digitalRead(K3_RELAY);
     digitalWrite(K3_RELAY, state);
-    return String("DEBUG:K3(D4):") + (state ? "HIGH" : "LOW");
+    return String("DEBUG:K3(D5):") + (state ? "HIGH" : "LOW");
 
   } else if (cmd == "K4") {
     bool state = !digitalRead(K4_RELAY);
     digitalWrite(K4_RELAY, state);
-    return String("DEBUG:K4(D5):") + (state ? "HIGH" : "LOW");
+    return String("DEBUG:K4(D12):") + (state ? "HIGH" : "LOW");
 
   } else if (cmd == "K5") {
     bool state = !digitalRead(K5_RELAY);
@@ -514,7 +519,7 @@ String handleCommand(String cmd) {
   } else if (cmd == "XLR1") {
     bool state = !digitalRead(XLR_CONT_OUT_PIN1);
     digitalWrite(XLR_CONT_OUT_PIN1, state);
-    return String("DEBUG:XLR_CONT_OUT_PIN1(D12):") + (state ? "HIGH" : "LOW");
+    return String("DEBUG:XLR_CONT_OUT_PIN1(D4):") + (state ? "HIGH" : "LOW");
 
   } else if (cmd == "XLR2") {
     bool state = !digitalRead(XLR_CONT_OUT_PIN2);
@@ -525,11 +530,6 @@ String handleCommand(String cmd) {
     bool state = !digitalRead(XLR_CONT_OUT_PIN3);
     digitalWrite(XLR_CONT_OUT_PIN3, state);
     return String("DEBUG:XLR_CONT_OUT_PIN3(A1/D15):") + (state ? "HIGH" : "LOW");
-
-  } else if (cmd == "XLRS") {
-    bool state = !digitalRead(XLR_CONT_OUT_SHELL);
-    digitalWrite(XLR_CONT_OUT_SHELL, state);
-    return String("DEBUG:XLR_CONT_OUT_SHELL(D21):") + (state ? "HIGH" : "LOW");
 
   } else {
     return "ERROR:UNKNOWN_CMD:" + cmd;
@@ -605,8 +605,6 @@ String runXlrContinuityTest() {
   const int outPins[] = {XLR_CONT_OUT_PIN1, XLR_CONT_OUT_PIN2, XLR_CONT_OUT_PIN3};
   const int inPins[]  = {XLR_CONT_IN_PIN1,  XLR_CONT_IN_PIN2,  XLR_CONT_IN_PIN3};
 
-  pinMode(XLR_CONT_OUT_SHELL, INPUT);
-
   for (int d = 0; d < 3; d++) {
     for (int i = 0; i < 3; i++) pinMode(outPins[i], INPUT);
     pinMode(outPins[d], OUTPUT);
@@ -620,7 +618,6 @@ String runXlrContinuityTest() {
   }
 
   for (int i = 0; i < 3; i++) pinMode(outPins[i], OUTPUT);
-  pinMode(XLR_CONT_OUT_SHELL, OUTPUT);
   resetCircuit();
 
   // Evaluate
@@ -675,74 +672,6 @@ String runXlrContinuityTest() {
       }
       resp += issues.length() > 0 ? issues : "UNKNOWN";
     }
-  }
-
-  return resp;
-}
-
-// ===== XLR SHELL BOND TEST =====
-String runXlrShellTest() {
-  XlrShellResults r;
-
-  showResult(SHOW_OFF);
-  resetCircuit();
-  delay(RELAY_SETTLE_MS);
-
-  const int outPins[] = {XLR_CONT_OUT_PIN1, XLR_CONT_OUT_PIN2, XLR_CONT_OUT_PIN3, XLR_CONT_OUT_SHELL};
-  const int inPins[]  = {XLR_CONT_IN_PIN1,  XLR_CONT_IN_PIN2,  XLR_CONT_IN_PIN3,  XLR_CONT_IN_SHELL};
-
-  // Drive pin1, read shell (far end bond)
-  for (int i = 0; i < 4; i++) pinMode(outPins[i], INPUT);
-  pinMode(XLR_CONT_OUT_PIN1, OUTPUT);
-  digitalWrite(XLR_CONT_OUT_PIN1, HIGH);
-  delay(SIGNAL_SETTLE_MS);
-  r.farShellBond = digitalRead(XLR_CONT_IN_SHELL) == HIGH;
-  digitalWrite(XLR_CONT_OUT_PIN1, LOW);
-  delay(RELAY_SETTLE_MS);
-
-  // Drive shell, read pin1/pin2/pin3/shell
-  for (int i = 0; i < 4; i++) pinMode(outPins[i], INPUT);
-  pinMode(XLR_CONT_OUT_SHELL, OUTPUT);
-  digitalWrite(XLR_CONT_OUT_SHELL, HIGH);
-  delay(SIGNAL_SETTLE_MS);
-  r.nearShellBond = digitalRead(XLR_CONT_IN_PIN1) == HIGH;
-  r.shellToP2 = digitalRead(XLR_CONT_IN_PIN2) == HIGH;
-  r.shellToP3 = digitalRead(XLR_CONT_IN_PIN3) == HIGH;
-  r.shellToShell = digitalRead(XLR_CONT_IN_SHELL) == HIGH;
-  digitalWrite(XLR_CONT_OUT_SHELL, LOW);
-
-  for (int i = 0; i < 4; i++) {
-    pinMode(outPins[i], OUTPUT);
-    digitalWrite(outPins[i], LOW);
-  }
-  resetCircuit();
-
-  r.overallPass = r.nearShellBond && r.farShellBond && !r.shellToP2 && !r.shellToP3;
-  showResult(r.overallPass ? SHOW_PASS : (r.nearShellBond || r.farShellBond ? SHOW_ERROR : SHOW_FAIL));
-
-  String resp = "XSHELL:";
-  resp += r.overallPass ? "PASS" : "FAIL";
-  resp += ":NEAR:" + String(r.nearShellBond ? 1 : 0);
-  resp += ":FAR:" + String(r.farShellBond ? 1 : 0);
-  resp += ":SS:" + String(r.shellToShell ? 1 : 0);
-
-  if (!r.overallPass) {
-    resp += ":REASON:";
-    String issues = "";
-    if (!r.nearShellBond) issues += "NEAR_SHELL_OPEN";
-    if (!r.farShellBond) {
-      if (issues.length() > 0) issues += ",";
-      issues += "FAR_SHELL_OPEN";
-    }
-    if (r.shellToP2) {
-      if (issues.length() > 0) issues += ",";
-      issues += "SHELL_P2_SHORT";
-    }
-    if (r.shellToP3) {
-      if (issues.length() > 0) issues += ",";
-      issues += "SHELL_P3_SHORT";
-    }
-    resp += issues.length() > 0 ? issues : "UNKNOWN";
   }
 
   return resp;
@@ -971,28 +900,38 @@ void resetCircuit() {
   digitalWrite(XLR_CONT_OUT_PIN1, LOW);
   digitalWrite(XLR_CONT_OUT_PIN2, LOW);
   digitalWrite(XLR_CONT_OUT_PIN3, LOW);
-  digitalWrite(XLR_CONT_OUT_SHELL, LOW);
+}
+
+// Result LED holds the last result until the next test starts (SHOW_OFF),
+// unlike the matrix icon, which times out back to the scroll.
+void setResultLed(bool red, bool green) {
+  digitalWrite(RESULT_LED_RED,   red   != RESULT_LED_ACTIVE_LOW ? HIGH : LOW);
+  digitalWrite(RESULT_LED_GREEN, green != RESULT_LED_ACTIVE_LOW ? HIGH : LOW);
 }
 
 void showResult(int result) {
   matrix.setGrayscaleBits(1);
   switch (result) {
     case SHOW_PASS:
+      setResultLed(false, true);
       matrix.draw(ICON_PASS);
       showingIcon = true;
       iconStartTime = millis();
       break;
     case SHOW_FAIL:
+      setResultLed(true, false);
       matrix.draw(ICON_FAIL);
       showingIcon = true;
       iconStartTime = millis();
       break;
     case SHOW_ERROR:
+      setResultLed(true, true);
       matrix.draw(ICON_ERROR);
       showingIcon = true;
       iconStartTime = millis();
       break;
     default: {
+      setResultLed(false, false);
       uint8_t blank[104] = {0};
       matrix.draw(blank);
       break;
@@ -1020,7 +959,6 @@ String readSensors() {
   r += ",XLR_P1:" + String(digitalRead(XLR_CONT_IN_PIN1));
   r += ",XLR_P2:" + String(digitalRead(XLR_CONT_IN_PIN2));
   r += ",XLR_P3:" + String(digitalRead(XLR_CONT_IN_PIN3));
-  r += ",XLR_SH:" + String(digitalRead(XLR_CONT_IN_SHELL));
   return r;
 }
 

@@ -64,19 +64,25 @@ CONT     → RESULT:PASS:TT:1:TS:0:SS:1:ST:0  (or FAIL with :REASON:...)
 RES      → RES:PASS:ADC:150:CAL:120:MOHM:450:OHM:0.450
 CAL      → CAL:OK:ADC:120
 XCONT    → XCONT:PASS:P11:1:P12:0:P13:0:P21:0:P22:1:P23:0:P31:0:P32:0:P33:1
-XSHELL   → XSHELL:PASS:NEAR:1:FAR:1:SS:1
+XSHELL   → XSHELL:PASS:NEAR:1:FAR:1:SS:1   (Mega only; UNO Q → ERROR:NOT_SUPPORTED:XSHELL)
 XRES     → XRES:PASS:P2ADC:150:P3ADC:148:...
 XCAL     → XCAL:OK:P2ADC:120:P3ADC:118
 ```
 
 ## Pin Configuration (UNO Q)
 
-See full pinout in sketch header. Key assignments:
-- **D2-D5:** TS continuity (drive/sense for tip and sleeve)
-- **D6:** Resistance test drive (shared TS/XLR via PN2222A)
-- **D7-D11:** Relay drives K1-K6 (via PN2222A transistors, coils on 5V)
-- **D12-D13, A1-A5, D20:** XLR continuity (drive/sense for pins 1-3 + shell)
-- **A0:** Resistance sense (analog, 3.3V circuit only)
+The schematic `kicad/unoQ/greenlight-tester-unoQ.kicad_sch` matches the built
+board and is the source of truth; the full table lives in the sketch header.
+Assignments follow the stacked proto boards (limited through-holes, partly
+soldered), so they aren't grouped logically. `kicad/unoQ/SCHEMATIC_CHANGES.md`
+is the original Mega→UNO Q migration plan and its pin table is stale.
+
+- **D2:** Status LED · **D20/D21:** result LED red/green (D6 LED_RAGB)
+- **D3 / D5 / D12 / D10 / D11:** relay drivers K1+K2 / K3 / K4 / K5 / K6 (PN2222A, coils on 5V)
+- **D6/D7 → D8/D9:** TS continuity drive → sense (sleeve/tip)
+- **D13:** resistance test drive (Q3); **A0:** resistance sense (R8 20Ω from +3V3)
+- **XLR (J4 drive end → J3 sense end):** pin 1 D4→A5, pin 2 A2→A4 (K5), pin 3 A1→A3 (K6)
+- **XLR shell test:** no pins left on UNO Q; XSHELL is unsupported
 
 ## LED Matrix
 
