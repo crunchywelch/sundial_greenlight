@@ -70,7 +70,11 @@ def detect_platform() -> str:
 PLATFORM = detect_platform()
 
 # TSC Label Printer configuration
-TSC_PRINTER_IP = os.getenv("GREENLIGHT_TSC_PRINTER_IP", "tsc")
+# One printer per roll, so nobody swaps stock. The two defaults must stay
+# distinct: sharing one would send 2" box labels to the 1" roll. Blank means
+# "not configured", and labels for that stock report it rather than print.
+TSC_1IN_PRINTER_IP = os.getenv("GREENLIGHT_TSC_1IN_PRINTER_IP", "tsc1")
+TSC_2IN_PRINTER_IP = os.getenv("GREENLIGHT_TSC_2IN_PRINTER_IP", "tsc2")
 TSC_PRINTER_PORT = int(os.getenv("GREENLIGHT_TSC_PRINTER_PORT", "9100"))
 TSC_LABEL_WIDTH_MM = 76.2  # 3 inches
 TSC_LABEL_HEIGHT_MM = 25.4  # 1 inch

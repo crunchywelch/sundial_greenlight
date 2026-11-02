@@ -2,7 +2,7 @@
 """Tests for planning a retail label run from an order's line items.
 
 Pure planning, so the awkward parts are testable without a printer, Postgres
-or Shopify: which SKUs cannot take a UPC label, how many roll swaps a run
+or Shopify: which SKUs cannot take a UPC label, which printers a run
 costs, and what happens to a line the catalog doesn't recognise.
 
 The cases here are drawn from real draft orders in the store -- #D14 (24
@@ -77,7 +77,7 @@ def test_plans_every_label_for_every_line():
     # 6 SKUs x 2 per-variant templates, plus ONE Prop 65 job for the order.
     assert len(plan.jobs) == 13
     assert plan.label_count == 72        # 24 cables x 3 labels
-    assert plan.roll_swaps == 1
+    assert len(plan.by_stock) == 2
 
 
 def test_quantity_rides_on_the_job_not_the_job_count():
@@ -87,7 +87,7 @@ def test_quantity_rides_on_the_job_not_the_job_count():
     assert all(job.quantity == 4 for job in plan.jobs)
 
 
-def test_grouped_by_stock_so_a_run_swaps_once():
+def test_grouped_by_stock_so_each_printer_gets_its_own():
     plan = plan_order(D14, upc_by_sku=UPCS)
     groups = plan.by_stock
     assert set(groups) == {BOX_STOCK_MM, CABLE_ROLL_MM}
@@ -147,11 +147,11 @@ def test_an_empty_order_plans_no_prop65_either():
     assert plan_order([], templates=("prop65_label",)).jobs == []
 
 
-def test_deselecting_the_upc_label_removes_the_swap():
-    """What the per-job label prompt buys: everything else is on the 1in
-    roll, so dropping the UPC label takes the run from one swap to none."""
+def test_deselecting_the_upc_label_leaves_only_the_one_inch_printer():
+    """Everything but the UPC label is on the 1in roll, which is also how an
+    operator retries after only the 2in printer failed, or the reverse."""
     plan = plan_order(D14, templates=("shelf_label", "prop65_label"))
-    assert plan.roll_swaps == 0
+    assert set(plan.by_stock) == {CABLE_ROLL_MM}
     assert plan.label_count == 48
 
 
@@ -249,18 +249,17 @@ def test_registration_labels_are_not_planned_here():
 def test_an_empty_order_plans_nothing_without_raising():
     for empty in ([], None):
         plan = plan_order(empty, upc_by_sku=UPCS)
-        assert plan.jobs == [] and plan.roll_swaps == 0
+        assert plan.jobs == [] and plan.by_stock == {}
 
 
-def test_the_summary_names_the_stock_and_the_swaps():
+def test_the_summary_names_the_stock_and_the_total():
     text = "\n".join(describe_plan(plan_order(D14, upc_by_sku=UPCS)))
     assert '3" x 2"' in text and '3" x 1"' in text
-    assert "72 label(s) total, 1 roll swap" in text
+    assert "72 label(s) total" in text
 
 
 def test_the_tall_stock_is_listed_first():
-    """Print the 2in work first: it is the roll already on the printer after
-    a box-label run, and the 1in roll is the everyday one to end on."""
+    """The summary's order, nothing more: the printers run independently."""
     lines = describe_plan(plan_order(D14, upc_by_sku=UPCS))
     assert '3" x 2"' in lines[0]
 

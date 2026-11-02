@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from greenlight.hardware.tsc_label_printer import TSCLabelPrinter, MockTSCLabelPrinter
 from greenlight.hardware.interfaces import PrintJob
-from greenlight.config import TSC_PRINTER_IP, TSC_PRINTER_PORT
+from greenlight.config import TSC_1IN_PRINTER_IP, TSC_PRINTER_PORT
 from greenlight.cable_config import describe_variant
 
 # The rows the template prints, and the flags that override them.
@@ -138,11 +138,11 @@ def main():
 
     if args.mock:
         print("Using MOCK printer (no actual hardware)")
-        printer = MockTSCLabelPrinter(ip_address=TSC_PRINTER_IP,
+        printer = MockTSCLabelPrinter(ip_address=TSC_1IN_PRINTER_IP,
                                       port=TSC_PRINTER_PORT)
     else:
         printer = TSCLabelPrinter(
-            ip_address=TSC_PRINTER_IP, port=TSC_PRINTER_PORT,
+            ip_address=TSC_1IN_PRINTER_IP, port=TSC_PRINTER_PORT,
             label_width_mm=args.width_mm, label_height_mm=args.height_mm,
         )
 
@@ -152,8 +152,8 @@ def main():
         if not args.mock:
             print("\nTroubleshooting:")
             print("  1. Check if printer is powered on")
-            print(f"  2. Check network connection: ping {TSC_PRINTER_IP}")
-            print("  3. Check printer IP in .env (GREENLIGHT_TSC_PRINTER_IP)")
+            print(f"  2. Check network connection: ping {TSC_1IN_PRINTER_IP}")
+            print("  3. Check printer IP in .env (GREENLIGHT_TSC_1IN_PRINTER_IP)")
         return 1
 
     describe(data)

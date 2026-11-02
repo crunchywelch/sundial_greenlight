@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Print the retail labels for a wholesale order, one roll swap for the lot.
+Print the retail labels for a wholesale order, each on the printer holding its stock.
 
 Wholesale orders arrive as Shopify DRAFT orders: the B2B flow in
 shopify_app/app/b2b.server.js creates a draft and emails an invoice, and
@@ -36,11 +36,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from greenlight.config import TSC_PRINTER_IP, TSC_PRINTER_PORT
 from greenlight.hardware.interfaces import PrintJob
-from greenlight.hardware.tsc_label_printer import (
-    MockTSCLabelPrinter, TSCLabelPrinter,
-)
+from greenlight.hardware.tsc_label_printer import build_label_printers
 from greenlight.label_batch import describe_plan, plan_order
 
 # What --labels accepts, and the template each name maps to.
@@ -144,36 +141,26 @@ def main():
         return 0
 
     if args.mock:
-        print("  Using MOCK printer (no actual hardware)")
-        printer = MockTSCLabelPrinter(ip_address=TSC_PRINTER_IP,
-                                      port=TSC_PRINTER_PORT)
-    else:
-        printer = TSCLabelPrinter(ip_address=TSC_PRINTER_IP,
-                                  port=TSC_PRINTER_PORT)
-    if not printer.initialize():
-        print(f"  Failed to reach the printer at {TSC_PRINTER_IP}")
-        return 1
+        print("  Using MOCK printers (no actual hardware)")
+    printers = build_label_printers(mock=args.mock)
 
-    # One pass per stock, so the roll is swapped once per group rather than
-    # once per label. The TE210 has a single media path.
+    # One pass per printer. A failure on one doesn't stop the other.
     ok = True
-    groups = sorted(plan.by_stock.items(), key=lambda kv: -kv[0][1])
-    for index, (stock, jobs) in enumerate(groups):
-        w, h = stock
-        inches = f'{w / 25.4:.0f}" x {h / 25.4:.0f}"'
+    for stock, jobs in sorted(plan.by_stock.items(), key=lambda kv: kv[0][1]):
+        inches = f'{stock[0] / 25.4:.0f}" x {stock[1] / 25.4:.0f}"'
         total = sum(j.quantity for j in jobs)
         print()
-        print(f"  --- {inches} stock: {total} label(s) in {len(jobs)} job(s)")
-        if not args.mock:
-            print(f"      Load {inches} stock and calibrate "
-                  f"(tools/printer/calibrate_media.py).")
-            answer = input("      Ready? (y/n/skip): ").strip().lower()
-            if answer in ("s", "skip"):
-                print("      Skipped.")
-                continue
-            if answer != "y":
-                print("      Stopped.")
-                break
+        print(f"  --- {inches} printer: {total} label(s) in {len(jobs)} job(s)")
+
+        printer = printers.get(stock)
+        if printer is None:
+            print("      FAILED: no printer configured for this stock")
+            ok = False
+            continue
+        if not printer.initialize():
+            print(f"      FAILED: can't reach the printer at {printer.ip_address}")
+            ok = False
+            continue
 
         for job in jobs:
             data = dict(job.data)
@@ -186,12 +173,8 @@ def main():
                 break
             print(f"      sent {job.quantity:3} x {job.sku:14} "
                   f"{job.label_name}")
-        if not ok:
-            break
-        if index < len(groups) - 1 and not args.mock:
-            print("      Done with this stock.")
+        printer.close()
 
-    printer.close()
     print()
     return 0 if ok else 1
 

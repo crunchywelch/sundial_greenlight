@@ -13,6 +13,7 @@ import logging
 import struct
 import io
 from typing import Dict, Any, Optional
+from greenlight.config import TSC_1IN_PRINTER_IP, TSC_2IN_PRINTER_IP, TSC_PRINTER_PORT
 from greenlight.hardware.interfaces import LabelPrinterInterface, PrintJob
 
 logger = logging.getLogger(__name__)
@@ -35,15 +36,12 @@ WIRE_LOGO_BMP_DATA = (
 )
 
 
-# The two label stocks in use. The TE210 has one media path, so running both
-# means swapping the roll.
+# The two label stocks in use, each on its own printer.
 CABLE_ROLL_MM = (76.2, 25.4)   # 1" x 3"
 BOX_STOCK_MM = (76.2, 50.8)    # 2" x 3"
 
-# The stock each template is designed for. This is data rather than an
-# `if template == "box_label"` branch because two things need it: batching a
-# job set by stock, so a run costs one roll swap instead of one per label; and
-# routing to a second printer by what it has loaded, once there is one.
+# The stock each template is designed for, which is what routes a job to a
+# printer. Data rather than an `if template == "box_label"` branch.
 LABEL_STOCK = {
     "cable_label":        CABLE_ROLL_MM,
     "registration_label": CABLE_ROLL_MM,
@@ -60,6 +58,48 @@ LABEL_STOCK = {
 def stock_for_template(template: str) -> Optional[tuple]:
     """(width_mm, height_mm) the template is designed for, or None."""
     return LABEL_STOCK.get(template)
+
+
+def printer_host_for_stock(stock) -> Optional[str]:
+    """Hostname of the printer holding this stock, or None if there is none."""
+    return {
+        CABLE_ROLL_MM: TSC_1IN_PRINTER_IP,
+        BOX_STOCK_MM: TSC_2IN_PRINTER_IP,
+    }.get(tuple(stock)) or None
+
+
+def build_label_printers(mock: bool = False) -> Dict[tuple, LabelPrinterInterface]:
+    """One printer object per configured stock, not yet initialized."""
+    printer_class = MockTSCLabelPrinter if mock else TSCLabelPrinter
+    printers = {}
+    for stock in (CABLE_ROLL_MM, BOX_STOCK_MM):
+        host = printer_host_for_stock(stock)
+        if host:
+            printers[stock] = printer_class(
+                ip_address=host, port=TSC_PRINTER_PORT,
+                label_width_mm=stock[0], label_height_mm=stock[1])
+    return printers
+
+
+def wrong_stock_error(printer, print_job: PrintJob) -> Optional[str]:
+    """Why this printer must refuse this job, or None if it may print it.
+
+    A job's stock is what its data asks for, else what its template is
+    designed for. Printing on the wrong roll wastes labels and leaves the
+    printer's remembered SIZE wrong, so this is a refusal and not a warning.
+    """
+    data = print_job.data or {}
+    stock = stock_for_template(print_job.template)
+    if stock is None:
+        return None     # print_labels reports an unknown template itself
+    wanted = (data.get("label_width_mm", stock[0]),
+              data.get("label_height_mm", stock[1]))
+    loaded = (printer.label_width_mm, printer.label_height_mm)
+    if (round(wanted[0], 1), round(wanted[1], 1)) == (round(loaded[0], 1),
+                                                      round(loaded[1], 1)):
+        return None
+    return (f"{print_job.template} needs {wanted[0]}x{wanted[1]}mm stock but "
+            f"{printer.ip_address} holds {loaded[0]}x{loaded[1]}mm")
 
 
 def _tspl_safe(text: Optional[str]) -> str:
@@ -181,8 +221,11 @@ class TSCLabelPrinter(LabelPrinterInterface):
     # which leaves the printer no top-of-form to register against at all.
     GAP_MM = 2.0
 
-    # Vertical registration per stock, MEASURED on this printer with
-    # tools/printer/calibrate_media.py --measure:
+    # Vertical registration per stock, MEASURED with
+    # tools/printer/calibrate_media.py --measure. Each stock now has its own
+    # printer, so this is effectively per printer. The figures below all came
+    # from the 1" printer (tsc1), so the 2" row awaits a reading on tsc2.
+    #
     #   gap_offset_mm -- the n in `GAP m,n`
     #   shift         -- TSPL `SHIFT`, in dots (+ moves the image down)
     #
@@ -380,31 +423,28 @@ class TSCLabelPrinter(LabelPrinterInterface):
             logger.error(f"Failed to send TSPL commands: {e}")
             return False
 
-    def calibrate_media(self, stock) -> bool:
+    def calibrate_media(self) -> bool:
         """Point the media sensor at a newly loaded roll.
 
         Every template sends SIZE and GAP, but those only say how big a label
-        is -- not where the next one starts. After a roll swap the printer
-        is still registered to the old stock's gaps, so the image lands off
-        the label: on the 1" side label the SKU, 11 dots off the bottom, is
-        the first thing lost. `GAPDETECT` feeds a few labels while it
-        re-measures; that is expected, not a fault.
+        is -- not where the next one starts. If the sensor is registered to
+        different gaps, the image lands off the label: on the 1" side label
+        the SKU, 11 dots off the bottom, is the first thing lost. `GAPDETECT`
+        feeds a few labels while it re-measures; that is expected, not a
+        fault. Operator-requested only, since it spends labels.
 
         tools/printer/calibrate_media.py does the same from the command line,
         plus an alignment label.
-
-        Args:
-            stock: (width_mm, height_mm), e.g. CABLE_ROLL_MM or BOX_STOCK_MM
         """
         if not self.connected and not self.initialize():
             return False
-        width_mm, height_mm = stock
         tspl = "\r\n".join(
-            self._media_header(width_mm, height_mm) + ["GAPDETECT", ""])
+            self._media_header(self.label_width_mm, self.label_height_mm)
+            + ["GAPDETECT", ""])
         if not self._send_tspl_commands(tspl):
             return False
-        self.loaded_stock = (width_mm, height_mm)
-        logger.info("Calibrated media for %.1f x %.1f mm", width_mm, height_mm)
+        logger.info("Calibrated media on %s for %.1f x %.1f mm", self.ip_address,
+                    self.label_width_mm, self.label_height_mm)
         return True
 
     def print_labels(self, print_job: PrintJob) -> bool:
@@ -424,6 +464,11 @@ class TSCLabelPrinter(LabelPrinterInterface):
         generator = self.TEMPLATES.get(print_job.template)
         if generator is None:
             logger.error(f"Unknown template: {print_job.template}")
+            return False
+
+        refusal = wrong_stock_error(self, print_job)
+        if refusal:
+            logger.error(refusal)
             return False
 
         try:
@@ -1740,9 +1785,12 @@ class TSCLabelPrinter(LabelPrinterInterface):
 class MockTSCLabelPrinter(LabelPrinterInterface):
     """Mock TSC label printer for testing without hardware"""
 
-    def __init__(self, ip_address: str = "tsc", port: int = 9100):
+    def __init__(self, ip_address: str = "mock", port: int = 9100,
+                 label_width_mm: float = 76.2, label_height_mm: float = 25.4):
         self.ip_address = ip_address
         self.port = port
+        self.label_width_mm = label_width_mm
+        self.label_height_mm = label_height_mm
         self.connected = False
         logger.info(f"Mock TSC printer initialized (no actual hardware)")
 
@@ -1752,10 +1800,10 @@ class MockTSCLabelPrinter(LabelPrinterInterface):
         self.connected = True
         return True
 
-    def calibrate_media(self, stock) -> bool:
+    def calibrate_media(self) -> bool:
         """Mock calibration"""
-        logger.info(f"Mock TSC printer: Would calibrate for {stock} (GAPDETECT)")
-        self.loaded_stock = tuple(stock)
+        logger.info("Mock TSC printer: Would calibrate for %sx%smm (GAPDETECT)",
+                    self.label_width_mm, self.label_height_mm)
         return True
 
     def print_labels(self, print_job: PrintJob) -> bool:
@@ -1771,6 +1819,11 @@ class MockTSCLabelPrinter(LabelPrinterInterface):
             logger.debug(f"Mock TSPL would be generated for {print_job.template}")
         else:
             logger.error(f"Unknown template: {print_job.template}")
+            return False
+
+        refusal = wrong_stock_error(self, print_job)
+        if refusal:
+            logger.error(refusal)
             return False
 
         return True

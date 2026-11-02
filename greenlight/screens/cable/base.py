@@ -890,8 +890,9 @@ class CableScreenBase(Screen):
             cable_record: Cable record from database
         """
         from greenlight.hardware.interfaces import hardware_manager, PrintJob
+        from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
 
-        label_printer = hardware_manager.get_label_printer()
+        label_printer = hardware_manager.get_label_printer(CABLE_ROLL_MM)
         if not label_printer:
             return False
 
@@ -955,8 +956,9 @@ class CableScreenBase(Screen):
         from greenlight.hardware.interfaces import hardware_manager, PrintJob
         from greenlight.registration import generate_registration_url
         from greenlight.db import batch_assign_registration_codes
+        from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
 
-        label_printer = hardware_manager.get_label_printer()
+        label_printer = hardware_manager.get_label_printer(CABLE_ROLL_MM)
         if not label_printer:
             return cable_record
 
@@ -1324,7 +1326,8 @@ class CableScreenBase(Screen):
             # Check hardware availability
             cable_tester = hardware_manager.get_cable_tester()
             tester_available = cable_tester.connected if cable_tester else False
-            label_printer = hardware_manager.get_label_printer()
+            from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
+            label_printer = hardware_manager.get_label_printer(CABLE_ROLL_MM)
             printer_available = label_printer.is_ready() if label_printer else False
 
             cable_tested = cable_record.get('test_passed') is True

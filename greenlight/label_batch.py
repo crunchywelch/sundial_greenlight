@@ -2,7 +2,7 @@
 
 Turns a list of order line items into label jobs, grouped by the stock each
 needs. Pure planning: no DB, no Shopify, no printer, so the awkward parts
-(which SKUs can't take a UPC label, how many roll swaps a run costs) are
+(which SKUs can't take a UPC label, which printer each job goes to) are
 testable without hardware.
 
 Two things shape the output.
@@ -19,10 +19,8 @@ Two things shape the output.
   than from the order, so the order scan screen prints each one as its
   cable is scanned (helpers in `screens/registration_codes.py`).
 
-**Stock.** The TE210 has one media path, so a run that mixes 1" and 2" labels
-costs a roll swap. Grouping by stock keeps that to one swap for the whole
-order instead of one per label, which is the difference between a usable
-batch and an unusable one.
+**Stock.** Each stock has its own printer, so a job's stock decides where it
+prints.
 
 See docs/LABEL_PRINTING.md § Printing a batch.
 """
@@ -90,16 +88,11 @@ class BatchPlan:
 
     @property
     def by_stock(self) -> Dict[Tuple[float, float], List[LabelJob]]:
-        """Jobs grouped by stock, so a run is one pass per roll."""
+        """Jobs grouped by stock, so a run is one pass per printer."""
         groups: Dict[Tuple[float, float], List[LabelJob]] = {}
         for job in self.jobs:
             groups.setdefault(job.stock, []).append(job)
         return groups
-
-    @property
-    def roll_swaps(self) -> int:
-        """Swaps this run costs: one fewer than the number of stocks used."""
-        return max(0, len(self.by_stock) - 1)
 
     @property
     def label_count(self) -> int:
@@ -226,7 +219,5 @@ def describe_plan(plan: BatchPlan) -> List[str]:
         for job in sorted(jobs, key=lambda j: (j.template, j.sku)):
             lines.append(f"    {job.quantity:3} x {job.sku:14} "
                          f"{job.label_name}")
-    swaps = plan.roll_swaps
-    lines.append(f"{plan.label_count} label(s) total, "
-                 f"{swaps} roll swap{'s' if swaps != 1 else ''}")
+    lines.append(f"{plan.label_count} label(s) total")
     return lines

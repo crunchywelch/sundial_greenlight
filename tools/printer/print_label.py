@@ -33,7 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from greenlight.hardware.tsc_label_printer import TSCLabelPrinter, MockTSCLabelPrinter
 from greenlight.hardware.interfaces import PrintJob
-from greenlight.config import TSC_PRINTER_IP, TSC_PRINTER_PORT, TSC_LABEL_WIDTH_MM, TSC_LABEL_HEIGHT_MM
+from greenlight.config import TSC_1IN_PRINTER_IP, TSC_PRINTER_PORT, TSC_LABEL_WIDTH_MM, TSC_LABEL_HEIGHT_MM
 
 
 def create_printer(use_mock=False):
@@ -41,13 +41,13 @@ def create_printer(use_mock=False):
     if use_mock:
         print("Using MOCK printer (no actual hardware)")
         printer = MockTSCLabelPrinter(
-            ip_address=TSC_PRINTER_IP,
+            ip_address=TSC_1IN_PRINTER_IP,
             port=TSC_PRINTER_PORT
         )
     else:
-        print(f"Using REAL printer at {TSC_PRINTER_IP}:{TSC_PRINTER_PORT}")
+        print(f"Using REAL printer at {TSC_1IN_PRINTER_IP}:{TSC_PRINTER_PORT}")
         printer = TSCLabelPrinter(
-            ip_address=TSC_PRINTER_IP,
+            ip_address=TSC_1IN_PRINTER_IP,
             port=TSC_PRINTER_PORT,
             label_width_mm=TSC_LABEL_WIDTH_MM,
             label_height_mm=TSC_LABEL_HEIGHT_MM
@@ -62,7 +62,7 @@ def create_printer(use_mock=False):
         if not use_mock:
             print(f"\nTroubleshooting:")
             print(f"  1. Check if printer is powered on")
-            print(f"  2. Check network connection: ping {TSC_PRINTER_IP}")
+            print(f"  2. Check network connection: ping {TSC_1IN_PRINTER_IP}")
             print(f"  3. Check if printer IP is correct in .env file")
             print(f"  4. Check if printer is on the same network")
         return None

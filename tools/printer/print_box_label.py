@@ -41,7 +41,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from greenlight.hardware.tsc_label_printer import TSCLabelPrinter, MockTSCLabelPrinter
 from greenlight.hardware.interfaces import PrintJob
-from greenlight.config import TSC_PRINTER_IP, TSC_PRINTER_PORT
+from greenlight.config import TSC_2IN_PRINTER_IP, TSC_PRINTER_PORT
 from greenlight.gtin import validate_gtin12, normalize_gtin12
 
 
@@ -239,9 +239,10 @@ def describe(data):
 def create_printer(use_mock, width_mm, height_mm):
     if use_mock:
         print("Using MOCK printer (no actual hardware)")
-        return MockTSCLabelPrinter(ip_address=TSC_PRINTER_IP, port=TSC_PRINTER_PORT)
+        return MockTSCLabelPrinter(ip_address=TSC_2IN_PRINTER_IP, port=TSC_PRINTER_PORT,
+                                   label_width_mm=width_mm, label_height_mm=height_mm)
     printer = TSCLabelPrinter(
-        ip_address=TSC_PRINTER_IP, port=TSC_PRINTER_PORT,
+        ip_address=TSC_2IN_PRINTER_IP, port=TSC_PRINTER_PORT,
         label_width_mm=width_mm, label_height_mm=height_mm,
     )
     return printer
@@ -294,15 +295,15 @@ def main():
         if not args.mock:
             print(f"\nTroubleshooting:")
             print(f"  1. Check if printer is powered on")
-            print(f"  2. Check network connection: ping {TSC_PRINTER_IP}")
-            print(f"  3. Check printer IP in .env (GREENLIGHT_TSC_PRINTER_IP)")
+            print(f"  2. Check network connection: ping {TSC_2IN_PRINTER_IP}")
+            print(f"  3. Check printer IP in .env (GREENLIGHT_TSC_2IN_PRINTER_IP)")
         return 1
 
     describe(data)
     print(f"  Count:    {args.count}")
     print()
-    print(f"  NOTE: load {args.width_mm} x {args.height_mm} mm box stock and "
-          f"calibrate before printing.")
+    print(f"  NOTE: prints on {TSC_2IN_PRINTER_IP}, which must hold "
+          f"{args.width_mm} x {args.height_mm} mm stock.")
     print()
 
     if not args.mock:

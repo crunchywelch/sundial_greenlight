@@ -9,7 +9,7 @@ from greenlight.screen_manager import ScreenManager
 from greenlight.screens import SplashScreen
 from greenlight.config import (
     APP_NAME, EXIT_MESSAGE,
-    USE_REAL_PRINTERS, TSC_PRINTER_IP, TSC_PRINTER_PORT, TSC_LABEL_WIDTH_MM, TSC_LABEL_HEIGHT_MM,
+    USE_REAL_PRINTERS, TSC_1IN_PRINTER_IP, TSC_2IN_PRINTER_IP,
     USE_REAL_ARDUINO, ARDUINO_PORT, ARDUINO_BAUDRATE,
     PLATFORM, ROUTER_SOCKET_PATH
 )
@@ -23,38 +23,38 @@ def init_hardware():
 
     This is non-blocking - app will start even if hardware is unavailable
     """
-    label_printer = None
+    label_printers = {}
     cable_tester = None
     scanner = None
 
     try:
         from greenlight.hardware.interfaces import hardware_manager
 
-        # Initialize TSC label printer
+        # Initialize the TSC label printers, one per roll. Either can be down
+        # without affecting labels for the other.
+        from greenlight.hardware.tsc_label_printer import (
+            BOX_STOCK_MM, CABLE_ROLL_MM, build_label_printers,
+        )
+
         if USE_REAL_PRINTERS:
-            print("🖨️  Initializing TSC label printer...")
-            from greenlight.hardware.tsc_label_printer import TSCLabelPrinter
-
-            label_printer = TSCLabelPrinter(
-                ip_address=TSC_PRINTER_IP,
-                port=TSC_PRINTER_PORT,
-                label_width_mm=TSC_LABEL_WIDTH_MM,
-                label_height_mm=TSC_LABEL_HEIGHT_MM
-            )
-
-            # Try to initialize
-            if label_printer.initialize():
-                print(f"✅ TSC printer ready at {TSC_PRINTER_IP}")
-            else:
-                print(f"⚠️  TSC printer not responding at {TSC_PRINTER_IP}")
-                print("   Label printing will be unavailable")
+            print("🖨️  Initializing TSC label printers...")
         else:
-            print("🖨️  Using mock label printer (USE_REAL_PRINTERS=false)")
-            from greenlight.hardware.tsc_label_printer import MockTSCLabelPrinter
+            print("🖨️  Using mock label printers (USE_REAL_PRINTERS=false)")
+        label_printers = build_label_printers(mock=not USE_REAL_PRINTERS)
 
-            label_printer = MockTSCLabelPrinter(ip_address=TSC_PRINTER_IP, port=TSC_PRINTER_PORT)
-            label_printer.initialize()
-            print("✅ Mock label printer initialized")
+        if TSC_1IN_PRINTER_IP and TSC_1IN_PRINTER_IP == TSC_2IN_PRINTER_IP:
+            print(f"⚠️  Both label stocks are set to {TSC_1IN_PRINTER_IP}: "
+                  "labels for one will print on the wrong roll")
+
+        for stock, name in ((CABLE_ROLL_MM, '1"'), (BOX_STOCK_MM, '2"')):
+            printer = label_printers.get(stock)
+            if printer is None:
+                print(f"⚠️  No {name} label printer configured")
+            elif printer.initialize():
+                print(f"✅ {name} label printer ready at {printer.ip_address}")
+            else:
+                print(f"⚠️  {name} label printer not responding at {printer.ip_address}")
+                print(f"   {name} labels will be unavailable")
 
         # Initialize cable tester (auto-detect platform)
         if USE_REAL_ARDUINO:
@@ -105,7 +105,7 @@ def init_hardware():
 
         # Set all hardware in manager
         hardware_manager.set_hardware(
-            label_printer=label_printer,
+            label_printers=label_printers,
             cable_tester=cable_tester,
             scanner=scanner
         )

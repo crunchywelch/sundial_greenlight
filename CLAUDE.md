@@ -74,7 +74,8 @@ Operators are configured directly in `config.py` (`OPERATORS`, code →
 name + Shopify user id). Everything else comes from `.env` with a
 `GREENLIGHT_` prefix: `GREENLIGHT_DB_{NAME,USER,PASS,HOST,PORT}`, hardware
 flags `GREENLIGHT_USE_REAL_{ARDUINO,SCANNER,PRINTERS,GPIO}`,
-`GREENLIGHT_ARDUINO_PORT`, `GREENLIGHT_TSC_PRINTER_IP`, `GREENLIGHT_LOG_LEVEL`.
+`GREENLIGHT_ARDUINO_PORT`, `GREENLIGHT_TSC_{1IN,2IN}_PRINTER_IP`
+(defaults `tsc1`, `tsc2`), `GREENLIGHT_LOG_LEVEL`.
 
 ### Navigation
 
@@ -96,8 +97,8 @@ and it goes to `OrderFulfillScanScreen`, which does the per-channel job:
   the **dealer** (`wholesale_company_gid`/`location_gid`) with `shopify_gid`
   left NULL, and its **registration label prints as it is scanned**, since the
   code belongs to that one cable. Rescanning a cable reprints its label. `l`
-  then prints the box labels (`OrderLabelPrintScreen`): side + Prop 65 in one
-  pass on the 1" roll, UPC on the 2".
+  then prints the box labels (`OrderLabelPrintScreen`): side + Prop 65 on the
+  1" printer, UPC on the 2".
 
 Wholesale vs website comes from the buyer (`purchasingEntity` is a
 `PurchasingCompany`), not from whether it's a draft — see
@@ -199,7 +200,14 @@ Key pieces:
 Box labels need **2" × 3" stock**, not the 1" × 3" cable roll: at 203 DPI a
 UPC-A only renders at whole-dot module widths, so 2" stock gives 113.7%
 magnification (in spec) while 1" is forced to 75.8%, the GS1 thermal-print
-floor, with no room for branding. The TE210 has one media path, so batch them.
+floor, with no room for branding.
+
+**Each roll has its own printer:** `tsc1` holds the 1" and `tsc2` the 2".
+`LABEL_STOCK` says which stock a template needs,
+`hardware_manager.get_label_printer(stock)` finds the printer (`stock` is
+required, so nothing lands on a roll by default), and a printer refuses a job
+for any other stock. Nothing swaps rolls, and `GAPDETECT` only runs when an
+operator asks, because it spends labels.
 
 **A boxed cable wears up to four stickers**, and only one of them is a UPC: the
 *front* gets a pre-printed pattern sticker (Goldline, Silverline, ...), the
@@ -246,9 +254,9 @@ prints the box labels. Wholesale orders may still be Shopify *draft* orders —
 completing it — and `get_customer_orders()` cannot see a draft, so the `f`
 list fetches drafts separately (`get_draft_orders()`). Planning is in
 `greenlight/label_batch.py` (no printer, DB or Shopify in it), which groups
-jobs by stock so a mixed run costs one roll swap, and knows three label
-grains: per variant (UPC, side), per order (Prop 65 — its text says nothing
-about the cable), and per cable (registration codes, printed one at a time
+jobs by stock, one group per printer, and knows three label grains: per
+variant (UPC, side), per order (Prop 65 — its text says nothing about the
+cable), and per cable (registration codes, printed one at a time
 by the scan screen as each cable is in hand).
 
 **Scan-loop guard:** serial numbers are purely numeric, so a scanned 12-digit

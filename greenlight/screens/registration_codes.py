@@ -134,12 +134,11 @@ class RegistrationCodesScreen(Screen):
                 return ScreenResult(NavigationAction.POP)
 
             if input_lower == 'c':
-                # Labels print on the 1" roll; after box labels the 2" may
-                # have been in, and the sensor needs to find the new gaps.
+                # After loading a new 1" roll, the sensor needs to find its gaps.
                 from greenlight.hardware.interfaces import hardware_manager
                 from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
-                printer = hardware_manager.get_label_printer()
-                ok = bool(printer) and printer.calibrate_media(CABLE_ROLL_MM)
+                printer = hardware_manager.get_label_printer(CABLE_ROLL_MM)
+                ok = bool(printer) and printer.calibrate_media()
                 status = ("[green]Printer calibrated for the 1\" roll[/green]" if ok
                           else "[red]Calibration failed: printer not reachable[/red]")
                 continue
@@ -262,7 +261,8 @@ class RegistrationCodesScreen(Screen):
         label_printer = None
         if print_labels:
             from greenlight.hardware.interfaces import hardware_manager
-            label_printer = hardware_manager.get_label_printer()
+            from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
+            label_printer = hardware_manager.get_label_printer(CABLE_ROLL_MM)
             printer_available = label_printer and label_printer.is_ready() if label_printer else False
 
         printed_count = 0

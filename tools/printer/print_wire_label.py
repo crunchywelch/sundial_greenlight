@@ -7,11 +7,12 @@ import logging
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from greenlight.hardware.tsc_label_printer import TSCLabelPrinter
+from greenlight.config import TSC_1IN_PRINTER_IP
 from greenlight.hardware.interfaces import PrintJob
 
 logging.basicConfig(level=logging.INFO)
 
-PRINTER_IP = "192.168.0.52"
+PRINTER_IP = TSC_1IN_PRINTER_IP
 
 # Default test data, or pass a real SKU as argument to look it up
 if len(sys.argv) > 1:

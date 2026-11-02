@@ -83,13 +83,8 @@ class LabelPrinterInterface(ABC):
         """Close printer connection"""
         pass
 
-    # The stock (width_mm, height_mm) the media sensor was last calibrated
-    # for in this session, or None if unknown.
-    loaded_stock = None
-
-    def calibrate_media(self, stock) -> bool:
-        """Re-find the label edges after a roll swap. No-op by default."""
-        self.loaded_stock = tuple(stock)
+    def calibrate_media(self) -> bool:
+        """Re-find the label edges after loading a roll. No-op by default."""
         return True
 
 
@@ -195,7 +190,8 @@ class HardwareManager:
 
     def __init__(self):
         self.scanner: Optional[ScannerInterface] = None
-        self.label_printer: Optional[LabelPrinterInterface] = None
+        # One printer per label stock, keyed by (width_mm, height_mm).
+        self.label_printers: Dict[tuple, LabelPrinterInterface] = {}
         self.card_printer: Optional[CardPrinterInterface] = None
         self.cable_tester: Optional[CableTesterInterface] = None
         self.gpio: Optional[GPIOInterface] = None
@@ -203,13 +199,13 @@ class HardwareManager:
     
     def set_hardware(self,
                     scanner: Optional[ScannerInterface] = None,
-                    label_printer: Optional[LabelPrinterInterface] = None,
+                    label_printers: Optional[Dict[tuple, LabelPrinterInterface]] = None,
                     card_printer: Optional[CardPrinterInterface] = None,
                     cable_tester: Optional[CableTesterInterface] = None,
                     gpio: Optional[GPIOInterface] = None) -> None:
         """Set hardware components without initialization (lazy loading)"""
         self.scanner = scanner
-        self.label_printer = label_printer
+        self.label_printers = dict(label_printers or {})
         self.card_printer = card_printer
         self.cable_tester = cable_tester
         self.gpio = gpio
@@ -224,10 +220,13 @@ class HardwareManager:
                 self.scanner.initialize()
         return self.scanner
     
-    def get_label_printer(self) -> Optional[LabelPrinterInterface]:
-        """Get label printer (already initialized at startup)"""
-        # No lazy initialization - printer is initialized in main.py init_hardware()
-        return self.label_printer
+    def get_label_printer(self, stock) -> Optional[LabelPrinterInterface]:
+        """The printer holding this stock, or None if there isn't one.
+
+        `stock` is required so that no caller can land on the wrong roll by
+        default. Printers are initialized in main.py init_hardware().
+        """
+        return self.label_printers.get(tuple(stock))
     
     def get_card_printer(self) -> Optional[CardPrinterInterface]:
         """Get card printer with lazy initialization"""
@@ -253,13 +252,13 @@ class HardwareManager:
     
     def initialize(self,
                    scanner: Optional[ScannerInterface] = None,
-                   label_printer: Optional[LabelPrinterInterface] = None,
+                   label_printers: Optional[Dict[tuple, LabelPrinterInterface]] = None,
                    card_printer: Optional[CardPrinterInterface] = None,
                    cable_tester: Optional[CableTesterInterface] = None,
                    gpio: Optional[GPIOInterface] = None) -> bool:
         """Initialize all hardware components"""
         self.scanner = scanner
-        self.label_printer = label_printer
+        self.label_printers = dict(label_printers or {})
         self.card_printer = card_printer
         self.cable_tester = cable_tester
         self.gpio = gpio
@@ -273,8 +272,8 @@ class HardwareManager:
             else:
                 success &= self.scanner.initialize()
 
-        if self.label_printer:
-            success &= self.label_printer.initialize()
+        for printer in self.label_printers.values():
+            success &= printer.initialize()
 
         if self.card_printer:
             success &= self.card_printer.initialize()
@@ -302,9 +301,10 @@ class HardwareManager:
                 'type': type(self.scanner).__name__
             }
 
-        if self.label_printer:
-            status['label_printer'] = self.label_printer.get_status()
-            status['label_printer']['type'] = type(self.label_printer).__name__
+        for (_, height_mm), printer in self.label_printers.items():
+            key = f"label_printer_{height_mm / 25.4:.0f}in"
+            status[key] = printer.get_status()
+            status[key]['type'] = type(printer).__name__
 
         if self.card_printer:
             status['card_printer'] = self.card_printer.get_status()
@@ -327,8 +327,8 @@ class HardwareManager:
         if self.scanner:
             self.scanner.close()
 
-        if self.label_printer:
-            self.label_printer.close()
+        for printer in self.label_printers.values():
+            printer.close()
 
         if self.card_printer:
             self.card_printer.close()

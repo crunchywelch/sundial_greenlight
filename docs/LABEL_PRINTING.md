@@ -27,8 +27,9 @@ Add these to your `.env` file:
 # Enable real printer (set to false for testing with mock printer)
 GREENLIGHT_USE_REAL_PRINTERS=true
 
-# TSC Printer network settings
-GREENLIGHT_TSC_PRINTER_IP=192.168.0.52
+# TSC printer network settings, one printer per roll. These are the defaults.
+GREENLIGHT_TSC_1IN_PRINTER_IP=tsc1    # 192.168.0.52, 1" x 3" roll
+GREENLIGHT_TSC_2IN_PRINTER_IP=tsc2    # 192.168.0.108, 2" x 3" roll
 GREENLIGHT_TSC_PRINTER_PORT=9100
 ```
 
@@ -198,18 +199,24 @@ The barcode is anchored a fixed distance from the bottom edge so its position
 doesn't shift between SKUs — a barcode that moves is a barcode that gets
 mis-scanned. Text flows from the top into whatever room is left.
 
-Because the TE210 has one media path, printing box labels means swapping the
-roll and recalibrating, so batch them.
+Each stock has its own printer: `tsc1` holds the 1" roll and `tsc2` the 2".
+`hardware_manager.get_label_printer(stock)` finds the right one, and a printer
+refuses any job whose stock isn't its own, so a routing mistake fails instead
+of printing on the wrong roll.
 
-**A swap needs `GAPDETECT`, not just the right `SIZE`.** Every template sends
-SIZE and GAP, but those say how big a label is, not where the next one
-starts. Skip the sensor detect and the printer stays registered to the old
-roll's gaps: the image lands off the label, and on the 1" side label the
-SKU, 11 dots off the bottom, is the first thing lost.
-`TSCLabelPrinter.calibrate_media(stock)` runs it and remembers the stock for
-the session (`loaded_stock`); Greenlight calibrates on its own wherever it
-knows a swap happens (below). Anywhere else, run
-`tools/printer/calibrate_media.py [--cable-roll]` after swapping.
+**A newly loaded roll may need `GAPDETECT`, not just the right `SIZE`.** Every
+template sends SIZE and GAP, but those say how big a label is, not where the
+next one starts. If the sensor is registered to different gaps, the image lands
+off the label, and on the 1" side label the SKU, 11 dots off the bottom, is the
+first thing lost. It feeds a few labels, so it only runs when asked: `c` on the
+registration and order scan screens (1"), `c1`/`c2` on the box label screen, or
+`tools/printer/calibrate_media.py [--cable-roll]` from the command line.
+
+**If a printer dies**, move its roll to the other printer, point both
+`GREENLIGHT_TSC_*_PRINTER_IP` settings at that printer, restart, and calibrate
+for each roll as you load it. Greenlight warns about the shared address at
+startup and does not prompt for swaps, so print one stock at a time using the
+toggles on the box label screen.
 
 ### Previewing and printing
 
@@ -504,16 +511,12 @@ roll), because the code belongs to that one cable and printing it with the
 cable in hand is what keeps the two together. A cable already coded under
 `w` (samples, festival stock) keeps its code and doesn't print a second label
 on its first scan; rescanning any cable in the order reprints its label. Then
-**`l`** opens the box labels: side + Prop 65 together on the 1" roll, UPC on
-the 2". Toggle which labels you want; the toggles re-cost the plan live, so
-you can see that dropping the UPC label takes a mixed run from one roll swap
-to none before committing to it.
+**`l`** opens the box labels: side + Prop 65 on the 1" printer, UPC on the
+2". Toggle which labels you want, and `p` sends them all with no further
+prompts.
 
-The 1" pass runs first, since the registration labels just went out on that
-roll, so a wholesale order costs one swap. Each pass calibrates the media
-sensor (a few labels feed) unless this session already calibrated for that
-stock; `c` at the prompt forces it. The scan screen also has `c` to calibrate
-the 1" roll, and warns if the printer was last set up for the 2".
+If one printer fails, the other still finishes and the summary says what was
+and wasn't sent. To retry, toggle off what already printed and press `p` again.
 
 Website orders get no box labels — they're scanned against the order and
 that's all. This used to be its own `o` hub key, which left two lists of
@@ -537,12 +540,12 @@ Hence `shopify_client.get_draft_orders()` and `get_draft_order_by_name()`.
 
 **Which labels to print is asked per job**, not fixed, because it varies —
 not every retailer wants the UPC label, and Prop 65 placement is unsettled.
-Deselecting one also changes what the run costs:
+For example:
 
 ```
 #D14, 24 cables over 6 SKUs
-  all three            72 labels, 13 jobs, 1 roll swap
-  side + prop65        48 labels,  7 jobs, 0 roll swaps
+  all three            72 labels, 13 jobs, both printers
+  side + prop65        48 labels,  7 jobs, 1" printer only
 ```
 
 `greenlight/label_batch.py` does the planning, with no printer, DB or
@@ -554,8 +557,8 @@ Shopify, so the awkward parts are testable. Two things shape its output:
   it carries a unique code per physical cable, keyed to serials that live in
   Postgres rather than in the order. The order scan screen prints each one
   as its cable is scanned (helpers in `screens/registration_codes.py`).
-- **Stock.** Jobs are grouped by stock and printed one group at a time, so a
-  mixed run costs one roll swap rather than one per label.
+- **Stock.** Jobs are grouped by stock, and each group goes to the printer
+  holding that stock.
 
 **Lines that cannot be printed warn rather than vanish.** A wholesale order
 that quietly prints 20 labels instead of 24 is worse than one that refuses:
@@ -598,19 +601,12 @@ stock_for_template("shelf_label")  # (76.2, 25.4) -- 1" x 3"
 `box_label` is the only one wanting the tall stock, because a UPC-A renders
 only at whole-dot module widths and 1" forces it to the 75% thermal floor.
 
-This is data rather than an `if template == "box_label"` branch because two
-things need it. **Grouping a run by stock** keeps a mixed job set to one roll
-swap instead of one per label — the TE210 has a single media path:
+This is data rather than an `if template == "box_label"` branch because it is
+what routes a job to a printer:
 
 ```python
-groups = {}
-for template in run:
-    groups.setdefault(stock_for_template(template), []).append(template)
-# print each group, swap the roll between them
+printer = hardware_manager.get_label_printer(stock_for_template(template))
 ```
-
-And **routing to a second printer** by what it has loaded, once there is one
-(see the roadmap note in `UPC_ROLLOUT_STATUS.md`).
 
 ### One dispatch table
 

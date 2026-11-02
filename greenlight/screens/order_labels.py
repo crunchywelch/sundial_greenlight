@@ -3,7 +3,7 @@ Order Label Printing
 
 Prints the box labels for a wholesale order: the UPC label for the box
 back, the side label for the spine, and the Prop 65 warning. Side and Prop 65
-share the 1" roll, so they go in one pass; UPC is the 2" pass.
+go to the 1" printer, UPC to the 2".
 
 Reached with `l` from a wholesale order's scan screen (OrderFulfillScanScreen,
 via `f`). Website orders don't get box labels.
@@ -20,12 +20,22 @@ import logging
 from rich.panel import Panel
 from rich.table import Table
 
+from greenlight.hardware.tsc_label_printer import BOX_STOCK_MM, CABLE_ROLL_MM
 from greenlight.label_batch import (
     RETAIL_TEMPLATES, TEMPLATE_LABELS, plan_order,
 )
 from greenlight.screen_manager import NavigationAction, Screen, ScreenResult
 
 logger = logging.getLogger(__name__)
+
+
+# Operator keys for re-finding a printer's label gaps after loading a roll.
+CALIBRATE_KEYS = {"c1": CABLE_ROLL_MM, "c2": BOX_STOCK_MM}
+
+
+def _roll_name(stock) -> str:
+    """What the operator calls this stock's printer: 1" or 2"."""
+    return f'{stock[1] / 25.4:.0f}"'
 
 
 def draft_lifecycle(order) -> str:
@@ -46,13 +56,12 @@ def draft_lifecycle(order) -> str:
 
 
 class OrderLabelPrintScreen(Screen):
-    """Choose which labels to print for one order, then print them by stock.
+    """Choose which labels to print for one order, then send each to its printer.
 
     Which labels is asked rather than fixed: not every retailer takes the UPC
     label, and the Prop 65 warning is only wanted on retail-boxed goods. The
-    plan is re-costed on every toggle so the operator can see what a choice
-    does -- dropping the UPC label takes a mixed run from one roll swap to
-    none, which is the difference between two passes and one.
+    toggles also make a retry possible: if one printer failed, turn off what
+    already printed and print again.
     """
 
     def run(self) -> ScreenResult:
@@ -60,6 +69,7 @@ class OrderLabelPrintScreen(Screen):
         order = self.context.get("label_order") or {}
         selected = {t: True for t in RETAIL_TEMPLATES}
         upcs = None          # fetched lazily, and only if a UPC label is on
+        note = ""            # the result of the last calibration
 
         while True:
             if any(selected[t] for t in RETAIL_TEMPLATES
@@ -70,7 +80,8 @@ class OrderLabelPrintScreen(Screen):
             plan = plan_order(order.get("line_items"), templates=templates,
                               upc_by_sku=upcs or {})
 
-            self._render(operator, order, selected, plan)
+            self._render(operator, order, selected, plan, note)
+            note = ""
 
             try:
                 choice = self.ui.console.input("Choose: ").strip().lower()
@@ -83,6 +94,9 @@ class OrderLabelPrintScreen(Screen):
                 template = RETAIL_TEMPLATES[int(choice) - 1]
                 selected[template] = not selected[template]
                 continue
+            if choice in CALIBRATE_KEYS:
+                note = self._calibrate(CALIBRATE_KEYS[choice])
+                continue
             if choice == "p":
                 if not plan.jobs:
                     continue
@@ -91,7 +105,7 @@ class OrderLabelPrintScreen(Screen):
 
     # -- rendering ------------------------------------------------------
 
-    def _render(self, operator, order, selected, plan):
+    def _render(self, operator, order, selected, plan, note=""):
         customer = (order.get("customer") or {}).get("displayName") or "—"
         cables = sum(li["quantity"] for li in order.get("line_items", []))
 
@@ -114,9 +128,7 @@ class OrderLabelPrintScreen(Screen):
                 str(count) if on else "[dim]—[/dim]",
             )
 
-        swaps = plan.roll_swaps
-        summary = (f"{plan.label_count} label(s) in {len(plan.jobs)} job(s), "
-                   f"[bold]{swaps} roll swap{'s' if swaps != 1 else ''}[/bold]")
+        summary = f"{plan.label_count} label(s) in {len(plan.jobs)} job(s)"
 
         body = [
             f"[bold]{order.get('name', '?')}[/bold]   {customer}   "
@@ -136,9 +148,12 @@ class OrderLabelPrintScreen(Screen):
             "\n".join([
                 summary,
                 *[f"[yellow]! {w}[/yellow]" for w in plan.warnings],
+                *([note] if note else []),
                 "",
                 f"[cyan]1-{len(RETAIL_TEMPLATES)}[/cyan] = toggle a label | "
-                f"[cyan]'p'[/cyan] = print | [cyan]'q'[/cyan] = back",
+                f"[cyan]'p'[/cyan] = print | "
+                f"[cyan]'c1'[/cyan]/[cyan]'c2'[/cyan] = calibrate 1\"/2\" printer | "
+                f"[cyan]'q'[/cyan] = back",
             ]),
             title="Order Labels", border_style="green"))
         self.ui.render()
@@ -176,109 +191,61 @@ class OrderLabelPrintScreen(Screen):
 
     # -- printing -------------------------------------------------------
 
+    def _calibrate(self, stock) -> str:
+        """Run GAPDETECT on one printer; returns a status line for the footer."""
+        from greenlight.hardware.interfaces import hardware_manager
+
+        name = _roll_name(stock)
+        printer = hardware_manager.get_label_printer(stock)
+        if printer and printer.calibrate_media():
+            return (f"[green]{name} printer calibrating: it will feed a few "
+                    f"labels.[/green]")
+        return f"[red]Calibration failed: {name} printer not reachable.[/red]"
+
     def _print(self, operator, plan):
-        """One pass per stock, pausing for the roll swap between them."""
-        from greenlight.hardware.interfaces import PrintJob, hardware_manager
+        """Send each stock's jobs to its printer, and report on each.
 
-        printer = hardware_manager.get_label_printer()
-        if not printer or not printer.is_ready():
-            self.ui.console.clear()
-            self.ui.header(operator)
-            self.ui.layout["body"].update(Panel(
-                "[bold red]No label printer available[/bold red]\n\n"
-                "The TSC printer did not respond at startup.\n"
-                "Check it is powered on and on the network.",
-                title="Order Labels", style="red"))
-            self.ui.layout["footer"].update(Panel(
-                "Press [cyan]Enter[/cyan] to go back", title=""))
-            self.ui.render()
-            self.ui.wait_back()
-            return
-
-        # Smallest stock first: a wholesale order's registration labels have
-        # just gone out on the 1" roll, so it is already loaded, and starting
-        # there makes the whole order one swap instead of two.
-        groups = sorted(plan.by_stock.items(), key=lambda kv: kv[0][1])
-        printed = 0
-        for stock, jobs in groups:
-            w, h = stock
-            inches = f'{w / 25.4:.0f}" x {h / 25.4:.0f}"'
-            total = sum(j.quantity for j in jobs)
-            # Calibrate unless this session already calibrated for this
-            # stock. Without it the printer stays registered to the previous
-            # roll's gaps and the image lands off the label.
-            calibrate = tuple(stock) != getattr(printer, "loaded_stock", None)
-
-            self.ui.console.clear()
-            self.ui.header(operator)
-            note = ("The printer will feed a few labels to find the new\n"
-                    "roll's gaps before printing -- that is expected."
-                    if calibrate else
-                    "Calibrated for this stock already. If you've swapped\n"
-                    "or reloaded the roll since, press 'c'.")
-            self.ui.layout["body"].update(Panel(
-                f"[bold]Load {inches} stock[/bold]\n\n"
-                f"{total} label(s) in {len(jobs)} job(s) to print on it.\n\n"
-                f"[dim]{note}[/dim]",
-                title=f"Order Labels — {inches}"))
-            self.ui.layout["footer"].update(Panel(
-                "[cyan]Enter[/cyan] = print this stock | "
-                + ("" if calibrate else "[cyan]'c'[/cyan] = calibrate + print | ")
-                + "[cyan]'s'[/cyan] = skip it | [cyan]'q'[/cyan] = stop",
-                title="", border_style="green"))
-            self.ui.render()
-
-            try:
-                answer = self.ui.console.input("Ready: ").strip().lower()
-            except KeyboardInterrupt:
-                break
-            if answer == "q":
-                break
-            if answer == "s":
-                continue
-            if (calibrate or answer == "c") and not printer.calibrate_media(stock):
-                self.ui.layout["body"].update(Panel(
-                    f"[bold red]Calibration failed[/bold red]\n\n"
-                    f"Couldn't reach the printer to calibrate for {inches}.\n"
-                    f"{printed} label(s) sent so far.",
-                    title="Order Labels", style="red"))
-                self.ui.layout["footer"].update(Panel(
-                    "Press [cyan]Enter[/cyan] to go back", title=""))
-                self.ui.render()
-                self.ui.wait_back()
-                return
-
-            failed = None
-            for job in jobs:
-                data = dict(job.data)
-                data["label_width_mm"], data["label_height_mm"] = stock
-                if printer.print_labels(PrintJob(template=job.template,
-                                                 data=data,
-                                                 quantity=job.quantity)):
-                    printed += job.quantity
-                else:
-                    failed = job
-                    break
-
-            if failed:
-                self.ui.layout["body"].update(Panel(
-                    f"[bold red]Printing failed[/bold red]\n\n"
-                    f"Stopped on {failed.quantity} x {failed.sku} "
-                    f"{failed.label_name}.\n\n"
-                    f"{printed} label(s) sent before the failure.",
-                    title="Order Labels", style="red"))
-                self.ui.layout["footer"].update(Panel(
-                    "Press [cyan]Enter[/cyan] to go back", title=""))
-                self.ui.render()
-                self.ui.wait_back()
-                return
+        One printer failing doesn't stop the other: those labels are still
+        wanted, and the summary says exactly what to print again.
+        """
+        lines = [self._print_stock(stock, jobs) for stock, jobs
+                 in sorted(plan.by_stock.items(), key=lambda kv: kv[0][1])]
 
         self.ui.console.clear()
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(
-            f"[bold green]Sent {printed} label(s)[/bold green]",
-            title="Order Labels"))
+            "\n\n".join(lines), title="Order Labels"))
         self.ui.layout["footer"].update(Panel(
             "Press [cyan]Enter[/cyan] to go back", title=""))
         self.ui.render()
         self.ui.wait_back()
+
+    @staticmethod
+    def _print_stock(stock, jobs) -> str:
+        """Print one printer's jobs; returns a line saying what happened."""
+        from greenlight.hardware.interfaces import PrintJob, hardware_manager
+
+        name = _roll_name(stock)
+        total = sum(job.quantity for job in jobs)
+        printer = hardware_manager.get_label_printer(stock)
+
+        if not printer:
+            return (f"[bold red]{name} printer: not configured.[/bold red] "
+                    f"{total} label(s) not sent.")
+        if not printer.is_ready():
+            return (f"[bold red]{name} printer: not responding at "
+                    f"{printer.ip_address}.[/bold red] {total} label(s) not "
+                    f"sent. Check it is on and on the network.")
+
+        sent = 0
+        for job in jobs:
+            data = dict(job.data)
+            data["label_width_mm"], data["label_height_mm"] = stock
+            if not printer.print_labels(PrintJob(template=job.template,
+                                                 data=data,
+                                                 quantity=job.quantity)):
+                return (f"[bold red]{name} printer: failed on {job.quantity} x "
+                        f"{job.sku} {job.label_name}.[/bold red] {sent} of "
+                        f"{total} label(s) sent before the failure.")
+            sent += job.quantity
+        return f"[bold green]{name} printer: sent {sent} label(s).[/bold green]"

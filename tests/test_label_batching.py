@@ -8,9 +8,8 @@ templates hardcoded `PRINT 1`, while `print_labels()` reported having printed
 `print_job.quantity`. So a job for 12 labels produced one and claimed twelve,
 and every caller that wanted N had to loop -- opening N sockets.
 
-And no template declared what stock it needs, so grouping a run by stock (one
-roll swap instead of one per label) or routing to a second printer would each
-have had to hardcode the knowledge.
+And no template declared what stock it needs, so routing a job to the printer
+holding that stock would have had to hardcode the knowledge.
 
 Run: pytest tests/test_label_batching.py  (no DB, no Shopify, no printer)
 """
@@ -152,14 +151,14 @@ def test_stock_for_an_unknown_template_is_none():
 
 
 def test_grouping_a_mixed_run_by_stock():
-    """What a wholesale order needs: all the 2in work, one roll swap, then
-    all the 1in work."""
+    """What a wholesale order needs: all the 2in work on one printer, all the
+    1in work on the other."""
     run = ["shelf_label", "box_label", "registration_label", "box_label",
            "shelf_label"]
     groups = {}
     for t in run:
         groups.setdefault(stock_for_template(t), []).append(t)
-    assert len(groups) == 2, "a mixed run should need exactly one swap"
+    assert len(groups) == 2, "a mixed run should need exactly two printers"
     assert groups[BOX_STOCK_MM] == ["box_label", "box_label"]
 
 
@@ -170,9 +169,10 @@ def test_grouping_a_mixed_run_by_stock():
 def test_mock_accepts_exactly_the_real_templates():
     """The mock's own if/elif chain had silently fallen behind, missing
     box_label and shelf_label while the real printer had both."""
-    mock = MockTSCLabelPrinter()
-    mock.initialize()
     for template in TSCLabelPrinter.TEMPLATES:
+        width_mm, height_mm = stock_for_template(template)
+        mock = MockTSCLabelPrinter(label_width_mm=width_mm, label_height_mm=height_mm)
+        mock.initialize()
         assert mock.print_labels(PrintJob(template=template, data={}, quantity=1))
 
 

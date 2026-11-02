@@ -23,9 +23,9 @@ import sys
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from greenlight.config import TSC_PRINTER_IP, TSC_PRINTER_PORT
+from greenlight.config import TSC_1IN_PRINTER_IP, TSC_PRINTER_PORT
 
-PRINTER_HOST = TSC_PRINTER_IP
+PRINTER_HOST = TSC_1IN_PRINTER_IP
 PRINTER_PORT = TSC_PRINTER_PORT
 
 # Label dimensions (1" x 3" at 203 DPI)

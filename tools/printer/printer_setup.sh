@@ -2,9 +2,9 @@
 # printer_setup.sh: Initialize a new TSC TE210 label printer for use with Greenlight
 #
 # New TE210 printers ship in ZPL mode. This script switches them to TSPL mode
-# and sends calibration commands for 1" x 3" labels.
+# and sends calibration commands for the roll it will hold.
 #
-# Usage: ./printer_setup.sh <printer-ip>
+# Usage: ./printer_setup.sh <printer-ip> [1in|2in]     (default 1in)
 #
 # Steps performed:
 #   1. Send ~!T (ZPL command to switch to TSPL mode)
@@ -17,13 +17,19 @@ set -euo pipefail
 PRINTER_PORT=9100
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <printer-ip>"
+  echo "Usage: $0 <printer-ip> [1in|2in]"
   echo ""
-  echo "Example: $0 192.168.0.52"
+  echo "Example: $0 tsc2 2in"
   exit 1
 fi
 
 PRINTER_IP="$1"
+
+case "${2:-1in}" in
+  1in) LABEL_SIZE="SIZE 76.2 mm, 25.4 mm" ;;
+  2in) LABEL_SIZE="SIZE 76.2 mm, 50.8 mm" ;;
+  *) echo "Roll must be 1in or 2in, not: $2"; exit 1 ;;
+esac
 
 send_to_printer() {
   printf '%s' "$1" | nc -q 2 "$PRINTER_IP" "$PRINTER_PORT"
@@ -61,13 +67,13 @@ echo ""
 
 # Step 3: Send calibration commands
 echo "[3/4] Sending TSPL calibration commands..."
-send_to_printer $'SIZE 76.2 mm, 25.4 mm\r\nGAP 2 mm, 2 mm\r\nDIRECTION 1,0\r\nREFERENCE 0,0\r\nSET TEAR ON\r\nSET PEEL OFF\r\nDENSITY 10\r\nSPEED 3\r\nCLS\r\n'
+send_to_printer "$LABEL_SIZE"$'\r\nGAP 2 mm, 2 mm\r\nDIRECTION 1,0\r\nREFERENCE 0,0\r\nSET TEAR ON\r\nSET PEEL OFF\r\nDENSITY 10\r\nSPEED 3\r\nCLS\r\n'
 echo "  Calibration sent."
 echo ""
 
 # Step 4: Print test label
 echo "[4/4] Printing test label..."
-send_to_printer $'SIZE 76.2 mm, 25.4 mm\r\nGAP 2 mm, 2 mm\r\nDIRECTION 1,0\r\nCLS\r\nTEXT 20,12,"3",0,1,1,"SUNDIAL AUDIO"\r\nBAR 20,40,300,2\r\nTEXT 20,60,"2",0,1,1,"Printer Setup OK"\r\nTEXT 20,100,"1",0,1,1,"TSPL mode confirmed"\r\nPRINT 1\r\n'
+send_to_printer "$LABEL_SIZE"$'\r\nGAP 2 mm, 2 mm\r\nDIRECTION 1,0\r\nCLS\r\nTEXT 20,12,"3",0,1,1,"SUNDIAL AUDIO"\r\nBAR 20,40,300,2\r\nTEXT 20,60,"2",0,1,1,"Printer Setup OK"\r\nTEXT 20,100,"1",0,1,1,"TSPL mode confirmed"\r\nPRINT 1\r\n'
 echo "  Test label sent."
 echo ""
 

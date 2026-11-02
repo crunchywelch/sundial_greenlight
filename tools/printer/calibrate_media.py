@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
-Calibrate the TSC TE210 for a new label stock, and check what it can print.
+Calibrate a TSC TE210 for its label stock, and check what it can print.
 
-Run this after swapping the roll. Two things happen:
+Run this after loading a roll. The stock decides which printer it talks to:
+1" is GREENLIGHT_TSC_1IN_PRINTER_IP, 2" is GREENLIGHT_TSC_2IN_PRINTER_IP. Two
+things happen:
 
   1. The printer is told the new media size and asked to auto-detect the gap
      between labels (TSPL `GAPDETECT`). It feeds a few labels while measuring
@@ -23,14 +25,16 @@ Usage:
     # the 1" x 3" cable roll
     python tools/printer/calibrate_media.py --cable-roll
 
-    # any other stock
-    python tools/printer/calibrate_media.py --width-mm 76.2 --height-mm 38.1
+    # any other stock: say which printer it is loaded in
+    python tools/printer/calibrate_media.py --printer 2in --height-mm 38.1
 
     # show the TSPL without sending it
     python tools/printer/calibrate_media.py --dry-run
 
 Options:
     --cable-roll    Shorthand for 1" x 3" (76.2 x 25.4 mm)
+    --printer       1in or 2in. Needed for other stock sizes; alone, it picks
+                    that printer's normal stock
     --width-mm      Stock width in mm  (default 76.2 = 3")
     --height-mm     Stock height in mm (default 50.8 = 2")
     --gap-mm        Gap between labels; omit to auto-detect
@@ -46,10 +50,14 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from greenlight.config import TSC_PRINTER_IP, TSC_PRINTER_PORT
-from greenlight.hardware.tsc_label_printer import TSCLabelPrinter
+from greenlight.config import TSC_PRINTER_PORT
+from greenlight.hardware.tsc_label_printer import (
+    BOX_STOCK_MM, CABLE_ROLL_MM, TSCLabelPrinter, printer_host_for_stock,
+)
 
 DPI = 203
+
+PRINTER_STOCK = {"1in": CABLE_ROLL_MM, "2in": BOX_STOCK_MM}
 
 # Gap between labels on ordinary die-cut stock. Used when --gap-mm is not
 # given. NOT 0: `GAP 0,0` is TSPL for continuous media.
@@ -206,8 +214,11 @@ def main():
     )
     parser.add_argument("--cable-roll", action="store_true", dest="cable_roll",
                         help='Shorthand for the 1" x 3" cable roll')
-    parser.add_argument("--width-mm", type=float, default=76.2, dest="width_mm")
-    parser.add_argument("--height-mm", type=float, default=50.8, dest="height_mm")
+    parser.add_argument("--printer", choices=sorted(PRINTER_STOCK),
+                        help="Which printer to use (default: the one holding "
+                             "this stock)")
+    parser.add_argument("--width-mm", type=float, default=None, dest="width_mm")
+    parser.add_argument("--height-mm", type=float, default=None, dest="height_mm")
     parser.add_argument("--gap-mm", type=float, default=None, dest="gap_mm",
                         help=f"Gap between labels in mm (default "
                              f"{DEFAULT_GAP_MM}); GAPDETECT then measures it")
@@ -224,15 +235,32 @@ def main():
     parser.add_argument("--dry-run", action="store_true", dest="dry_run")
     args = parser.parse_args()
 
+    if args.cable_roll and args.printer == "2in":
+        parser.error("--cable-roll is the 1in printer's stock")
+    printer_stock = PRINTER_STOCK["1in" if args.cable_roll else
+                                  args.printer or "2in"]
+    if args.width_mm is None:
+        args.width_mm = printer_stock[0]
+    if args.height_mm is None:
+        args.height_mm = printer_stock[1]
     if args.cable_roll:
-        args.width_mm, args.height_mm = 76.2, 25.4
+        args.width_mm, args.height_mm = CABLE_ROLL_MM
+
+    # Named printer, else the one that holds this stock. Other sizes must name
+    # one: guessing would run GAPDETECT on whichever roll it happened to pick.
+    host = printer_host_for_stock(
+        PRINTER_STOCK[args.printer] if args.printer
+        else (args.width_mm, args.height_mm))
+    if not host and not args.dry_run:
+        parser.error("No printer for this stock: pass --printer 1in or 2in, "
+                     "and check GREENLIGHT_TSC_{1IN,2IN}_PRINTER_IP.")
 
     w = int(args.width_mm * DPI / 25.4)
     h = int(args.height_mm * DPI / 25.4)
     detect = not args.no_detect
 
     print()
-    print(f"  Printer:  {TSC_PRINTER_IP}:{TSC_PRINTER_PORT}")
+    print(f"  Printer:  {host}:{TSC_PRINTER_PORT}")
     print(f"  Stock:    {args.width_mm} x {args.height_mm} mm "
           f"({w} x {h} dots @ {DPI} DPI)")
     setup = header(args.width_mm, args.height_mm, shift=args.shift,
@@ -276,16 +304,16 @@ def main():
 
     try:
         if media:
-            send(TSC_PRINTER_IP, TSC_PRINTER_PORT, media)
+            send(host, TSC_PRINTER_PORT, media)
             print(f"\n  Sent media setup{' + GAPDETECT' if detect else ''}.")
             if test:
                 input("  Press Enter once the printer has stopped feeding...")
         if test:
-            send(TSC_PRINTER_IP, TSC_PRINTER_PORT, test)
+            send(host, TSC_PRINTER_PORT, test)
             print("  Sent the label.")
     except (socket.timeout, socket.error, OSError) as e:
         print(f"\n  Failed to reach the printer: {e}")
-        print(f"  Check: ping {TSC_PRINTER_IP}")
+        print(f"  Check: ping {host}")
         return 1
 
     if args.measure:

@@ -177,8 +177,9 @@ class WireLabelScreen(Screen):
 
             # Print labels
             from greenlight.hardware.interfaces import hardware_manager, PrintJob
+            from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
 
-            label_printer = hardware_manager.get_label_printer()
+            label_printer = hardware_manager.get_label_printer(CABLE_ROLL_MM)
             if not label_printer:
                 self.ui.console.clear()
                 self.ui.header(operator)

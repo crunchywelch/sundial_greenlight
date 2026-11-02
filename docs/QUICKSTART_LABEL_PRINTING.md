@@ -11,12 +11,13 @@ Your Greenlight system now supports automatic label printing with the TSC TE210 
 Add to your `.env` file:
 
 ```bash
-# Enable the real printer
+# Enable the real printers
 GREENLIGHT_USE_REAL_PRINTERS=true
 
-# Printer is already configured for IP 192.168.0.52
-# If your printer has a different IP, add:
-# GREENLIGHT_TSC_PRINTER_IP=192.168.0.xx
+# The 1" printer defaults to tsc1 and the 2" to tsc2.
+# If a printer has a different address, add:
+# GREENLIGHT_TSC_1IN_PRINTER_IP=192.168.0.xx
+# GREENLIGHT_TSC_2IN_PRINTER_IP=192.168.0.xx
 ```
 
 ### 2. Test Connection

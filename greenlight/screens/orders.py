@@ -679,7 +679,8 @@ class PrintCustomerLabelsScreen(CableScreenBase):
             return ScreenResult(NavigationAction.POP)
 
         from greenlight.hardware.interfaces import hardware_manager
-        if not hardware_manager.get_label_printer():
+        from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
+        if not hardware_manager.get_label_printer(CABLE_ROLL_MM):
             self.ui.layout["body"].update(
                 Panel("No label printer available.", title="Print Labels")
             )
@@ -1106,13 +1107,6 @@ class OrderFulfillScanScreen(Screen):
                     "[cyan]'c'[/cyan] = calibrate 1\" roll | " + keys
                     + "\n[dim]1\" roll: a registration label prints per cable. "
                       "Already-coded cables don't reprint; rescan to reprint.[/dim]")
-            from greenlight.hardware.interfaces import hardware_manager
-            from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
-            loaded = getattr(hardware_manager.get_label_printer(),
-                             "loaded_stock", None)
-            if loaded and tuple(loaded) != CABLE_ROLL_MM:
-                keys = ("[bold yellow]Printer was last set up for the 2\" roll. "
-                        "Load the 1\" roll and press 'c'.[/bold yellow]\n" + keys)
         if all_complete:
             self.ui.layout["footer"].update(Panel(
                 f"[bold green]Order complete![/bold green] {keys}, or continue scanning",
@@ -1134,8 +1128,8 @@ class OrderFulfillScanScreen(Screen):
         if wholesale and serial_input.lower() == 'c':
             from greenlight.hardware.interfaces import hardware_manager
             from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
-            printer = hardware_manager.get_label_printer()
-            ok = bool(printer) and printer.calibrate_media(CABLE_ROLL_MM)
+            printer = hardware_manager.get_label_printer(CABLE_ROLL_MM)
+            ok = bool(printer) and printer.calibrate_media()
             new_context = self.context.copy()
             new_context["status_note"] = (
                 "[green]Printer calibrated for the 1\" roll.[/green]" if ok
@@ -1334,7 +1328,8 @@ class OrderFulfillScanScreen(Screen):
         if not created and not reprint:
             return f" {code} [yellow]already coded, rescan to reprint[/yellow]"
         from greenlight.hardware.interfaces import hardware_manager
-        printer = hardware_manager.get_label_printer()
+        from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
+        printer = hardware_manager.get_label_printer(CABLE_ROLL_MM)
         if not printer or not printer.is_ready():
             return f" {code} [red]label NOT printed (no printer)[/red]"
         if not print_registration_label(printer, serial, code, sku):

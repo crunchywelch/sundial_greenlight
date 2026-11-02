@@ -16,7 +16,7 @@ import socket
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from greenlight.config import TSC_PRINTER_IP, TSC_PRINTER_PORT, TSC_LABEL_WIDTH_MM, TSC_LABEL_HEIGHT_MM
+from greenlight.config import TSC_1IN_PRINTER_IP, TSC_PRINTER_PORT, TSC_LABEL_WIDTH_MM, TSC_LABEL_HEIGHT_MM
 
 
 def print_font_samples(printer_ip, printer_port):
@@ -198,7 +198,7 @@ def main():
         return 0
 
     # Print font samples
-    if not print_font_samples(TSC_PRINTER_IP, TSC_PRINTER_PORT):
+    if not print_font_samples(TSC_1IN_PRINTER_IP, TSC_PRINTER_PORT):
         return 1
 
     # Wait a moment
@@ -206,7 +206,7 @@ def main():
     time.sleep(1)
 
     # Print scaling samples
-    if not print_font_size_samples(TSC_PRINTER_IP, TSC_PRINTER_PORT):
+    if not print_font_size_samples(TSC_1IN_PRINTER_IP, TSC_PRINTER_PORT):
         return 1
 
     print()

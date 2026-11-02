@@ -7,14 +7,14 @@ Usage:
 
 Example:
     python tools/printer/upload_bitmap.py tools/printer/assets/wire_mono.bmp
-    python tools/printer/upload_bitmap.py tools/printer/assets/wire_mono.bmp 192.168.0.52
+    python tools/printer/upload_bitmap.py tools/printer/assets/wire_mono.bmp tsc2
 """
 
 import socket
 import sys
 import os
 
-DEFAULT_PRINTER_IP = "192.168.0.52"
+DEFAULT_PRINTER_IP = "tsc1"
 PRINTER_PORT = 9100
 
 

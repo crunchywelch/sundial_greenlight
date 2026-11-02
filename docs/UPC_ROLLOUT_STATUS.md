@@ -278,12 +278,14 @@ only option). It is now the `f` landing screen and lists every unfulfilled
 order across customers — see CLAUDE.md § Order fulfillment. The fulfillment
 *workflow* was never broken; only that wrapper was unreferenced.
 
-**Phase 3 — a second printer**, one per stock size. Not bought yet, so this is
-a note rather than a plan. The shape: a second `GREENLIGHT_TSC_*_PRINTER_IP`,
-printers registered in `HardwareManager` **by the stock they have loaded**,
-and `get_label_printer(stock)` resolving against that — so a job routes on
-what it needs, not on a printer name. With one printer configured, jobs for
-absent stock keep today's behaviour of prompting for a roll swap.
+**Phase 3 — a second printer, code done 2026-11-02.** `tsc1` holds the 1" roll
+and `tsc2` the 2"; `get_label_printer(stock)` routes each job by the stock it
+needs. The roll-swap flow was removed rather than kept as a one-printer
+fallback (`docs/LABEL_PRINTING.md` covers what to do if a printer dies).
+**Still to verify on the hardware:** `calibrate_media.py --measure` on both
+printers, since `MEDIA_REGISTRATION` and `FONT_ADVANCE` were measured on the
+old single printer; that `GAPDETECT` results survive a power cycle; and a real
+wholesale order.
 
 ### Resolved 2026-10-06: Prop 65 goes on the 1" roll
 
