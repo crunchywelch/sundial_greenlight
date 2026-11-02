@@ -93,7 +93,7 @@ class ScanCableLookupScreen(CableScreenBase):
                     "[cyan]'s'[/cyan] = Shopify scan mode",
                 ]
                 row4_parts = [
-                    "[cyan]'f'[/cyan] = Fulfill order",
+                    "[cyan]'o'[/cyan] = Orders",
                     "[cyan]'l'[/cyan] = Lookup customer",
                     "[cyan]'q'[/cyan] = Logout",
                 ]
@@ -129,7 +129,7 @@ class ScanCableLookupScreen(CableScreenBase):
             elif input_lower == 'w':
                 # Registration codes for cables not on an order: samples,
                 # festival sales and the like. Wholesale orders get theirs
-                # from 'f', one per cable as it is scanned.
+                # from 'o', one per cable as it is scanned.
                 from greenlight.screens.registration_codes import RegistrationCodesScreen
                 return ScreenResult(NavigationAction.PUSH, RegistrationCodesScreen, self.context.copy())
             elif input_lower == 'i':
@@ -144,15 +144,15 @@ class ScanCableLookupScreen(CableScreenBase):
                 # Enter Shopify scan mode (webhooks on, Greenlight paused)
                 from greenlight.screens.shopify_scan import ShopifyScanModeScreen
                 return ScreenResult(NavigationAction.PUSH, ShopifyScanModeScreen, self.context.copy())
-            elif input_lower == 'f':
-                # Fulfill order. Lands on every unfulfilled order rather than
-                # a customer lookup: an operator with a bench of tested
-                # cables is asking what's outstanding, not who it's for.
-                # Customer lookup is still one key away from there.
-                from greenlight.screens.orders import FulfillOrdersScreen
+            elif input_lower == 'o':
+                # Orders. Lands on every open order rather than a customer
+                # lookup: an operator with a bench of tested cables is asking
+                # what's outstanding, not who it's for. Customer lookup is
+                # still one key away from there.
+                from greenlight.screens.orders import OrdersScreen
                 new_context = self.context.copy()
                 new_context["fulfillment_mode"] = True
-                return ScreenResult(NavigationAction.PUSH, FulfillOrdersScreen, new_context)
+                return ScreenResult(NavigationAction.PUSH, OrdersScreen, new_context)
             elif input_lower == 'l':
                 # Standalone customer lookup (no fulfillment mode)
                 from greenlight.screens.orders import CustomerLookupScreen

@@ -1259,7 +1259,7 @@ def get_available_inventory(series=None):
         pg_pool.putconn(conn)
 
 def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus,
-                          company_gid=None, location_gid=None):
+                          company_gid=None, location_gid=None, line_quantities=None):
     """Assign a cable to an order with SKU validation.
 
     Two channels, decided by whether the order is B2B:
@@ -1280,6 +1280,10 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
         line_item_skus: List of SKUs from order line items (for validation)
         company_gid: Shopify Company GID for a B2B order
         location_gid: Shopify CompanyLocation GID for a B2B order
+        line_quantities: {variant SKU: quantity ordered}. When given, a cable
+            of a SKU the order already has enough of gets error 'line_full'
+            and is not assigned. Omit to allow it, as a replacement does until
+            the old cable comes off.
 
     Returns:
         dict with 'success' or 'error' key
@@ -1289,6 +1293,15 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
         formatted_serial = format_serial_number(serial_number)
 
         from greenlight.cable_config import format_variant_sku
+
+        def variant_sku_of(group, cable_prefix, cable_length, connector):
+            length_val = float(cable_length) if cable_length is not None else None
+            if length_val is not None and length_val.is_integer():
+                length_val = int(length_val)
+            return format_variant_sku(
+                group_sku=group, prefix=cable_prefix,
+                length=length_val, connector_code=connector,
+            )
 
         with conn:
             with conn.cursor() as cur:
@@ -1363,19 +1376,30 @@ def assign_cable_to_order(serial_number, customer_gid, order_gid, line_item_skus
                 # SKU validation: compute the user-facing variant SKU from
                 # (sku_group, prefix, length, connector_code) and match against
                 # the order's line items (which carry variant SKU strings).
-                length_val = float(length) if length is not None else None
-                if length_val is not None and length_val.is_integer():
-                    length_val = int(length_val)
-                variant_sku = format_variant_sku(
-                    group_sku=sku_group, prefix=prefix,
-                    length=length_val, connector_code=connector_code,
-                )
+                variant_sku = variant_sku_of(sku_group, prefix, length, connector_code)
                 if variant_sku not in line_item_skus:
                     return {
                         'error': 'sku_mismatch',
                         'message': f'Cable SKU {variant_sku} does not match any line item in this order',
                         'cable_sku': variant_sku,
                     }
+
+                if line_quantities is not None:
+                    cur.execute("""
+                        SELECT sku_group, prefix, length, connector_code
+                        FROM audio_cables WHERE shopify_order_gid = %s
+                    """, (order_gid,))
+                    on_order = sum(1 for r in cur.fetchall()
+                                   if variant_sku_of(*r) == variant_sku)
+                    quantity = line_quantities.get(variant_sku, 0)
+                    if on_order >= quantity:
+                        return {
+                            'error': 'line_full',
+                            'message': f'This order already has {on_order} of '
+                                       f'{quantity} {variant_sku}',
+                            'sku': variant_sku,
+                            'quantity': quantity,
+                        }
 
                 if company_gid:
                     # Wholesale: record the dealer, leave shopify_gid for the
@@ -1490,32 +1514,45 @@ def get_cables_for_order(order_gid):
 
     Returns list of dicts with cable info for progress tracking.
     """
-    conn = pg_pool.getconn()
+    return (get_cables_for_orders([order_gid]) or {}).get(order_gid, [])
+
+
+def get_cables_for_orders(order_gids):
+    """Cables assigned to each of several orders, in one query.
+
+    Returns {order GID: [cable dicts]}, leaving out orders with none, or None
+    if the database couldn't be read, so a caller can tell "no cables" from
+    "don't know".
+    """
+    if not order_gids:
+        return {}
+    conn = None
     try:
+        conn = pg_pool.getconn()
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT ac.serial_number, ac.sku_group, ac.prefix,
                        ac.length, ac.connector_code,
-                       sg.description
+                       sg.description, ac.shopify_order_gid
                 FROM audio_cables ac
                 JOIN sku_group sg ON ac.sku_group = sg.sku
-                WHERE ac.shopify_order_gid = %s
+                WHERE ac.shopify_order_gid = ANY(%s)
                 ORDER BY ac.updated_timestamp DESC
-            """, (order_gid,))
-            rows = cur.fetchall()
-            return [
-                _enrich_record({
+            """, (list(order_gids),))
+            by_order = {}
+            for r in cur.fetchall():
+                by_order.setdefault(r[6], []).append(_enrich_record({
                     'serial_number': r[0], 'sku_group': r[1], 'prefix': r[2],
                     'length': r[3], 'connector_code': r[4],
                     'description': r[5],
-                })
-                for r in rows
-            ]
+                }))
+            return by_order
     except Exception as e:
-        logger.error("Error fetching cables for order: %s", e)
-        return []
+        logger.error("Error fetching cables for orders: %s", e)
+        return None
     finally:
-        pg_pool.putconn(conn)
+        if conn:
+            pg_pool.putconn(conn)
 
 
 def relink_order_cables(draft_to_order):

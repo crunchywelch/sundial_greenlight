@@ -5,7 +5,7 @@ Registration codes for cables that aren't on an order.
 an end buyer to register without a Shopify order behind it. Scan a batch,
 generate codes, print labels. The cables stay ours and sellable.
 
-Wholesale ORDERS don't come through here. Their cables are scanned under `f`,
+Wholesale ORDERS don't come through here. Their cables are scanned under `o`,
 which assigns them to the dealer and prints each registration label as the
 cable is scanned, using the helpers below.
 """
@@ -101,7 +101,7 @@ class RegistrationCodesScreen(Screen):
             self.ui.layout["body"].update(Panel(
                 body_content,
                 title=f"Registration Codes ({len(batch)} cables)",
-                subtitle="Samples, festival sales -- not for orders (use 'f')"
+                subtitle="Samples, festival sales -- not for orders (use 'o')"
             ))
 
             # Footer with available actions

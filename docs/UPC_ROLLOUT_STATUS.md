@@ -276,7 +276,8 @@ the box labels (`OrderLabelPrintScreen` in `greenlight/screens/order_labels.py`)
 (`f` skipped it and went straight to `CustomerLookupScreen`, which was its
 only option). It is now the `f` landing screen and lists every unfulfilled
 order across customers — see CLAUDE.md § Order fulfillment. The fulfillment
-*workflow* was never broken; only that wrapper was unreferenced.
+*workflow* was never broken; only that wrapper was unreferenced. On 2026-11-02
+`f` became `o` and the screen became `OrdersScreen`, adding completed orders.
 
 **Phase 3 — a second printer, code done 2026-11-02.** `tsc1` holds the 1" roll
 and `tsc2` the 2"; `get_label_printer(stock)` routes each job by the stock it

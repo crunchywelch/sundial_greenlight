@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for the `f` list: website orders and wholesale orders, paid or not.
+"""Tests for the `o` list: website orders and wholesale orders, paid or not.
 
 A wholesale order is a Shopify draft until paid, and gets packed either
 way, so the list carries open drafts too -- but a completed draft has

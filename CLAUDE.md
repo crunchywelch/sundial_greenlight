@@ -82,14 +82,15 @@ flags `GREENLIGHT_USE_REAL_{ARDUINO,SCANNER,PRINTERS,GPIO}`,
 1. **Splash / operator select** → goes straight to the scan hub
 2. **Scan hub** (`ScanCableLookupScreen`): scan a serial to look up/test a cable,
    or use a key — `r` intake, `i` inventory, `w` registration codes (no order), `p` wire
-   labels, `s` Shopify scan mode, `f` fulfill order (website and wholesale),
+   labels, `s` Shopify scan mode, `o` orders (website and wholesale),
    `l` lookup customer, `c` calibrate tester, `q` logout
 
 ### Order fulfillment
 
-`f` → `FulfillOrdersScreen`, which lists **everything outstanding** across
-customers, newest first, each row typed **Website** or **Wholesale**. Pick one
-and it goes to `OrderFulfillScanScreen`, which does the per-channel job:
+`o` → `OrdersScreen`, which opens on **every open order** across customers,
+newest first, each row typed **Website** or **Wholesale**. Its Cables column
+shows how many are scanned (`2/3`). Pick one and it goes to
+`OrderFulfillScanScreen`, which does the per-channel job:
 
 - **Website order:** scan each cable; it's checked against the line items
   (SKU and QC) and assigned to the customer. No labels.
@@ -105,6 +106,25 @@ Wholesale vs website comes from the buyer (`purchasingEntity` is a
 `shopify_client.wholesale_buyer()`. **Getting this wrong locks out the end
 buyer:** a wholesale cable assigned as retail gets `shopify_gid` set, and
 `api.register-cable.jsx` refuses any cable that already has one.
+
+A cable scanned for a line that's already full isn't assigned. The screen asks
+whether it's replacing one of that SKU's cables, and picking one (by number, or
+by scanning it) swaps them; the old cable goes back into stock with its code, so
+remove its label on a wholesale order. `r` takes a cable off directly, for a line
+that isn't full yet.
+
+`c` switches to **completed orders** (`CompletedOrderScreen`), the newest 100
+that Shopify says are fulfilled or cancelled. Cancelled ones read "Cancelled"
+and aren't on the open list, even though Shopify still calls them unfulfilled.
+These are **view-only**: scanning never assigns
+a cable. A wholesale order can still reprint a label for a cable already on it,
+and `l` prints its box labels. This list counts every cable recorded on the
+order, because a one-off can ship under a different SKU from its line (shown as
+"Other cables on this order"). A low count such as `0/2` there means no record:
+the order may have shipped without scanning.
+
+Shopify's status decides the list, so a fully scanned order stays open until
+it's fulfilled or cancelled. Open orders can be unpaid drafts, as below.
 
 `l` from the list is the customer-first route (`CustomerLookupScreen` →
 `CustomerSearchResultsScreen` → `OrderSelectionScreen`), for when you have a
@@ -124,7 +144,7 @@ Greenlight never marks anything fulfilled in Shopify. Website orders are
 fulfilled when they ship; wholesale ones by hand.
 
 `w` is **registration codes for cables not on an order** — samples, festival
-sales and the like. It's in regular use; don't fold it into `f`. Its
+sales and the like. It's in regular use; don't fold it into `o`. Its
 cables stay ours and sellable (see `docs/WHOLESALE_ATTRIBUTION.md`). A
 cable coded there and later scanned into a wholesale order keeps its code,
 and its first scan doesn't print a second label — rescan to reprint.
@@ -247,11 +267,11 @@ unbreakable characters, which fits only font `"1"` at ~4.3 pt, under the 6 pt
 legal floor. Its own label has no competing text, so the "no smaller than
 other consumer information" clause has nothing to bind against either.
 
-**Printing a wholesale order's labels: `f`, pick the order, scan.** Each
+**Printing a wholesale order's labels: `o`, pick the order, scan.** Each
 cable's registration label prints as it's scanned; `l` from the scan screen
 prints the box labels. Wholesale orders may still be Shopify *draft* orders —
 `shopify_app/app/b2b.server.js` creates a draft and emails an invoice, never
-completing it — and `get_customer_orders()` cannot see a draft, so the `f`
+completing it — and `get_customer_orders()` cannot see a draft, so the `o`
 list fetches drafts separately (`get_draft_orders()`). Planning is in
 `greenlight/label_batch.py` (no printer, DB or Shopify in it), which groups
 jobs by stock, one group per printer, and knows three label grains: per

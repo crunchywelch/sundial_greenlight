@@ -846,21 +846,51 @@ def get_unfulfilled_orders(limit: int = 50) -> list[Dict[str, Any]]:
     So the negation is the query, and the client-side filter stays as the
     guarantee -- which is also what OrderSelectionScreen already does.
 
+    A cancelled order is left out however it displays, since a cancelled order
+    with nothing shipped still reads UNFULFILLED and has nothing left to pack.
+    It's on get_completed_orders() instead.
+
     Each order carries `customer` (fulfillment needs it to assign cables) and
     its line items.
     """
     try:
+        nodes = _search_orders("-fulfillment_status:fulfilled", limit)
+    except Exception as e:
+        logger.error("Error fetching unfulfilled orders: %s", e)
+        return []
+    wanted = ("UNFULFILLED", "PARTIALLY_FULFILLED", "")
+    return [node for node in nodes
+            if (node.get("displayFulfillmentStatus") or "").upper() in wanted
+            and not node.get("cancelledAt")]
+
+
+def get_completed_orders(limit: int = 100) -> list[Dict[str, Any]]:
+    """Fulfilled or cancelled orders, newest first, across customers.
+
+    Raises if Shopify can't be read, so that a failure doesn't look like there
+    being no completed orders. Measured against this store, this search and
+    the client-side check agree.
+    """
+    nodes = _search_orders("fulfillment_status:fulfilled OR status:cancelled", limit)
+    return [node for node in nodes
+            if node.get("cancelledAt")
+            or (node.get("displayFulfillmentStatus") or "").upper() == "FULFILLED"]
+
+
+def _search_orders(search: str, limit: int) -> list[Dict[str, Any]]:
+    """Orders matching a Shopify search, newest first, with customer and lines."""
+    try:
         get_shopify_session()
 
         query = """
-        query getUnfulfilledOrders($limit: Int!) {
-            orders(first: $limit, reverse: true,
-                   query: "-fulfillment_status:fulfilled") {
+        query searchOrders($limit: Int!, $search: String!) {
+            orders(first: $limit, reverse: true, query: $search) {
                 edges {
                     node {
                         id
                         name
                         createdAt
+                        cancelledAt
                         displayFinancialStatus
                         displayFulfillmentStatus
                         customer { id displayName email }
@@ -882,26 +912,17 @@ def get_unfulfilled_orders(limit: int = 50) -> list[Dict[str, Any]]:
         }
         """ % _PURCHASING_ENTITY
 
-        result = shopify.GraphQL().execute(query, variables={"limit": limit})
+        result = shopify.GraphQL().execute(
+            query, variables={"limit": limit, "search": search})
 
         import json
         data = json.loads(result)
         if "errors" in data:
-            logger.error("GraphQL errors: %s", data['errors'])
-            return []
-
-        wanted = ("UNFULFILLED", "PARTIALLY_FULFILLED", "")
-        orders = []
-        for edge in data.get("data", {}).get("orders", {}).get("edges", []):
-            node = edge["node"]
-            status = (node.get("displayFulfillmentStatus") or "").upper()
-            if status in wanted:
-                orders.append(node)
-        return orders
-
-    except Exception as e:
-        logger.error("Error fetching unfulfilled orders: %s", e)
-        return []
+            raise RuntimeError(f"GraphQL errors: {data['errors']}")
+        return [edge["node"] for edge
+                in data.get("data", {}).get("orders", {}).get("edges", [])]
+    finally:
+        close_shopify_session()
 
 
 def get_draft_orders(limit: int = 25,

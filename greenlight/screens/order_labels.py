@@ -6,7 +6,7 @@ back, the side label for the spine, and the Prop 65 warning. Side and Prop 65
 go to the 1" printer, UPC to the 2".
 
 Reached with `l` from a wholesale order's scan screen (OrderFulfillScanScreen,
-via `f`). Website orders don't get box labels.
+via `o`). Website orders don't get box labels.
 
 Registration labels are NOT printed here. Each carries a code for one
 physical cable, so the scan screen prints it as that cable is scanned.
@@ -39,7 +39,7 @@ def draft_lifecycle(order) -> str:
     The lifecycle trips people up: a draft becomes an Order only when it is
     completed -- the buyer paying the invoice, or someone completing it in
     admin -- and only Orders can be fulfilled in Shopify. Packing doesn't
-    wait for that, so the `f` list shows drafts too, and says how far each
+    wait for that, so the `o` list shows drafts too, and says how far each
     has got.
     """
     became = order.get("order")

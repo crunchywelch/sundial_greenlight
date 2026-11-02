@@ -4,6 +4,7 @@ import logging
 
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 from greenlight.screen_manager import Screen, ScreenResult, NavigationAction
 from greenlight.screens.cable import CableScreenBase
@@ -16,6 +17,9 @@ logger = logging.getLogger(__name__)
 # Blocking on console.input() here would freeze the scanner queue (MQTT scans
 # get dropped by the next clear_queue), so we use a brief sleep instead.
 ERROR_DISPLAY_SEC = 1.5
+
+# How many fulfilled or cancelled orders the completed list fetches, newest first.
+COMPLETED_LIMIT = 100
 
 
 def _assign_pop_target(context):
@@ -68,7 +72,7 @@ def outstanding_orders(orders, drafts):
     the map from draft to Order -- see `completed_drafts()`.
 
     Each entry: {kind ("order"|"draft"), channel ("retail"|"wholesale"),
-    id, name, customer, buyer, created, status, line_items}.
+    id, name, customer, buyer, created, status, cancelled, line_items}.
     """
     from greenlight.screens.order_labels import draft_lifecycle
 
@@ -93,13 +97,16 @@ def outstanding_orders(orders, drafts):
             "buyer": buyer,
             "created": source.get("createdAt") or "",
             "status": status,
+            "cancelled": bool(source.get("cancelledAt")),
             "line_items": line_items,
         }
 
     merged = []
     for order in orders or []:
-        status = order.get("displayFulfillmentStatus") or ""
-        merged.append(entry("order", order, status.replace("_", " ").title(),
+        status = ("Cancelled" if order.get("cancelledAt")
+                  else (order.get("displayFulfillmentStatus") or "")
+                  .replace("_", " ").title())
+        merged.append(entry("order", order, status,
                             order_line_items(order)))
     for draft in drafts or []:
         if (draft.get("status") or "").upper() == "COMPLETED":
@@ -109,6 +116,17 @@ def outstanding_orders(orders, drafts):
                              if li.get("sku")]))
     merged.sort(key=lambda e: e["created"], reverse=True)
     return merged
+
+
+def completed_orders(orders, drafts):
+    """Fulfilled and cancelled Orders as list entries, newest first.
+
+    Same shape as outstanding_orders(). Open drafts are left out, since a
+    draft isn't an order yet, let alone a finished one; `drafts` is still
+    needed to find the buyer of an Order that came from one.
+    """
+    return [e for e in outstanding_orders(orders, drafts)
+            if e["kind"] == "order"]
 
 
 def completed_drafts(drafts):
@@ -133,95 +151,48 @@ def fulfillment_context(context, entry):
     context["order_id"] = entry["id"]
     context["order_name"] = entry["name"]
     context["line_items"] = entry["line_items"]
+    context["cancelled"] = entry.get("cancelled", False)
     context["scanned_cables"] = []
     return context
 
 
-class FulfillOrdersScreen(Screen):
-    """Everything outstanding, across customers, newest first.
+def _one_line(text):
+    """A table cell that shortens to fit, so each row stays one line for paging."""
+    return Text(text, no_wrap=True, overflow="ellipsis")
 
-    This is what `f` lands on. Fulfilling used to start from a customer
-    lookup, which asks "who is this for" -- but an operator with a bench of
-    tested cables wants the other question: what is outstanding. Customer
-    lookup is still one key away for when you do have a name.
 
-    Website orders and wholesale orders (paid or still drafts) share the
-    list; picking one goes to the same scan screen, which behaves per channel.
+class OrdersScreen(Screen):
+    """Every order: open ones to pack, and completed ones to look back at.
+
+    This is what `o` lands on, showing open orders: website orders and
+    wholesale orders, paid or still drafts. Picking one goes to the scan
+    screen, which behaves per channel. `c` switches to completed orders
+    (fulfilled or cancelled), which open view-only so a shipped order can't pick up a cable by accident.
+
+    Shopify's status decides the list, because Greenlight never marks anything
+    fulfilled. A fully scanned order stays open until it ships, and its Cables
+    column is what says it's packed.
     """
+
+    view = "open"       # or "completed"; survives returning from an order
+    page = 0
 
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
-
-        self.ui.console.clear()
-        self.ui.header(operator)
-        self.ui.layout["body"].update(Panel(
-            "[yellow]Loading outstanding orders from Shopify...[/yellow]",
-            title="Order Fulfillment"))
-        self.ui.layout["footer"].update(Panel("Please wait...", title=""))
-        self.ui.render()
-
-        try:
-            orders = shopify_client.get_unfulfilled_orders(limit=50)
-            drafts = shopify_client.get_draft_orders(limit=50)
-            moved = db.relink_order_cables(completed_drafts(drafts))
-            if moved:
-                logger.info("Moved %d cable(s) from paid drafts to their orders",
-                            moved)
-            entries = outstanding_orders(orders, drafts)
-        except Exception as e:
-            logger.error("Failed to load outstanding orders: %s", e)
-            entries = None
+        entries = self._load(operator)
 
         while True:
+            page_size = self.ui.page_size(minimum=4)
+            total = len(entries or [])
+            pages = max(1, (total + page_size - 1) // page_size)
+            self.page = min(self.page, pages - 1)
+
             self.ui.console.clear()
             self.ui.header(operator)
-
-            if entries is None:
-                body = Panel(
-                    "[bold red]Can't reach Shopify[/bold red]\n\n"
-                    "Outstanding orders could not be loaded. This is a\n"
-                    "connection or credentials issue.\n\n"
-                    "[dim]Customer lookup needs Shopify too, but try it if\n"
-                    "you have a name.[/dim]",
-                    title="Order Fulfillment", style="red")
-            elif not entries:
-                body = Panel(
-                    "[green]Nothing outstanding.[/green]\n\n"
-                    "[dim]No unfulfilled orders and no open wholesale\n"
-                    "drafts.[/dim]",
-                    title="Order Fulfillment")
-            else:
-                table = Table(show_header=True, header_style="bold cyan")
-                table.add_column("#", style="green", width=3)
-                table.add_column("Order", style="white", width=7)
-                table.add_column("Type", width=9)
-                table.add_column("For", width=24)
-                table.add_column("Cables", justify="right", width=6)
-                table.add_column("Status", style="dim", width=30)
-                for i, e in enumerate(entries, 1):
-                    if e["buyer"]:
-                        who = e["buyer"]["display"]
-                        kind = "[magenta]Wholesale[/magenta]"
-                    else:
-                        who = e["customer"].get("displayName") or "—"
-                        kind = "Website"
-                    cables = sum(li["quantity"] for li in e["line_items"])
-                    table.add_row(str(i), e["name"], kind, who[:24],
-                                  str(cables), e["status"])
-                body = Panel(
-                    table, title="Outstanding Orders",
-                    subtitle="Wholesale: registration label per cable, "
-                             "then box labels")
-
-            self.ui.layout["body"].update(body)
-            hint = []
-            if entries:
-                hint.append(f"Enter [cyan]1-{len(entries)}[/cyan] to fulfill")
-            hint.append("[cyan]'l'[/cyan] = Lookup customer")
-            hint.append("[cyan]'q'[/cyan] = Back")
+            self.ui.layout["body"].update(self._body(entries, page_size))
             self.ui.layout["footer"].update(Panel(
-                " | ".join(hint), title="Order Fulfillment",
-                border_style="green"))
+                " | ".join(self._hints(total, pages)),
+                title="Orders", border_style="green"))
             self.ui.render()
 
             try:
@@ -230,27 +201,143 @@ class FulfillOrdersScreen(Screen):
                 return ScreenResult(NavigationAction.POP)
 
             if choice in ("", "q"):
-                return ScreenResult(NavigationAction.POP)
-            if choice == "l":
+                if self.view == "open":
+                    return ScreenResult(NavigationAction.POP)
+                entries = self._switch_view(operator)
+            elif choice == "c":
+                entries = self._switch_view(operator)
+            elif choice == "l":
                 return ScreenResult(NavigationAction.PUSH,
                                     CustomerLookupScreen, self.context)
-            if entries and choice.isdigit() and 1 <= int(choice) <= len(entries):
-                result = self._fulfill(entries[int(choice) - 1])
+            elif choice == "n" and self.page < pages - 1:
+                self.page += 1
+            elif choice == "p" and self.page > 0:
+                self.page -= 1
+            elif entries and choice.isdigit() and 1 <= int(choice) <= total:
+                result = self._open_order(entries[int(choice) - 1])
                 if result:
                     return result
 
-    def _fulfill(self, entry):
+    def _switch_view(self, operator):
+        self.view = "completed" if self.view == "open" else "open"
+        self.page = 0
+        return self._load(operator)
+
+    def _load(self, operator):
+        """This view's entries, or None if Shopify couldn't be read."""
+        completed = self.view == "completed"
+        self.ui.console.clear()
+        self.ui.header(operator)
+        self.ui.layout["body"].update(Panel(
+            f"[yellow]Loading {self.view} orders from Shopify...[/yellow]",
+            title="Orders"))
+        self.ui.layout["footer"].update(Panel("Please wait...", title=""))
+        self.ui.render()
+
+        try:
+            orders = (shopify_client.get_completed_orders(limit=COMPLETED_LIMIT)
+                      if completed
+                      else shopify_client.get_unfulfilled_orders(limit=50))
+            drafts = shopify_client.get_draft_orders(limit=50)
+            moved = db.relink_order_cables(completed_drafts(drafts))
+            if moved:
+                logger.info("Moved %d cable(s) from paid drafts to their orders",
+                            moved)
+            entries = (completed_orders(orders, drafts) if completed
+                       else outstanding_orders(orders, drafts))
+        except Exception as e:
+            logger.error("Failed to load %s orders: %s", self.view, e)
+            return None
+
+        self.cables_by_order = db.get_cables_for_orders(
+            [e["id"] for e in entries])
+        return entries
+
+    def _body(self, entries, page_size):
+        completed = self.view == "completed"
+        if entries is None:
+            return Panel(
+                "[bold red]Can't reach Shopify[/bold red]\n\n"
+                "Orders could not be loaded. This is a connection or\n"
+                "credentials issue.\n\n"
+                "[dim]Customer lookup needs Shopify too, but try it if\n"
+                "you have a name.[/dim]",
+                title="Orders", style="red")
+        if not entries:
+            message = ("[dim]No completed orders.[/dim]" if completed else
+                       "[green]Nothing open.[/green]\n\n"
+                       "[dim]No unfulfilled orders and no open wholesale\n"
+                       "drafts.[/dim]")
+            return Panel(message, title="Orders")
+
+        table = Table(show_header=True, header_style="bold cyan")
+        table.add_column("#", style="green", width=3)
+        table.add_column("Order", style="white", width=7)
+        table.add_column("Type", width=9)
+        table.add_column("For", max_width=24)
+        table.add_column("Cables", justify="right", width=7)
+        table.add_column("Status", style="dim", max_width=30)
+        first = self.page * page_size
+        for i, e in enumerate(entries[first:first + page_size], first + 1):
+            if e["buyer"]:
+                who = e["buyer"]["display"]
+                kind = "[magenta]Wholesale[/magenta]"
+            else:
+                who = e["customer"].get("displayName") or "—"
+                kind = "Website"
+            cables = self.cables_by_order
+            table.add_row(str(i), e["name"], kind, _one_line(who),
+                          cables_cell(e["line_items"],
+                                      None if cables is None
+                                      else cables.get(e["id"], []),
+                                      closed=completed),
+                          _one_line(e["status"]))
+
+        if completed:
+            subtitle = "View only: nothing gets assigned from here"
+            if len(entries) >= COMPLETED_LIMIT:
+                subtitle = f"Newest {COMPLETED_LIMIT}. " + subtitle
+        else:
+            subtitle = ("Wholesale: registration label per cable, "
+                        "then box labels")
+        return Panel(table, subtitle=subtitle,
+                     title="Completed Orders" if completed else "Open Orders")
+
+    def _hints(self, total, pages):
+        hints = []
+        if total:
+            hints.append(f"Enter [cyan]1-{total}[/cyan] to open")
+        if pages > 1:
+            hints.append(f"Page {self.page + 1}/{pages}")
+            if self.page < pages - 1:
+                hints.append("[cyan]'n'[/cyan] = Next")
+            if self.page > 0:
+                hints.append("[cyan]'p'[/cyan] = Prev")
+        hints.append("[cyan]'c'[/cyan] = Open orders"
+                     if self.view == "completed"
+                     else "[cyan]'c'[/cyan] = Completed orders")
+        hints.append("[cyan]'l'[/cyan] = Lookup customer")
+        hints.append("[cyan]'q'[/cyan] = Back")
+        return hints
+
+    def _open_order(self, entry):
         if not entry["line_items"]:
             self.ui.layout["body"].update(Panel(
                 "[red]No cable items (with SKUs) in this order[/red]",
-                title="Order Fulfillment"))
+                title="Orders"))
             self.ui.layout["footer"].update(Panel(
                 "Press [cyan]Enter[/cyan] to go back", title=""))
             self.ui.render()
             self.ui.wait_back()
             return None
+        context = fulfillment_context(self.context, entry)
+        if self.view == "completed":
+            return ScreenResult(NavigationAction.PUSH, CompletedOrderScreen,
+                                context)
+        # Back from the scan screen means this list, not the scan hub.
+        context["assign_return_to"] = OrdersScreen
         return ScreenResult(NavigationAction.PUSH, OrderFulfillScanScreen,
-                            fulfillment_context(self.context, entry))
+                            context)
 
 
 class CustomerLookupScreen(Screen):
@@ -1038,6 +1125,209 @@ def match_cables_to_lines(line_items, cables):
     return matched
 
 
+def line_quantities(line_items):
+    """{SKU: quantity ordered}, adding up a SKU that's on more than one line."""
+    quantities = {}
+    for item in line_items:
+        quantities[item["sku"]] = quantities.get(item["sku"], 0) + item["quantity"]
+    return quantities
+
+
+def pick_cable(choice, cables):
+    """The cable an operator chose, by its row number or by scanning its serial.
+
+    A scanned serial is zero-padded, so 000002 is a cable and never row 2.
+    """
+    choice = choice.strip()
+    if choice.isdigit() and choice == str(int(choice)) and 1 <= int(choice) <= len(cables):
+        return cables[int(choice) - 1]
+    from greenlight.db import format_serial_number
+    if choice.isdigit():
+        choice = format_serial_number(choice)
+    return next((c for c in cables if c["serial_number"] == choice), None)
+
+
+def cables_cell(line_items, cables, closed=False):
+    """An order list's Cables column: `2/3` scanned of needed.
+
+    `cables` is None when the database couldn't be read, which shows as `?/3`
+    rather than a false `0/3`. On an open order the colour says what's left to
+    pack, and only cables matching a line count. A closed order counts every
+    cable recorded on it, since a one-off can ship under a different SKU from
+    its line, and 0/3 there only means no record, so it isn't flagged.
+    """
+    needed = sum(item["quantity"] for item in line_items)
+    if cables is None:
+        return f"[dim]?/{needed}[/dim]"
+    scanned = (len(cables) if closed else
+               sum(len(s) for s in match_cables_to_lines(line_items, cables)))
+    text = f"{scanned}/{needed}"
+    if scanned >= needed and needed:
+        return f"[green]{text}[/green]"
+    if closed:
+        return f"[dim]{text}[/dim]"
+    return f"[yellow]{text}[/yellow]" if scanned else text
+
+
+def other_cables(line_items, cables):
+    """Cables recorded on an order whose SKU isn't on any of its lines."""
+    skus = {item["sku"] for item in line_items}
+    return [c for c in cables if c["variant_sku"] not in skus]
+
+
+def order_progress_table(line_items, cables, closed=False):
+    """Each line's serials and count. Returns (table, every line is scanned).
+
+    On a closed order a shortfall isn't work still to do, so it reads
+    "not scanned" rather than "remaining", or "no SKU match" if the order has
+    other cables that could be the ones that shipped.
+    """
+    closed_status = ("no SKU match" if other_cables(line_items, cables)
+                     else "not scanned")
+    table = Table(show_header=True, header_style="bold cyan", expand=True)
+    table.add_column("SKU", style="white")
+    table.add_column("Title", style="dim")
+    table.add_column("Cable")
+    table.add_column("Progress", justify="center", style="yellow")
+    table.add_column("Status", justify="center")
+
+    all_complete = True
+    for item, serials in zip(line_items, match_cables_to_lines(line_items, cables)):
+        needed = item['quantity']
+        scanned = len(serials)
+        if scanned >= needed:
+            status = "[bold green]DONE[/bold green]"
+        else:
+            all_complete = False
+            status = (f"[dim]{needed - scanned} {closed_status}[/dim]" if closed
+                      else f"[yellow]{needed - scanned} remaining[/yellow]")
+        table.add_row(item['sku'], item['title'],
+                      ", ".join(serials) or "[dim]—[/dim]",
+                      f"{scanned}/{needed}", status)
+    return table, all_complete
+
+
+def box_label_context(context, order_name, buyer_name, line_items):
+    """Context for OrderLabelPrintScreen, to print one order's box labels."""
+    context = context.copy()
+    context["label_order"] = {
+        "name": order_name,
+        "customer": {"displayName": buyer_name},
+        "line_items": line_items,
+    }
+    return context
+
+
+def send_registration_label(serial, code, sku=""):
+    """Print a cable's registration label; returns a note saying what happened."""
+    from greenlight.screens.registration_codes import print_registration_label
+    from greenlight.hardware.interfaces import hardware_manager
+    from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
+    printer = hardware_manager.get_label_printer(CABLE_ROLL_MM)
+    if not printer or not printer.is_ready():
+        return f" {code} [red]label NOT printed (no printer)[/red]"
+    if not print_registration_label(printer, serial, code, sku):
+        return f" {code} [red]label NOT printed[/red]"
+    return f" {code} [green]label printed[/green]"
+
+
+class CompletedOrderScreen(Screen):
+    """A fulfilled or cancelled order's cables, view-only.
+
+    Nothing gets assigned here: adding a cable to a shipped order is almost
+    certainly a mistake. A wholesale order can still reprint its labels, to
+    fix a mislabeled box. Reprints only reuse a code the cable already has, and
+    only for a cable on this order.
+    """
+
+    def run(self) -> ScreenResult:
+        operator = self.context.get("operator", "")
+        order_id = self.context.get("order_id", "")
+        order_name = self.context.get("order_name", "")
+        line_items = self.context.get("line_items", [])
+        dealer = self.context.get("dealer_name")
+        wholesale = bool(self.context.get("company_gid"))
+        customer_name = (self.context.get("selected_customer") or {}).get(
+            "displayName") or "—"
+        who = (f"[bold magenta]Wholesale:[/bold magenta] {dealer}" if wholesale
+               else f"[bold cyan]Customer:[/bold cyan] {customer_name}")
+
+        found = db.get_cables_for_orders([order_id])
+        cables = None if found is None else found.get(order_id, [])
+        note = ""
+
+        while True:
+            self.ui.console.clear()
+            self.ui.header(operator)
+            self.ui.layout["body"].update(
+                self._body(order_name, who, line_items, cables, note,
+                           cancelled=self.context.get("cancelled", False)))
+
+            if not wholesale:
+                self.ui.layout["footer"].update(Panel(
+                    "[cyan]'q'[/cyan] = back", title="Completed order"))
+                self.ui.render()
+                self.ui.wait_back()
+                return ScreenResult(NavigationAction.POP)
+
+            self.ui.layout["footer"].update(Panel(
+                "Scan a cable to reprint its registration label | "
+                "[cyan]'l'[/cyan] = box labels | [cyan]'q'[/cyan] = back",
+                title="Completed order"))
+            self.ui.render()
+
+            serial_input = self.ui.get_serial_number_scan_or_manual()
+            if not serial_input or serial_input.lower() == "q":
+                return ScreenResult(NavigationAction.POP)
+            if serial_input.lower() == "l":
+                from greenlight.screens.order_labels import OrderLabelPrintScreen
+                return ScreenResult(
+                    NavigationAction.PUSH, OrderLabelPrintScreen,
+                    box_label_context(self.context, order_name, dealer, line_items))
+            note = self._reprint(serial_input, cables)
+
+    @staticmethod
+    def _body(order_name, who, line_items, cables, note, cancelled=False):
+        from rich.console import Group
+        lines = f"{who}\n[bold cyan]Order:[/bold cyan] {order_name}"
+        if cancelled:
+            lines += "\n\n[yellow]This order was cancelled.[/yellow]"
+        if cables is None:
+            lines += "\n\n[red]Couldn't read this order's cables from the database.[/red]"
+        elif not cables and not cancelled:
+            lines += ("\n\n[dim]No cables were scanned against this order. "
+                      "It may have shipped without scanning.[/dim]")
+        if note:
+            lines += f"\n\n{note}"
+        table, _ = order_progress_table(line_items, cables or [], closed=True)
+        parts = [lines, "", table]
+        others = other_cables(line_items, cables or [])
+        if others:
+            parts += ["", "[bold]Other cables on this order[/bold]"]
+            parts += [f"  {c['serial_number']}  {c['variant_sku']}"
+                      for c in sorted(others, key=lambda c: c["serial_number"])]
+        return Panel(Group(*parts), title=f"Completed Order {order_name}")
+
+    @staticmethod
+    def _reprint(serial_input, cables):
+        """Reprint a label if this cable is on this order. Changes no records."""
+        from greenlight.db import validate_serial_number, format_serial_number
+        valid, error = validate_serial_number(serial_input)
+        if not valid:
+            return f"[red]Invalid serial number: {error}[/red]"
+        serial = format_serial_number(serial_input)
+        match = next((c for c in cables or [] if c["serial_number"] == serial), None)
+        if not match:
+            return (f"[red]Cable {serial} isn't on this order. "
+                    f"Nothing was changed.[/red]")
+        record = db.get_audio_cable(serial) or {}
+        code = record.get("registration_code")
+        if not code:
+            return f"[yellow]Cable {serial} has no registration code.[/yellow]"
+        return serial + send_registration_label(serial, code,
+                                                match.get("variant_sku") or "")
+
+
 class OrderFulfillScanScreen(Screen):
     """Scan cables to fulfill a specific order with SKU validation and progress tracking.
 
@@ -1072,31 +1362,7 @@ class OrderFulfillScanScreen(Screen):
         # Get already-assigned cables for this order (from DB, includes prior sessions)
         # Shopify line items carry variant SKU strings, which is what they match on.
         existing_order_cables = db.get_cables_for_order(order_id)
-        serials_by_line = match_cables_to_lines(line_items, existing_order_cables)
-
-        # Build progress table
-        progress_table = Table(show_header=True, header_style="bold cyan", expand=True)
-        progress_table.add_column("SKU", style="white")
-        progress_table.add_column("Title", style="dim")
-        progress_table.add_column("Cable")
-        progress_table.add_column("Progress", justify="center", style="yellow")
-        progress_table.add_column("Status", justify="center")
-
-        all_complete = True
-        for item, serials in zip(line_items, serials_by_line):
-            sku = item['sku']
-            needed = item['quantity']
-            scanned = len(serials)
-            progress_str = f"{scanned}/{needed}"
-
-            if scanned >= needed:
-                status = "[bold green]DONE[/bold green]"
-            else:
-                status = f"[yellow]{needed - scanned} remaining[/yellow]"
-                all_complete = False
-
-            progress_table.add_row(sku, item['title'], ", ".join(serials) or "[dim]—[/dim]",
-                                   progress_str, status)
+        progress_table, all_complete = order_progress_table(line_items, existing_order_cables)
 
         # Build body content
         if wholesale:
@@ -1123,6 +1389,8 @@ class OrderFulfillScanScreen(Screen):
         prompt = ("[bold green]Order complete![/bold green]" if all_complete
                   else "[cyan]Scan cable barcode[/cyan]")
         footer = f"{prompt} | "
+        if existing_order_cables:
+            footer += "[cyan]'r'[/cyan] = replace a cable | "
         if wholesale:
             footer += "[cyan]'l'[/cyan] = box labels | "
         footer += "[cyan]'q'[/cyan] = back"
@@ -1140,15 +1408,17 @@ class OrderFulfillScanScreen(Screen):
 
         if wholesale and serial_input.lower() == 'l':
             from greenlight.screens.order_labels import OrderLabelPrintScreen
-            label_context = self.context.copy()
-            label_context["label_order"] = {
-                "name": order_name,
-                "customer": {"displayName": self.context.get("dealer_name")
-                             or customer_name},
-                "line_items": line_items,
-            }
-            return ScreenResult(NavigationAction.PUSH, OrderLabelPrintScreen,
-                                label_context)
+            return ScreenResult(
+                NavigationAction.PUSH, OrderLabelPrintScreen,
+                box_label_context(self.context, order_name,
+                                  self.context.get("dealer_name") or customer_name,
+                                  line_items))
+
+        if serial_input.lower() == 'r':
+            if existing_order_cables:
+                self._take_off_order(existing_order_cables, scanned_cables, wholesale)
+            return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen,
+                                {**self.context, "scanned_cables": scanned_cables})
 
         # Validate serial number
         from greenlight.db import validate_serial_number, format_serial_number
@@ -1168,9 +1438,16 @@ class OrderFulfillScanScreen(Screen):
         # Attempt assignment
         result = db.assign_cable_to_order(formatted_serial, customer_gid, order_id,
                                           line_item_skus, company_gid=company_gid,
-                                          location_gid=location_gid)
+                                          location_gid=location_gid,
+                                          line_quantities=line_quantities(line_items))
 
         new_context = self.context.copy()
+
+        if result.get('error') == 'line_full':
+            self._offer_replacement(formatted_serial, result['sku'], result['quantity'],
+                                    scanned_cables, wholesale)
+            new_context["scanned_cables"] = scanned_cables
+            return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, new_context)
 
         if result.get('success'):
             cable_sku = result.get('sku', '')
@@ -1265,6 +1542,18 @@ class OrderFulfillScanScreen(Screen):
                         self.ui.render()
                         time.sleep(ERROR_DISPLAY_SEC)
                         return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
+                    on_line = sum(1 for c in existing_order_cables
+                                  if c['variant_sku'] == cable_sku)
+                    if on_line >= line_quantities(line_items).get(cable_sku, 0):
+                        self.ui.layout["body"].update(Panel(
+                            f"[red]❌ {cable_sku} is already full on this order. "
+                            f"Press 'r' to take a cable off first.[/red]",
+                            title=f"Fulfill Order {order_name}"
+                        ))
+                        self.ui.layout["footer"].update(Panel("", title=""))
+                        self.ui.render()
+                        time.sleep(ERROR_DISPLAY_SEC)
+                        return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
                 override_result = db.force_assign_cable_to_order(
                     formatted_serial, customer_gid, order_id,
@@ -1311,6 +1600,97 @@ class OrderFulfillScanScreen(Screen):
             time.sleep(ERROR_DISPLAY_SEC)
             return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen, self.context)
 
+    def _offer_replacement(self, new_serial, sku, quantity, scanned_cables, wholesale):
+        """A cable was scanned for a full line: is it replacing one of them?
+
+        Nothing changes unless the operator picks a cable, so a stray scan is
+        harmless. The new cable goes on first: if that fails, the old one is
+        still on the order, and if taking the old one off fails, the order
+        shows one too many rather than losing track of a cable.
+        """
+        order_id = self.context.get("order_id", "")
+        cables = [c for c in db.get_cables_for_order(order_id)
+                  if c["variant_sku"] == sku]
+        old = self._choose_cable(
+            "Line Full",
+            f"[yellow]{sku} is full ({len(cables)}/{quantity}).[/yellow] "
+            f"Is {new_serial} replacing one of these?",
+            cables, "'q' = no, leave the order as it is")
+        if not old:
+            scanned_cables.append(f"{new_serial} [yellow]not added, {sku} is full[/yellow]")
+            return
+
+        result = db.assign_cable_to_order(
+            new_serial, self.context.get("selected_customer", {}).get("id", ""),
+            order_id, [sku], company_gid=self.context.get("company_gid"),
+            location_gid=self.context.get("location_gid"))
+        if not result.get('success'):
+            scanned_cables.append(f"{new_serial} [red]not added: "
+                                  f"{result.get('message', 'unknown error')}[/red]")
+            return
+
+        note = f"{new_serial} ({sku}) replaces {old['serial_number']}"
+        if wholesale:
+            note += self._registration_label(new_serial, sku)
+        scanned_cables.append(note)
+        scanned_cables.append(self._release_cable(old, wholesale))
+
+    def _take_off_order(self, cables, scanned_cables, wholesale):
+        """`r`: take a cable off, then its replacement is scanned as normal."""
+        old = self._choose_cable(
+            "Replace a Cable", "Which cable is coming off this order?",
+            cables, "'q' = cancel")
+        if old:
+            scanned_cables.append(self._release_cable(old, wholesale))
+
+    def _choose_cable(self, title, intro, cables, cancel_hint):
+        """One of `cables`, chosen by number or scanned, or None for `q`."""
+        note = ""
+        while True:
+            table = Table(show_header=True, header_style="bold cyan")
+            table.add_column("#", style="green", width=3)
+            table.add_column("Cable", style="white")
+            table.add_column("SKU", style="dim")
+            for i, cable in enumerate(cables, 1):
+                table.add_row(str(i), cable["serial_number"], cable["variant_sku"])
+
+            from rich.console import Group
+            # The note goes above the table so a short terminal can't clip it.
+            parts = [intro, note, table] if note else [intro, "", table]
+            self.ui.layout["body"].update(Panel(Group(*parts), title=title))
+            self.ui.layout["footer"].update(Panel(
+                f"Enter a number, or scan the cable | [cyan]{cancel_hint}[/cyan]",
+                title=title))
+            self.ui.render()
+
+            choice = self.ui.get_serial_number_scan_or_manual()
+            if not choice or choice.lower() == "q":
+                return None
+            cable = pick_cable(choice, cables)
+            if cable:
+                return cable
+            note = f"[red]{choice} isn't one of these.[/red]"
+
+    def _release_cable(self, cable, wholesale):
+        """Take a cable off the order and back into stock; returns a note."""
+        serial = cable["serial_number"]
+        result = db.unassign_cable(serial, channel="wholesale" if wholesale else "retail")
+        if not result.get('success'):
+            return (f"{serial} [red]still on this order: "
+                    f"{result.get('message', 'unknown error')}[/red]")
+        try:
+            record = db.get_audio_cable(serial)
+            if record:
+                ok, error = shopify_client.sync_inventory_for_cable(record)
+                if not ok:
+                    logger.warning("Shopify inventory sync failed for %s: %s", serial, error)
+        except Exception as e:
+            logger.warning("Shopify inventory sync failed for %s: %s", serial, e)
+        note = f"{serial} off this order, back in stock."
+        if wholesale:
+            note += " [yellow]Remove its old label.[/yellow]"
+        return note
+
     def _registration_label(self, serial, sku="", reprint=False):
         """Code the cable (reusing an existing code) and print its label.
 
@@ -1321,21 +1701,13 @@ class OrderFulfillScanScreen(Screen):
         Returns a short note for the recently-scanned list, so a label that
         did not print is visible right next to the cable it belongs to.
         """
-        from greenlight.screens.registration_codes import (
-            ensure_registration_code, print_registration_label)
+        from greenlight.screens.registration_codes import ensure_registration_code
         code, created, error = ensure_registration_code(serial)
         if not code:
             return f" [red]no code: {error}[/red]"
         if not created and not reprint:
             return f" {code} [yellow]already coded, rescan to reprint[/yellow]"
-        from greenlight.hardware.interfaces import hardware_manager
-        from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
-        printer = hardware_manager.get_label_printer(CABLE_ROLL_MM)
-        if not printer or not printer.is_ready():
-            return f" {code} [red]label NOT printed (no printer)[/red]"
-        if not print_registration_label(printer, serial, code, sku):
-            return f" {code} [red]label NOT printed[/red]"
-        return f" {code} [green]label printed[/green]"
+        return send_registration_label(serial, code, sku)
 
 
 class AssignCablesScreen(Screen):

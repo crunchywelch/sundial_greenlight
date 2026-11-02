@@ -126,7 +126,7 @@ Every mutation writes a `cable_event`. Retire `app.assign.jsx` at the end of thi
 
 ## Phase 3 — Registration codes at scale
 
-Today codes can only be generated from Greenlight (`w`, or per cable when scanning a wholesale order under `f`), so making a
+Today codes can only be generated from Greenlight (`w`, or per cable when scanning a wholesale order under `o`), so making a
 cable sellable wholesale requires being at the bench with the Pi. Lift that:
 
 - Generate a code for a single cable from its detail page

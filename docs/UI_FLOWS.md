@@ -23,7 +23,7 @@ stateDiagram-v2
     Hub --> Wholesale: 'w' registration codes (no order)
     Hub --> WireLabels: 'p' wire labels
     Hub --> ShopifyScan: 's' shopify scan
-    Hub --> OrderList: 'f' fulfill orders
+    Hub --> OrderList: 'o' orders
     Hub --> CustLookup_L: 'l' customer lookup
     Hub --> Splash: 'q' logout
 
@@ -169,14 +169,23 @@ stateDiagram-v2
     state "Order Selection<br/>(Unfulfilled Orders)" as OrderSelect
     state "Order Fulfill Scan<br/>(Cable Scanning)" as FulfillScan
     state "Scan / Cable Lookup<br/>(Main Hub)" as Hub
-    state "Outstanding Orders<br/>(Website + wholesale, incl. drafts)" as OrderList
+    state "Open Orders<br/>(Website + wholesale, incl. drafts)" as OrderList
+    state "Completed Orders<br/>(Fulfilled or cancelled in Shopify)" as CompletedList
+    state "Completed Order<br/>(View-only, wholesale reprints)" as CompletedOrder
     state "Box Labels<br/>(Side + Prop 65 1in, UPC 2in)" as OrderLabels
 
-    %% --- Entry from Hub 'f' (fulfillment mode) ---
-    Hub --> OrderList: 'f' fulfill orders
+    %% --- Entry from Hub 'o' (fulfillment mode) ---
+    Hub --> OrderList: 'o' orders
     OrderList --> FulfillScan: number
     OrderList --> CustLookup: 'l' lookup customer
+    OrderList --> CompletedList: 'c' completed
     OrderList --> [*]: 'q' back
+    CompletedList --> OrderList: 'c' or 'q'
+    CompletedList --> CompletedOrder: number
+    CompletedOrder --> CompletedList: 'q' back
+    CompletedOrder --> CompletedOrder: scan cable on the order (wholesale: reprint)
+    CompletedOrder --> OrderLabels: 'l' box labels (wholesale only)
+    FulfillScan --> OrderList: 'q' back
     FulfillScan --> OrderLabels: 'l' box labels (wholesale only)
     OrderLabels --> FulfillScan: printed / 'q' back
 
@@ -197,8 +206,10 @@ stateDiagram-v2
     FulfillScan --> FulfillScan: scan cable (success, SKU matches;<br/>wholesale prints its registration label)
     FulfillScan --> FulfillScan: rescan (wholesale: reprint registration label)
     FulfillScan --> FulfillScan: scan cable (override assigned)
+    FulfillScan --> FulfillScan: scan cable, line full (pick one to replace, or 'q')
+    FulfillScan --> FulfillScan: 'r' take a cable off (back in stock)
     FulfillScan --> FulfillScan: scan cable (error, continue)
-    FulfillScan --> Hub: 'q' done (pop to hub)
+    FulfillScan --> Hub: 'q' done (customer route: pop to hub)
 
     note right of FulfillScan
         Shows progress table per line item

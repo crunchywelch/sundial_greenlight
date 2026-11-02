@@ -504,7 +504,7 @@ rather than growing the label.
 
 ### Printing a wholesale order
 
-In Greenlight: **`f` from the scan hub**, pick a Wholesale order, and scan
+In Greenlight: **`o` from the scan hub**, pick a Wholesale order, and scan
 its cables. Each cable's **registration label prints as it is scanned** (1"
 roll), because the code belongs to that one cable and printing it with the
 cable in hand is what keeps the two together. A cable already coded under
