@@ -70,7 +70,6 @@ class RegistrationCodesScreen(Screen):
         # Batch: list of cable records to process
         batch = []
         batch_serials = set()  # For fast duplicate check
-        status = None          # one-shot message, e.g. a calibration result
 
         while True:
             self.ui.console.clear()
@@ -102,9 +101,8 @@ class RegistrationCodesScreen(Screen):
             self.ui.layout["body"].update(Panel(
                 body_content,
                 title=f"Registration Codes ({len(batch)} cables)",
-                subtitle=status or "Samples, festival sales -- not for orders (use 'f')"
+                subtitle="Samples, festival sales -- not for orders (use 'f')"
             ))
-            status = None
 
             # Footer with available actions
             footer_parts = [
@@ -113,7 +111,6 @@ class RegistrationCodesScreen(Screen):
             if batch:
                 footer_parts.append("[cyan]'g'[/cyan] = Generate codes")
                 footer_parts.append("[cyan]'p'[/cyan] = Generate codes + print labels")
-            footer_parts.append("[cyan]'c'[/cyan] = Calibrate 1\" roll")
             footer_parts.append("[cyan]'q'[/cyan] = Cancel / go back")
 
             self.ui.layout["footer"].update(Panel(
@@ -132,16 +129,6 @@ class RegistrationCodesScreen(Screen):
 
             if input_lower == 'q':
                 return ScreenResult(NavigationAction.POP)
-
-            if input_lower == 'c':
-                # After loading a new 1" roll, the sensor needs to find its gaps.
-                from greenlight.hardware.interfaces import hardware_manager
-                from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
-                printer = hardware_manager.get_label_printer(CABLE_ROLL_MM)
-                ok = bool(printer) and printer.calibrate_media()
-                status = ("[green]Printer calibrated for the 1\" roll[/green]" if ok
-                          else "[red]Calibration failed: printer not reachable[/red]")
-                continue
 
             if input_lower == 'g' and batch:
                 # Generate codes only, no printing

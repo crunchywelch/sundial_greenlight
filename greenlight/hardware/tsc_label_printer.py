@@ -423,30 +423,6 @@ class TSCLabelPrinter(LabelPrinterInterface):
             logger.error(f"Failed to send TSPL commands: {e}")
             return False
 
-    def calibrate_media(self) -> bool:
-        """Point the media sensor at a newly loaded roll.
-
-        Every template sends SIZE and GAP, but those only say how big a label
-        is -- not where the next one starts. If the sensor is registered to
-        different gaps, the image lands off the label: on the 1" side label
-        the SKU, 11 dots off the bottom, is the first thing lost. `GAPDETECT`
-        feeds a few labels while it re-measures; that is expected, not a
-        fault. Operator-requested only, since it spends labels.
-
-        tools/printer/calibrate_media.py does the same from the command line,
-        plus an alignment label.
-        """
-        if not self.connected and not self.initialize():
-            return False
-        tspl = "\r\n".join(
-            self._media_header(self.label_width_mm, self.label_height_mm)
-            + ["GAPDETECT", ""])
-        if not self._send_tspl_commands(tspl):
-            return False
-        logger.info("Calibrated media on %s for %.1f x %.1f mm", self.ip_address,
-                    self.label_width_mm, self.label_height_mm)
-        return True
-
     def print_labels(self, print_job: PrintJob) -> bool:
         """
         Print cable labels
@@ -1798,12 +1774,6 @@ class MockTSCLabelPrinter(LabelPrinterInterface):
         """Mock initialization"""
         logger.info("Mock TSC printer: Simulating initialization")
         self.connected = True
-        return True
-
-    def calibrate_media(self) -> bool:
-        """Mock calibration"""
-        logger.info("Mock TSC printer: Would calibrate for %sx%smm (GAPDETECT)",
-                    self.label_width_mm, self.label_height_mm)
         return True
 
     def print_labels(self, print_job: PrintJob) -> bool:

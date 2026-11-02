@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-"""Tests for calibrating a printer's media sensor, and its registration.
+"""Tests that every label sends its stock's registration.
 
-Every template sends SIZE and GAP, but those only say how big a label is,
-not where the next one starts. After loading a roll the printer can be
-registered to the wrong gaps and the image lands off the label -- on the 1"
-side label the SKU, the bottom row, is the first thing lost. So calibrating
-runs GAPDETECT, on request only, because it spends labels.
+SHIFT persists in the printer, so each template must send its own. Sensor
+calibration itself is tools/printer/calibrate_media.py, run by hand.
 
 Run: pytest tests/test_media_calibration.py
 """
@@ -15,39 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from greenlight.hardware.tsc_label_printer import (
-    BOX_STOCK_MM, CABLE_ROLL_MM, TSCLabelPrinter,
-)
-
-
-def _printer(sent, stock=BOX_STOCK_MM, ok=True):
-    printer = TSCLabelPrinter("127.0.0.1", label_width_mm=stock[0],
-                              label_height_mm=stock[1])
-    printer.connected = True
-
-    def send(tspl, *_):
-        sent.append(tspl.decode("latin-1") if isinstance(tspl, bytes) else tspl)
-        return ok
-    printer._send_tspl_commands = send
-    return printer
-
-
-def test_calibrate_sends_this_printers_size_gap_and_gapdetect():
-    sent = []
-    assert _printer(sent).calibrate_media()
-    (tspl,) = sent
-    assert "SIZE 76.2 mm, 50.8 mm" in tspl
-    assert "GAP 2.0 mm, 2.0 mm" in tspl
-    assert "SHIFT 0" in tspl
-    assert "GAPDETECT" in tspl
-
-    sent = []
-    assert _printer(sent, CABLE_ROLL_MM).calibrate_media()
-    assert "SIZE 76.2 mm, 25.4 mm" in sent[0]
-
-
-def test_a_failed_calibration_reports_failure():
-    assert not _printer([], ok=False).calibrate_media()
+from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM, TSCLabelPrinter
 
 
 # Every template, from the table test_label_batching.py already keeps.

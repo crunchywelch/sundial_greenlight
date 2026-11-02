@@ -206,8 +206,8 @@ floor, with no room for branding.
 `LABEL_STOCK` says which stock a template needs,
 `hardware_manager.get_label_printer(stock)` finds the printer (`stock` is
 required, so nothing lands on a roll by default), and a printer refuses a job
-for any other stock. Nothing swaps rolls, and `GAPDETECT` only runs when an
-operator asks, because it spends labels.
+for any other stock. Nothing swaps rolls, and `GAPDETECT` isn't in the app: it
+spends labels and is rarely needed, so `tools/printer/calibrate_media.py` runs it.
 
 **A boxed cable wears up to four stickers**, and only one of them is a UPC: the
 *front* gets a pre-printed pattern sticker (Goldline, Silverline, ...), the

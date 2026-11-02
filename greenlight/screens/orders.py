@@ -1014,6 +1014,30 @@ class OrderSelectionScreen(Screen):
         return ScreenResult(NavigationAction.PUSH, OrderFulfillScanScreen, new_context)
 
 
+def match_cables_to_lines(line_items, cables):
+    """Which cables' serials count toward each line item, in line order.
+
+    Each cable counts once. An order can list the same SKU on two lines, and
+    giving both lines the same cables would report the order complete with
+    half of them missing. Cables beyond what a SKU's lines need land on its
+    last line, so an over-scan shows as 2/1 rather than vanishing.
+    """
+    by_sku = {}
+    for cable in cables:
+        by_sku.setdefault(cable['variant_sku'], []).append(cable['serial_number'])
+    for serials in by_sku.values():
+        serials.sort()
+
+    last_line = {item['sku']: i for i, item in enumerate(line_items)}
+    matched = []
+    for i, item in enumerate(line_items):
+        remaining = by_sku.get(item['sku'], [])
+        take = len(remaining) if i == last_line[item['sku']] else item['quantity']
+        matched.append(remaining[:take])
+        by_sku[item['sku']] = remaining[take:]
+    return matched
+
+
 class OrderFulfillScanScreen(Screen):
     """Scan cables to fulfill a specific order with SKU validation and progress tracking.
 
@@ -1026,8 +1050,8 @@ class OrderFulfillScanScreen(Screen):
     cable, so it goes on as the cable is in hand. A cable that already had a
     code (coded under `w`) doesn't print again on its first scan; scanning a
     cable already in the order reprints its label. `l` goes to the box labels
-    (side + Prop 65 on the 1" roll, UPC on the 2"), which belong to the order,
-    not a cable.
+    (side + Prop 65 on the 1" printer, UPC on the 2"), which belong to the
+    order, not a cable.
     """
     def run(self) -> ScreenResult:
         operator = self.context.get("operator", "")
@@ -1037,8 +1061,6 @@ class OrderFulfillScanScreen(Screen):
         company_gid = self.context.get("company_gid")
         location_gid = self.context.get("location_gid")
         wholesale = bool(company_gid)
-        # One-shot status (e.g. a calibration result): shown once, then gone.
-        status_note = self.context.pop("status_note", None)
         order_id = self.context.get("order_id", "")
         order_name = self.context.get("order_name", "")
         line_items = self.context.get("line_items", [])
@@ -1048,25 +1070,23 @@ class OrderFulfillScanScreen(Screen):
         line_item_skus = [item['sku'] for item in line_items]
 
         # Get already-assigned cables for this order (from DB, includes prior sessions)
+        # Shopify line items carry variant SKU strings, which is what they match on.
         existing_order_cables = db.get_cables_for_order(order_id)
-        existing_skus_scanned = {}
-        for cable in existing_order_cables:
-            # Match against line item SKUs (Shopify line items use variant SKU strings)
-            variant_sku = cable['variant_sku']
-            existing_skus_scanned[variant_sku] = existing_skus_scanned.get(variant_sku, 0) + 1
+        serials_by_line = match_cables_to_lines(line_items, existing_order_cables)
 
         # Build progress table
         progress_table = Table(show_header=True, header_style="bold cyan", expand=True)
         progress_table.add_column("SKU", style="white")
         progress_table.add_column("Title", style="dim")
+        progress_table.add_column("Cable")
         progress_table.add_column("Progress", justify="center", style="yellow")
         progress_table.add_column("Status", justify="center")
 
         all_complete = True
-        for item in line_items:
+        for item, serials in zip(line_items, serials_by_line):
             sku = item['sku']
             needed = item['quantity']
-            scanned = existing_skus_scanned.get(sku, 0)
+            scanned = len(serials)
             progress_str = f"{scanned}/{needed}"
 
             if scanned >= needed:
@@ -1075,7 +1095,8 @@ class OrderFulfillScanScreen(Screen):
                 status = f"[yellow]{needed - scanned} remaining[/yellow]"
                 all_complete = False
 
-            progress_table.add_row(sku, item['title'], progress_str, status)
+            progress_table.add_row(sku, item['title'], ", ".join(serials) or "[dim]—[/dim]",
+                                   progress_str, status)
 
         # Build body content
         if wholesale:
@@ -1092,8 +1113,6 @@ class OrderFulfillScanScreen(Screen):
 
         if all_complete:
             header_text += "\n\n[bold green]✅ All line items fulfilled![/bold green]"
-        if status_note:
-            header_text += f"\n\n{status_note}"
 
         from rich.console import Group
         body_content = Group(header_text, "", progress_table)
@@ -1101,22 +1120,16 @@ class OrderFulfillScanScreen(Screen):
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(body_content, title=f"Fulfill Order {order_name}"))
 
-        keys = "[cyan]'q'[/cyan] = back"
+        prompt = ("[bold green]Order complete![/bold green]" if all_complete
+                  else "[cyan]Scan cable barcode[/cyan]")
+        footer = f"{prompt} | "
         if wholesale:
-            keys = ("[cyan]'l'[/cyan] = box labels | "
-                    "[cyan]'c'[/cyan] = calibrate 1\" roll | " + keys
-                    + "\n[dim]1\" roll: a registration label prints per cable. "
-                      "Already-coded cables don't reprint; rescan to reprint.[/dim]")
-        if all_complete:
-            self.ui.layout["footer"].update(Panel(
-                f"[bold green]Order complete![/bold green] {keys}, or continue scanning",
-                title="Fulfillment"
-            ))
-        else:
-            self.ui.layout["footer"].update(Panel(
-                f"[cyan]Scan cable barcode[/cyan] | {keys}",
-                title="Fulfillment"
-            ))
+            footer += "[cyan]'l'[/cyan] = box labels | "
+        footer += "[cyan]'q'[/cyan] = back"
+        if wholesale:
+            footer += ("\n[dim]To reprint a registration label, scan that cable "
+                       "again.[/dim]")
+        self.ui.layout["footer"].update(Panel(footer, title="Fulfillment"))
         self.ui.render()
 
         # Get serial number input
@@ -1124,18 +1137,6 @@ class OrderFulfillScanScreen(Screen):
 
         if not serial_input or serial_input.lower() == 'q':
             return ScreenResult(NavigationAction.POP, pop_to=_assign_pop_target(self.context))
-
-        if wholesale and serial_input.lower() == 'c':
-            from greenlight.hardware.interfaces import hardware_manager
-            from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
-            printer = hardware_manager.get_label_printer(CABLE_ROLL_MM)
-            ok = bool(printer) and printer.calibrate_media()
-            new_context = self.context.copy()
-            new_context["status_note"] = (
-                "[green]Printer calibrated for the 1\" roll.[/green]" if ok
-                else "[red]Calibration failed: printer not reachable.[/red]")
-            return ScreenResult(NavigationAction.REPLACE, OrderFulfillScanScreen,
-                                new_context)
 
         if wholesale and serial_input.lower() == 'l':
             from greenlight.screens.order_labels import OrderLabelPrintScreen

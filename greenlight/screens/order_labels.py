@@ -20,17 +20,12 @@ import logging
 from rich.panel import Panel
 from rich.table import Table
 
-from greenlight.hardware.tsc_label_printer import BOX_STOCK_MM, CABLE_ROLL_MM
 from greenlight.label_batch import (
     RETAIL_TEMPLATES, TEMPLATE_LABELS, plan_order,
 )
 from greenlight.screen_manager import NavigationAction, Screen, ScreenResult
 
 logger = logging.getLogger(__name__)
-
-
-# Operator keys for re-finding a printer's label gaps after loading a roll.
-CALIBRATE_KEYS = {"c1": CABLE_ROLL_MM, "c2": BOX_STOCK_MM}
 
 
 def _roll_name(stock) -> str:
@@ -69,7 +64,6 @@ class OrderLabelPrintScreen(Screen):
         order = self.context.get("label_order") or {}
         selected = {t: True for t in RETAIL_TEMPLATES}
         upcs = None          # fetched lazily, and only if a UPC label is on
-        note = ""            # the result of the last calibration
 
         while True:
             if any(selected[t] for t in RETAIL_TEMPLATES
@@ -80,8 +74,7 @@ class OrderLabelPrintScreen(Screen):
             plan = plan_order(order.get("line_items"), templates=templates,
                               upc_by_sku=upcs or {})
 
-            self._render(operator, order, selected, plan, note)
-            note = ""
+            self._render(operator, order, selected, plan)
 
             try:
                 choice = self.ui.console.input("Choose: ").strip().lower()
@@ -94,9 +87,6 @@ class OrderLabelPrintScreen(Screen):
                 template = RETAIL_TEMPLATES[int(choice) - 1]
                 selected[template] = not selected[template]
                 continue
-            if choice in CALIBRATE_KEYS:
-                note = self._calibrate(CALIBRATE_KEYS[choice])
-                continue
             if choice == "p":
                 if not plan.jobs:
                     continue
@@ -105,7 +95,7 @@ class OrderLabelPrintScreen(Screen):
 
     # -- rendering ------------------------------------------------------
 
-    def _render(self, operator, order, selected, plan, note=""):
+    def _render(self, operator, order, selected, plan):
         customer = (order.get("customer") or {}).get("displayName") or "—"
         cables = sum(li["quantity"] for li in order.get("line_items", []))
 
@@ -148,12 +138,9 @@ class OrderLabelPrintScreen(Screen):
             "\n".join([
                 summary,
                 *[f"[yellow]! {w}[/yellow]" for w in plan.warnings],
-                *([note] if note else []),
                 "",
                 f"[cyan]1-{len(RETAIL_TEMPLATES)}[/cyan] = toggle a label | "
-                f"[cyan]'p'[/cyan] = print | "
-                f"[cyan]'c1'[/cyan]/[cyan]'c2'[/cyan] = calibrate 1\"/2\" printer | "
-                f"[cyan]'q'[/cyan] = back",
+                f"[cyan]'p'[/cyan] = print | [cyan]'q'[/cyan] = back",
             ]),
             title="Order Labels", border_style="green"))
         self.ui.render()
@@ -190,17 +177,6 @@ class OrderLabelPrintScreen(Screen):
                 for sku, v in rows.items() if v.get("barcode")}
 
     # -- printing -------------------------------------------------------
-
-    def _calibrate(self, stock) -> str:
-        """Run GAPDETECT on one printer; returns a status line for the footer."""
-        from greenlight.hardware.interfaces import hardware_manager
-
-        name = _roll_name(stock)
-        printer = hardware_manager.get_label_printer(stock)
-        if printer and printer.calibrate_media():
-            return (f"[green]{name} printer calibrating: it will feed a few "
-                    f"labels.[/green]")
-        return f"[red]Calibration failed: {name} printer not reachable.[/red]"
 
     def _print(self, operator, plan):
         """Send each stock's jobs to its printer, and report on each.

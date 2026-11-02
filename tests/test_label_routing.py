@@ -24,7 +24,7 @@ from greenlight.hardware.tsc_label_printer import (
     build_label_printers, printer_host_for_stock,
 )
 from greenlight.label_batch import plan_order
-from greenlight.screens.order_labels import CALIBRATE_KEYS, OrderLabelPrintScreen
+from greenlight.screens.order_labels import OrderLabelPrintScreen
 
 from test_label_batching import TEMPLATE_DATA
 
@@ -37,7 +37,6 @@ def _mock(stock, ready=True, prints=True):
                                   label_width_mm=stock[0], label_height_mm=stock[1])
     printer.initialize()
     printer.sent = []
-    printer.calibrations = 0
     real_print = printer.print_labels
 
     def print_labels(job):
@@ -46,12 +45,7 @@ def _mock(stock, ready=True, prints=True):
             return True
         return False
 
-    def calibrate_media():
-        printer.calibrations += 1
-        return True
-
     printer.print_labels = print_labels
-    printer.calibrate_media = calibrate_media
     printer.is_ready = lambda: ready
     return printer
 
@@ -128,12 +122,11 @@ def test_a_printer_accepts_every_template_for_its_own_roll(template, stock):
     printer._send_tspl_commands.assert_called_once()
 
 
-def test_an_order_splits_across_printers_with_no_prompts_or_calibration():
+def test_an_order_splits_across_printers_with_no_prompts():
     one, two = _mock(CABLE_ROLL_MM), _mock(BOX_STOCK_MM)
     summary = _run_print({CABLE_ROLL_MM: one, BOX_STOCK_MM: two})
     assert sorted(one.sent) == ["prop65_label", "shelf_label"]
     assert two.sent == ["box_label"]
-    assert one.calibrations == two.calibrations == 0
     assert "1\" printer: sent 4" in summary
     assert "2\" printer: sent 2" in summary
 
@@ -163,16 +156,6 @@ def test_a_failure_part_way_says_how_many_were_sent():
     summary = _run_print({CABLE_ROLL_MM: one, BOX_STOCK_MM: two})
     assert "0 of 2 label(s) sent" in summary
     assert "1\" printer: sent 4" in summary
-
-
-def test_calibrate_keys_reach_only_the_named_printer():
-    one, two = _mock(CABLE_ROLL_MM), _mock(BOX_STOCK_MM)
-    printers = {CABLE_ROLL_MM: one, BOX_STOCK_MM: two}
-    screen = OrderLabelPrintScreen(mock.MagicMock(), {})
-    with mock.patch("greenlight.hardware.interfaces.hardware_manager"
-                    ".get_label_printer", side_effect=lambda s: printers.get(tuple(s))):
-        assert "calibrating" in screen._calibrate(CALIBRATE_KEYS["c2"])
-    assert (one.calibrations, two.calibrations) == (0, 1)
 
 
 if __name__ == "__main__":

@@ -208,15 +208,14 @@ of printing on the wrong roll.
 template sends SIZE and GAP, but those say how big a label is, not where the
 next one starts. If the sensor is registered to different gaps, the image lands
 off the label, and on the 1" side label the SKU, 11 dots off the bottom, is the
-first thing lost. It feeds a few labels, so it only runs when asked: `c` on the
-registration and order scan screens (1"), `c1`/`c2` on the box label screen, or
-`tools/printer/calibrate_media.py [--cable-roll]` from the command line.
+first thing lost. It feeds a few labels and is rarely needed, so it isn't in
+the app: run `tools/printer/calibrate_media.py --printer 1in|2in --no-test`.
 
 **If a printer dies**, move its roll to the other printer, point both
 `GREENLIGHT_TSC_*_PRINTER_IP` settings at that printer, restart, and calibrate
 for each roll as you load it. Greenlight warns about the shared address at
 startup and does not prompt for swaps, so print one stock at a time using the
-toggles on the box label screen.
+toggles on the box label screen, running the calibration tool at each swap.
 
 ### Previewing and printing
 

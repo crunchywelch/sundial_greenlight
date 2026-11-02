@@ -83,10 +83,6 @@ class LabelPrinterInterface(ABC):
         """Close printer connection"""
         pass
 
-    def calibrate_media(self) -> bool:
-        """Re-find the label edges after loading a roll. No-op by default."""
-        return True
-
 
 class CardPrinterInterface(ABC):
     """Abstract interface for card printers"""
