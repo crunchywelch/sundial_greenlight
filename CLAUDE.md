@@ -54,7 +54,9 @@ deactivate
 - **product_lines.py**: Back-office economics (price/cost/weight) on top of cable_config
 - **cable_catalog.py**: Cable catalog/variant lookups against the DB (UI lives in `screens/cable/`)
 - **db.py**: Postgres connection pool and all cable/order/event queries
-- **shopify_client.py**: Shopify Admin API (audio store and wire store)
+- **shopify_client.py**: Shopify Admin API (audio store and wire store). Reads
+  that a screen or tool acts on raise when Shopify can't be read, so a failure
+  can't pass for "no orders" or "no such product"
 - **gtin.py**, **registration.py**: UPC validation; registration code generation
 - **hardware/**: scanner, Arduino cable tester, TSC label printer, GPIO
 - **config.py**: Operators, feature flags and `GREENLIGHT_*` env settings

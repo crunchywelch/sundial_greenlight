@@ -375,7 +375,12 @@ class CustomerLookupScreen(Screen):
         ))
         self.ui.render()
 
-        customers = shopify_client.search_customers_by_name(search_name)
+        try:
+            customers = shopify_client.search_customers_by_name(search_name)
+        except Exception as e:
+            logger.error("Customer search failed: %s", e)
+            show_shopify_down(self.ui, "Customer Lookup", "Customers")
+            return ScreenResult(NavigationAction.REPLACE, CustomerLookupScreen, self.context)
 
         if not customers:
             self.ui.layout["body"].update(Panel(
@@ -392,6 +397,22 @@ class CustomerLookupScreen(Screen):
         new_context["customers"] = customers
         new_context["search_name"] = search_name
         return ScreenResult(NavigationAction.PUSH, CustomerSearchResultsScreen, new_context)
+
+
+def show_shopify_down(ui, title, what):
+    """Say Shopify couldn't be read, and wait for the operator to go back.
+
+    Never show this kind of failure as an empty result: "no orders" is an
+    answer an operator acts on.
+    """
+    ui.layout["body"].update(Panel(
+        f"[bold red]Can't reach Shopify[/bold red]\n\n"
+        f"{what} could not be loaded. This is a connection or\n"
+        f"credentials issue, not a missing record.",
+        title=title, style="red"))
+    ui.layout["footer"].update(Panel("[green]q.[/green] Back", title=""))
+    ui.render()
+    ui.wait_back()
 
 
 class CustomerSearchResultsScreen(Screen):
@@ -510,7 +531,13 @@ class CustomerDetailScreen(Screen):
 
         # Fetch most recent order and assigned cables
         customer_id = customer.get("id", "")
-        recent_orders = shopify_client.get_customer_orders(customer_id, limit=1)
+        recent_orders_failed = False
+        try:
+            recent_orders = shopify_client.get_customer_orders(customer_id, limit=1)
+        except Exception as e:
+            logger.error("Failed to load last order for %s: %s", customer_id, e)
+            recent_orders = []
+            recent_orders_failed = True
         assigned_cables = db.get_cables_for_customer(customer_id)
 
         # Build sections, skipping empty ones
@@ -532,6 +559,10 @@ class CustomerDetailScreen(Screen):
             if spent:
                 order_lines.append(f"[bold yellow]Total Spent:[/bold yellow] {spent}")
             sections.append("\n".join(order_lines))
+
+        if recent_orders_failed:
+            sections.append("[bold red]Can't reach Shopify:[/bold red] "
+                            "last order not loaded")
 
         if recent_orders:
             order = recent_orders[0]
@@ -593,7 +624,7 @@ class CustomerDetailScreen(Screen):
             footer_parts.append("[cyan]'p'[/cyan] = print all labels")
         footer_parts.extend([
             "[cyan]'f'[/cyan] = fulfill order",
-            "[cyan]Enter[/cyan] = back",
+            "[cyan]'q'[/cyan] = back",
         ])
         footer_text = " | ".join(footer_parts)
         self.ui.layout["footer"].update(Panel(footer_text, title=""))
@@ -608,7 +639,15 @@ class CustomerDetailScreen(Screen):
             return ScreenResult(NavigationAction.PUSH, CustomerOrdersScreen, self.context)
         elif choice == 'a':
             # Check for unfulfilled orders before allowing direct assignment
-            orders = shopify_client.get_customer_orders(customer_id, limit=25)
+            # This check exists to stop cables going on around an open order,
+            # so not knowing isn't the same as there being none.
+            try:
+                orders = shopify_client.get_customer_orders(customer_id, limit=25)
+            except Exception as e:
+                logger.error("Failed to check open orders for %s: %s", customer_id, e)
+                show_shopify_down(self.ui, "Assign Cables",
+                                  "This customer's open orders")
+                return ScreenResult(NavigationAction.REPLACE, CustomerDetailScreen, self.context)
             unfulfilled = [
                 o for o in orders
                 if (o.get("displayFulfillmentStatus") or "").upper()
@@ -632,7 +671,7 @@ class CustomerDetailScreen(Screen):
             return ScreenResult(NavigationAction.PUSH, PrintCustomerLabelsScreen, self.context)
         elif choice == 'f':
             return ScreenResult(NavigationAction.PUSH, OrderSelectionScreen, self.context)
-        elif choice == '':
+        elif choice in ('', 'q'):
             return ScreenResult(NavigationAction.POP)
 
         # Invalid choice - re-display
@@ -953,7 +992,12 @@ class CustomerOrdersScreen(Screen):
         ))
         self.ui.render()
 
-        orders = shopify_client.get_customer_orders(customer_id, limit=10)
+        try:
+            orders = shopify_client.get_customer_orders(customer_id, limit=10)
+        except Exception as e:
+            logger.error("Failed to load orders for %s: %s", customer_id, e)
+            show_shopify_down(self.ui, f"Orders for {customer_name}", "Orders")
+            return ScreenResult(NavigationAction.POP)
 
         if not orders:
             self.ui.layout["body"].update(Panel(
@@ -1011,7 +1055,12 @@ class OrderSelectionScreen(Screen):
         ))
         self.ui.render()
 
-        orders = shopify_client.get_customer_orders(customer_id, limit=25)
+        try:
+            orders = shopify_client.get_customer_orders(customer_id, limit=25)
+        except Exception as e:
+            logger.error("Failed to load orders for %s: %s", customer_id, e)
+            show_shopify_down(self.ui, "Order Selection", "Orders")
+            return ScreenResult(NavigationAction.POP)
 
         # Filter to unfulfilled/partially fulfilled orders
         unfulfilled_orders = []

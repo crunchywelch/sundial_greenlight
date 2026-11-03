@@ -64,17 +64,30 @@ class OrderLabelPrintScreen(Screen):
         order = self.context.get("label_order") or {}
         selected = {t: True for t in RETAIL_TEMPLATES}
         upcs = None          # fetched lazily, and only if a UPC label is on
+        notice = None
 
         while True:
-            if any(selected[t] for t in RETAIL_TEMPLATES
-                   if TEMPLATE_LABELS[t][2]) and upcs is None:
+            needing_upc = [t for t in RETAIL_TEMPLATES
+                           if selected[t] and TEMPLATE_LABELS[t][2]]
+            if needing_upc and upcs is None:
                 upcs = self._load_upcs(operator)
+                notice = None
+                if upcs is None:
+                    # Turned off, not skipped per SKU: every SKU would say it
+                    # has no UPC in Shopify, which isn't what's wrong. Turning
+                    # it back on tries Shopify again.
+                    for template in needing_upc:
+                        selected[template] = False
+                    number = RETAIL_TEMPLATES.index(needing_upc[0]) + 1
+                    notice = ("[bold red]Can't reach Shopify for UPCs, so the "
+                              "UPC label is off.[/bold red] Press "
+                              f"[cyan]{number}[/cyan] to try again.")
 
             templates = [t for t in RETAIL_TEMPLATES if selected[t]]
             plan = plan_order(order.get("line_items"), templates=templates,
                               upc_by_sku=upcs or {})
 
-            self._render(operator, order, selected, plan)
+            self._render(operator, order, selected, plan, notice)
 
             try:
                 choice = self.ui.console.input("Choose: ").strip().lower()
@@ -95,7 +108,7 @@ class OrderLabelPrintScreen(Screen):
 
     # -- rendering ------------------------------------------------------
 
-    def _render(self, operator, order, selected, plan):
+    def _render(self, operator, order, selected, plan, notice=None):
         customer = (order.get("customer") or {}).get("displayName") or "—"
         cables = sum(li["quantity"] for li in order.get("line_items", []))
 
@@ -136,6 +149,7 @@ class OrderLabelPrintScreen(Screen):
             subtitle="\n".join(body[:1])))
         self.ui.layout["footer"].update(Panel(
             "\n".join([
+                *([notice] if notice else []),
                 summary,
                 *[f"[yellow]! {w}[/yellow]" for w in plan.warnings],
                 "",
@@ -157,8 +171,8 @@ class OrderLabelPrintScreen(Screen):
     # -- data -----------------------------------------------------------
 
     def _load_upcs(self, operator):
-        """SKU -> UPC in one bulk call. Shopify's barcode field is the source
-        of truth for retail UPCs."""
+        """SKU -> UPC in one bulk call, or None if Shopify couldn't be read.
+        Shopify's barcode field is the source of truth for retail UPCs."""
         self.ui.console.clear()
         self.ui.header(operator)
         self.ui.layout["body"].update(Panel(
@@ -172,7 +186,7 @@ class OrderLabelPrintScreen(Screen):
             rows = get_all_product_skus()
         except Exception as e:
             logger.error("Failed to load SKUs for UPCs: %s", e)
-            return {}
+            return None
         return {sku: v.get("barcode")
                 for sku, v in rows.items() if v.get("barcode")}
 

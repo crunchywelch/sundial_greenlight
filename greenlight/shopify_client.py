@@ -524,6 +524,9 @@ def search_customers_by_name(name: str, limit: int = 100) -> list[Dict[str, Any]
 
     Returns:
         List of customer dictionaries matching the search
+
+    Raises if Shopify can't be read, so that a failure doesn't look like
+    nobody matching.
     """
     try:
         session = get_shopify_session()
@@ -576,15 +579,11 @@ def search_customers_by_name(name: str, limit: int = 100) -> list[Dict[str, Any]
         data = json.loads(result)
 
         if "errors" in data:
-            logger.error("GraphQL errors: %s", data['errors'])
-            return []
+            raise RuntimeError(f"GraphQL errors: {data['errors']}")
 
         edges = data.get("data", {}).get("customers", {}).get("edges", [])
         return [edge["node"] for edge in edges]
 
-    except Exception as e:
-        logger.error("Error searching customers by name: %s", e)
-        return []
     finally:
         close_shopify_session()
 
@@ -708,7 +707,10 @@ def get_customer_orders(customer_id: str, limit: int = 10) -> list[Dict[str, Any
         limit: Maximum number of orders to retrieve (default 10)
 
     Returns:
-        List of order dictionaries
+        List of order dictionaries. A customer Shopify no longer has has none.
+
+    Raises if Shopify can't be read, so that a failure doesn't look like the
+    customer having no orders.
     """
     try:
         session = get_shopify_session()
@@ -764,15 +766,12 @@ def get_customer_orders(customer_id: str, limit: int = 10) -> list[Dict[str, Any
         data = json.loads(result)
 
         if "errors" in data:
-            logger.error("GraphQL errors: %s", data['errors'])
-            return []
+            raise RuntimeError(f"GraphQL errors: {data['errors']}")
 
-        orders = data.get("data", {}).get("customer", {}).get("orders", {}).get("edges", [])
+        customer = (data.get("data") or {}).get("customer") or {}
+        orders = (customer.get("orders") or {}).get("edges", [])
         return [edge["node"] for edge in orders]
 
-    except Exception as e:
-        logger.error("Error fetching customer orders: %s", e)
-        return []
     finally:
         close_shopify_session()
 
@@ -852,12 +851,11 @@ def get_unfulfilled_orders(limit: int = 50) -> list[Dict[str, Any]]:
 
     Each order carries `customer` (fulfillment needs it to assign cables) and
     its line items.
+
+    Raises if Shopify can't be read, so that a failure doesn't look like
+    nothing being open.
     """
-    try:
-        nodes = _search_orders("-fulfillment_status:fulfilled", limit)
-    except Exception as e:
-        logger.error("Error fetching unfulfilled orders: %s", e)
-        return []
+    nodes = _search_orders("-fulfillment_status:fulfilled", limit)
     wanted = ("UNFULFILLED", "PARTIALLY_FULFILLED", "")
     return [node for node in nodes
             if (node.get("displayFulfillmentStatus") or "").upper() in wanted
@@ -943,6 +941,9 @@ def get_draft_orders(limit: int = 25,
     Returns:
         List of draft order dicts, each with a `line_items` list of
         {sku, quantity, title, variant_id}.
+
+    Raises if Shopify can't be read, so that a failure doesn't quietly drop
+    the wholesale orders from a list.
     """
     try:
         get_shopify_session()
@@ -967,15 +968,11 @@ def get_draft_orders(limit: int = 25,
         data = json.loads(result)
 
         if "errors" in data:
-            logger.error("GraphQL errors: %s", data['errors'])
-            return []
+            raise RuntimeError(f"GraphQL errors: {data['errors']}")
 
         edges = data.get("data", {}).get("draftOrders", {}).get("edges", [])
         return [_flatten_draft_order(e["node"]) for e in edges]
 
-    except Exception as e:
-        logger.error("Error fetching draft orders: %s", e)
-        return []
     finally:
         close_shopify_session()
 
@@ -985,6 +982,8 @@ def get_draft_order_by_name(name: str) -> Optional[Dict[str, Any]]:
 
     An operator printing labels has an order number in hand, not a customer,
     which is why this exists alongside the customer-filtered listing.
+
+    Raises if Shopify can't be read; None means there's no such draft.
     """
     if not name:
         return None
@@ -1009,8 +1008,7 @@ def get_draft_order_by_name(name: str) -> Optional[Dict[str, Any]]:
         import json
         data = json.loads(result)
         if "errors" in data:
-            logger.error("GraphQL errors: %s", data['errors'])
-            return None
+            raise RuntimeError(f"GraphQL errors: {data['errors']}")
 
         edges = data.get("data", {}).get("draftOrders", {}).get("edges", [])
         for edge in edges:
@@ -1020,9 +1018,6 @@ def get_draft_order_by_name(name: str) -> Optional[Dict[str, Any]]:
                 return _flatten_draft_order(node)
         return _flatten_draft_order(edges[0]["node"]) if edges else None
 
-    except Exception as e:
-        logger.error("Error fetching draft order %s: %s", name, e)
-        return None
     finally:
         close_shopify_session()
 
@@ -1126,6 +1121,10 @@ def get_all_products(limit: int = 250) -> list[Dict[str, Any]]:
 
     Returns:
         List of product dictionaries with variants and SKU information
+
+    Raises if any page can't be read. Inventory reconciliation decides what to
+    write from this list, so an empty or partial one must never pass for the
+    whole catalog.
     """
     try:
         session = get_shopify_session()
@@ -1181,8 +1180,7 @@ def get_all_products(limit: int = 250) -> list[Dict[str, Any]]:
             data = json.loads(result)
 
             if "errors" in data:
-                logger.error("GraphQL errors: %s", data['errors'])
-                break
+                raise RuntimeError(f"GraphQL errors: {data['errors']}")
 
             products_data = data.get("data", {}).get("products", {})
             edges = products_data.get("edges", [])
@@ -1197,9 +1195,6 @@ def get_all_products(limit: int = 250) -> list[Dict[str, Any]]:
 
         return all_products
 
-    except Exception as e:
-        logger.error("Error fetching products: %s", e)
-        return []
     finally:
         close_shopify_session()
 
@@ -1447,47 +1442,44 @@ def get_all_product_skus() -> Dict[str, Dict[str, Any]]:
                 "inventory_quantity": 10
             }
         }
+
+    Raises if Shopify can't be read, like get_all_products().
     """
-    try:
-        products = get_all_products()
-        sku_map = {}
+    products = get_all_products()
+    sku_map = {}
 
-        for product in products:
-            product_id = product["id"]
-            product_title = product["title"]
+    for product in products:
+        product_id = product["id"]
+        product_title = product["title"]
 
-            variants = product.get("variants", {}).get("edges", [])
-            for variant_edge in variants:
-                variant = variant_edge["node"]
-                # Shopify returns sku: null (not a missing key) for variants
-                # with no SKU set, so the "" default doesn't apply — guard the
-                # None explicitly or .strip() aborts the whole fetch.
-                sku = (variant.get("sku") or "").strip()
+        variants = product.get("variants", {}).get("edges", [])
+        for variant_edge in variants:
+            variant = variant_edge["node"]
+            # Shopify returns sku: null (not a missing key) for variants
+            # with no SKU set, so the "" default doesn't apply — guard the
+            # None explicitly or .strip() aborts the whole fetch.
+            sku = (variant.get("sku") or "").strip()
 
-                if sku:
-                    inv_item = variant.get("inventoryItem") or {}
-                    sku_map[sku] = {
-                        "product_id": product_id,
-                        "product_title": product_title,
-                        "product_handle": product.get("handle"),
-                        "product_type": product.get("productType"),
-                        "variant_id": variant["id"],
-                        "variant_title": variant.get("title"),
-                        # Retail UPC (GTIN-12). Shopify's barcode field is the
-                        # source of truth for UPCs — there is no UPC column in
-                        # Postgres. None/"" for variants with none assigned.
-                        "barcode": (variant.get("barcode") or "").strip() or None,
-                        "price": variant.get("price"),
-                        "inventory_quantity": variant.get("inventoryQuantity", 0),
-                        "inventory_item_id": inv_item.get("id"),
-                        "status": product.get("status")
-                    }
+            if sku:
+                inv_item = variant.get("inventoryItem") or {}
+                sku_map[sku] = {
+                    "product_id": product_id,
+                    "product_title": product_title,
+                    "product_handle": product.get("handle"),
+                    "product_type": product.get("productType"),
+                    "variant_id": variant["id"],
+                    "variant_title": variant.get("title"),
+                    # Retail UPC (GTIN-12). Shopify's barcode field is the
+                    # source of truth for UPCs — there is no UPC column in
+                    # Postgres. None/"" for variants with none assigned.
+                    "barcode": (variant.get("barcode") or "").strip() or None,
+                    "price": variant.get("price"),
+                    "inventory_quantity": variant.get("inventoryQuantity", 0),
+                    "inventory_item_id": inv_item.get("id"),
+                    "status": product.get("status")
+                }
 
-        return sku_map
-
-    except Exception as e:
-        logger.error("Error fetching product SKUs: %s", e)
-        return {}
+    return sku_map
 
 
 def get_audio_variant_by_sku(variant_sku: str) -> Optional[Dict[str, Any]]:
@@ -1828,7 +1820,10 @@ def _set_product_metafields(product_id: str, length_ft: float, series: str, conn
 def _find_variant_by_sku(shopify_sku: str) -> Optional[Dict[str, str]]:
     """Look up an existing product variant by SKU.
 
-    Returns dict with variant_id, inventory_item_id, product_id or None.
+    Returns dict with variant_id, inventory_item_id, product_id, or None if
+    there's no such variant. Raises if Shopify can't be read: "not there" is
+    what makes ensure_misc_shopify_product create a product, so a failed
+    lookup must not read as that.
     """
     try:
         session = get_shopify_session()
@@ -1850,8 +1845,7 @@ def _find_variant_by_sku(shopify_sku: str) -> Optional[Dict[str, str]]:
         data = json.loads(result)
 
         if "errors" in data:
-            logger.error(f"GraphQL errors finding variant for {shopify_sku}: {data['errors']}")
-            return None
+            raise RuntimeError(f"GraphQL errors: {data['errors']}")
 
         edges = data.get("data", {}).get("productVariants", {}).get("edges", [])
         if not edges:
@@ -1863,9 +1857,6 @@ def _find_variant_by_sku(shopify_sku: str) -> Optional[Dict[str, str]]:
             "inventory_item_id": node["inventoryItem"]["id"],
             "product_id": node["product"]["id"],
         }
-    except Exception as e:
-        logger.error(f"Error finding variant for SKU {shopify_sku}: {e}")
-        return None
     finally:
         close_shopify_session()
 
@@ -2138,7 +2129,11 @@ def ensure_misc_shopify_product(cable_record: Dict[str, Any], quantity: int = 1)
         return False, "Cable record has no variant_sku / sku_group"
 
     # Check if product already exists
-    existing = _find_variant_by_sku(shopify_sku)
+    try:
+        existing = _find_variant_by_sku(shopify_sku)
+    except Exception as e:
+        logger.error("Couldn't check for a product for %s: %s", shopify_sku, e)
+        return False, f"Couldn't check Shopify for {shopify_sku}: {e}"
     if existing:
         # Product exists — set inventory to match Postgres
         return set_inventory_for_sku(shopify_sku, quantity)
