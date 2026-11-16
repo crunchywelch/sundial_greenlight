@@ -36,6 +36,10 @@ USE_REAL_SCANNER = os.getenv("GREENLIGHT_USE_REAL_SCANNER", "true").lower() in (
 USE_REAL_PRINTERS = os.getenv("GREENLIGHT_USE_REAL_PRINTERS", "false").lower() in ("true", "1", "yes")
 USE_REAL_GPIO = os.getenv("GREENLIGHT_USE_REAL_GPIO", "true").lower() in ("true", "1", "yes")
 
+# Print a cable label automatically when a test passes. This is only the
+# startup default: 'x' on the cable screen flips it for the rest of the run.
+AUTO_PRINT_AFTER_TEST = os.getenv("GREENLIGHT_AUTO_PRINT_AFTER_TEST", "true").lower() in ("true", "1", "yes")
+
 # Registration URL for wholesale cable codes
 REGISTRATION_BASE_URL = os.getenv("GREENLIGHT_REGISTRATION_URL", "https://sundialaudio.com/register")
 

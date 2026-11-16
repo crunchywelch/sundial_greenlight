@@ -8,6 +8,7 @@ import time
 from rich.panel import Panel
 from rich.table import Table
 
+from greenlight import config
 from greenlight.screen_manager import Screen, ScreenResult, NavigationAction
 from greenlight.db import get_audio_cable, update_cable_test_results
 
@@ -89,8 +90,12 @@ class CableScreenBase(Screen):
             if scanner_available:
                 scanner.stop_scanning()
 
-    def build_cable_info_panel(self, cable_record):
-        """Build the cable information panel in two-column layout"""
+    def build_cable_info_panel(self, cable_record, show_auto_print=False):
+        """Build the cable information panel in two-column layout.
+
+        show_auto_print adds the auto-print-after-test setting under the
+        Operator line; only the action loop, which handles 'x', passes it.
+        """
         serial_number = cable_record.get("serial_number", "N/A")
         variant_sku = cable_record.get("variant_sku", "N/A")
         series = cable_record.get("series", "N/A")
@@ -191,6 +196,10 @@ class CableScreenBase(Screen):
   Resistance: {resistance_str}
   Tested: {test_timestamp_str}
   Operator: {cable_operator if test_timestamp else 'N/A'}"""
+        if show_auto_print:
+            state = ("[green]enabled[/green]" if config.AUTO_PRINT_AFTER_TEST
+                     else "[yellow]disabled[/yellow]")
+            right += f"\n  Label printing {state} [dim]— press x to toggle[/dim]"
 
         # Customer assignment
         customer_gid = cable_record.get("shopify_gid")
@@ -1317,18 +1326,20 @@ class CableScreenBase(Screen):
             # Reload cable record each iteration to show updated info
             cable_record = get_audio_cable(cable_record['serial_number']) or cable_record
 
-            # Display cable info
-            self.ui.console.clear()
-            self.ui.header(operator)
-            cable_info_panel = self.build_cable_info_panel(cable_record)
-            self.ui.layout["body"].update(cable_info_panel)
-
             # Check hardware availability
             cable_tester = hardware_manager.get_cable_tester()
             tester_available = cable_tester.connected if cable_tester else False
             from greenlight.hardware.tsc_label_printer import CABLE_ROLL_MM
             label_printer = hardware_manager.get_label_printer(CABLE_ROLL_MM)
             printer_available = label_printer.is_ready() if label_printer else False
+
+            # Display cable info. The auto-print setting only matters (and 'x'
+            # only works) when there's both a tester and a printer.
+            self.ui.console.clear()
+            self.ui.header(operator)
+            cable_info_panel = self.build_cable_info_panel(
+                cable_record, show_auto_print=tester_available and printer_available)
+            self.ui.layout["body"].update(cable_info_panel)
 
             cable_tested = cable_record.get('test_passed') is True
             is_misc = cable_record.get('kind') == 'misc'
@@ -1372,11 +1383,20 @@ class CableScreenBase(Screen):
 
                 if choice_lower == 't' and tester_available:
                     self.run_cable_test(operator, cable_record)
-                    # Auto-print label if test passed and printer available
+                    # Auto-print label if test passed, printer available and
+                    # the operator hasn't switched auto-print off
                     updated = get_audio_cable(cable_record['serial_number'])
-                    if updated and updated.get('test_passed') is True and printer_available:
+                    if (updated and updated.get('test_passed') is True
+                            and printer_available and config.AUTO_PRINT_AFTER_TEST):
                         self.print_label_for_cable(operator, updated)
                     # Loop to show updated info
+                    continue
+
+                elif choice_lower == 'x' and tester_available and printer_available:
+                    config.AUTO_PRINT_AFTER_TEST = not config.AUTO_PRINT_AFTER_TEST
+                    logger.info("Auto-print after test %s by %s",
+                                "enabled" if config.AUTO_PRINT_AFTER_TEST else "disabled",
+                                operator)
                     continue
 
                 elif choice_lower == 'a' and mode == 'lookup' and not is_committed:

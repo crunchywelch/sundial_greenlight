@@ -77,7 +77,9 @@ name + Shopify user id). Everything else comes from `.env` with a
 `GREENLIGHT_` prefix: `GREENLIGHT_DB_{NAME,USER,PASS,HOST,PORT}`, hardware
 flags `GREENLIGHT_USE_REAL_{ARDUINO,SCANNER,PRINTERS,GPIO}`,
 `GREENLIGHT_ARDUINO_PORT`, `GREENLIGHT_TSC_{1IN,2IN}_PRINTER_IP`
-(defaults `tsc1`, `tsc2`), `GREENLIGHT_LOG_LEVEL`.
+(defaults `tsc1`, `tsc2`), `GREENLIGHT_LOG_LEVEL`,
+`GREENLIGHT_AUTO_PRINT_AFTER_TEST` (default on; `x` on the cable screen
+flips it for the rest of the run).
 
 ### Navigation
 
